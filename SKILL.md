@@ -25,6 +25,7 @@ Simultaneously consult four AIs as "consultants" for coding questions. Each cons
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, quick wins, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Problems, edge cases, vulnerabilities |
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional approaches |
+| **Cursor** | `agent` | The Integrator | Full-stack perspective, cross-cutting concerns |
 
 ## Requirements
 
@@ -40,6 +41,7 @@ npm install -g @google/gemini-cli      # Gemini
 npm install -g @openai/codex           # Codex
 pip install mistral-vibe               # Mistral
 npm install -g @kilocode/cli           # Kilo
+curl https://cursor.com/install -fsS | bash  # Cursor
 brew install jq                        # Required
 ```
 
@@ -53,6 +55,7 @@ Each CLI requires its own API key or authentication:
 | Codex | `OPENAI_API_KEY` env var | [OpenAI Platform](https://platform.openai.com/api-keys) |
 | Mistral | `MISTRAL_API_KEY` env var | [Mistral Console](https://console.mistral.ai/api-keys/) |
 | Kilo | `kilocode auth login` | CLI auth flow |
+| Cursor | Cursor subscription | [Cursor](https://cursor.com) |
 
 ### Setup Wizard
 
@@ -70,7 +73,7 @@ If you don't have all CLIs, disable unavailable consultants:
 
 ```bash
 # Example: Only OpenAI + Google configured
-ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=false ENABLE_KILO=false \
+ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=false ENABLE_KILO=false ENABLE_CURSOR=false \
 ./scripts/consult_all.sh "Your question"
 ```
 
@@ -147,6 +150,7 @@ ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_MISTRAL=true
 ENABLE_KILO=true
+ENABLE_CURSOR=true
 
 # === Timeout and Retry ===
 GEMINI_TIMEOUT=180
@@ -164,6 +168,7 @@ Each consultation generates:
 ├── codex.json         # Codex response (with confidence)
 ├── mistral.json       # Mistral response (with confidence)
 ├── kilo.json          # Kilo response (with confidence)
+├── cursor.json        # Cursor response (with confidence)
 ├── voting.json        # Voting and consensus results
 ├── synthesis.json     # Automatic synthesis (NEW)
 ├── report.md          # Combined report with recommendation
@@ -376,7 +381,8 @@ ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false ENABLE_KILO=false \
 │   ├── query_gemini.sh         # Gemini wrapper (UPDATED)
 │   ├── query_codex.sh          # Codex wrapper (UPDATED)
 │   ├── query_mistral.sh        # Mistral wrapper (UPDATED)
-│   └── query_kilo.sh           # Kilo wrapper (UPDATED)
+│   ├── query_kilo.sh           # Kilo wrapper (UPDATED)
+│   └── query_cursor.sh         # Cursor wrapper (NEW)
 └── templates/
     ├── consultation_report.md  # Report template
     └── synthesis_prompt.md     # Synthesis prompt (NEW)

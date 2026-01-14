@@ -26,6 +26,7 @@ declare -A INPUT_COST_PER_1K=(
     ["mistral-medium"]=0.0027
     ["mistral-small"]=0.001
     ["kilo"]=0.002
+    ["cursor"]=0.005
     ["default"]=0.005
 )
 
@@ -47,6 +48,7 @@ declare -A OUTPUT_COST_PER_1K=(
     ["mistral-medium"]=0.0081
     ["mistral-small"]=0.003
     ["kilo"]=0.006
+    ["cursor"]=0.015
     ["default"]=0.015
 )
 
@@ -144,7 +146,7 @@ check_warning_threshold() {
 # Estimate pre-consultation cost (before executing)
 # Usage: estimate_consultation_cost <num_consultants> <context_size_chars>
 estimate_consultation_cost() {
-    local num_consultants="${1:-4}"
+    local num_consultants="${1:-5}"
     local context_size="${2:-5000}"
 
     # Estimate tokens from context (approximately 4 chars per token)
@@ -154,7 +156,7 @@ estimate_consultation_cost() {
     local estimated_output_tokens=750
 
     local total=0
-    local models=("gemini-2.5-pro" "default" "mistral-large" "default")
+    local models=("gemini-2.5-pro" "default" "mistral-large" "default" "cursor")
 
     for ((i=0; i<num_consultants && i<${#models[@]}; i++)); do
         local cost=$(estimate_query_cost "${models[$i]}" "$estimated_input_tokens" "$estimated_output_tokens")

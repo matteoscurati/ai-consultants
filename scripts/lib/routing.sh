@@ -17,60 +17,70 @@ CONSULTANT_AFFINITY["CODE_REVIEW:Gemini"]=7
 CONSULTANT_AFFINITY["CODE_REVIEW:Codex"]=10
 CONSULTANT_AFFINITY["CODE_REVIEW:Mistral"]=8   # Devil's advocate great for finding problems
 CONSULTANT_AFFINITY["CODE_REVIEW:Kilo"]=9
+CONSULTANT_AFFINITY["CODE_REVIEW:Cursor"]=9    # Full-stack perspective on reviews
 
 # BUG_DEBUG: Codex excels at debugging
 CONSULTANT_AFFINITY["BUG_DEBUG:Gemini"]=7
 CONSULTANT_AFFINITY["BUG_DEBUG:Codex"]=10
 CONSULTANT_AFFINITY["BUG_DEBUG:Mistral"]=9     # Finds edge cases
 CONSULTANT_AFFINITY["BUG_DEBUG:Kilo"]=8
+CONSULTANT_AFFINITY["BUG_DEBUG:Cursor"]=9      # Good at tracing issues across stack
 
 # ARCHITECTURE: Gemini is The Architect
 CONSULTANT_AFFINITY["ARCHITECTURE:Gemini"]=10
 CONSULTANT_AFFINITY["ARCHITECTURE:Codex"]=6
 CONSULTANT_AFFINITY["ARCHITECTURE:Mistral"]=8  # Critiques architectures
 CONSULTANT_AFFINITY["ARCHITECTURE:Kilo"]=9     # Innovative solutions
+CONSULTANT_AFFINITY["ARCHITECTURE:Cursor"]=8   # Integration perspective
 
 # ALGORITHM: All useful, Gemini for complexity
 CONSULTANT_AFFINITY["ALGORITHM:Gemini"]=9
 CONSULTANT_AFFINITY["ALGORITHM:Codex"]=8
 CONSULTANT_AFFINITY["ALGORITHM:Mistral"]=7
 CONSULTANT_AFFINITY["ALGORITHM:Kilo"]=8
+CONSULTANT_AFFINITY["ALGORITHM:Cursor"]=7
 
 # SECURITY: All important, Mistral essential
 CONSULTANT_AFFINITY["SECURITY:Gemini"]=9
 CONSULTANT_AFFINITY["SECURITY:Codex"]=9
 CONSULTANT_AFFINITY["SECURITY:Mistral"]=10     # Devil's advocate for security
 CONSULTANT_AFFINITY["SECURITY:Kilo"]=8
+CONSULTANT_AFFINITY["SECURITY:Cursor"]=8       # Cross-cutting security concerns
 
 # QUICK_SYNTAX: Just one fast consultant needed
 CONSULTANT_AFFINITY["QUICK_SYNTAX:Gemini"]=10
 CONSULTANT_AFFINITY["QUICK_SYNTAX:Codex"]=8
 CONSULTANT_AFFINITY["QUICK_SYNTAX:Mistral"]=5
 CONSULTANT_AFFINITY["QUICK_SYNTAX:Kilo"]=6
+CONSULTANT_AFFINITY["QUICK_SYNTAX:Cursor"]=7
 
 # DATABASE: All useful
 CONSULTANT_AFFINITY["DATABASE:Gemini"]=8
 CONSULTANT_AFFINITY["DATABASE:Codex"]=9
 CONSULTANT_AFFINITY["DATABASE:Mistral"]=7
 CONSULTANT_AFFINITY["DATABASE:Kilo"]=7
+CONSULTANT_AFFINITY["DATABASE:Cursor"]=8       # Full-stack DB integration
 
 # API_DESIGN: Gemini for design, Codex for practicality
 CONSULTANT_AFFINITY["API_DESIGN:Gemini"]=10
 CONSULTANT_AFFINITY["API_DESIGN:Codex"]=9
 CONSULTANT_AFFINITY["API_DESIGN:Mistral"]=7
 CONSULTANT_AFFINITY["API_DESIGN:Kilo"]=8
+CONSULTANT_AFFINITY["API_DESIGN:Cursor"]=9     # Frontend-backend integration
 
 # TESTING: Codex and Mistral
 CONSULTANT_AFFINITY["TESTING:Gemini"]=7
 CONSULTANT_AFFINITY["TESTING:Codex"]=10
 CONSULTANT_AFFINITY["TESTING:Mistral"]=9       # Finds untested cases
 CONSULTANT_AFFINITY["TESTING:Kilo"]=7
+CONSULTANT_AFFINITY["TESTING:Cursor"]=9        # Cross-layer testing strategies
 
 # GENERAL: Balanced
 CONSULTANT_AFFINITY["GENERAL:Gemini"]=8
 CONSULTANT_AFFINITY["GENERAL:Codex"]=8
 CONSULTANT_AFFINITY["GENERAL:Mistral"]=8
 CONSULTANT_AFFINITY["GENERAL:Kilo"]=8
+CONSULTANT_AFFINITY["GENERAL:Cursor"]=8
 
 # =============================================================================
 # SELECTION FUNCTIONS
@@ -92,9 +102,9 @@ get_affinity() {
 select_consultants() {
     local category="$1"
     local min_affinity="${2:-7}"
-    local max_consultants="${3:-4}"
+    local max_consultants="${3:-5}"
 
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo")
+    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor")
     local selected=()
     local scores=()
 
@@ -213,7 +223,7 @@ get_recommended_count() {
 
     case "$mode" in
         full)
-            echo 4
+            echo 5
             ;;
         selective)
             echo 3
@@ -222,7 +232,7 @@ get_recommended_count() {
             echo 1
             ;;
         *)
-            echo 4
+            echo 5
             ;;
     esac
 }

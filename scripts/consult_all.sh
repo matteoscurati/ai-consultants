@@ -124,6 +124,7 @@ else
     [[ "$ENABLE_CODEX" == "true" ]] && SELECTED_CONSULTANTS+=("Codex")
     [[ "$ENABLE_MISTRAL" == "true" ]] && SELECTED_CONSULTANTS+=("Mistral")
     [[ "$ENABLE_KILO" == "true" ]] && SELECTED_CONSULTANTS+=("Kilo")
+    [[ "$ENABLE_CURSOR" == "true" ]] && SELECTED_CONSULTANTS+=("Cursor")
 fi
 
 if [[ ${#SELECTED_CONSULTANTS[@]} -eq 0 ]]; then
@@ -173,6 +174,9 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
             ;;
         Kilo)
             "$SCRIPT_DIR/query_kilo.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
+            ;;
+        Cursor)
+            "$SCRIPT_DIR/query_cursor.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
             ;;
     esac
 
@@ -315,11 +319,11 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         # Comparison table
         echo "### Consultant Comparison"
         echo ""
-        echo "| Aspect | Gemini | Codex | Mistral | Kilo |"
-        echo "|---------|--------|-------|---------|------|"
+        echo "| Aspect | Gemini | Codex | Mistral | Kilo | Cursor |"
+        echo "|---------|--------|-------|---------|------|--------|"
 
-        jq -r '.comparison_table[]? | "| \(.aspect) | \(.Gemini // "N/A") | \(.Codex // "N/A") | \(.Mistral // "N/A") | \(.Kilo // "N/A") |"' \
-            "$SYNTHESIS_FILE" 2>/dev/null || echo "| ... | ... | ... | ... | ... |"
+        jq -r '.comparison_table[]? | "| \(.aspect) | \(.Gemini // "N/A") | \(.Codex // "N/A") | \(.Mistral // "N/A") | \(.Kilo // "N/A") | \(.Cursor // "N/A") |"' \
+            "$SYNTHESIS_FILE" 2>/dev/null || echo "| ... | ... | ... | ... | ... | ... |"
 
         echo ""
 

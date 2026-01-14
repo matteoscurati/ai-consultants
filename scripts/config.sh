@@ -48,6 +48,13 @@ KILO_WORKSPACE="${KILO_WORKSPACE:-$(pwd)}"
 KILO_CMD="${KILO_CMD:-kilocode}"
 
 # =============================================================================
+# CURSOR CONFIGURATION - The Integrator
+# =============================================================================
+
+CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
+CURSOR_CMD="${CURSOR_CMD:-agent}"
+
+# =============================================================================
 # ENABLED CONSULTANTS
 # =============================================================================
 
@@ -56,6 +63,7 @@ ENABLE_GEMINI="${ENABLE_GEMINI:-true}"
 ENABLE_CODEX="${ENABLE_CODEX:-true}"
 ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
 ENABLE_KILO="${ENABLE_KILO:-true}"
+ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 
 # =============================================================================
 # PERSONAS (v2.0)

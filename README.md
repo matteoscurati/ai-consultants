@@ -7,7 +7,7 @@
 
 ## Overview
 
-AI Consultants simultaneously queries **4 AI models** as "expert consultants", each with a **unique persona** that influences their response style:
+AI Consultants simultaneously queries **5 AI models** as "expert consultants", each with a **unique persona** that influences their response style:
 
 | Consultant | CLI | Persona | Focus |
 |------------|-----|---------|-------|
@@ -15,6 +15,7 @@ AI Consultants simultaneously queries **4 AI models** as "expert consultants", e
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, quick wins, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Problems, edge cases, vulnerabilities |
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional approaches |
+| **Cursor** | `agent` | The Integrator | Full-stack perspective, cross-cutting concerns |
 
 ## Features v2.0
 
@@ -47,6 +48,7 @@ npm install -g @google/gemini-cli      # Gemini
 npm install -g @openai/codex           # Codex
 pip install mistral-vibe               # Mistral Vibe
 npm install -g @kilocode/cli           # Kilo
+curl https://cursor.com/install -fsS | bash  # Cursor
 ```
 
 For detailed installation and authentication setup, see **[docs/SETUP.md](docs/SETUP.md)**.
@@ -149,6 +151,7 @@ ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_MISTRAL=true
 ENABLE_KILO=true
+ENABLE_CURSOR=true
 ```
 
 ## Output
@@ -162,6 +165,7 @@ Each consultation generates:
 ├── codex.json         # Codex response (with confidence)
 ├── mistral.json       # Mistral response (with confidence)
 ├── kilo.json          # Kilo response (with confidence)
+├── cursor.json        # Cursor response (with confidence)
 ├── voting.json        # Voting and consensus results
 ├── synthesis.json     # Automatic synthesis
 ├── report.md          # Combined report with recommendation
@@ -197,6 +201,7 @@ ai-consultants/
 │   ├── query_codex.sh          # Codex wrapper
 │   ├── query_mistral.sh        # Mistral wrapper
 │   ├── query_kilo.sh           # Kilo wrapper
+│   ├── query_cursor.sh         # Cursor wrapper
 │   └── lib/
 │       ├── common.sh           # Shared functions
 │       ├── personas.sh         # Persona definitions

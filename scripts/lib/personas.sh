@@ -6,6 +6,7 @@
 # - Codex: The Pragmatist - Focus on simplicity, quick wins, proven solutions
 # - Mistral: The Devil's Advocate - Actively seeks problems, edge cases, risks
 # - Kilo: The Innovator - Creative solutions, unconventional approaches
+# - Cursor: The Integrator - Full-stack perspective, cross-cutting concerns
 
 # =============================================================================
 # PERSONA DEFINITIONS
@@ -68,6 +69,21 @@ Your approach is creative and visionary. You explore:
 - Approaches that others might not consider
 - How to rethink the problem from scratch
 - Solutions that anticipate future trends'
+
+# System prompt prefix for Cursor - The Integrator
+PERSONA_CURSOR='You are "The Integrator" - a full-stack consultant with a holistic perspective:
+- Cross-cutting concerns: logging, monitoring, error handling
+- Full-stack integration: frontend-backend communication
+- Developer experience and workflow optimization
+- Code maintainability and refactoring patterns
+- System-wide consistency and conventions
+
+Your approach is holistic and integration-focused. You consider:
+- How changes affect the entire system
+- Integration points between components
+- Developer ergonomics and code readability
+- Testing strategies across layers
+- Documentation and onboarding impact'
 
 # =============================================================================
 # OUTPUT FORMAT INSTRUCTION
@@ -137,6 +153,9 @@ get_persona() {
         Kilo|kilo)
             echo "$PERSONA_KILO"
             ;;
+        Cursor|cursor)
+            echo "$PERSONA_CURSOR"
+            ;;
         *)
             echo ""
             ;;
@@ -160,6 +179,9 @@ get_persona_name() {
             ;;
         Kilo|kilo)
             echo "The Innovator"
+            ;;
+        Cursor|cursor)
+            echo "The Integrator"
             ;;
         *)
             echo "Unknown"

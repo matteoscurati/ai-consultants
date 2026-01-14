@@ -215,6 +215,25 @@ kilocode --version
 
 ---
 
+### Cursor CLI (The Integrator)
+
+Cursor's Agent CLI for full-stack perspective and cross-cutting concerns.
+
+**Installation:**
+```bash
+curl https://cursor.com/install -fsS | bash
+```
+
+**Authentication:**
+Cursor CLI uses your Cursor subscription. No additional API key is required.
+
+**Verify:**
+```bash
+agent --help
+```
+
+---
+
 ## Optional: Claude CLI
 
 Claude CLI is used for automatic synthesis of responses. If not installed, a local fallback is used.
