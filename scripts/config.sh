@@ -55,15 +55,48 @@ CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
 CURSOR_CMD="${CURSOR_CMD:-agent}"
 
 # =============================================================================
+# QWEN3 CONFIGURATION - The Analyst (API-based)
+# =============================================================================
+
+QWEN3_MODEL="${QWEN3_MODEL:-qwen-max}"
+QWEN3_TIMEOUT_SECONDS="${QWEN3_TIMEOUT:-180}"
+QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
+# API key: Set QWEN3_API_KEY environment variable
+
+# =============================================================================
+# GLM CONFIGURATION - The Methodologist (API-based)
+# =============================================================================
+
+GLM_MODEL="${GLM_MODEL:-glm-4}"
+GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
+GLM_API_URL="${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}"
+# API key: Set GLM_API_KEY environment variable
+
+# =============================================================================
+# GROK CONFIGURATION - The Provocateur (API-based)
+# =============================================================================
+
+GROK_MODEL="${GROK_MODEL:-grok-beta}"
+GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
+GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
+# API key: Set GROK_API_KEY environment variable
+
+# =============================================================================
 # ENABLED CONSULTANTS
 # =============================================================================
 
 # Set to "false" to disable a specific consultant
+# CLI-based consultants (enabled by default)
 ENABLE_GEMINI="${ENABLE_GEMINI:-true}"
 ENABLE_CODEX="${ENABLE_CODEX:-true}"
 ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
 ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
+
+# API-based consultants (disabled by default - require API keys)
+ENABLE_QWEN3="${ENABLE_QWEN3:-false}"
+ENABLE_GLM="${ENABLE_GLM:-false}"
+ENABLE_GROK="${ENABLE_GROK:-false}"
 
 # =============================================================================
 # PERSONAS (v2.0)

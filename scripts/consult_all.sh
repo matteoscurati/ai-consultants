@@ -120,11 +120,16 @@ if [[ "$ENABLE_SMART_ROUTING" == "true" ]]; then
     log_info "Selected consultants: ${SELECTED_CONSULTANTS[*]}"
 else
     # All enabled consultants
+    # CLI-based consultants
     [[ "$ENABLE_GEMINI" == "true" ]] && SELECTED_CONSULTANTS+=("Gemini")
     [[ "$ENABLE_CODEX" == "true" ]] && SELECTED_CONSULTANTS+=("Codex")
     [[ "$ENABLE_MISTRAL" == "true" ]] && SELECTED_CONSULTANTS+=("Mistral")
     [[ "$ENABLE_KILO" == "true" ]] && SELECTED_CONSULTANTS+=("Kilo")
     [[ "$ENABLE_CURSOR" == "true" ]] && SELECTED_CONSULTANTS+=("Cursor")
+    # API-based consultants
+    [[ "$ENABLE_QWEN3" == "true" ]] && SELECTED_CONSULTANTS+=("Qwen3")
+    [[ "$ENABLE_GLM" == "true" ]] && SELECTED_CONSULTANTS+=("GLM")
+    [[ "$ENABLE_GROK" == "true" ]] && SELECTED_CONSULTANTS+=("Grok")
 fi
 
 if [[ ${#SELECTED_CONSULTANTS[@]} -eq 0 ]]; then
@@ -177,6 +182,15 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
             ;;
         Cursor)
             "$SCRIPT_DIR/query_cursor.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
+            ;;
+        Qwen3)
+            "$SCRIPT_DIR/query_qwen3.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
+            ;;
+        GLM)
+            "$SCRIPT_DIR/query_glm.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
+            ;;
+        Grok)
+            "$SCRIPT_DIR/query_grok.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
             ;;
     esac
 

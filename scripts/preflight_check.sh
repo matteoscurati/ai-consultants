@@ -161,6 +161,37 @@ run_preflight() {
     check_cli_installed "Kilo" "$KILO_CMD" "npm install -g @kilocode/cli"
     check_cli_installed "Cursor" "$CURSOR_CMD" "curl https://cursor.com/install -fsS | bash"
 
+    # Check API-based consultants (API key validation)
+    if [[ "$ENABLE_QWEN3" == "true" ]]; then
+        if [[ -z "${QWEN3_API_KEY:-}" ]]; then
+            CLI_STATUS["Qwen3"]="missing_key"
+            ((WARNINGS++))
+        else
+            CLI_STATUS["Qwen3"]="configured"
+            VERSIONS["Qwen3"]="API"
+        fi
+    fi
+
+    if [[ "$ENABLE_GLM" == "true" ]]; then
+        if [[ -z "${GLM_API_KEY:-}" ]]; then
+            CLI_STATUS["GLM"]="missing_key"
+            ((WARNINGS++))
+        else
+            CLI_STATUS["GLM"]="configured"
+            VERSIONS["GLM"]="API"
+        fi
+    fi
+
+    if [[ "$ENABLE_GROK" == "true" ]]; then
+        if [[ -z "${GROK_API_KEY:-}" ]]; then
+            CLI_STATUS["Grok"]="missing_key"
+            ((WARNINGS++))
+        else
+            CLI_STATUS["Grok"]="configured"
+            VERSIONS["Grok"]="API"
+        fi
+    fi
+
     # Check for jq (required for JSON processing)
     if command -v jq &> /dev/null; then
         CLI_STATUS["jq"]="installed"
@@ -182,6 +213,7 @@ run_preflight() {
     fi
 
     if [[ "$JSON_OUTPUT" != "true" ]]; then
+        # CLI-based consultants
         for name in Gemini Codex Mistral Kilo Cursor jq claude; do
             local status="${CLI_STATUS[$name]:-unknown}"
             local version="${VERSIONS[$name]:-N/A}"
@@ -191,6 +223,15 @@ run_preflight() {
                 echo "  [WARN] $name: not installed (optional)"
             else
                 echo "  [FAIL] $name: NOT FOUND"
+            fi
+        done
+        # API-based consultants
+        for name in Qwen3 GLM Grok; do
+            local status="${CLI_STATUS[$name]:-unknown}"
+            if [[ "$status" == "configured" ]]; then
+                echo "  [OK] $name: API key configured"
+            elif [[ "$status" == "missing_key" ]]; then
+                echo "  [WARN] $name: API key not set"
             fi
         done
         echo ""
@@ -239,11 +280,16 @@ run_preflight() {
 
     # --- Check enabled consultants ---
     local enabled_count=0
+    # CLI-based consultants
     [[ "$ENABLE_GEMINI" == "true" && "${CLI_STATUS[Gemini]}" == "installed" ]] && ((enabled_count++))
     [[ "$ENABLE_CODEX" == "true" && "${CLI_STATUS[Codex]}" == "installed" ]] && ((enabled_count++))
     [[ "$ENABLE_MISTRAL" == "true" && "${CLI_STATUS[Mistral]}" == "installed" ]] && ((enabled_count++))
     [[ "$ENABLE_KILO" == "true" && "${CLI_STATUS[Kilo]}" == "installed" ]] && ((enabled_count++))
     [[ "$ENABLE_CURSOR" == "true" && "${CLI_STATUS[Cursor]}" == "installed" ]] && ((enabled_count++))
+    # API-based consultants
+    [[ "$ENABLE_QWEN3" == "true" && "${CLI_STATUS[Qwen3]:-}" == "configured" ]] && ((enabled_count++))
+    [[ "$ENABLE_GLM" == "true" && "${CLI_STATUS[GLM]:-}" == "configured" ]] && ((enabled_count++))
+    [[ "$ENABLE_GROK" == "true" && "${CLI_STATUS[Grok]:-}" == "configured" ]] && ((enabled_count++))
 
     # --- Summary ---
     if [[ "$JSON_OUTPUT" == "true" ]]; then

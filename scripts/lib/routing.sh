@@ -83,6 +83,46 @@ CONSULTANT_AFFINITY["GENERAL:Kilo"]=8
 CONSULTANT_AFFINITY["GENERAL:Cursor"]=8
 
 # =============================================================================
+# API-BASED CONSULTANTS AFFINITY SCORES
+# =============================================================================
+
+# Qwen3 - The Analyst (strong on algorithms, data, performance)
+CONSULTANT_AFFINITY["CODE_REVIEW:Qwen3"]=8
+CONSULTANT_AFFINITY["BUG_DEBUG:Qwen3"]=8
+CONSULTANT_AFFINITY["ARCHITECTURE:Qwen3"]=7
+CONSULTANT_AFFINITY["ALGORITHM:Qwen3"]=9
+CONSULTANT_AFFINITY["SECURITY:Qwen3"]=7
+CONSULTANT_AFFINITY["QUICK_SYNTAX:Qwen3"]=7
+CONSULTANT_AFFINITY["DATABASE:Qwen3"]=9
+CONSULTANT_AFFINITY["API_DESIGN:Qwen3"]=7
+CONSULTANT_AFFINITY["TESTING:Qwen3"]=8
+CONSULTANT_AFFINITY["GENERAL:Qwen3"]=8
+
+# GLM - The Methodologist (strong on process, testing, documentation)
+CONSULTANT_AFFINITY["CODE_REVIEW:GLM"]=8
+CONSULTANT_AFFINITY["BUG_DEBUG:GLM"]=8
+CONSULTANT_AFFINITY["ARCHITECTURE:GLM"]=7
+CONSULTANT_AFFINITY["ALGORITHM:GLM"]=7
+CONSULTANT_AFFINITY["SECURITY:GLM"]=8
+CONSULTANT_AFFINITY["QUICK_SYNTAX:GLM"]=6
+CONSULTANT_AFFINITY["DATABASE:GLM"]=7
+CONSULTANT_AFFINITY["API_DESIGN:GLM"]=8
+CONSULTANT_AFFINITY["TESTING:GLM"]=10
+CONSULTANT_AFFINITY["GENERAL:GLM"]=8
+
+# Grok - The Provocateur (strong on challenging assumptions, innovation)
+CONSULTANT_AFFINITY["CODE_REVIEW:Grok"]=7
+CONSULTANT_AFFINITY["BUG_DEBUG:Grok"]=7
+CONSULTANT_AFFINITY["ARCHITECTURE:Grok"]=9
+CONSULTANT_AFFINITY["ALGORITHM:Grok"]=8
+CONSULTANT_AFFINITY["SECURITY:Grok"]=8
+CONSULTANT_AFFINITY["QUICK_SYNTAX:Grok"]=5
+CONSULTANT_AFFINITY["DATABASE:Grok"]=6
+CONSULTANT_AFFINITY["API_DESIGN:Grok"]=8
+CONSULTANT_AFFINITY["TESTING:Grok"]=7
+CONSULTANT_AFFINITY["GENERAL:Grok"]=8
+
+# =============================================================================
 # SELECTION FUNCTIONS
 # =============================================================================
 
@@ -102,9 +142,10 @@ get_affinity() {
 select_consultants() {
     local category="$1"
     local min_affinity="${2:-7}"
-    local max_consultants="${3:-5}"
+    local max_consultants="${3:-8}"
 
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor")
+    # Include all consultants (CLI-based and API-based)
+    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Qwen3" "GLM" "Grok")
     local selected=()
     local scores=()
 
@@ -223,16 +264,16 @@ get_recommended_count() {
 
     case "$mode" in
         full)
-            echo 5
+            echo 8  # All consultants (CLI + API)
             ;;
         selective)
-            echo 3
+            echo 4  # Subset based on affinity
             ;;
         single)
             echo 1
             ;;
         *)
-            echo 5
+            echo 8
             ;;
     esac
 }

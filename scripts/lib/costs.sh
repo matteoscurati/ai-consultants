@@ -27,6 +27,16 @@ declare -A INPUT_COST_PER_1K=(
     ["mistral-small"]=0.001
     ["kilo"]=0.002
     ["cursor"]=0.005
+    # Qwen3 models (Alibaba DashScope)
+    ["qwen-max"]=0.004
+    ["qwen-plus"]=0.002
+    ["qwen-turbo"]=0.0008
+    # GLM models (Zhipu AI)
+    ["glm-4"]=0.003
+    ["glm-3-turbo"]=0.001
+    # Grok models (xAI)
+    ["grok-beta"]=0.005
+    ["grok-2"]=0.01
     ["default"]=0.005
 )
 
@@ -49,6 +59,16 @@ declare -A OUTPUT_COST_PER_1K=(
     ["mistral-small"]=0.003
     ["kilo"]=0.006
     ["cursor"]=0.015
+    # Qwen3 models (Alibaba DashScope)
+    ["qwen-max"]=0.012
+    ["qwen-plus"]=0.006
+    ["qwen-turbo"]=0.002
+    # GLM models (Zhipu AI)
+    ["glm-4"]=0.009
+    ["glm-3-turbo"]=0.003
+    # Grok models (xAI)
+    ["grok-beta"]=0.015
+    ["grok-2"]=0.03
     ["default"]=0.015
 )
 
