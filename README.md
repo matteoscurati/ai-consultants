@@ -2,7 +2,7 @@
 
 > A multi-model AI deliberation system with automatic synthesis, consultant debate, and confidence-weighted voting.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/yourusername/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/YOUR-USERNAME/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -32,6 +32,11 @@ AI Consultants simultaneously queries **4 AI models** as "expert consultants", e
 
 **Minimum requirement**: At least **2 consultants** must be configured for the system to work.
 
+**System requirements:**
+- **Bash 4.0+** (macOS users: `brew install bash` - macOS ships with Bash 3.2)
+- **jq** for JSON parsing
+- **bc** for cost calculations (usually pre-installed)
+
 ```bash
 # Required: jq for JSON parsing
 brew install jq                        # macOS
@@ -49,7 +54,7 @@ For detailed installation and authentication setup, see **[docs/SETUP.md](docs/S
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/ai-consultants.git
+git clone https://github.com/YOUR-USERNAME/ai-consultants.git
 cd ai-consultants
 
 # Make scripts executable

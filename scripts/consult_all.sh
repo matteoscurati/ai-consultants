@@ -223,7 +223,7 @@ if [[ "$ENABLE_DEBATE" == "true" && $DEBATE_ROUNDS -gt 1 && $SUCCESS_COUNT -gt 1
         if [[ -d "$OUTPUT_DIR/round_$round" ]]; then
             for f in "$OUTPUT_DIR/round_$round"/*.json; do
                 if [[ -f "$f" && "$f" != *"summary"* ]]; then
-                    local consultant=$(basename "$f" .json)
+                    consultant=$(basename "$f" .json)
                     # Merge debate data into main response
                     if [[ -f "$OUTPUT_DIR/${consultant}.json" ]]; then
                         jq -s '.[0] * {debate: .[1].debate}' \
@@ -304,8 +304,8 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         echo "## Automatic Synthesis"
         echo ""
 
-        local recommendation=$(jq -r '.weighted_recommendation.summary // "N/A"' "$SYNTHESIS_FILE" 2>/dev/null)
-        local approach=$(jq -r '.weighted_recommendation.approach // "N/A"' "$SYNTHESIS_FILE" 2>/dev/null)
+        recommendation=$(jq -r '.weighted_recommendation.summary // "N/A"' "$SYNTHESIS_FILE" 2>/dev/null)
+        approach=$(jq -r '.weighted_recommendation.approach // "N/A"' "$SYNTHESIS_FILE" 2>/dev/null)
 
         echo "**Recommended Approach**: $approach"
         echo ""
@@ -326,7 +326,7 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         # Risks
         echo "### Risk Assessment"
         echo ""
-        local overall_risk=$(jq -r '.risk_assessment.overall_risk // "unknown"' "$SYNTHESIS_FILE" 2>/dev/null)
+        overall_risk=$(jq -r '.risk_assessment.overall_risk // "unknown"' "$SYNTHESIS_FILE" 2>/dev/null)
         echo "**Overall Risk**: $overall_risk"
         echo ""
 
@@ -351,10 +351,10 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         echo ""
 
         if [[ "$result" == *":OK" ]] && [[ -s "$output_file" ]]; then
-            local persona=$(jq -r '.persona // "N/A"' "$output_file" 2>/dev/null)
-            local confidence=$(jq -r '.confidence.score // "N/A"' "$output_file" 2>/dev/null)
-            local approach=$(jq -r '.response.approach // "N/A"' "$output_file" 2>/dev/null)
-            local summary=$(jq -r '.response.summary // "No summary"' "$output_file" 2>/dev/null)
+            persona=$(jq -r '.persona // "N/A"' "$output_file" 2>/dev/null)
+            confidence=$(jq -r '.confidence.score // "N/A"' "$output_file" 2>/dev/null)
+            approach=$(jq -r '.response.approach // "N/A"' "$output_file" 2>/dev/null)
+            summary=$(jq -r '.response.summary // "No summary"' "$output_file" 2>/dev/null)
 
             echo "**Persona**: $persona"
             echo "**Confidence**: $confidence/10"

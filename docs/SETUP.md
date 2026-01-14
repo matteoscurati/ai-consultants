@@ -4,9 +4,13 @@ This guide walks you through installing and configuring the CLI tools required f
 
 ## Prerequisites
 
+- **Bash 4.0+** (required for associative arrays)
+  - macOS ships with Bash 3.2 - you need to install a newer version
+  - Linux usually has Bash 4+ already
 - **Node.js 18+** for npm-based CLIs
 - **Python 3.8+** for pip-based CLIs
 - **jq** for JSON processing (required)
+- **bc** for cost calculations (usually pre-installed)
 
 ## Quick Start
 
@@ -16,6 +20,41 @@ This guide walks you through installing and configuring the CLI tools required f
 
 # 2. Or manually check your setup
 ./scripts/preflight_check.sh
+```
+
+---
+
+## Required: Bash 4+
+
+AI Consultants uses Bash features (like associative arrays) that require Bash 4.0 or later.
+
+**Check your version:**
+```bash
+bash --version
+```
+
+**macOS users:** macOS ships with Bash 3.2. Install a newer version:
+```bash
+# Install Bash 4+
+brew install bash
+
+# Add to allowed shells
+sudo bash -c 'echo /opt/homebrew/bin/bash >> /etc/shells'
+
+# Option 1: Run scripts explicitly with new bash
+/opt/homebrew/bin/bash ./scripts/consult_all.sh "Your question"
+
+# Option 2: Change your default shell (optional)
+chsh -s /opt/homebrew/bin/bash
+```
+
+**Linux:** Usually has Bash 4+ pre-installed. If not:
+```bash
+# Ubuntu/Debian
+sudo apt-get install bash
+
+# Fedora/RHEL
+sudo dnf install bash
 ```
 
 ---
@@ -41,6 +80,29 @@ choco install jq
 Verify installation:
 ```bash
 jq --version
+```
+
+---
+
+## Optional: bc
+
+bc (basic calculator) is used for cost calculations. It's usually pre-installed on most systems.
+
+**Check if installed:**
+```bash
+which bc
+```
+
+**If not installed:**
+```bash
+# macOS (usually pre-installed)
+brew install bc
+
+# Ubuntu/Debian
+sudo apt-get install bc
+
+# Fedora/RHEL
+sudo dnf install bc
 ```
 
 ---
