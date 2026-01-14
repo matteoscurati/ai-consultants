@@ -182,6 +182,7 @@ Do NOT include text outside of the JSON. Only valid JSON.'
 
 # Get the persona prompt for a specific consultant
 # Usage: get_persona "Gemini"
+# Supports custom agents via {NAME}_PERSONA environment variable
 get_persona() {
     local consultant="$1"
 
@@ -211,13 +212,26 @@ get_persona() {
             echo "$PERSONA_GROK"
             ;;
         *)
-            echo ""
+            # Try dynamic lookup for custom agents
+            local upper
+            upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
+            local persona_var="${upper}_PERSONA"
+            local custom_persona="${!persona_var:-}"
+            if [[ -n "$custom_persona" ]]; then
+                echo "$custom_persona"
+            else
+                # Default generic persona
+                echo "You are an AI consultant providing expert technical advice.
+Focus on clarity, accuracy, and actionable recommendations.
+Consider trade-offs and provide balanced analysis."
+            fi
             ;;
     esac
 }
 
 # Get persona name/title for a consultant
 # Usage: get_persona_name "Gemini"
+# Supports custom agents via {NAME}_PERSONA_NAME environment variable
 get_persona_name() {
     local consultant="$1"
 
@@ -247,7 +261,16 @@ get_persona_name() {
             echo "The Provocateur"
             ;;
         *)
-            echo "Unknown"
+            # Try dynamic lookup for custom agents
+            local upper
+            upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
+            local name_var="${upper}_PERSONA_NAME"
+            local custom_name="${!name_var:-}"
+            if [[ -n "$custom_name" ]]; then
+                echo "$custom_name"
+            else
+                echo "External Consultant"
+            fi
             ;;
     esac
 }

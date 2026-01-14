@@ -22,6 +22,10 @@ source "$SCRIPT_DIR_API_QUERY/personas.sh"
 # Get configuration for a specific API consultant
 # Usage: get_api_config <consultant_name> <config_key>
 # Returns: The configuration value
+#
+# Supports:
+#   - Predefined consultants: Qwen3, GLM, Grok
+#   - Custom consultants via environment variables: {NAME}_MODEL, {NAME}_API_URL, etc.
 get_api_config() {
     local consultant="$1"
     local key="$2"
@@ -58,8 +62,42 @@ get_api_config() {
             esac
             ;;
         *)
-            log_error "Unknown API consultant: $consultant"
-            return 1
+            # Dynamic lookup for custom API agents
+            # Convention: {NAME}_MODEL, {NAME}_API_URL, {NAME}_API_KEY, {NAME}_FORMAT
+            local upper
+            upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
+            local lower
+            lower=$(echo "$consultant" | tr '[:upper:]' '[:lower:]' | tr ' -' '_')
+
+            case "$key" in
+                model)
+                    local var="${upper}_MODEL"
+                    echo "${!var:-gpt-4}"
+                    ;;
+                timeout)
+                    local var="${upper}_TIMEOUT"
+                    echo "${!var:-180}"
+                    ;;
+                api_url)
+                    local var="${upper}_API_URL"
+                    local url="${!var:-}"
+                    if [[ -z "$url" ]]; then
+                        log_error "[$consultant] API URL not configured: ${var}"
+                        return 1
+                    fi
+                    echo "$url"
+                    ;;
+                api_key_var)
+                    echo "${upper}_API_KEY"
+                    ;;
+                response_format)
+                    local var="${upper}_FORMAT"
+                    echo "${!var:-openai}"
+                    ;;
+                default_output)
+                    echo "/tmp/${lower}_response.json"
+                    ;;
+            esac
             ;;
     esac
 }

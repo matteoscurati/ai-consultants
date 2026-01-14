@@ -29,6 +29,47 @@ source "$SCRIPT_DIR/lib/costs.sh"
 source "$SCRIPT_DIR/lib/voting.sh"
 source "$SCRIPT_DIR/lib/routing.sh"
 
+# --- Custom API Agent Discovery ---
+# Discovers custom API agents from environment variables
+# Convention: ENABLE_AGENTNAME=true with AGENTNAME_API_URL set
+_discover_custom_api_agents() {
+    # Known predefined agents (to skip)
+    local known_agents="GEMINI CODEX MISTRAL KILO CURSOR QWEN3 GLM GROK"
+    known_agents="$known_agents PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION"
+    known_agents="$known_agents SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
+
+    # Scan for ENABLE_*=true patterns
+    while IFS='=' read -r var value; do
+        # Skip if not an ENABLE_ variable
+        [[ "$var" != ENABLE_* ]] && continue
+        # Skip if not set to true
+        [[ "$value" != "true" ]] && continue
+
+        # Extract agent name from ENABLE_AGENTNAME
+        local agent_upper="${var#ENABLE_}"
+
+        # Skip known/predefined agents
+        local is_known=false
+        for known in $known_agents; do
+            [[ "$agent_upper" == "$known" ]] && is_known=true && break
+        done
+        [[ "$is_known" == "true" ]] && continue
+
+        # Check if it has an API URL configured (indicates it's an API agent)
+        local url_var="${agent_upper}_API_URL"
+        local api_url="${!url_var:-}"
+        [[ -z "$api_url" ]] && continue
+
+        # This is a custom API agent - add it
+        # Convert to proper case (first letter uppercase, rest lowercase)
+        # Using awk for portable case conversion
+        local agent_name
+        agent_name=$(echo "$agent_upper" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')
+        SELECTED_CONSULTANTS+=("$agent_name")
+        log_debug "Discovered custom API agent: $agent_name"
+    done < <(env)
+}
+
 # --- Input Validation ---
 if [[ $# -eq 0 ]]; then
     log_error "Usage: $0 \"Your question\" [file1] [file2] ..."
@@ -126,10 +167,14 @@ else
     [[ "$ENABLE_MISTRAL" == "true" ]] && SELECTED_CONSULTANTS+=("Mistral")
     [[ "$ENABLE_KILO" == "true" ]] && SELECTED_CONSULTANTS+=("Kilo")
     [[ "$ENABLE_CURSOR" == "true" ]] && SELECTED_CONSULTANTS+=("Cursor")
-    # API-based consultants
+    # API-based consultants (predefined)
     [[ "$ENABLE_QWEN3" == "true" ]] && SELECTED_CONSULTANTS+=("Qwen3")
     [[ "$ENABLE_GLM" == "true" ]] && SELECTED_CONSULTANTS+=("GLM")
     [[ "$ENABLE_GROK" == "true" ]] && SELECTED_CONSULTANTS+=("Grok")
+
+    # Discover custom API agents from environment
+    # Convention: ENABLE_AGENTNAME=true with AGENTNAME_API_URL set
+    _discover_custom_api_agents
 fi
 
 if [[ ${#SELECTED_CONSULTANTS[@]} -eq 0 ]]; then
@@ -191,6 +236,14 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
             ;;
         Grok)
             "$SCRIPT_DIR/query_grok.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
+            ;;
+        *)
+            # Custom API agent - use generic API query
+            # Source the API query library and call run_api_consultant
+            (
+                source "$SCRIPT_DIR/lib/api_query.sh"
+                run_api_consultant "$consultant" "" "$CONTEXT_FILE" "$local_output_file"
+            ) > /dev/null 2>&1 &
             ;;
     esac
 

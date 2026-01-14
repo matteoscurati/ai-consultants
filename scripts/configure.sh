@@ -59,6 +59,14 @@ CUSTOM_NAMES=()
 CUSTOM_CMDS=()
 CUSTOM_PERSONAS=()
 
+# Custom API agents
+CUSTOM_API_NAMES=()
+CUSTOM_API_URLS=()
+CUSTOM_API_KEYS=()
+CUSTOM_API_MODELS=()
+CUSTOM_API_PERSONAS=()
+CUSTOM_API_FORMATS=()  # "openai" or "qwen"
+
 # Initialize state arrays
 for i in "${!CLI_AGENT_NAMES[@]}"; do
     CLI_DETECTED+=("missing")
@@ -332,6 +340,53 @@ add_custom_cli_agent() {
 }
 
 # =============================================================================
+# CUSTOM API AGENT
+# =============================================================================
+
+add_custom_api_agent() {
+    print_section "Add Custom API Agent"
+
+    echo "Add any OpenAI-compatible or custom API endpoint."
+    echo ""
+
+    prompt_input "Agent name (e.g., 'OpenRouter', 'Groq', 'Together')" ""
+    local name="$REPLY"
+    [[ -z "$name" ]] && return
+
+    prompt_input "API endpoint URL (e.g., https://api.openrouter.ai/api/v1/chat/completions)" ""
+    local url="$REPLY"
+    [[ -z "$url" ]] && return
+
+    prompt_secret "API key"
+    local key="$REPLY"
+    [[ -z "$key" ]] && { log_warn "API key required"; return; }
+
+    prompt_input "Model name (e.g., 'gpt-4', 'anthropic/claude-3')" "gpt-4"
+    local model="$REPLY"
+
+    prompt_input "Persona/Role description" "External API Consultant"
+    local persona="$REPLY"
+
+    echo ""
+    echo "Response format:"
+    echo "  1) OpenAI-compatible (most APIs - recommended)"
+    echo "  2) Qwen/DashScope format"
+    read -r -p "Choice [1]: " format_choice
+    local format="openai"
+    [[ "$format_choice" == "2" ]] && format="qwen"
+
+    # Store custom API agent
+    CUSTOM_API_NAMES+=("$name")
+    CUSTOM_API_URLS+=("$url")
+    CUSTOM_API_KEYS+=("$key")
+    CUSTOM_API_MODELS+=("$model")
+    CUSTOM_API_PERSONAS+=("$persona")
+    CUSTOM_API_FORMATS+=("$format")
+
+    log_success "Added custom API agent: $name ($url)"
+}
+
+# =============================================================================
 # API AGENT CONFIGURATION
 # =============================================================================
 
@@ -349,29 +404,55 @@ configure_api_agents() {
                 log_info "Auto-enabled: ${API_AGENT_NAMES[$i]} (API key found)"
             fi
         done
+        # Also check for custom API agents via naming convention
+        # (e.g., CUSTOMAGENT_API_KEY, CUSTOMAGENT_API_URL, ENABLE_CUSTOMAGENT=true)
         return
     fi
 
     echo "API-based agents require API keys but no CLI installation."
-    echo "Available API agents:"
     echo ""
-
+    echo "Predefined API agents:"
     for i in "${!API_AGENT_NAMES[@]}"; do
         local name="${API_AGENT_NAMES[$i]}"
         local model="${API_AGENT_MODELS[$i]}"
-        local url="${API_AGENT_URLS[$i]}"
         local persona="${API_AGENT_PERSONAS[$i]}"
-        echo "  - $name ($persona)"
-        echo "    Model: $model"
-        echo "    API: $url"
-        echo ""
+        echo "  - $name ($persona) - Model: $model"
     done
+    echo ""
+    echo "You can also add custom API agents (OpenRouter, Groq, Together, etc.)"
+    echo ""
 
     if ! confirm "Configure API-based agents?"; then
         return
     fi
 
-    # Configure each API agent
+    local done_api_config=false
+    while [[ "$done_api_config" != "true" ]]; do
+        echo ""
+        echo "API Agent Configuration:"
+        echo "  1) Configure predefined agents (Qwen3, GLM, Grok)"
+        echo "  2) Add custom API agent"
+        echo "  3) Done with API configuration"
+        echo ""
+
+        read -r -p "Choice [1-3]: " api_choice
+
+        case "$api_choice" in
+            1)
+                _configure_predefined_api_agents
+                ;;
+            2)
+                add_custom_api_agent
+                ;;
+            3|"")
+                done_api_config=true
+                ;;
+        esac
+    done
+}
+
+# Internal function to configure predefined API agents
+_configure_predefined_api_agents() {
     for i in "${!API_AGENT_NAMES[@]}"; do
         local name="${API_AGENT_NAMES[$i]}"
         local key_var="${API_AGENT_KEY_VARS[$i]}"
@@ -416,7 +497,8 @@ validate_configuration() {
 
     local cli_count=0
     local api_count=0
-    local custom_count=${#CUSTOM_NAMES[@]}
+    local custom_cli_count=${#CUSTOM_NAMES[@]}
+    local custom_api_count=${#CUSTOM_API_NAMES[@]}
 
     # Count enabled CLI agents
     for i in "${!CLI_AGENT_NAMES[@]}"; do
@@ -425,19 +507,20 @@ validate_configuration() {
         fi
     done
 
-    # Count enabled API agents
+    # Count enabled predefined API agents
     for i in "${!API_AGENT_NAMES[@]}"; do
         if [[ "${API_ENABLED[$i]}" == "true" ]]; then
             ((api_count++)) || true
         fi
     done
 
-    local total_enabled=$((cli_count + api_count + custom_count))
+    local total_cli=$((cli_count + custom_cli_count))
+    local total_api=$((api_count + custom_api_count))
+    local total_enabled=$((total_cli + total_api))
 
     echo "Summary:"
-    echo "  CLI agents enabled: $cli_count"
-    echo "  API agents enabled: $api_count"
-    echo "  Custom agents: $custom_count"
+    echo "  CLI agents enabled: $total_cli (predefined: $cli_count, custom: $custom_cli_count)"
+    echo "  API agents enabled: $total_api (predefined: $api_count, custom: $custom_api_count)"
     echo "  Total enabled: $total_enabled"
     echo ""
 
@@ -577,10 +660,43 @@ HEADER
             local cmd="${CUSTOM_CMDS[$i]}"
             local persona="${CUSTOM_PERSONAS[$i]}"
             local var_upper
-            var_upper=$(echo "$name" | tr '[:lower:]' '[:upper:]')
-            echo "# Custom agent: $name ($persona)" >> "$OUTPUT_FILE"
+            var_upper=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
+            echo "# Custom CLI agent: $name ($persona)" >> "$OUTPUT_FILE"
             echo "${var_upper}_CMD=$cmd" >> "$OUTPUT_FILE"
             echo "ENABLE_${var_upper}=true" >> "$OUTPUT_FILE"
+        done
+    fi
+
+    # Custom API agents
+    if [[ ${#CUSTOM_API_NAMES[@]} -gt 0 ]]; then
+        {
+            echo ""
+            echo "# ============================================================================="
+            echo "# CUSTOM API AGENTS"
+            echo "# ============================================================================="
+            echo ""
+        } >> "$OUTPUT_FILE"
+
+        for i in "${!CUSTOM_API_NAMES[@]}"; do
+            local name="${CUSTOM_API_NAMES[$i]}"
+            local url="${CUSTOM_API_URLS[$i]}"
+            local key="${CUSTOM_API_KEYS[$i]}"
+            local model="${CUSTOM_API_MODELS[$i]}"
+            local persona="${CUSTOM_API_PERSONAS[$i]}"
+            local format="${CUSTOM_API_FORMATS[$i]}"
+            local var_upper
+            var_upper=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
+
+            echo "# Custom API agent: $name" >> "$OUTPUT_FILE"
+            echo "# Persona: $persona" >> "$OUTPUT_FILE"
+            echo "${var_upper}_API_KEY=$key" >> "$OUTPUT_FILE"
+            echo "${var_upper}_API_URL=$url" >> "$OUTPUT_FILE"
+            echo "${var_upper}_MODEL=$model" >> "$OUTPUT_FILE"
+            echo "${var_upper}_TIMEOUT=180" >> "$OUTPUT_FILE"
+            echo "${var_upper}_FORMAT=$format" >> "$OUTPUT_FILE"
+            echo "${var_upper}_PERSONA=\"$persona\"" >> "$OUTPUT_FILE"
+            echo "ENABLE_${var_upper}=true" >> "$OUTPUT_FILE"
+            echo "" >> "$OUTPUT_FILE"
         done
     fi
 
@@ -711,6 +827,9 @@ main() {
     done
     for i in "${!API_AGENT_NAMES[@]}"; do
         [[ "${API_ENABLED[$i]}" == "true" ]] && echo "  [API] ${API_AGENT_NAMES[$i]}"
+    done
+    for i in "${!CUSTOM_API_NAMES[@]}"; do
+        echo "  [API] ${CUSTOM_API_NAMES[$i]} (custom)"
     done
 
     echo ""
