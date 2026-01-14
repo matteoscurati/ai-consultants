@@ -1,0 +1,323 @@
+# AI Consultation Report v2.0
+
+## Metadata
+
+| Field | Value |
+|-------|-------|
+| **Date** | {{TIMESTAMP}} |
+| **Category** | {{CATEGORY}} |
+| **Consensus Score** | {{CONSENSUS_SCORE}}% ({{CONSENSUS_LEVEL}}) |
+| **Active Consultants** | {{ACTIVE_CONSULTANTS}} |
+| **Debate Rounds** | {{DEBATE_ROUNDS}} |
+
+---
+
+## Question
+
+> {{QUERY}}
+
+---
+
+## Automatic Synthesis
+
+{{#IF_SYNTHESIS}}
+
+### Weighted Recommendation
+
+**Recommended Approach:** {{RECOMMENDED_APPROACH}}
+
+**Confidence-Weighted Score:** {{WEIGHTED_SCORE}}/10
+
+**Summary:** {{SYNTHESIS_SUMMARY}}
+
+### Supporting Consultants
+{{SUPPORTING_CONSULTANTS}}
+
+### Dissenting Consultants
+{{DISSENTING_CONSULTANTS}}
+
+### Points of Agreement
+{{#EACH AGREED_POINTS}}
+- {{.}}
+{{/EACH}}
+
+### Points of Disagreement
+{{#EACH DISAGREED_POINTS}}
+- **{{TOPIC}}**: {{POSITIONS}}
+{{/EACH}}
+
+{{/IF_SYNTHESIS}}
+
+{{#IF_NO_SYNTHESIS}}
+*Automatic synthesis not available. See individual responses.*
+{{/IF_NO_SYNTHESIS}}
+
+---
+
+## Consultant Comparison
+
+| Aspect | Gemini | Codex | Mistral | Kilo |
+|--------|--------|-------|---------|------|
+| **Persona** | The Architect | The Pragmatist | The Devil's Advocate | The Innovator |
+| **Approach** | {{GEMINI_APPROACH}} | {{CODEX_APPROACH}} | {{MISTRAL_APPROACH}} | {{KILO_APPROACH}} |
+| **Confidence** | {{GEMINI_CONFIDENCE}}/10 | {{CODEX_CONFIDENCE}}/10 | {{MISTRAL_CONFIDENCE}}/10 | {{KILO_CONFIDENCE}}/10 |
+
+### Consensus Levels
+
+| Level | Score | Description |
+|-------|-------|-------------|
+| **Unanimous** | 100% | All agree |
+| **High** | 75-99% | Strong agreement |
+| **Medium** | 50-74% | Partial agreement |
+| **Low** | 25-49% | Significant disagreement |
+| **None** | 0-24% | No points of convergence |
+
+---
+
+## Risk Assessment
+
+{{#IF_RISKS}}
+
+**Overall Risk:** {{OVERALL_RISK}}
+
+| Risk | Severity | Mitigation | Identified by |
+|------|----------|------------|---------------|
+{{#EACH RISKS}}
+| {{DESCRIPTION}} | {{SEVERITY}} | {{MITIGATION}} | {{IDENTIFIED_BY}} |
+{{/EACH}}
+
+{{/IF_RISKS}}
+
+---
+
+## Action Items
+
+{{#EACH ACTION_ITEMS}}
+{{PRIORITY}}. **{{ACTION}}** - {{RATIONALE}}
+{{/EACH}}
+
+---
+
+## Individual Responses
+
+### Gemini - The Architect
+
+**Confidence:** {{GEMINI_CONFIDENCE}}/10
+
+**Approach:** {{GEMINI_APPROACH}}
+
+**Summary:**
+> {{GEMINI_SUMMARY}}
+
+{{#IF GEMINI_CODE}}
+**Code:**
+```{{GEMINI_LANGUAGE}}
+{{GEMINI_CODE}}
+```
+{{/IF}}
+
+**Pros:**
+{{#EACH GEMINI_PROS}}
+- {{.}}
+{{/EACH}}
+
+**Cons:**
+{{#EACH GEMINI_CONS}}
+- {{.}}
+{{/EACH}}
+
+<details>
+<summary>Full Response</summary>
+
+{{GEMINI_DETAILED}}
+
+</details>
+
+---
+
+### Codex - The Pragmatist
+
+**Confidence:** {{CODEX_CONFIDENCE}}/10
+
+**Approach:** {{CODEX_APPROACH}}
+
+**Summary:**
+> {{CODEX_SUMMARY}}
+
+{{#IF CODEX_CODE}}
+**Code:**
+```{{CODEX_LANGUAGE}}
+{{CODEX_CODE}}
+```
+{{/IF}}
+
+**Pros:**
+{{#EACH CODEX_PROS}}
+- {{.}}
+{{/EACH}}
+
+**Cons:**
+{{#EACH CODEX_CONS}}
+- {{.}}
+{{/EACH}}
+
+<details>
+<summary>Full Response</summary>
+
+{{CODEX_DETAILED}}
+
+</details>
+
+---
+
+### Mistral - The Devil's Advocate
+
+**Confidence:** {{MISTRAL_CONFIDENCE}}/10
+
+**Approach:** {{MISTRAL_APPROACH}}
+
+**Summary:**
+> {{MISTRAL_SUMMARY}}
+
+{{#IF MISTRAL_CODE}}
+**Code:**
+```{{MISTRAL_LANGUAGE}}
+{{MISTRAL_CODE}}
+```
+{{/IF}}
+
+**Pros:**
+{{#EACH MISTRAL_PROS}}
+- {{.}}
+{{/EACH}}
+
+**Cons:**
+{{#EACH MISTRAL_CONS}}
+- {{.}}
+{{/EACH}}
+
+<details>
+<summary>Full Response</summary>
+
+{{MISTRAL_DETAILED}}
+
+</details>
+
+---
+
+### Kilo - The Innovator
+
+**Confidence:** {{KILO_CONFIDENCE}}/10
+
+**Approach:** {{KILO_APPROACH}}
+
+**Summary:**
+> {{KILO_SUMMARY}}
+
+{{#IF KILO_CODE}}
+**Code:**
+```{{KILO_LANGUAGE}}
+{{KILO_CODE}}
+```
+{{/IF}}
+
+**Pros:**
+{{#EACH KILO_PROS}}
+- {{.}}
+{{/EACH}}
+
+**Cons:**
+{{#EACH KILO_CONS}}
+- {{.}}
+{{/EACH}}
+
+<details>
+<summary>Full Response</summary>
+
+{{KILO_DETAILED}}
+
+</details>
+
+---
+
+{{#IF_DEBATE}}
+
+## Multi-Agent Debate
+
+### Round {{DEBATE_ROUND}}
+
+| Consultant | Position Changed | Confidence Delta | Critiques |
+|------------|------------------|------------------|-----------|
+{{#EACH DEBATE_RESULTS}}
+| {{CONSULTANT}} | {{POSITION_CHANGED}} | {{CONFIDENCE_DELTA}} | {{CRITIQUES_COUNT}} |
+{{/EACH}}
+
+**Stability:** {{DEBATE_STABILITY}}
+
+{{/IF_DEBATE}}
+
+---
+
+## Suggested Follow-ups
+
+{{#EACH FOLLOW_UP_QUESTIONS}}
+- {{.}}
+{{/EACH}}
+
+---
+
+## Output Files
+
+| File | Description |
+|------|-------------|
+| `{{OUTPUT_DIR}}/context.md` | Built context |
+| `{{OUTPUT_DIR}}/gemini.json` | Gemini response |
+| `{{OUTPUT_DIR}}/codex.json` | Codex response |
+| `{{OUTPUT_DIR}}/mistral.json` | Mistral response |
+| `{{OUTPUT_DIR}}/kilo.json` | Kilo response |
+| `{{OUTPUT_DIR}}/voting.json` | Voting report |
+| `{{OUTPUT_DIR}}/synthesis.json` | Automatic synthesis |
+
+---
+
+## Raw Responses
+
+<details>
+<summary>Gemini Raw JSON</summary>
+
+```json
+{{GEMINI_RAW}}
+```
+
+</details>
+
+<details>
+<summary>Codex Raw JSON</summary>
+
+```json
+{{CODEX_RAW}}
+```
+
+</details>
+
+<details>
+<summary>Mistral Raw JSON</summary>
+
+```json
+{{MISTRAL_RAW}}
+```
+
+</details>
+
+<details>
+<summary>Kilo Raw JSON</summary>
+
+```json
+{{KILO_RAW}}
+```
+
+</details>
+
+---
+
+*Report generated by AI Consultants v2.0*

@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AI Consultant Response Schema v2.0",
+  "description": "Unified output schema for all AI consultants in ai-consultants skill",
+  "type": "object",
+  "required": ["consultant", "response", "confidence", "metadata"],
+  "properties": {
+    "consultant": {
+      "type": "string",
+      "description": "Name of the consultant (Gemini, Codex, Mistral, Kilo)",
+      "enum": ["Gemini", "Codex", "Mistral", "Kilo"]
+    },
+    "model": {
+      "type": "string",
+      "description": "Specific model version used"
+    },
+    "persona": {
+      "type": "string",
+      "description": "Assigned persona role",
+      "enum": ["The Architect", "The Pragmatist", "The Devil's Advocate", "The Innovator"]
+    },
+    "response": {
+      "type": "object",
+      "required": ["summary", "detailed", "approach"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "TL;DR in 2-3 sentences (max 500 chars)",
+          "maxLength": 500
+        },
+        "detailed": {
+          "type": "string",
+          "description": "Full detailed response"
+        },
+        "approach": {
+          "type": "string",
+          "description": "High-level approach name/category"
+        },
+        "code_snippets": {
+          "type": "array",
+          "description": "Code examples if applicable",
+          "items": {
+            "type": "object",
+            "properties": {
+              "language": { "type": "string" },
+              "code": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "pros": {
+          "type": "array",
+          "description": "Advantages of the proposed solution",
+          "items": { "type": "string" }
+        },
+        "cons": {
+          "type": "array",
+          "description": "Disadvantages or trade-offs",
+          "items": { "type": "string" }
+        },
+        "alternatives": {
+          "type": "array",
+          "description": "Alternative approaches considered",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "reason_not_chosen": { "type": "string" }
+            }
+          }
+        },
+        "caveats": {
+          "type": "array",
+          "description": "Important assumptions or limitations",
+          "items": { "type": "string" }
+        },
+        "references": {
+          "type": "array",
+          "description": "Links or references if applicable",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "required": ["score", "reasoning"],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "description": "Confidence score from 1-10",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "reasoning": {
+          "type": "string",
+          "description": "Why this confidence level was assigned"
+        },
+        "uncertainty_factors": {
+          "type": "array",
+          "description": "Factors that reduce confidence",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "debate": {
+      "type": "object",
+      "description": "Data for multi-agent debate rounds",
+      "properties": {
+        "round": {
+          "type": "integer",
+          "description": "Current debate round (1, 2, or 3)"
+        },
+        "position_changed": {
+          "type": "boolean",
+          "description": "Whether position changed from previous round"
+        },
+        "critiques": {
+          "type": "array",
+          "description": "Critiques of other consultants' responses",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target": { "type": "string" },
+              "critique": { "type": "string" },
+              "severity": { "enum": ["minor", "moderate", "major"] }
+            }
+          }
+        },
+        "incorporated_from": {
+          "type": "array",
+          "description": "Ideas incorporated from other consultants",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": { "type": "string" },
+              "idea": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "tokens_used": {
+          "type": "integer",
+          "description": "Approximate tokens consumed"
+        },
+        "latency_ms": {
+          "type": "integer",
+          "description": "Response time in milliseconds"
+        },
+        "model_version": {
+          "type": "string",
+          "description": "Exact model version string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of response"
+        }
+      }
+    }
+  }
+}

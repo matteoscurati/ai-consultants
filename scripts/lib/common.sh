@@ -1,0 +1,225 @@
+#!/bin/bash
+# common.sh - Shared functions for consultation scripts
+# Includes: logging, cross-platform timeout, retry logic, validation
+
+# Load configuration
+SCRIPT_DIR_COMMON="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR_COMMON/../config.sh"
+
+# =============================================================================
+# LOGGING FUNCTIONS
+# =============================================================================
+
+_log() {
+    local level=$1
+    local color=$2
+    local message=$3
+
+    # Map levels to numbers for comparison (without associative arrays for compatibility)
+    local current_level_num=1  # default INFO
+    local message_level_num=1
+
+    case "$LOG_LEVEL" in
+        DEBUG) current_level_num=0 ;;
+        INFO)  current_level_num=1 ;;
+        WARN)  current_level_num=2 ;;
+        ERROR) current_level_num=3 ;;
+    esac
+
+    case "$level" in
+        DEBUG) message_level_num=0 ;;
+        INFO)  message_level_num=1 ;;
+        WARN)  message_level_num=2 ;;
+        ERROR) message_level_num=3 ;;
+    esac
+
+    if [[ "$message_level_num" -ge "$current_level_num" ]]; then
+        echo -e "${color}[$(date '+%H:%M:%S')] [$level]${C_RESET} ${message}" >&2
+    fi
+}
+
+log_debug() { _log "DEBUG" "$C_DEBUG" "$1"; }
+log_info() { _log "INFO" "$C_INFO" "$1"; }
+log_success() { _log "INFO" "$C_SUCCESS" "$1"; }
+log_warn() { _log "WARN" "$C_WARN" "$1"; }
+log_error() { _log "ERROR" "$C_ERROR" "$1"; }
+
+# =============================================================================
+# CROSS-PLATFORM TIMEOUT
+# =============================================================================
+
+# Timeout function compatible with macOS and Linux
+# Usage: run_with_timeout <seconds> <command> [args...]
+run_with_timeout() {
+    local timeout_seconds=$1
+    shift
+    local cmd=("$@")
+
+    # Try first with timeout (Linux/GNU coreutils)
+    if command -v timeout &> /dev/null; then
+        timeout "$timeout_seconds" "${cmd[@]}"
+        return $?
+    fi
+
+    # Try with gtimeout (macOS with coreutils installed)
+    if command -v gtimeout &> /dev/null; then
+        gtimeout "$timeout_seconds" "${cmd[@]}"
+        return $?
+    fi
+
+    # Fallback: implementation with background job and kill
+    # Works on any POSIX system
+    "${cmd[@]}" &
+    local pid=$!
+
+    # Monitor in background
+    (
+        sleep "$timeout_seconds"
+        kill -0 "$pid" 2>/dev/null && kill -TERM "$pid" 2>/dev/null
+    ) &
+    local watchdog_pid=$!
+
+    # Wait for the command
+    wait "$pid" 2>/dev/null
+    local exit_code=$?
+
+    # Clean up the watchdog if the command finished first
+    kill -0 "$watchdog_pid" 2>/dev/null && kill "$watchdog_pid" 2>/dev/null
+    wait "$watchdog_pid" 2>/dev/null
+
+    # If the process was killed by timeout, return 124 (like GNU timeout)
+    if [[ $exit_code -eq 143 ]] || [[ $exit_code -eq 137 ]]; then
+        return 124
+    fi
+
+    return $exit_code
+}
+
+# =============================================================================
+# COMMAND VERIFICATION
+# =============================================================================
+
+check_command() {
+    local cmd=$1
+    local name=$2
+    local install_hint=$3
+
+    if ! command -v "$cmd" &> /dev/null; then
+        log_error "$name not found (command: $cmd)"
+        if [[ -n "$install_hint" ]]; then
+            log_info "Install with: $install_hint"
+        fi
+        return 1
+    fi
+    return 0
+}
+
+# =============================================================================
+# MAIN QUERY EXECUTION FUNCTION
+# =============================================================================
+
+# Executes a query to an AI consultant with retry and timeout
+#
+# Usage: run_query <consultant_name> <output_file> <timeout_sec> <command...>
+#
+# The query is passed via stdin to the command.
+# Example:
+#   echo "$QUERY" | run_query "Gemini" "/tmp/out.json" 120 gemini -p - --output-format json
+#
+run_query() {
+    local consultant_name="$1"
+    local output_file="$2"
+    local timeout_seconds="$3"
+    shift 3
+    local cmd=("$@")
+
+    # File for stderr
+    local error_file="${output_file}.err"
+
+    # Read stdin into a variable so it can be reused in retries
+    local stdin_content
+    stdin_content=$(cat)
+
+    log_info "Consulting $consultant_name (timeout: ${timeout_seconds}s, max retry: $MAX_RETRIES)..."
+
+    local attempt=1
+    while (( attempt <= MAX_RETRIES )); do
+        log_debug "[$consultant_name] Attempt $attempt of $MAX_RETRIES..."
+
+        # Execute the command with timeout, passing stdin
+        if echo "$stdin_content" | run_with_timeout "$timeout_seconds" "${cmd[@]}" > "$output_file" 2> "$error_file"; then
+            # Verify that the output is not empty
+            if [[ -s "$output_file" ]]; then
+                log_success "[$consultant_name] Response received ($(wc -c < "$output_file" | tr -d ' ') bytes)"
+                rm -f "$error_file"
+                return 0
+            else
+                log_warn "[$consultant_name] Empty response"
+            fi
+        fi
+
+        # Error handling
+        local exit_code=$?
+        local error_msg=""
+        [[ -f "$error_file" ]] && error_msg=$(head -5 "$error_file" 2>/dev/null)
+
+        if [[ $exit_code -eq 124 ]]; then
+            log_warn "[$consultant_name] Timeout after ${timeout_seconds}s"
+        else
+            log_warn "[$consultant_name] Error (code: $exit_code)"
+            [[ -n "$error_msg" ]] && log_debug "Details: $error_msg"
+        fi
+
+        ((attempt++))
+        if (( attempt <= MAX_RETRIES )); then
+            log_info "Waiting ${RETRY_DELAY_SECONDS}s before next attempt..."
+            sleep "$RETRY_DELAY_SECONDS"
+        fi
+    done
+
+    log_error "[$consultant_name] All $MAX_RETRIES attempts failed"
+    return 1
+}
+
+# =============================================================================
+# UTILITY
+# =============================================================================
+
+# Builds the complete query from arguments and context file
+# Usage: build_full_query "query" "context_file"
+build_full_query() {
+    local query="$1"
+    local context_file="$2"
+    local full_query=""
+
+    # Add context if provided
+    if [[ -n "$context_file" && -f "$context_file" ]]; then
+        full_query=$(cat "$context_file")
+    fi
+
+    # Add query if provided
+    if [[ -n "$query" ]]; then
+        if [[ -n "$full_query" ]]; then
+            full_query="${full_query}
+
+# Additional Question
+${query}"
+        else
+            full_query="$query"
+        fi
+    fi
+
+    echo "$full_query"
+}
+
+# Verifies that there is something to send
+validate_query() {
+    local full_query="$1"
+    local consultant="$2"
+
+    if [[ -z "$full_query" ]]; then
+        log_error "No query to send to $consultant. Specify a query or a context file."
+        return 1
+    fi
+    return 0
+}
