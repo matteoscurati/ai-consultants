@@ -397,31 +397,27 @@ ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false ENABLE_KILO=false \
 ├── SKILL.md                    # This documentation
 ├── scripts/
 │   ├── config.sh               # Centralized configuration
-│   ├── lib/
-│   │   ├── common.sh           # Shared functions
-│   │   ├── personas.sh         # Persona definitions (NEW)
-│   │   ├── schema.json         # JSON output schema (NEW)
-│   │   ├── voting.sh           # Confidence-weighted voting (NEW)
-│   │   ├── routing.sh          # Smart routing (NEW)
-│   │   ├── progress.sh         # Progress bars (NEW)
-│   │   ├── session.sh          # Session management (NEW)
-│   │   ├── costs.sh            # Cost tracking (NEW)
-│   │   └── reflection.sh       # Self-reflection (NEW)
-│   ├── consult_all.sh          # Main script (UPDATED)
-│   ├── preflight_check.sh      # Health check (NEW)
-│   ├── classify_question.sh    # Question classifier (NEW)
-│   ├── synthesize.sh           # Auto-synthesis (NEW)
-│   ├── debate_round.sh         # MAD implementation (NEW)
-│   ├── followup.sh             # Follow-up queries (NEW)
+│   ├── consult_all.sh          # Main script
+│   ├── preflight_check.sh      # Health check
+│   ├── classify_question.sh    # Question classifier
+│   ├── synthesize.sh           # Auto-synthesis
+│   ├── debate_round.sh         # MAD implementation
+│   ├── followup.sh             # Follow-up queries
 │   ├── build_context.sh        # Context builder
-│   ├── query_gemini.sh         # Gemini wrapper (UPDATED)
-│   ├── query_codex.sh          # Codex wrapper (UPDATED)
-│   ├── query_mistral.sh        # Mistral wrapper (UPDATED)
-│   ├── query_kilo.sh           # Kilo wrapper (UPDATED)
-│   └── query_cursor.sh         # Cursor wrapper (NEW)
+│   ├── query_*.sh              # Consultant wrappers
+│   └── lib/
+│       ├── common.sh           # Shared functions
+│       ├── personas.sh         # Persona definitions
+│       ├── schema.json         # JSON output schema
+│       ├── voting.sh           # Confidence-weighted voting
+│       ├── routing.sh          # Smart routing
+│       ├── progress.sh         # Progress bars
+│       ├── session.sh          # Session management
+│       ├── costs.sh            # Cost tracking
+│       └── reflection.sh       # Self-reflection
 └── templates/
     ├── consultation_report.md  # Report template
-    └── synthesis_prompt.md     # Synthesis prompt (NEW)
+    └── synthesis_prompt.md     # Synthesis prompt
 ```
 
 ## Changelog v2.0
