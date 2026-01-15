@@ -26,6 +26,11 @@ else
     log_error() { echo "[ERROR] $*" >&2; }
 fi
 
+# Load personas library for persona catalog
+if [[ -f "$SCRIPT_DIR/lib/personas.sh" ]]; then
+    source "$SCRIPT_DIR/lib/personas.sh"
+fi
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -67,15 +72,28 @@ CUSTOM_API_MODELS=()
 CUSTOM_API_PERSONAS=()
 CUSTOM_API_FORMATS=()  # "openai" or "qwen"
 
+# Persona assignments (maps agent name to persona ID)
+# Parallel arrays for CLI and API agents
+CLI_PERSONA_IDS=()     # persona ID for each CLI agent
+API_PERSONA_IDS=()     # persona ID for each API agent
+CUSTOM_PERSONA_IDS=()  # persona ID for each custom CLI agent
+CUSTOM_API_PERSONA_IDS=()  # persona ID for each custom API agent
+
 # Initialize state arrays
+# Default persona IDs: 1=Architect, 2=Pragmatist, 3=Devil's Advocate, 4=Innovator, 5=Integrator
+CLI_DEFAULT_PERSONA_IDS=(1 2 3 4 5)
 for i in "${!CLI_AGENT_NAMES[@]}"; do
     CLI_DETECTED+=("missing")
     CLI_ENABLED+=("false")
+    CLI_PERSONA_IDS+=("${CLI_DEFAULT_PERSONA_IDS[$i]}")
 done
 
+# Default persona IDs: 6=Analyst, 7=Methodologist, 8=Provocateur
+API_DEFAULT_PERSONA_IDS=(6 7 8)
 for i in "${!API_AGENT_NAMES[@]}"; do
     API_ENABLED+=("false")
     API_KEYS_VALUES+=("")
+    API_PERSONA_IDS+=("${API_DEFAULT_PERSONA_IDS[$i]}")
 done
 
 # =============================================================================
@@ -111,6 +129,11 @@ done
 # =============================================================================
 # UTILITIES
 # =============================================================================
+
+# Normalize name to uppercase (removes spaces and hyphens)
+to_upper() {
+    echo "$1" | tr '[:lower:]' '[:upper:]' | tr -d ' -'
+}
 
 # Print a header box
 print_header() {
@@ -614,28 +637,17 @@ HEADER
     echo "# CLI-based consultants" >> "$OUTPUT_FILE"
 
     for i in "${!CLI_AGENT_NAMES[@]}"; do
-        local name="${CLI_AGENT_NAMES[$i]}"
-        local enabled="${CLI_ENABLED[$i]}"
         local name_upper
-        name_upper=$(echo "$name" | tr '[:lower:]' '[:upper:]')
-        local var_name="ENABLE_${name_upper}"
-        # Special case for Mistral
-        [[ "$name" == "Mistral" ]] && var_name="ENABLE_MISTRAL"
-        echo "${var_name}=$enabled" >> "$OUTPUT_FILE"
+        name_upper=$(to_upper "${CLI_AGENT_NAMES[$i]}")
+        echo "ENABLE_${name_upper}=${CLI_ENABLED[$i]}" >> "$OUTPUT_FILE"
     done
 
-    {
-        echo ""
-        echo "# API-based consultants"
-    } >> "$OUTPUT_FILE"
+    echo -e "\n# API-based consultants" >> "$OUTPUT_FILE"
 
     for i in "${!API_AGENT_NAMES[@]}"; do
-        local name="${API_AGENT_NAMES[$i]}"
-        local enabled="${API_ENABLED[$i]}"
         local name_upper
-        name_upper=$(echo "$name" | tr '[:lower:]' '[:upper:]')
-        local var_name="ENABLE_${name_upper}"
-        echo "${var_name}=$enabled" >> "$OUTPUT_FILE"
+        name_upper=$(to_upper "${API_AGENT_NAMES[$i]}")
+        echo "ENABLE_${name_upper}=${API_ENABLED[$i]}" >> "$OUTPUT_FILE"
     done
 
     # API Keys
@@ -653,13 +665,10 @@ HEADER
         emit_env_section "CUSTOM CLI AGENTS"
 
         for i in "${!CUSTOM_NAMES[@]}"; do
-            local name="${CUSTOM_NAMES[$i]}"
-            local cmd="${CUSTOM_CMDS[$i]}"
-            local persona="${CUSTOM_PERSONAS[$i]}"
             local var_upper
-            var_upper=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
-            echo "# Custom CLI agent: $name ($persona)" >> "$OUTPUT_FILE"
-            echo "${var_upper}_CMD=$cmd" >> "$OUTPUT_FILE"
+            var_upper=$(to_upper "${CUSTOM_NAMES[$i]}")
+            echo "# Custom CLI agent: ${CUSTOM_NAMES[$i]} (${CUSTOM_PERSONAS[$i]})" >> "$OUTPUT_FILE"
+            echo "${var_upper}_CMD=${CUSTOM_CMDS[$i]}" >> "$OUTPUT_FILE"
             echo "ENABLE_${var_upper}=true" >> "$OUTPUT_FILE"
         done
     fi
@@ -669,27 +678,64 @@ HEADER
         emit_env_section "CUSTOM API AGENTS"
 
         for i in "${!CUSTOM_API_NAMES[@]}"; do
-            local name="${CUSTOM_API_NAMES[$i]}"
-            local url="${CUSTOM_API_URLS[$i]}"
-            local key="${CUSTOM_API_KEYS[$i]}"
-            local model="${CUSTOM_API_MODELS[$i]}"
-            local persona="${CUSTOM_API_PERSONAS[$i]}"
-            local format="${CUSTOM_API_FORMATS[$i]}"
             local var_upper
-            var_upper=$(echo "$name" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
-
-            echo "# Custom API agent: $name" >> "$OUTPUT_FILE"
-            echo "# Persona: $persona" >> "$OUTPUT_FILE"
-            echo "${var_upper}_API_KEY=$key" >> "$OUTPUT_FILE"
-            echo "${var_upper}_API_URL=$url" >> "$OUTPUT_FILE"
-            echo "${var_upper}_MODEL=$model" >> "$OUTPUT_FILE"
-            echo "${var_upper}_TIMEOUT=180" >> "$OUTPUT_FILE"
-            echo "${var_upper}_FORMAT=$format" >> "$OUTPUT_FILE"
-            echo "${var_upper}_PERSONA=\"$persona\"" >> "$OUTPUT_FILE"
-            echo "ENABLE_${var_upper}=true" >> "$OUTPUT_FILE"
-            echo "" >> "$OUTPUT_FILE"
+            var_upper=$(to_upper "${CUSTOM_API_NAMES[$i]}")
+            {
+                echo "# Custom API agent: ${CUSTOM_API_NAMES[$i]}"
+                echo "# Persona: ${CUSTOM_API_PERSONAS[$i]}"
+                echo "${var_upper}_API_KEY=${CUSTOM_API_KEYS[$i]}"
+                echo "${var_upper}_API_URL=${CUSTOM_API_URLS[$i]}"
+                echo "${var_upper}_MODEL=${CUSTOM_API_MODELS[$i]}"
+                echo "${var_upper}_TIMEOUT=180"
+                echo "${var_upper}_FORMAT=${CUSTOM_API_FORMATS[$i]}"
+                echo "${var_upper}_PERSONA=\"${CUSTOM_API_PERSONAS[$i]}\""
+                echo "ENABLE_${var_upper}=true"
+                echo ""
+            } >> "$OUTPUT_FILE"
         done
     fi
+
+    # Persona assignments (only output non-default assignments)
+    emit_env_section "PERSONA ASSIGNMENTS"
+    {
+        echo "# Default personas are used unless overridden here"
+        echo "# Persona IDs: 1=Architect, 2=Pragmatist, 3=Devil's Advocate, 4=Innovator,"
+        echo "# 5=Integrator, 6=Analyst, 7=Methodologist, 8=Provocateur, 9=Mentor,"
+        echo "# 10=Optimizer, 11=Security Expert, 12=Minimalist, 13=DX Advocate,"
+        echo "# 14=Debugger, 15=Reviewer"
+        echo ""
+    } >> "$OUTPUT_FILE"
+
+    # Helper to write persona assignment if non-default
+    _write_persona_if_changed() {
+        local name_upper="$1" persona_id="$2" default_id="$3" custom_text="$4"
+        if [[ "$persona_id" == "0" && -n "$custom_text" ]]; then
+            echo "${name_upper}_PERSONA=\"$custom_text\"" >> "$OUTPUT_FILE"
+        elif [[ "$persona_id" != "$default_id" ]]; then
+            echo "${name_upper}_PERSONA_ID=$persona_id" >> "$OUTPUT_FILE"
+        fi
+    }
+
+    # CLI agent personas
+    for i in "${!CLI_AGENT_NAMES[@]}"; do
+        [[ "${CLI_ENABLED[$i]}" != "true" ]] && continue
+        _write_persona_if_changed "$(to_upper "${CLI_AGENT_NAMES[$i]}")" \
+            "${CLI_PERSONA_IDS[$i]}" "${CLI_DEFAULT_PERSONA_IDS[$i]}" "${CLI_AGENT_PERSONAS[$i]:-}"
+    done
+
+    # API agent personas
+    for i in "${!API_AGENT_NAMES[@]}"; do
+        [[ "${API_ENABLED[$i]}" != "true" ]] && continue
+        _write_persona_if_changed "$(to_upper "${API_AGENT_NAMES[$i]}")" \
+            "${API_PERSONA_IDS[$i]}" "${API_DEFAULT_PERSONA_IDS[$i]}" "${API_AGENT_PERSONAS[$i]:-}"
+    done
+
+    # Custom CLI agent personas
+    for i in "${!CUSTOM_NAMES[@]}"; do
+        [[ ${#CUSTOM_PERSONA_IDS[@]} -le $i ]] && continue
+        _write_persona_if_changed "$(to_upper "${CUSTOM_NAMES[$i]}")" \
+            "${CUSTOM_PERSONA_IDS[$i]}" "1" "${CUSTOM_PERSONAS[$i]:-}"
+    done
 
     # Default configuration from template
     cat >> "$OUTPUT_FILE" << 'DEFAULTS'
@@ -773,6 +819,208 @@ DEFAULTS
 }
 
 # =============================================================================
+# PERSONA CONFIGURATION
+# =============================================================================
+
+configure_personas() {
+    print_section "Configure Personas"
+
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        log_info "Using default personas (non-interactive mode)"
+        return
+    fi
+
+    echo "Each agent can have a different persona that shapes its response style."
+    echo "Default personas are pre-configured, but you can customize them."
+    echo ""
+
+    if ! confirm "Customize agent personas?" "n"; then
+        return
+    fi
+
+    local done_personas=false
+    while [[ "$done_personas" != "true" ]]; do
+        echo ""
+        echo "Enabled agents and their personas:"
+        echo ""
+
+        local menu_idx=1
+        local agent_list=()  # Track: "type|index" (e.g., "cli|0", "api|2")
+
+        # List CLI agents
+        for i in "${!CLI_AGENT_NAMES[@]}"; do
+            if [[ "${CLI_ENABLED[$i]}" == "true" ]]; then
+                local name="${CLI_AGENT_NAMES[$i]}"
+                local persona_id="${CLI_PERSONA_IDS[$i]}"
+                local persona_name
+                persona_name=$(get_persona_by_id "$persona_id" "name" 2>/dev/null || echo "Unknown")
+                printf "  %2s) %-12s - %s\n" "$menu_idx" "$name" "$persona_name"
+                agent_list+=("cli|$i")
+                ((menu_idx++)) || true
+            fi
+        done
+
+        # List API agents
+        for i in "${!API_AGENT_NAMES[@]}"; do
+            if [[ "${API_ENABLED[$i]}" == "true" ]]; then
+                local name="${API_AGENT_NAMES[$i]}"
+                local persona_id="${API_PERSONA_IDS[$i]}"
+                local persona_name
+                persona_name=$(get_persona_by_id "$persona_id" "name" 2>/dev/null || echo "Unknown")
+                printf "  %2s) %-12s - %s\n" "$menu_idx" "$name" "$persona_name"
+                agent_list+=("api|$i")
+                ((menu_idx++)) || true
+            fi
+        done
+
+        # List custom CLI agents
+        for i in "${!CUSTOM_NAMES[@]}"; do
+            local name="${CUSTOM_NAMES[$i]}"
+            local persona_id="${CUSTOM_PERSONA_IDS[$i]:-1}"
+            local persona_name
+            persona_name=$(get_persona_by_id "$persona_id" "name" 2>/dev/null || echo "Custom")
+            printf "  %2s) %-12s - %s (custom)\n" "$menu_idx" "$name" "$persona_name"
+            agent_list+=("custom_cli|$i")
+            ((menu_idx++)) || true
+        done
+
+        # List custom API agents
+        for i in "${!CUSTOM_API_NAMES[@]}"; do
+            local name="${CUSTOM_API_NAMES[$i]}"
+            local persona_id="${CUSTOM_API_PERSONA_IDS[$i]:-1}"
+            local persona_name
+            persona_name=$(get_persona_by_id "$persona_id" "name" 2>/dev/null || echo "Custom")
+            printf "  %2s) %-12s - %s (custom API)\n" "$menu_idx" "$name" "$persona_name"
+            agent_list+=("custom_api|$i")
+            ((menu_idx++)) || true
+        done
+
+        echo ""
+        echo "   d) Done with persona configuration"
+        echo ""
+
+        read -r -p "Select agent to change persona (or 'd' for done): " choice
+
+        if [[ "$choice" == "d" || "$choice" == "D" ]]; then
+            done_personas=true
+            continue
+        fi
+
+        # Validate selection
+        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [[ $choice -lt 1 ]] || [[ $choice -gt ${#agent_list[@]} ]]; then
+            log_warn "Invalid selection"
+            continue
+        fi
+
+        # Get selected agent info
+        local selected="${agent_list[$((choice-1))]}"
+        local agent_type="${selected%%|*}"
+        local agent_idx="${selected##*|}"
+
+        local agent_name
+        case "$agent_type" in
+            cli) agent_name="${CLI_AGENT_NAMES[$agent_idx]}" ;;
+            api) agent_name="${API_AGENT_NAMES[$agent_idx]}" ;;
+            custom_cli) agent_name="${CUSTOM_NAMES[$agent_idx]}" ;;
+            custom_api) agent_name="${CUSTOM_API_NAMES[$agent_idx]}" ;;
+        esac
+
+        # Show persona selection menu
+        _select_persona_for_agent "$agent_type" "$agent_idx" "$agent_name"
+    done
+
+    log_success "Persona configuration complete"
+}
+
+# Internal: Select a persona for a specific agent
+_select_persona_for_agent() {
+    local agent_type="$1"
+    local agent_idx="$2"
+    local agent_name="$3"
+
+    echo ""
+    echo "Select persona for $agent_name:"
+    echo ""
+
+    # Get current persona ID
+    local current_id
+    case "$agent_type" in
+        cli) current_id="${CLI_PERSONA_IDS[$agent_idx]}" ;;
+        api) current_id="${API_PERSONA_IDS[$agent_idx]}" ;;
+        custom_cli) current_id="${CUSTOM_PERSONA_IDS[$agent_idx]:-1}" ;;
+        custom_api) current_id="${CUSTOM_API_PERSONA_IDS[$agent_idx]:-1}" ;;
+    esac
+
+    # Display persona catalog
+    echo "$PERSONA_CATALOG" | grep -v '^$' | while IFS='|' read -r id name var desc; do
+        local marker="  "
+        [[ "$id" == "$current_id" ]] && marker="* "
+        printf "  %s%2s) %-22s - %s\n" "$marker" "$id" "$name" "$desc"
+    done
+
+    echo ""
+    echo "   c) Enter custom persona text"
+    echo ""
+
+    read -r -p "Choice [$current_id]: " persona_choice
+    persona_choice="${persona_choice:-$current_id}"
+
+    if [[ "$persona_choice" == "c" || "$persona_choice" == "C" ]]; then
+        prompt_input "Enter custom persona description" ""
+        local custom_text="$REPLY"
+        if [[ -n "$custom_text" ]]; then
+            # For custom text, we store it differently - use ID 0 to indicate custom
+            case "$agent_type" in
+                cli)
+                    CLI_PERSONA_IDS[$agent_idx]="0"
+                    CLI_AGENT_PERSONAS[$agent_idx]="$custom_text"
+                    ;;
+                api)
+                    API_PERSONA_IDS[$agent_idx]="0"
+                    API_AGENT_PERSONAS[$agent_idx]="$custom_text"
+                    ;;
+                custom_cli)
+                    CUSTOM_PERSONA_IDS[$agent_idx]="0"
+                    CUSTOM_PERSONAS[$agent_idx]="$custom_text"
+                    ;;
+                custom_api)
+                    CUSTOM_API_PERSONA_IDS[$agent_idx]="0"
+                    CUSTOM_API_PERSONAS[$agent_idx]="$custom_text"
+                    ;;
+            esac
+            log_success "$agent_name: Custom persona set"
+        fi
+        return
+    fi
+
+    # Validate persona ID selection
+    if [[ "$persona_choice" =~ ^[0-9]+$ ]] && [[ $persona_choice -ge 1 ]] && [[ $persona_choice -le 15 ]]; then
+        case "$agent_type" in
+            cli) CLI_PERSONA_IDS[$agent_idx]="$persona_choice" ;;
+            api) API_PERSONA_IDS[$agent_idx]="$persona_choice" ;;
+            custom_cli)
+                # Ensure array is large enough
+                while [[ ${#CUSTOM_PERSONA_IDS[@]} -le $agent_idx ]]; do
+                    CUSTOM_PERSONA_IDS+=("1")
+                done
+                CUSTOM_PERSONA_IDS[$agent_idx]="$persona_choice"
+                ;;
+            custom_api)
+                while [[ ${#CUSTOM_API_PERSONA_IDS[@]} -le $agent_idx ]]; do
+                    CUSTOM_API_PERSONA_IDS+=("1")
+                done
+                CUSTOM_API_PERSONA_IDS[$agent_idx]="$persona_choice"
+                ;;
+        esac
+        local new_name
+        new_name=$(get_persona_by_id "$persona_choice" "name")
+        log_success "$agent_name: Persona changed to $new_name"
+    else
+        log_warn "Invalid selection, keeping current persona"
+    fi
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -792,13 +1040,16 @@ main() {
     # Step 3: Configure API agents
     configure_api_agents
 
-    # Step 4: Validate (minimum 2 agents)
+    # Step 4: Configure personas
+    configure_personas
+
+    # Step 5: Validate (minimum 2 agents)
     if ! validate_configuration; then
         log_error "Configuration incomplete. At least 2 agents required."
         exit 1
     fi
 
-    # Step 5: Save
+    # Step 6: Save
     if [[ "$NON_INTERACTIVE" == "true" ]] || confirm "Save configuration to $OUTPUT_FILE?" "y"; then
         save_configuration
     else
@@ -813,15 +1064,11 @@ main() {
     for i in "${!CLI_AGENT_NAMES[@]}"; do
         [[ "${CLI_ENABLED[$i]}" == "true" ]] && echo "  [CLI] ${CLI_AGENT_NAMES[$i]}"
     done
-    for i in "${!CUSTOM_NAMES[@]}"; do
-        echo "  [CLI] ${CUSTOM_NAMES[$i]} (custom)"
-    done
+    for name in "${CUSTOM_NAMES[@]}"; do echo "  [CLI] $name (custom)"; done
     for i in "${!API_AGENT_NAMES[@]}"; do
         [[ "${API_ENABLED[$i]}" == "true" ]] && echo "  [API] ${API_AGENT_NAMES[$i]}"
     done
-    for i in "${!CUSTOM_API_NAMES[@]}"; do
-        echo "  [API] ${CUSTOM_API_NAMES[$i]} (custom)"
-    done
+    for name in "${CUSTOM_API_NAMES[@]}"; do echo "  [API] $name (custom)"; done
 
     echo ""
     echo "Next steps:"
