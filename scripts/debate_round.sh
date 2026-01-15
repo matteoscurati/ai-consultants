@@ -140,7 +140,9 @@ run_debate_round() {
     log_info "Starting debate round $ROUND_NUMBER for ${#consultants[@]} consultants..."
 
     for consultant in "${consultants[@]}"; do
-        local response_file="$RESPONSES_DIR/${consultant,,}.json"
+        local consultant_lower
+        consultant_lower=$(to_lower "$consultant")
+        local response_file="$RESPONSES_DIR/${consultant_lower}.json"
 
         # Skip if no previous round response
         if [[ ! -f "$response_file" || ! -s "$response_file" ]]; then
@@ -148,7 +150,7 @@ run_debate_round() {
             continue
         fi
 
-        local output_file="$OUTPUT_DIR/${consultant,,}.json"
+        local output_file="$OUTPUT_DIR/${consultant_lower}.json"
         output_files+=("$output_file")
 
         # Build debate prompt
@@ -156,7 +158,8 @@ run_debate_round() {
 
         # Execute query in background
         (
-            local start_time=$(date +%s%3N 2>/dev/null || date +%s000)
+            local start_time
+            start_time=$(get_timestamp_ms)
 
             case "$consultant" in
                 Gemini)
@@ -181,7 +184,8 @@ run_debate_round() {
                     ;;
             esac
 
-            local end_time=$(date +%s%3N 2>/dev/null || date +%s000)
+            local end_time
+            end_time=$(get_timestamp_ms)
             local latency=$((end_time - start_time))
 
             # Add debate metadata to result
