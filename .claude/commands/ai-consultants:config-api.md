@@ -23,13 +23,12 @@ Configure API-based consultants. These require API keys but no CLI installation.
 ### Step 1: Show Current Status
 
 ```bash
-cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && source scripts/config.sh
+ENV_FILE="${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}/.env"
 echo "=== API Consultant Status ==="
 for provider in QWEN3 GLM GROK; do
-  enabled_var="ENABLE_$provider"
-  key_var="${provider}_API_KEY"
-  model_var="${provider}_MODEL"
-  echo "$provider: ${!enabled_var:-false} (API key: $([ -n \"${!key_var}\" ] && echo 'set' || echo 'not set'))"
+  enabled=$(grep "^ENABLE_${provider}=" "$ENV_FILE" 2>/dev/null | cut -d= -f2 || echo "false")
+  has_key=$(grep "^${provider}_API_KEY=" "$ENV_FILE" 2>/dev/null | grep -v '=$' > /dev/null && echo "set" || echo "not set")
+  echo "$provider: ${enabled:-false} (API key: $has_key)"
 done
 ```
 
