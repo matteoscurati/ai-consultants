@@ -17,10 +17,8 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 ## How It Works
 
 1. You ask a coding question
-2. The system queries 2-5 AI consultants in parallel (Gemini, Codex, Mistral, Kilo, Cursor)
-3. Each consultant responds with their unique persona perspective
-4. Responses are synthesized into a weighted recommendation
-5. You get diverse viewpoints + a consensus summary
+2. Multiple AI consultants respond in parallel with their unique perspectives
+3. Responses are synthesized into a weighted recommendation with consensus summary
 
 ## Available Commands
 
@@ -28,8 +26,7 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 
 | Command | Description |
 |---------|-------------|
-| `/ai-consultants:consult` | Ask AI consultants a coding question |
-| `/ai-consultants:ask-experts` | Alias for consult |
+| `/ai-consultants:consult` | Ask AI consultants a coding question (alias: `ask-experts`) |
 | `/ai-consultants:debate` | Run consultation with multi-round debate |
 
 ### Configuration Commands
@@ -67,14 +64,8 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 ## Examples
 
 ```
-# Simple question
 /ai-consultants:consult "How to optimize this SQL query?"
-
-# With file context
 /ai-consultants:consult "Review this code" src/utils.ts
-
-# Enable debate mode first, then consult
-/ai-consultants:config-features  # Enable DEBATE
 /ai-consultants:debate "Microservices vs monolith?"
 ```
 
@@ -95,5 +86,4 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 
 ## More Info
 
-- Repository: https://github.com/matteoscurati/ai-consultants
-- Full docs: See README.md and SKILL.md in the repository
+See [README.md](https://github.com/matteoscurati/ai-consultants) for full documentation.
