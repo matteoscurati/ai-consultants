@@ -23,81 +23,47 @@ source "$SCRIPT_DIR_API_QUERY/personas.sh"
 # Usage: get_api_config <consultant_name> <config_key>
 # Returns: The configuration value
 #
-# Supports:
-#   - Predefined consultants: Qwen3, GLM, Grok
-#   - Custom consultants via environment variables: {NAME}_MODEL, {NAME}_API_URL, etc.
+# Supports all API consultants via environment variable convention:
+#   {NAME}_MODEL, {NAME}_API_URL, {NAME}_API_KEY, {NAME}_FORMAT, {NAME}_TIMEOUT
+#
+# Predefined agents (Qwen3, GLM, Grok) have defaults set in config.sh
 get_api_config() {
     local consultant="$1"
     local key="$2"
 
-    case "$consultant" in
-        Qwen3|qwen3)
-            case "$key" in
-                model) echo "$QWEN3_MODEL" ;;
-                timeout) echo "$QWEN3_TIMEOUT_SECONDS" ;;
-                api_url) echo "$QWEN3_API_URL" ;;
-                api_key_var) echo "QWEN3_API_KEY" ;;
-                response_format) echo "qwen" ;;
-                default_output) echo "/tmp/qwen3_response.json" ;;
-            esac
-            ;;
-        GLM|glm)
-            case "$key" in
-                model) echo "$GLM_MODEL" ;;
-                timeout) echo "$GLM_TIMEOUT_SECONDS" ;;
-                api_url) echo "$GLM_API_URL" ;;
-                api_key_var) echo "GLM_API_KEY" ;;
-                response_format) echo "openai" ;;
-                default_output) echo "/tmp/glm_response.json" ;;
-            esac
-            ;;
-        Grok|grok)
-            case "$key" in
-                model) echo "$GROK_MODEL" ;;
-                timeout) echo "$GROK_TIMEOUT_SECONDS" ;;
-                api_url) echo "$GROK_API_URL" ;;
-                api_key_var) echo "GROK_API_KEY" ;;
-                response_format) echo "openai" ;;
-                default_output) echo "/tmp/grok_response.json" ;;
-            esac
-            ;;
-        *)
-            # Dynamic lookup for custom API agents
-            # Convention: {NAME}_MODEL, {NAME}_API_URL, {NAME}_API_KEY, {NAME}_FORMAT
-            local upper
-            upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
-            local lower
-            lower=$(echo "$consultant" | tr '[:upper:]' '[:lower:]' | tr ' -' '_')
+    # Use helper functions from common.sh for case normalization
+    local upper
+    upper=$(to_upper "$consultant")
+    local lower
+    lower=$(to_lower "$consultant")
 
-            case "$key" in
-                model)
-                    local var="${upper}_MODEL"
-                    echo "${!var:-gpt-4}"
-                    ;;
-                timeout)
-                    local var="${upper}_TIMEOUT"
-                    echo "${!var:-180}"
-                    ;;
-                api_url)
-                    local var="${upper}_API_URL"
-                    local url="${!var:-}"
-                    if [[ -z "$url" ]]; then
-                        log_error "[$consultant] API URL not configured: ${var}"
-                        return 1
-                    fi
-                    echo "$url"
-                    ;;
-                api_key_var)
-                    echo "${upper}_API_KEY"
-                    ;;
-                response_format)
-                    local var="${upper}_FORMAT"
-                    echo "${!var:-openai}"
-                    ;;
-                default_output)
-                    echo "/tmp/${lower}_response.json"
-                    ;;
-            esac
+    case "$key" in
+        model)
+            local var="${upper}_MODEL"
+            echo "${!var:-gpt-4}"
+            ;;
+        timeout)
+            local var="${upper}_TIMEOUT"
+            echo "${!var:-180}"
+            ;;
+        api_url)
+            local var="${upper}_API_URL"
+            local url="${!var:-}"
+            if [[ -z "$url" ]]; then
+                log_error "[$consultant] API URL not configured: ${var}"
+                return 1
+            fi
+            echo "$url"
+            ;;
+        api_key_var)
+            echo "${upper}_API_KEY"
+            ;;
+        response_format)
+            local var="${upper}_FORMAT"
+            echo "${!var:-openai}"
+            ;;
+        default_output)
+            echo "/tmp/${lower}_response.json"
             ;;
     esac
 }

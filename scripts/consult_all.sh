@@ -33,38 +33,22 @@ source "$SCRIPT_DIR/lib/routing.sh"
 # Discovers custom API agents from environment variables
 # Convention: ENABLE_AGENTNAME=true with AGENTNAME_API_URL set
 _discover_custom_api_agents() {
-    # Known predefined agents (to skip)
-    local known_agents="GEMINI CODEX MISTRAL KILO CURSOR QWEN3 GLM GROK"
-    known_agents="$known_agents PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION"
-    known_agents="$known_agents SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
-
-    # Scan for ENABLE_*=true patterns
     while IFS='=' read -r var value; do
-        # Skip if not an ENABLE_ variable
         [[ "$var" != ENABLE_* ]] && continue
-        # Skip if not set to true
         [[ "$value" != "true" ]] && continue
 
-        # Extract agent name from ENABLE_AGENTNAME
         local agent_upper="${var#ENABLE_}"
 
-        # Skip known/predefined agents
-        local is_known=false
-        for known in $known_agents; do
-            [[ "$agent_upper" == "$known" ]] && is_known=true && break
-        done
-        [[ "$is_known" == "true" ]] && continue
+        # Skip known agents (uses helper from common.sh)
+        is_known_agent "$agent_upper" && continue
 
         # Check if it has an API URL configured (indicates it's an API agent)
         local url_var="${agent_upper}_API_URL"
-        local api_url="${!url_var:-}"
-        [[ -z "$api_url" ]] && continue
+        [[ -z "${!url_var:-}" ]] && continue
 
-        # This is a custom API agent - add it
-        # Convert to proper case (first letter uppercase, rest lowercase)
-        # Using awk for portable case conversion
+        # Add custom API agent with proper case
         local agent_name
-        agent_name=$(echo "$agent_upper" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')
+        agent_name=$(to_title "$agent_upper")
         SELECTED_CONSULTANTS+=("$agent_name")
         log_debug "Discovered custom API agent: $agent_name"
     done < <(env)

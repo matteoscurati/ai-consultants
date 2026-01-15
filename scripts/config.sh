@@ -60,7 +60,9 @@ CURSOR_CMD="${CURSOR_CMD:-agent}"
 
 QWEN3_MODEL="${QWEN3_MODEL:-qwen-max}"
 QWEN3_TIMEOUT_SECONDS="${QWEN3_TIMEOUT:-180}"
+QWEN3_TIMEOUT="${QWEN3_TIMEOUT:-180}"  # Alias for dynamic lookup
 QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
+QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"   # Response format (qwen vs openai)
 # API key: Set QWEN3_API_KEY environment variable
 
 # =============================================================================
@@ -69,7 +71,9 @@ QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/a
 
 GLM_MODEL="${GLM_MODEL:-glm-4}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
+GLM_TIMEOUT="${GLM_TIMEOUT:-180}"      # Alias for dynamic lookup
 GLM_API_URL="${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}"
+GLM_FORMAT="${GLM_FORMAT:-openai}"     # Response format
 # API key: Set GLM_API_KEY environment variable
 
 # =============================================================================
@@ -78,7 +82,9 @@ GLM_API_URL="${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completion
 
 GROK_MODEL="${GROK_MODEL:-grok-beta}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
+GROK_TIMEOUT="${GROK_TIMEOUT:-180}"    # Alias for dynamic lookup
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
+GROK_FORMAT="${GROK_FORMAT:-openai}"   # Response format
 # API key: Set GROK_API_KEY environment variable
 
 # =============================================================================

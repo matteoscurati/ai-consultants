@@ -182,6 +182,48 @@ run_query() {
 }
 
 # =============================================================================
+# CASE NORMALIZATION HELPERS
+# =============================================================================
+
+# Convert string to uppercase (portable - works on Bash 3.2+)
+# Usage: to_upper "string"
+to_upper() {
+    echo "$1" | tr '[:lower:]' '[:upper:]' | tr -d ' -'
+}
+
+# Convert string to lowercase (portable - works on Bash 3.2+)
+# Usage: to_lower "string"
+to_lower() {
+    echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' -' '_'
+}
+
+# Convert to title case (first letter uppercase, rest lowercase)
+# Usage: to_title "STRING" => "String"
+to_title() {
+    echo "$1" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}'
+}
+
+# =============================================================================
+# KNOWN AGENTS REGISTRY
+# =============================================================================
+
+# Central list of known/predefined agents (to distinguish from custom ones)
+# This list is used by discovery functions to identify custom agents
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR"
+KNOWN_API_AGENTS="QWEN3 GLM GROK"
+KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
+
+# Check if an agent name is a known predefined agent
+# Usage: is_known_agent "AGENTNAME"
+is_known_agent() {
+    local agent_upper="$1"
+    for known in $KNOWN_CLI_AGENTS $KNOWN_API_AGENTS $KNOWN_FEATURE_FLAGS; do
+        [[ "$agent_upper" == "$known" ]] && return 0
+    done
+    return 1
+}
+
+# =============================================================================
 # UTILITY
 # =============================================================================
 

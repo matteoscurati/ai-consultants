@@ -180,53 +180,48 @@ Do NOT include text outside of the JSON. Only valid JSON.'
 # HELPER FUNCTIONS
 # =============================================================================
 
+# Internal lookup table for predefined personas
+# Format: CONSULTANT_UPPER|persona_var|persona_name
+_PERSONA_LOOKUP="
+GEMINI|PERSONA_GEMINI|The Architect
+CODEX|PERSONA_CODEX|The Pragmatist
+MISTRAL|PERSONA_MISTRAL|The Devil's Advocate
+KILO|PERSONA_KILO|The Innovator
+CURSOR|PERSONA_CURSOR|The Integrator
+QWEN3|PERSONA_QWEN3|The Analyst
+GLM|PERSONA_GLM|The Methodologist
+GROK|PERSONA_GROK|The Provocateur
+"
+
 # Get the persona prompt for a specific consultant
 # Usage: get_persona "Gemini"
 # Supports custom agents via {NAME}_PERSONA environment variable
 get_persona() {
     local consultant="$1"
+    local upper
+    upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
 
-    case "$consultant" in
-        Gemini|gemini)
-            echo "$PERSONA_GEMINI"
-            ;;
-        Codex|codex)
-            echo "$PERSONA_CODEX"
-            ;;
-        Mistral|mistral)
-            echo "$PERSONA_MISTRAL"
-            ;;
-        Kilo|kilo)
-            echo "$PERSONA_KILO"
-            ;;
-        Cursor|cursor)
-            echo "$PERSONA_CURSOR"
-            ;;
-        Qwen3|qwen3|QWEN3)
-            echo "$PERSONA_QWEN3"
-            ;;
-        GLM|glm|Glm)
-            echo "$PERSONA_GLM"
-            ;;
-        Grok|grok|GROK)
-            echo "$PERSONA_GROK"
-            ;;
-        *)
-            # Try dynamic lookup for custom agents
-            local upper
-            upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
-            local persona_var="${upper}_PERSONA"
-            local custom_persona="${!persona_var:-}"
-            if [[ -n "$custom_persona" ]]; then
-                echo "$custom_persona"
-            else
-                # Default generic persona
-                echo "You are an AI consultant providing expert technical advice.
+    # Check predefined personas
+    local match
+    match=$(echo "$_PERSONA_LOOKUP" | grep "^${upper}|" | head -1)
+    if [[ -n "$match" ]]; then
+        local var_name
+        var_name=$(echo "$match" | cut -d'|' -f2)
+        echo "${!var_name}"
+        return
+    fi
+
+    # Try dynamic lookup for custom agents
+    local persona_var="${upper}_PERSONA"
+    local custom_persona="${!persona_var:-}"
+    if [[ -n "$custom_persona" ]]; then
+        echo "$custom_persona"
+    else
+        # Default generic persona
+        echo "You are an AI consultant providing expert technical advice.
 Focus on clarity, accuracy, and actionable recommendations.
 Consider trade-offs and provide balanced analysis."
-            fi
-            ;;
-    esac
+    fi
 }
 
 # Get persona name/title for a consultant
@@ -234,45 +229,25 @@ Consider trade-offs and provide balanced analysis."
 # Supports custom agents via {NAME}_PERSONA_NAME environment variable
 get_persona_name() {
     local consultant="$1"
+    local upper
+    upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
 
-    case "$consultant" in
-        Gemini|gemini)
-            echo "The Architect"
-            ;;
-        Codex|codex)
-            echo "The Pragmatist"
-            ;;
-        Mistral|mistral)
-            echo "The Devil's Advocate"
-            ;;
-        Kilo|kilo)
-            echo "The Innovator"
-            ;;
-        Cursor|cursor)
-            echo "The Integrator"
-            ;;
-        Qwen3|qwen3|QWEN3)
-            echo "The Analyst"
-            ;;
-        GLM|glm|Glm)
-            echo "The Methodologist"
-            ;;
-        Grok|grok|GROK)
-            echo "The Provocateur"
-            ;;
-        *)
-            # Try dynamic lookup for custom agents
-            local upper
-            upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
-            local name_var="${upper}_PERSONA_NAME"
-            local custom_name="${!name_var:-}"
-            if [[ -n "$custom_name" ]]; then
-                echo "$custom_name"
-            else
-                echo "External Consultant"
-            fi
-            ;;
-    esac
+    # Check predefined personas
+    local match
+    match=$(echo "$_PERSONA_LOOKUP" | grep "^${upper}|" | head -1)
+    if [[ -n "$match" ]]; then
+        echo "$match" | cut -d'|' -f3
+        return
+    fi
+
+    # Try dynamic lookup for custom agents
+    local name_var="${upper}_PERSONA_NAME"
+    local custom_name="${!name_var:-}"
+    if [[ -n "$custom_name" ]]; then
+        echo "$custom_name"
+    else
+        echo "External Consultant"
+    fi
 }
 
 # Build complete system prompt with persona + output format

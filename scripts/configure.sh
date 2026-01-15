@@ -131,6 +131,20 @@ print_section() {
     echo ""
 }
 
+# Emit a section header to .env file
+# Usage: emit_env_section "SECTION TITLE" [file]
+emit_env_section() {
+    local title="$1"
+    local file="${2:-$OUTPUT_FILE}"
+    {
+        echo ""
+        echo "# ============================================================================="
+        echo "# $title"
+        echo "# ============================================================================="
+        echo ""
+    } >> "$file"
+}
+
 # Prompt yes/no
 confirm() {
     local prompt="$1"
@@ -596,13 +610,8 @@ save_configuration() {
 HEADER
 
     # CLI Agents
-    {
-        echo "# ============================================================================="
-        echo "# ENABLED CONSULTANTS"
-        echo "# ============================================================================="
-        echo ""
-        echo "# CLI-based consultants"
-    } >> "$OUTPUT_FILE"
+    emit_env_section "ENABLED CONSULTANTS"
+    echo "# CLI-based consultants" >> "$OUTPUT_FILE"
 
     for i in "${!CLI_AGENT_NAMES[@]}"; do
         local name="${CLI_AGENT_NAMES[$i]}"
@@ -630,13 +639,7 @@ HEADER
     done
 
     # API Keys
-    {
-        echo ""
-        echo "# ============================================================================="
-        echo "# API KEYS"
-        echo "# ============================================================================="
-        echo ""
-    } >> "$OUTPUT_FILE"
+    emit_env_section "API KEYS"
 
     for i in "${!API_AGENT_NAMES[@]}"; do
         if [[ -n "${API_KEYS_VALUES[$i]}" ]]; then
@@ -647,13 +650,7 @@ HEADER
 
     # Custom CLI agents
     if [[ ${#CUSTOM_NAMES[@]} -gt 0 ]]; then
-        {
-            echo ""
-            echo "# ============================================================================="
-            echo "# CUSTOM CLI AGENTS"
-            echo "# ============================================================================="
-            echo ""
-        } >> "$OUTPUT_FILE"
+        emit_env_section "CUSTOM CLI AGENTS"
 
         for i in "${!CUSTOM_NAMES[@]}"; do
             local name="${CUSTOM_NAMES[$i]}"
@@ -669,13 +666,7 @@ HEADER
 
     # Custom API agents
     if [[ ${#CUSTOM_API_NAMES[@]} -gt 0 ]]; then
-        {
-            echo ""
-            echo "# ============================================================================="
-            echo "# CUSTOM API AGENTS"
-            echo "# ============================================================================="
-            echo ""
-        } >> "$OUTPUT_FILE"
+        emit_env_section "CUSTOM API AGENTS"
 
         for i in "${!CUSTOM_API_NAMES[@]}"; do
             local name="${CUSTOM_API_NAMES[$i]}"
