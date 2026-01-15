@@ -103,6 +103,18 @@ cp .env.example .env
 
 **Note**: At least 2 consultants must be enabled for comparison and voting to work.
 
+### Update & Uninstall
+
+**Update to latest version:**
+```bash
+cd ~/.claude/skills/ai-consultants && git pull
+```
+
+**Uninstall:**
+```bash
+rm -rf ~/.claude/skills/ai-consultants
+```
+
 ### Basic Usage
 
 ```bash

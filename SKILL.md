@@ -76,6 +76,18 @@ For detailed setup instructions, see [docs/SETUP.md](docs/SETUP.md).
 
 If you don't have all CLIs, the wizard will auto-detect and enable only installed ones.
 
+### Update & Uninstall
+
+**Update:**
+```bash
+cd ~/.claude/skills/ai-consultants && git pull
+```
+
+**Uninstall:**
+```bash
+rm -rf ~/.claude/skills/ai-consultants
+```
+
 ## Quick Start (Claude Code)
 
 ```
