@@ -419,6 +419,46 @@ No special requirements. Ensure `timeout` command is available (usually pre-inst
 
 ---
 
+## Configuration via Claude Code
+
+If you're using AI Consultants as a Claude Code skill, you can configure it directly from the editor using slash commands:
+
+| Command | Description |
+|---------|-------------|
+| `/project:config-status` | View current configuration status |
+| `/project:config-check` | Run preflight check to verify CLI installations |
+| `/project:config-personas` | List and change persona assignments |
+| `/project:config-api` | Configure API-based consultants (Qwen3, GLM, Grok) |
+| `/project:config-wizard` | Run the full interactive wizard |
+
+### Example Workflow
+
+1. **Check current status:**
+   ```
+   /project:config-status
+   ```
+
+2. **Verify CLI installations:**
+   ```
+   /project:config-check
+   ```
+
+3. **Add an API consultant:**
+   ```
+   /project:config-api
+   ```
+   Then follow the prompts to add Qwen3, GLM, Grok, or a custom API.
+
+4. **Change a persona:**
+   ```
+   /project:config-personas
+   ```
+   Select a consultant and assign a new persona (1-15).
+
+Both Claude Code slash commands and terminal scripts write to the same `.env` file, so they are fully interoperable.
+
+---
+
 ## Next Steps
 
 After setup is complete:
