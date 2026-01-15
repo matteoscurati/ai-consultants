@@ -185,23 +185,31 @@ run_query() {
 }
 
 # =============================================================================
-# CASE NORMALIZATION HELPERS
+# TIMESTAMP UTILITIES
 # =============================================================================
+
+# Detect timestamp method once at source time (avoid repeated detection)
+if date +%s%3N 2>/dev/null | grep -qv 'N'; then
+    _TIMESTAMP_METHOD="gnu"
+elif command -v python3 &>/dev/null; then
+    _TIMESTAMP_METHOD="python"
+else
+    _TIMESTAMP_METHOD="posix"
+fi
 
 # Get current timestamp in milliseconds (portable - works on macOS and Linux)
 # Usage: get_timestamp_ms
 get_timestamp_ms() {
-    # Try GNU date with nanoseconds support first
-    if date +%s%3N 2>/dev/null | grep -qv 'N'; then
-        date +%s%3N
-    # Fallback to python3 for precision
-    elif command -v python3 &>/dev/null; then
-        python3 -c 'import time; print(int(time.time()*1000))'
-    # Last resort: seconds * 1000
-    else
-        echo "$(($(date +%s) * 1000))"
-    fi
+    case "$_TIMESTAMP_METHOD" in
+        gnu)    date +%s%3N ;;
+        python) python3 -c 'import time; print(int(time.time()*1000))' ;;
+        *)      echo "$(($(date +%s) * 1000))" ;;
+    esac
 }
+
+# =============================================================================
+# CASE NORMALIZATION HELPERS
+# =============================================================================
 
 # Convert string to uppercase (portable - works on Bash 3.2+)
 # Usage: to_upper "string"
