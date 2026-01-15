@@ -13,6 +13,79 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
+# =============================================================================
+# FALLBACK FUNCTION (defined before use)
+# =============================================================================
+
+generate_fallback_synthesis() {
+    local responses_dir="$1"
+
+    # Calculate basic statistics
+    local total_confidence=0
+    local count=0
+    local consultants_json="[]"
+
+    for f in "$responses_dir"/*.json; do
+        if [[ -f "$f" ]]; then
+            local conf=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
+            local name=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
+            total_confidence=$((total_confidence + conf))
+            count=$((count + 1))
+            consultants_json=$(echo "$consultants_json" | jq --arg n "$name" '. + [$n]')
+        fi
+    done
+
+    local avg_confidence=5
+    if [[ $count -gt 0 ]]; then
+        avg_confidence=$((total_confidence / count))
+    fi
+
+    jq -n \
+        --arg timestamp "$(date -Iseconds)" \
+        --argjson count "$count" \
+        --argjson avg_conf "$avg_confidence" \
+        --argjson consultants "$consultants_json" \
+        '{
+            synthesis_version: "2.0-fallback",
+            timestamp: $timestamp,
+            consultants_analyzed: $count,
+            consensus: {
+                score: 50,
+                level: "unknown",
+                description: "Automatic synthesis not available - manual analysis required",
+                agreed_points: [],
+                disagreed_points: []
+            },
+            weighted_recommendation: {
+                approach: "manual_review",
+                summary: "Manual review of responses required",
+                detailed: "Automatic synthesis was not possible. Please consult individual responses.",
+                confidence_weighted_score: $avg_conf,
+                supporting_consultants: $consultants,
+                dissenting_consultants: [],
+                incorporated_insights: []
+            },
+            comparison_table: [],
+            risk_assessment: {
+                overall_risk: "unknown",
+                risks: []
+            },
+            action_items: [
+                {
+                    priority: 1,
+                    action: "Manual review of responses",
+                    rationale: "Automatic synthesis not available"
+                }
+            ],
+            follow_up_questions: [],
+            fallback: true
+        }'
+}
+
+# =============================================================================
+# MAIN SCRIPT
+# =============================================================================
+
 # --- Parameters ---
 RESPONSES_DIR="${1:-}"
 OUTPUT_FILE="${2:-/tmp/synthesis.json}"
@@ -65,7 +138,7 @@ You are an expert meta-analyst. Analyze the responses from these AI consultants 
 ## Consultants and their Roles
 1. **Gemini (The Architect)**: Focus on design, scalability, enterprise patterns
 2. **Codex (The Pragmatist)**: Focus on simplicity, practical solutions, quick wins
-3. **Mistral (The Devil's Advocate)**: Focus on problems, edge cases, vulnerabilities
+3. **Mistral (The Devils Advocate)**: Focus on problems, edge cases, vulnerabilities
 4. **Kilo (The Innovator)**: Focus on creativity, unconventional approaches
 
 PROMPT_END
@@ -206,10 +279,11 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         # It's already valid JSON
         cat "$TEMP_OUTPUT" > "$OUTPUT_FILE"
     else
-        # Try to extract JSON from text
-        JSON_EXTRACTED=$(echo "$RAW_OUTPUT" | grep -Pzo '\{[\s\S]*\}' | head -1 || echo "")
+        # Try to extract JSON from text using sed (portable across macOS/Linux)
+        # This extracts from the first { to the last }
+        JSON_EXTRACTED=$(echo "$RAW_OUTPUT" | sed -n '/{/,/}/p' | tr '\n' ' ' || echo "")
         if [[ -n "$JSON_EXTRACTED" ]] && echo "$JSON_EXTRACTED" | jq -e '.' > /dev/null 2>&1; then
-            echo "$JSON_EXTRACTED" > "$OUTPUT_FILE"
+            echo "$JSON_EXTRACTED" | jq '.' > "$OUTPUT_FILE"
         else
             # Fallback: create minimal structure
             generate_fallback_synthesis "$RESPONSES_DIR" > "$OUTPUT_FILE"
@@ -226,72 +300,3 @@ else
     cat "$OUTPUT_FILE"
     exit 1
 fi
-
-# =============================================================================
-# FALLBACK FUNCTION
-# =============================================================================
-
-generate_fallback_synthesis() {
-    local responses_dir="$1"
-
-    # Calculate basic statistics
-    local total_confidence=0
-    local count=0
-    local consultants_json="[]"
-
-    for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" ]]; then
-            local conf=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
-            local name=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
-            total_confidence=$((total_confidence + conf))
-            count=$((count + 1))
-            consultants_json=$(echo "$consultants_json" | jq --arg n "$name" '. + [$n]')
-        fi
-    done
-
-    local avg_confidence=5
-    if [[ $count -gt 0 ]]; then
-        avg_confidence=$((total_confidence / count))
-    fi
-
-    jq -n \
-        --arg timestamp "$(date -Iseconds)" \
-        --argjson count "$count" \
-        --argjson avg_conf "$avg_confidence" \
-        --argjson consultants "$consultants_json" \
-        '{
-            synthesis_version: "2.0-fallback",
-            timestamp: $timestamp,
-            consultants_analyzed: $count,
-            consensus: {
-                score: 50,
-                level: "unknown",
-                description: "Automatic synthesis not available - manual analysis required",
-                agreed_points: [],
-                disagreed_points: []
-            },
-            weighted_recommendation: {
-                approach: "manual_review",
-                summary: "Manual review of responses required",
-                detailed: "Automatic synthesis was not possible. Please consult individual responses.",
-                confidence_weighted_score: $avg_conf,
-                supporting_consultants: $consultants,
-                dissenting_consultants: [],
-                incorporated_insights: []
-            },
-            comparison_table: [],
-            risk_assessment: {
-                overall_risk: "unknown",
-                risks: []
-            },
-            action_items: [
-                {
-                    priority: 1,
-                    action: "Manual review of responses",
-                    rationale: "Automatic synthesis not available"
-                }
-            ],
-            follow_up_questions: [],
-            fallback: true
-        }'
-}

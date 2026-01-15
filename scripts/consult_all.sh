@@ -86,9 +86,9 @@ echo "" >&2
 # --- Pre-flight Check (optional) ---
 if [[ "$ENABLE_PREFLIGHT" == "true" ]]; then
     log_info "Running pre-flight check..."
-    local preflight_args=()
+    preflight_args=()
     [[ "$PREFLIGHT_QUICK" == "true" ]] && preflight_args+=("--quick")
-    if ! "$SCRIPT_DIR/preflight_check.sh" "${preflight_args[@]}" > /dev/null 2>&1; then
+    if ! "$SCRIPT_DIR/preflight_check.sh" ${preflight_args[@]+"${preflight_args[@]}"} > /dev/null 2>&1; then
         log_error "Pre-flight check failed. Run ./preflight_check.sh for details."
         exit 1
     fi
