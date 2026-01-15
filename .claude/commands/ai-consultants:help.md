@@ -38,10 +38,10 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 | `/ai-consultants:config-status` | View current configuration |
 | `/ai-consultants:config-features` | Toggle features (Debate, Synthesis, Smart Routing) |
 | `/ai-consultants:config-personas` | Change consultant personas |
-| `/ai-consultants:config-api` | Configure API-based consultants (Qwen3, GLM, Grok) |
+| `/ai-consultants:config-api` | Configure API-based consultants (Qwen3, GLM, Grok, DeepSeek) |
 | `/ai-consultants:help` | Show this help |
 
-## Consultants & Personas
+## CLI Consultants
 
 | Consultant | CLI | Default Persona | Focus |
 |------------|-----|-----------------|-------|
@@ -50,6 +50,16 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 | Mistral | `vibe` | The Devil's Advocate | Edge cases, vulnerabilities |
 | Kilo | `kilocode` | The Innovator | Creative approaches |
 | Cursor | `agent` | The Integrator | Full-stack perspective |
+| Aider | `aider` | The Pair Programmer | Collaborative coding |
+
+## API Consultants
+
+| Consultant | Model | Default Persona | Focus |
+|------------|-------|-----------------|-------|
+| Qwen3 | qwen-max | The Analyst | Data-driven analysis |
+| GLM | glm-4 | The Methodologist | Structured approaches |
+| Grok | grok-beta | The Provocateur | Challenge conventions |
+| DeepSeek | deepseek-coder | The Code Specialist | Code generation, algorithms |
 
 ## Features
 
@@ -71,9 +81,10 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 
 ## Requirements
 
-- At least 2 CLI agents installed (Gemini, Codex, Mistral, Kilo, or Cursor)
+- At least 2 CLI agents installed (Gemini, Codex, Mistral, Kilo, Cursor, or Aider)
 - `jq` for JSON processing
 - Optional: `claude` CLI for synthesis
+- Optional: API keys for API-based consultants (Qwen3, GLM, Grok, DeepSeek)
 
 ## Troubleshooting
 

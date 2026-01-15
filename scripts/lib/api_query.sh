@@ -1,12 +1,12 @@
 #!/bin/bash
 # api_query.sh - Shared library for API-based consultant queries
 #
-# Provides a unified function to query API-based consultants (Qwen3, GLM, Grok)
+# Provides a unified function to query API-based consultants (Qwen3, GLM, Grok, DeepSeek)
 # with proper error handling, persona support, and JSON schema formatting.
 #
 # Usage in query scripts:
 #   source "$SCRIPT_DIR/lib/api_query.sh"
-#   run_api_consultant "Qwen3" "$@"
+#   run_api_consultant "DeepSeek" "$@"
 
 # Load dependencies
 SCRIPT_DIR_API_QUERY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

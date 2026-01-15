@@ -156,10 +156,12 @@ else
     [[ "$ENABLE_MISTRAL" == "true" ]] && SELECTED_CONSULTANTS+=("Mistral")
     [[ "$ENABLE_KILO" == "true" ]] && SELECTED_CONSULTANTS+=("Kilo")
     [[ "$ENABLE_CURSOR" == "true" ]] && SELECTED_CONSULTANTS+=("Cursor")
+    [[ "$ENABLE_AIDER" == "true" ]] && SELECTED_CONSULTANTS+=("Aider")
     # API-based consultants (predefined)
     [[ "$ENABLE_QWEN3" == "true" ]] && SELECTED_CONSULTANTS+=("Qwen3")
     [[ "$ENABLE_GLM" == "true" ]] && SELECTED_CONSULTANTS+=("GLM")
     [[ "$ENABLE_GROK" == "true" ]] && SELECTED_CONSULTANTS+=("Grok")
+    [[ "$ENABLE_DEEPSEEK" == "true" ]] && SELECTED_CONSULTANTS+=("DeepSeek")
 
     # Discover custom API agents from environment
     # Convention: ENABLE_AGENTNAME=true with AGENTNAME_API_URL set
@@ -201,40 +203,19 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
     OUTPUT_FILES+=("$local_output_file")
     NAMES+=("$consultant")
 
-    case "$consultant" in
-        Gemini)
-            "$SCRIPT_DIR/query_gemini.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
-            ;;
-        Codex)
-            "$SCRIPT_DIR/query_codex.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
-            ;;
-        Mistral)
-            "$SCRIPT_DIR/query_mistral.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
-            ;;
-        Kilo)
-            "$SCRIPT_DIR/query_kilo.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
-            ;;
-        Cursor)
-            "$SCRIPT_DIR/query_cursor.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
-            ;;
-        Qwen3)
-            "$SCRIPT_DIR/query_qwen3.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
-            ;;
-        GLM)
-            "$SCRIPT_DIR/query_glm.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
-            ;;
-        Grok)
-            "$SCRIPT_DIR/query_grok.sh" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
-            ;;
-        *)
-            # Custom API agent - use generic API query
-            # Source the API query library and call run_api_consultant
-            (
-                source "$SCRIPT_DIR/lib/api_query.sh"
-                run_api_consultant "$consultant" "" "$CONTEXT_FILE" "$local_output_file"
-            ) > /dev/null 2>&1 &
-            ;;
-    esac
+    # Convention: query script is query_<lowercase_name>.sh
+    local query_script="$SCRIPT_DIR/query_${consultant,,}.sh"
+
+    if [[ -x "$query_script" ]]; then
+        # Use dedicated query script
+        "$query_script" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
+    else
+        # Fallback: custom API agent via generic API query
+        (
+            source "$SCRIPT_DIR/lib/api_query.sh"
+            run_api_consultant "$consultant" "" "$CONTEXT_FILE" "$local_output_file"
+        ) > /dev/null 2>&1 &
+    fi
 
     PIDS+=($!)
     update_progress "$consultant" 10 "running"

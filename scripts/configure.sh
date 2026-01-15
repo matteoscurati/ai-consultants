@@ -39,17 +39,17 @@ NON_INTERACTIVE=false
 OUTPUT_FILE="$PROJECT_ROOT/.env"
 
 # CLI Agents: name|command|install_hint|persona
-CLI_AGENT_NAMES=("Gemini" "Codex" "Mistral" "Kilo" "Cursor")
-CLI_AGENT_CMDS=("gemini" "codex" "vibe" "kilocode" "agent")
-CLI_AGENT_HINTS=("npm install -g @google/gemini-cli" "npm install -g @openai/codex" "pip install mistral-vibe" "npm install -g @kilocode/cli" "See: https://cursor.com/")
-CLI_AGENT_PERSONAS=("The Architect" "The Pragmatist" "The Devil's Advocate" "The Innovator" "The Integrator")
+CLI_AGENT_NAMES=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider")
+CLI_AGENT_CMDS=("gemini" "codex" "vibe" "kilocode" "agent" "aider")
+CLI_AGENT_HINTS=("npm install -g @google/gemini-cli" "npm install -g @openai/codex" "pip install mistral-vibe" "npm install -g @kilocode/cli" "See: https://cursor.com/" "pip install aider-chat")
+CLI_AGENT_PERSONAS=("The Architect" "The Pragmatist" "The Devil's Advocate" "The Innovator" "The Integrator" "The Pair Programmer")
 
 # API Agents: name|key_var|api_url|model|persona
-API_AGENT_NAMES=("Qwen3" "GLM" "Grok")
-API_AGENT_KEY_VARS=("QWEN3_API_KEY" "GLM_API_KEY" "GROK_API_KEY")
-API_AGENT_URLS=("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation" "https://open.bigmodel.cn/api/paas/v4/chat/completions" "https://api.x.ai/v1/chat/completions")
-API_AGENT_MODELS=("qwen-max" "glm-4" "grok-beta")
-API_AGENT_PERSONAS=("The Analyst" "The Methodologist" "The Provocateur")
+API_AGENT_NAMES=("Qwen3" "GLM" "Grok" "DeepSeek")
+API_AGENT_KEY_VARS=("QWEN3_API_KEY" "GLM_API_KEY" "GROK_API_KEY" "DEEPSEEK_API_KEY")
+API_AGENT_URLS=("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation" "https://open.bigmodel.cn/api/paas/v4/chat/completions" "https://api.x.ai/v1/chat/completions" "https://api.deepseek.com/v1/chat/completions")
+API_AGENT_MODELS=("qwen-max" "glm-4" "grok-beta" "deepseek-coder")
+API_AGENT_PERSONAS=("The Analyst" "The Methodologist" "The Provocateur" "The Code Specialist")
 
 # State arrays (parallel to CLI_AGENT_NAMES)
 CLI_DETECTED=()      # "installed" or "missing"
@@ -80,16 +80,16 @@ CUSTOM_PERSONA_IDS=()  # persona ID for each custom CLI agent
 CUSTOM_API_PERSONA_IDS=()  # persona ID for each custom API agent
 
 # Initialize state arrays
-# Default persona IDs: 1=Architect, 2=Pragmatist, 3=Devil's Advocate, 4=Innovator, 5=Integrator
-CLI_DEFAULT_PERSONA_IDS=(1 2 3 4 5)
+# Default persona IDs: 1=Architect, 2=Pragmatist, 3=Devil's Advocate, 4=Innovator, 5=Integrator, 16=Pair Programmer
+CLI_DEFAULT_PERSONA_IDS=(1 2 3 4 5 16)
 for i in "${!CLI_AGENT_NAMES[@]}"; do
     CLI_DETECTED+=("missing")
     CLI_ENABLED+=("false")
     CLI_PERSONA_IDS+=("${CLI_DEFAULT_PERSONA_IDS[$i]}")
 done
 
-# Default persona IDs: 6=Analyst, 7=Methodologist, 8=Provocateur
-API_DEFAULT_PERSONA_IDS=(6 7 8)
+# Default persona IDs: 6=Analyst, 7=Methodologist, 8=Provocateur, 17=Code Specialist
+API_DEFAULT_PERSONA_IDS=(6 7 8 17)
 for i in "${!API_AGENT_NAMES[@]}"; do
     API_ENABLED+=("false")
     API_KEYS_VALUES+=("")
@@ -761,6 +761,9 @@ KILO_TIMEOUT=180
 
 CURSOR_TIMEOUT=180
 
+AIDER_MODEL=
+AIDER_TIMEOUT=180
+
 # API models
 QWEN3_MODEL=qwen-max
 QWEN3_TIMEOUT=180
@@ -770,6 +773,9 @@ GLM_TIMEOUT=180
 
 GROK_MODEL=grok-beta
 GROK_TIMEOUT=180
+
+DEEPSEEK_MODEL=deepseek-coder
+DEEPSEEK_TIMEOUT=180
 
 # =============================================================================
 # FEATURES

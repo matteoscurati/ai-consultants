@@ -55,6 +55,14 @@ CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
 CURSOR_CMD="${CURSOR_CMD:-agent}"
 
 # =============================================================================
+# AIDER CONFIGURATION - The Pair Programmer
+# =============================================================================
+
+AIDER_MODEL="${AIDER_MODEL:-}"
+AIDER_TIMEOUT_SECONDS="${AIDER_TIMEOUT:-180}"
+AIDER_CMD="${AIDER_CMD:-aider}"
+
+# =============================================================================
 # QWEN3 CONFIGURATION - The Analyst (API-based)
 # =============================================================================
 
@@ -85,6 +93,16 @@ GROK_FORMAT="${GROK_FORMAT:-openai}"
 # API key: Set GROK_API_KEY environment variable
 
 # =============================================================================
+# DEEPSEEK CONFIGURATION - The Code Specialist (API-based)
+# =============================================================================
+
+DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-coder}"
+DEEPSEEK_TIMEOUT_SECONDS="${DEEPSEEK_TIMEOUT:-180}"
+DEEPSEEK_API_URL="${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}"
+DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
+# API key: Set DEEPSEEK_API_KEY environment variable
+
+# =============================================================================
 # ENABLED CONSULTANTS
 # =============================================================================
 
@@ -95,11 +113,13 @@ ENABLE_CODEX="${ENABLE_CODEX:-true}"
 ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
 ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
+ENABLE_AIDER="${ENABLE_AIDER:-false}"
 
 # API-based consultants (disabled by default - require API keys)
 ENABLE_QWEN3="${ENABLE_QWEN3:-false}"
 ENABLE_GLM="${ENABLE_GLM:-false}"
 ENABLE_GROK="${ENABLE_GROK:-false}"
+ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
 
 # =============================================================================
 # PERSONAS (v2.0)

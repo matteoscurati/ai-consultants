@@ -22,125 +22,143 @@ get_affinity() {
     case "$category" in
         CODE_REVIEW)
             case "$consultant" in
-                Gemini) echo 7 ;;
-                Codex)  echo 10 ;;
-                Mistral) echo 8 ;;
-                Kilo)   echo 9 ;;
-                Cursor) echo 9 ;;
-                Qwen3)  echo 8 ;;
-                GLM)    echo 8 ;;
-                Grok)   echo 7 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 7 ;;
+                Codex)    echo 10 ;;
+                Mistral)  echo 8 ;;
+                Kilo)     echo 9 ;;
+                Cursor)   echo 9 ;;
+                Aider)    echo 9 ;;
+                Qwen3)    echo 8 ;;
+                GLM)      echo 8 ;;
+                Grok)     echo 7 ;;
+                DeepSeek) echo 10 ;;
+                *)        echo 5 ;;
             esac
             ;;
         BUG_DEBUG)
             case "$consultant" in
-                Gemini) echo 7 ;;
-                Codex)  echo 10 ;;
-                Mistral) echo 9 ;;
-                Kilo)   echo 8 ;;
-                Cursor) echo 9 ;;
-                Qwen3)  echo 8 ;;
-                GLM)    echo 8 ;;
-                Grok)   echo 7 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 7 ;;
+                Codex)    echo 10 ;;
+                Mistral)  echo 9 ;;
+                Kilo)     echo 8 ;;
+                Cursor)   echo 9 ;;
+                Aider)    echo 9 ;;
+                Qwen3)    echo 8 ;;
+                GLM)      echo 8 ;;
+                Grok)     echo 7 ;;
+                DeepSeek) echo 9 ;;
+                *)        echo 5 ;;
             esac
             ;;
         ARCHITECTURE)
             case "$consultant" in
-                Gemini) echo 10 ;;
-                Codex)  echo 6 ;;
-                Mistral) echo 8 ;;
-                Kilo)   echo 9 ;;
-                Cursor) echo 8 ;;
-                Qwen3)  echo 7 ;;
-                GLM)    echo 7 ;;
-                Grok)   echo 9 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 10 ;;
+                Codex)    echo 6 ;;
+                Mistral)  echo 8 ;;
+                Kilo)     echo 9 ;;
+                Cursor)   echo 8 ;;
+                Aider)    echo 6 ;;
+                Qwen3)    echo 7 ;;
+                GLM)      echo 7 ;;
+                Grok)     echo 9 ;;
+                DeepSeek) echo 7 ;;
+                *)        echo 5 ;;
             esac
             ;;
         ALGORITHM)
             case "$consultant" in
-                Gemini) echo 9 ;;
-                Codex)  echo 8 ;;
-                Mistral) echo 7 ;;
-                Kilo)   echo 8 ;;
-                Cursor) echo 7 ;;
-                Qwen3)  echo 9 ;;
-                GLM)    echo 7 ;;
-                Grok)   echo 8 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 9 ;;
+                Codex)    echo 8 ;;
+                Mistral)  echo 7 ;;
+                Kilo)     echo 8 ;;
+                Cursor)   echo 7 ;;
+                Aider)    echo 7 ;;
+                Qwen3)    echo 9 ;;
+                GLM)      echo 7 ;;
+                Grok)     echo 8 ;;
+                DeepSeek) echo 10 ;;
+                *)        echo 5 ;;
             esac
             ;;
         SECURITY)
             case "$consultant" in
-                Gemini) echo 9 ;;
-                Codex)  echo 9 ;;
-                Mistral) echo 10 ;;
-                Kilo)   echo 8 ;;
-                Cursor) echo 8 ;;
-                Qwen3)  echo 7 ;;
-                GLM)    echo 8 ;;
-                Grok)   echo 8 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 9 ;;
+                Codex)    echo 9 ;;
+                Mistral)  echo 10 ;;
+                Kilo)     echo 8 ;;
+                Cursor)   echo 8 ;;
+                Aider)    echo 7 ;;
+                Qwen3)    echo 7 ;;
+                GLM)      echo 8 ;;
+                Grok)     echo 8 ;;
+                DeepSeek) echo 8 ;;
+                *)        echo 5 ;;
             esac
             ;;
         QUICK_SYNTAX)
             case "$consultant" in
-                Gemini) echo 10 ;;
-                Codex)  echo 8 ;;
-                Mistral) echo 5 ;;
-                Kilo)   echo 6 ;;
-                Cursor) echo 7 ;;
-                Qwen3)  echo 7 ;;
-                GLM)    echo 6 ;;
-                Grok)   echo 5 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 10 ;;
+                Codex)    echo 8 ;;
+                Mistral)  echo 5 ;;
+                Kilo)     echo 6 ;;
+                Cursor)   echo 7 ;;
+                Aider)    echo 8 ;;
+                Qwen3)    echo 7 ;;
+                GLM)      echo 6 ;;
+                Grok)     echo 5 ;;
+                DeepSeek) echo 9 ;;
+                *)        echo 5 ;;
             esac
             ;;
         DATABASE)
             case "$consultant" in
-                Gemini) echo 8 ;;
-                Codex)  echo 9 ;;
-                Mistral) echo 7 ;;
-                Kilo)   echo 7 ;;
-                Cursor) echo 8 ;;
-                Qwen3)  echo 9 ;;
-                GLM)    echo 7 ;;
-                Grok)   echo 6 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 8 ;;
+                Codex)    echo 9 ;;
+                Mistral)  echo 7 ;;
+                Kilo)     echo 7 ;;
+                Cursor)   echo 8 ;;
+                Aider)    echo 7 ;;
+                Qwen3)    echo 9 ;;
+                GLM)      echo 7 ;;
+                Grok)     echo 6 ;;
+                DeepSeek) echo 9 ;;
+                *)        echo 5 ;;
             esac
             ;;
         API_DESIGN)
             case "$consultant" in
-                Gemini) echo 10 ;;
-                Codex)  echo 9 ;;
-                Mistral) echo 7 ;;
-                Kilo)   echo 8 ;;
-                Cursor) echo 9 ;;
-                Qwen3)  echo 7 ;;
-                GLM)    echo 8 ;;
-                Grok)   echo 8 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 10 ;;
+                Codex)    echo 9 ;;
+                Mistral)  echo 7 ;;
+                Kilo)     echo 8 ;;
+                Cursor)   echo 9 ;;
+                Aider)    echo 7 ;;
+                Qwen3)    echo 7 ;;
+                GLM)      echo 8 ;;
+                Grok)     echo 8 ;;
+                DeepSeek) echo 8 ;;
+                *)        echo 5 ;;
             esac
             ;;
         TESTING)
             case "$consultant" in
-                Gemini) echo 7 ;;
-                Codex)  echo 10 ;;
-                Mistral) echo 9 ;;
-                Kilo)   echo 7 ;;
-                Cursor) echo 9 ;;
-                Qwen3)  echo 8 ;;
-                GLM)    echo 10 ;;
-                Grok)   echo 7 ;;
-                *)      echo 5 ;;
+                Gemini)   echo 7 ;;
+                Codex)    echo 10 ;;
+                Mistral)  echo 9 ;;
+                Kilo)     echo 7 ;;
+                Cursor)   echo 9 ;;
+                Aider)    echo 9 ;;
+                Qwen3)    echo 8 ;;
+                GLM)      echo 10 ;;
+                Grok)     echo 7 ;;
+                DeepSeek) echo 8 ;;
+                *)        echo 5 ;;
             esac
             ;;
         *)
             # GENERAL and unknown categories: all known consultants get score 8
             case "$consultant" in
-                Gemini|Codex|Mistral|Kilo|Cursor|Qwen3|GLM|Grok) echo 8 ;;
+                Gemini|Codex|Mistral|Kilo|Cursor|Aider|Qwen3|GLM|Grok|DeepSeek) echo 8 ;;
                 *) echo 5 ;;
             esac
             ;;
@@ -156,7 +174,7 @@ select_consultants() {
     local max_consultants="${3:-8}"
 
     # Include all consultants (CLI-based and API-based)
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Qwen3" "GLM" "Grok")
+    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Qwen3" "GLM" "Grok" "DeepSeek")
     local selected=()
     local scores=()
 
@@ -275,16 +293,16 @@ get_recommended_count() {
 
     case "$mode" in
         full)
-            echo 8  # All consultants (CLI + API)
+            echo 10  # All consultants (CLI + API)
             ;;
         selective)
-            echo 4  # Subset based on affinity
+            echo 5  # Subset based on affinity
             ;;
         single)
             echo 1
             ;;
         *)
-            echo 8
+            echo 10
             ;;
     esac
 }

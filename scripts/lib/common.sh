@@ -209,8 +209,8 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR"
-KNOWN_API_AGENTS="QWEN3 GLM GROK"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER"
+KNOWN_API_AGENTS="QWEN3 GLM GROK DEEPSEEK"
 KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
 
 # Check if an agent name is a known predefined agent
