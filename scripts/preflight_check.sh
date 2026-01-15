@@ -250,19 +250,19 @@ run_preflight() {
         fi
 
         # Gemini - test with version check
-        check_api_connectivity "Gemini" "$GEMINI_CMD" "--version"
+        check_api_connectivity "Gemini" "$GEMINI_CMD" "--version" || true
 
         # Codex - test with help
-        check_api_connectivity "Codex" "$CODEX_CMD" "--help"
+        check_api_connectivity "Codex" "$CODEX_CMD" "--help" || true
 
         # Mistral - test with help
-        check_api_connectivity "Mistral" "$MISTRAL_CMD" "--help"
+        check_api_connectivity "Mistral" "$MISTRAL_CMD" "--help" || true
 
         # Kilo - test with version
-        check_api_connectivity "Kilo" "$KILO_CMD" "--version"
+        check_api_connectivity "Kilo" "$KILO_CMD" "--version" || true
 
         # Cursor - test with help
-        check_api_connectivity "Cursor" "$CURSOR_CMD" "--help"
+        check_api_connectivity "Cursor" "$CURSOR_CMD" "--help" || true
 
         if [[ "$JSON_OUTPUT" != "true" ]]; then
             for name in Gemini Codex Mistral Kilo Cursor; do
