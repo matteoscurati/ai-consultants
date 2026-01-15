@@ -1,0 +1,99 @@
+---
+description: Show help and usage for AI Consultants skill
+allowed-tools:
+---
+
+# AI Consultants - Help
+
+AI Consultants is a multi-model AI deliberation system that queries multiple AI consultants simultaneously to get diverse perspectives on coding questions.
+
+## Quick Start
+
+```
+/ai-consultants:config-wizard    # Initial setup
+/ai-consultants:consult          # Ask a question
+```
+
+## How It Works
+
+1. You ask a coding question
+2. The system queries 2-5 AI consultants in parallel (Gemini, Codex, Mistral, Kilo, Cursor)
+3. Each consultant responds with their unique persona perspective
+4. Responses are synthesized into a weighted recommendation
+5. You get diverse viewpoints + a consensus summary
+
+## Available Commands
+
+### Main Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:consult` | Ask AI consultants a coding question |
+| `/ai-consultants:ask-experts` | Alias for consult |
+| `/ai-consultants:debate` | Run consultation with multi-round debate |
+
+### Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:config-wizard` | Full setup wizard (CLI detection, API keys, personas) |
+| `/ai-consultants:config-check` | Verify CLI agents are installed |
+| `/ai-consultants:config-status` | View current configuration |
+| `/ai-consultants:config-features` | Toggle features (Debate, Synthesis, Smart Routing) |
+| `/ai-consultants:config-personas` | Change consultant personas |
+| `/ai-consultants:config-api` | Configure API-based consultants (Qwen3, GLM, Grok) |
+| `/ai-consultants:help` | Show this help |
+
+## Consultants & Personas
+
+| Consultant | CLI | Default Persona | Focus |
+|------------|-----|-----------------|-------|
+| Gemini | `gemini` | The Architect | Design patterns, scalability |
+| Codex | `codex` | The Pragmatist | Simplicity, proven solutions |
+| Mistral | `vibe` | The Devil's Advocate | Edge cases, vulnerabilities |
+| Kilo | `kilocode` | The Innovator | Creative approaches |
+| Cursor | `agent` | The Integrator | Full-stack perspective |
+
+## Features
+
+| Feature | Description | Toggle |
+|---------|-------------|--------|
+| **Personas** | Each consultant has a role that shapes responses | `ENABLE_PERSONA` |
+| **Synthesis** | Auto-combine responses into recommendation | `ENABLE_SYNTHESIS` |
+| **Debate** | Consultants critique each other's answers | `ENABLE_DEBATE` |
+| **Smart Routing** | Auto-select best consultants per question type | `ENABLE_SMART_ROUTING` |
+| **Cost Tracking** | Track API usage costs | `ENABLE_COST_TRACKING` |
+
+## Examples
+
+```
+# Simple question
+/ai-consultants:consult "How to optimize this SQL query?"
+
+# With file context
+/ai-consultants:consult "Review this code" src/utils.ts
+
+# Enable debate mode first, then consult
+/ai-consultants:config-features  # Enable DEBATE
+/ai-consultants:debate "Microservices vs monolith?"
+```
+
+## Requirements
+
+- At least 2 CLI agents installed (Gemini, Codex, Mistral, Kilo, or Cursor)
+- `jq` for JSON processing
+- Optional: `claude` CLI for synthesis
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Unknown skill" | Run install script or check `~/.claude/commands/` |
+| "Exit code 1" | Run `/ai-consultants:config-check` to diagnose |
+| No consultants | Run `/ai-consultants:config-wizard` |
+| API errors | Check `/ai-consultants:config-status` |
+
+## More Info
+
+- Repository: https://github.com/matteoscurati/ai-consultants
+- Full docs: See README.md and SKILL.md in the repository
