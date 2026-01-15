@@ -264,52 +264,26 @@ The system automatically calculates:
 
 ## Claude Code Installation
 
-**One-command install:**
-
 ```bash
+# One-command install
 curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
-```
 
-**Or manual install:**
-
-```bash
+# Or manual install
 git clone git@github.com:matteoscurati/ai-consultants.git ~/.claude/skills/ai-consultants
 chmod +x ~/.claude/skills/ai-consultants/scripts/*.sh ~/.claude/skills/ai-consultants/scripts/lib/*.sh
 ```
 
-### Configuration Options
-
-After installation, choose one:
-
-#### Option A: Interactive Script
+After installation, configure with the setup wizard:
 
 ```bash
 ~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
 ```
 
-#### Option B: Claude Code Slash Commands
+Or use `/ai-consultants:config-wizard` in Claude Code.
 
-**Configuration commands:**
+The skill triggers automatically on phrases like "ask the consultants" or "what do other models think". Use `/ai-consultants:consult` for explicit invocation.
 
-| Command | Description |
-|---------|-------------|
-| `/ai-consultants:config-check` | Verify which CLIs are installed |
-| `/ai-consultants:config-status` | View current configuration |
-| `/ai-consultants:config-api` | Add API consultants (Qwen3, GLM, Grok) |
-| `/ai-consultants:config-personas` | Change consultant personalities |
-| `/ai-consultants:config-wizard` | Run full interactive wizard |
-
-**Usage commands:**
-
-| Command | Description |
-|---------|-------------|
-| `/ai-consultants:consult` | Main consultation with all experts |
-| `/ai-consultants:ask-experts` | Quick query to consultants |
-| `/ai-consultants:debate` | Consultation with multi-round debate |
-
-The skill also triggers automatically on phrases like "ask the consultants" or "what do other models think".
-
-See **[SKILL.md](SKILL.md#claude-code-slash-commands)** for details.
+See **[SKILL.md](SKILL.md#claude-code-slash-commands)** for all available commands.
 
 ## Security
 

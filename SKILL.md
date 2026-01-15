@@ -141,23 +141,9 @@ For explicit invocation in Claude Code, use these slash commands:
 | `/ai-consultants:config-personas` | Change persona assignments |
 | `/ai-consultants:config-wizard` | Run full interactive wizard |
 
-### Two Configuration Paths
+Alternatively, run the interactive setup script: `~/.claude/skills/ai-consultants/scripts/setup_wizard.sh`
 
-After installation, choose how to configure:
-
-**Option A - Interactive Script:**
-```bash
-~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
-```
-
-**Option B - Claude Code Slash Commands:**
-```
-/ai-consultants:config-check     # Verify CLIs
-/ai-consultants:config-api       # Add API keys
-/ai-consultants:config-personas  # Change personalities
-```
-
-Both methods write to the same `.env` file and are fully interoperable.
+Both slash commands and the script write to the same `.env` file.
 
 ## Advanced Configuration
 
