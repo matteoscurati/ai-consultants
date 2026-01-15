@@ -188,7 +188,7 @@ select_consultants() {
 
     # Limit to maximum requested
     local count=0
-    for c in "${selected[@]}"; do
+    for c in ${selected[@]+"${selected[@]}"}; do
         if [[ $count -ge $max_consultants ]]; then
             break
         fi

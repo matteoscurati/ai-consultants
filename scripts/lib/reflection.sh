@@ -169,7 +169,7 @@ run_reflection_cycle() {
     if echo "$current_response" | jq -e '.' > /dev/null 2>&1; then
         echo "$current_response" | jq \
             --argjson cycles "$cycles" \
-            --argjson history "$(printf '%s\n' "${reflection_history[@]}" | jq -s '.')" \
+            --argjson history "$(printf '%s\n' ${reflection_history[@]+"${reflection_history[@]}"} | jq -s '.')" \
             '. + {reflection: {cycles_completed: $cycles, history: $history}}' \
             > "$output_file"
     else

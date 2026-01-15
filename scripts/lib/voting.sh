@@ -167,7 +167,7 @@ get_dissenters() {
         fi
     done
 
-    printf '%s\n' "${dissenters[@]}"
+    printf '%s\n' ${dissenters[@]+"${dissenters[@]}"}
 }
 
 # Calculate confidence-weighted final score
