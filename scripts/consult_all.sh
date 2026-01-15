@@ -199,12 +199,13 @@ done
 
 # Launch consultants in parallel
 for consultant in "${SELECTED_CONSULTANTS[@]}"; do
-    local_output_file="$OUTPUT_DIR/${consultant,,}.json"
+    consultant_lower=$(to_lower "$consultant")
+    local_output_file="$OUTPUT_DIR/${consultant_lower}.json"
     OUTPUT_FILES+=("$local_output_file")
     NAMES+=("$consultant")
 
     # Convention: query script is query_<lowercase_name>.sh
-    local query_script="$SCRIPT_DIR/query_${consultant,,}.sh"
+    query_script="$SCRIPT_DIR/query_${consultant_lower}.sh"
 
     if [[ -x "$query_script" ]]; then
         # Use dedicated query script
