@@ -33,35 +33,60 @@ ai-consultants/
 
 ## Claude Skills Compliance
 
-**IMPORTANT**: This project is a Claude Skill. When modifying this codebase, you MUST stay updated with and follow the official Claude Skills documentation:
+**IMPORTANT**: This project is a Claude Skill and follows the open agentskills.io standard. When modifying this codebase, you MUST stay updated with and follow the official documentation.
 
+### Official Documentation
+
+**Anthropic Platform:**
 - **Overview**: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
 - **Best Practices**: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
 - **Quickstart**: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/quickstart
+- **API Guide**: https://platform.claude.com/docs/en/build-with-claude/skills-guide
 
-### Key Requirements
+**Open Standard (agentskills.io):**
+- **What Are Skills**: https://agentskills.io/what-are-skills
+- **Specification**: https://agentskills.io/specification
+- **Integration Guide**: https://agentskills.io/integrate-skills
 
-1. **SKILL.md Structure**:
-   - `name`: max 64 chars, lowercase letters/numbers/hyphens only
-   - `description`: max 1024 chars, must include what the skill does AND when to use it
+### Cross-Platform Compatibility
+
+Agent Skills is an open format supported by multiple tools:
+- Claude Code, Claude.ai, Claude API
+- Gemini CLI
+- OpenAI Codex
+- Cursor
+- VS Code
+- GitHub
+- And others (Amp, Letta, Goose, OpenCode, Factory)
+
+### Key Requirements (from official docs)
+
+1. **SKILL.md Frontmatter**:
+   - `name`: max 64 chars, lowercase letters/numbers/hyphens only, no XML tags, no reserved words ("anthropic", "claude")
+   - `description`: max 1024 chars, non-empty, no XML tags, must include WHAT the skill does AND WHEN to use it
    - Write descriptions in third person (not "I can help you..." or "You can use this...")
 
-2. **Conciseness**:
+2. **Progressive Disclosure** (3 levels):
+   - Level 1 (Metadata): Only name/description loaded at startup (~100 tokens)
+   - Level 2 (Instructions): SKILL.md body loaded when triggered (<5k tokens)
+   - Level 3 (Resources): Additional files loaded as needed (unlimited)
+
+3. **Conciseness**:
    - Keep SKILL.md body under 500 lines
    - Only add context Claude doesn't already have
    - Use progressive disclosure: reference separate files for detailed content
 
-3. **File Organization**:
+4. **File Organization**:
    - Keep references one level deep from SKILL.md
    - Use forward slashes in paths (Unix-style), never backslashes
    - Name files descriptively (`form_validation_rules.md`, not `doc2.md`)
 
-4. **Scripts**:
+5. **Scripts**:
    - Handle errors explicitly, don't punt to Claude
    - Document configuration parameters (no "voodoo constants")
-   - Scripts are executed, not loaded into context
+   - Scripts are executed via bash, not loaded into context
 
-5. **Testing**:
+6. **Testing**:
    - Test with all models (Haiku, Sonnet, Opus)
    - Create evaluations before writing extensive documentation
 
