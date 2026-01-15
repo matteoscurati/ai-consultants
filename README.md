@@ -1,13 +1,16 @@
-# AI Consultants v2.0
+# AI Consultants v2.1
 
 > A multi-model AI deliberation system with automatic synthesis, consultant debate, and confidence-weighted voting.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/YOUR-USERNAME/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
 
 ## Overview
 
-AI Consultants simultaneously queries **5 AI models** as "expert consultants", each with a **unique persona** that influences their response style:
+AI Consultants simultaneously queries **up to 10 AI models** as "expert consultants", each with a **unique persona** that influences their response style.
+
+### CLI Consultants
 
 | Consultant | CLI | Persona | Focus |
 |------------|-----|---------|-------|
@@ -16,10 +19,20 @@ AI Consultants simultaneously queries **5 AI models** as "expert consultants", e
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Problems, edge cases, vulnerabilities |
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional approaches |
 | **Cursor** | `agent` | The Integrator | Full-stack perspective, cross-cutting concerns |
+| **Aider** | `aider` | The Pair Programmer | Collaborative coding, step-by-step |
 
-## Features v2.0
+### API Consultants
 
-- **Configurable Personas**: 15 predefined personas to assign to each consultant
+| Consultant | Model | Persona | Focus |
+|------------|-------|---------|-------|
+| **Qwen3** | qwen-max | The Analyst | Data-driven analysis, metrics |
+| **GLM** | glm-4 | The Methodologist | Structured approaches, processes |
+| **Grok** | grok-beta | The Provocateur | Challenge conventions |
+| **DeepSeek** | deepseek-coder | The Code Specialist | Code generation, algorithms |
+
+## Features
+
+- **Configurable Personas**: 17 predefined personas to assign to each consultant
 - **Confidence Scoring**: 1-10 score on every response
 - **Auto-Synthesis**: Automatic synthesis with weighted recommendation
 - **Multi-Agent Debate (MAD)**: Deliberation rounds with cross-critique
@@ -50,6 +63,7 @@ npm install -g @openai/codex           # Codex
 pip install mistral-vibe               # Mistral Vibe
 npm install -g @kilocode/cli           # Kilo
 curl https://cursor.com/install -fsS | bash  # Cursor
+pip install aider-chat                 # Aider
 ```
 
 For detailed installation and authentication setup, see **[docs/SETUP.md](docs/SETUP.md)**.
@@ -60,7 +74,7 @@ For detailed installation and authentication setup, see **[docs/SETUP.md](docs/S
 
 ```bash
 # Install as a Claude Code skill
-git clone https://github.com/YOUR-USERNAME/ai-consultants.git ~/.claude/skills/ai-consultants
+git clone https://github.com/matteoscurati/ai-consultants.git ~/.claude/skills/ai-consultants
 
 # Then in Claude Code:
 # /ai-consultants:config-check    - Verify installation
@@ -71,7 +85,7 @@ git clone https://github.com/YOUR-USERNAME/ai-consultants.git ~/.claude/skills/a
 **Option B: Standalone**
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/ai-consultants.git
+git clone https://github.com/matteoscurati/ai-consultants.git
 cd ai-consultants
 
 # Make scripts executable
@@ -175,17 +189,24 @@ ENABLE_COST_TRACKING=true
 MAX_SESSION_COST=1.00
 WARN_AT_COST=0.50
 
-# Enabled consultants
+# CLI consultants
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_MISTRAL=true
 ENABLE_KILO=true
 ENABLE_CURSOR=true
+ENABLE_AIDER=false
+
+# API consultants (require API keys)
+ENABLE_QWEN3=false
+ENABLE_GLM=false
+ENABLE_GROK=false
+ENABLE_DEEPSEEK=false
 ```
 
 ### Configurable Personas
 
-Each consultant can be assigned a different persona from a catalog of 15 predefined roles:
+Each consultant can be assigned a different persona from a catalog of 17 predefined roles:
 
 ```bash
 # Run interactive persona configuration
@@ -198,7 +219,7 @@ CODEX_PERSONA_ID=11     # The Security Expert
 # Or use custom persona text
 GEMINI_PERSONA="You are a database optimization specialist..."
 
-# List all 15 personas
+# List all 17 personas
 source scripts/lib/personas.sh && list_personas
 ```
 
@@ -252,6 +273,11 @@ ai-consultants/
 │   ├── query_mistral.sh        # Mistral wrapper
 │   ├── query_kilo.sh           # Kilo wrapper
 │   ├── query_cursor.sh         # Cursor wrapper
+│   ├── query_aider.sh          # Aider wrapper
+│   ├── query_qwen3.sh          # Qwen3 API wrapper
+│   ├── query_glm.sh            # GLM API wrapper
+│   ├── query_grok.sh           # Grok API wrapper
+│   ├── query_deepseek.sh       # DeepSeek API wrapper
 │   └── lib/
 │       ├── common.sh           # Shared functions
 │       ├── personas.sh         # Persona definitions
@@ -357,6 +383,13 @@ Quick start:
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Changelog
+
+### v2.1.0
+- **New CLI consultant**: Aider (The Pair Programmer)
+- **New API consultant**: DeepSeek (The Code Specialist)
+- Added 2 new personas (17 total)
+- Simplified `consult_all.sh` with convention-based script discovery
+- Updated routing affinities for all 10 consultants
 
 ### v2.0.0
 - **Configurable personas**: 15 predefined personas, assignable to any consultant
