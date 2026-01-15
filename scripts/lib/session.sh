@@ -13,8 +13,11 @@ SESSION_DIR="${SESSION_DIR:-/tmp/ai_consultants_sessions}"
 SESSION_FILE="${SESSION_DIR}/current_session.json"
 SESSION_HISTORY_FILE="${SESSION_DIR}/history.json"
 
-# Create directory if it doesn't exist
-mkdir -p "$SESSION_DIR" 2>/dev/null || true
+# Create directory with secure permissions (owner-only access)
+if [[ ! -d "$SESSION_DIR" ]]; then
+    mkdir -p "$SESSION_DIR" 2>/dev/null || true
+fi
+chmod 700 "$SESSION_DIR" 2>/dev/null || true
 
 # =============================================================================
 # SESSION MANAGEMENT
@@ -35,6 +38,10 @@ save_session() {
     local category="${4:-GENERAL}"
 
     local timestamp=$(date -Iseconds)
+
+    # Create file with secure permissions before writing
+    touch "$SESSION_FILE"
+    chmod 600 "$SESSION_FILE"
 
     jq -n \
         --arg id "$session_id" \
@@ -148,6 +155,9 @@ get_follow_up_count() {
 # Initialize history file if it doesn't exist
 init_history() {
     if [[ ! -f "$SESSION_HISTORY_FILE" ]]; then
+        # Create file with secure permissions before writing
+        touch "$SESSION_HISTORY_FILE"
+        chmod 600 "$SESSION_HISTORY_FILE"
         echo '{"sessions": []}' > "$SESSION_HISTORY_FILE"
     fi
 }

@@ -224,6 +224,89 @@ is_known_agent() {
 }
 
 # =============================================================================
+# SECURITY: INPUT VALIDATION
+# =============================================================================
+
+# Validate a file path to prevent path traversal attacks
+# - Rejects paths containing ".."
+# - Rejects absolute paths starting with / (unless in allowed dirs)
+# - Returns 0 if valid, 1 if invalid
+# Usage: validate_file_path "path" [allow_absolute]
+validate_file_path() {
+    local path="$1"
+    local allow_absolute="${2:-false}"
+
+    # Check for empty path
+    if [[ -z "$path" ]]; then
+        log_error "Empty file path provided"
+        return 1
+    fi
+
+    # Check for path traversal attempts
+    if [[ "$path" == *".."* ]]; then
+        log_error "Path traversal detected in: $path"
+        return 1
+    fi
+
+    # Check for null bytes (common injection technique)
+    if [[ "$path" == *$'\0'* ]]; then
+        log_error "Null byte injection detected in path"
+        return 1
+    fi
+
+    # Check absolute paths
+    if [[ "$path" == /* ]] && [[ "$allow_absolute" != "true" ]]; then
+        log_warn "Absolute path not allowed: $path"
+        return 1
+    fi
+
+    # Reject paths to sensitive system directories
+    local sensitive_paths="/etc /root /var/log /proc /sys /dev"
+    for sensitive in $sensitive_paths; do
+        if [[ "$path" == "$sensitive"* ]]; then
+            log_error "Access to sensitive path denied: $path"
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+# Sanitize a string for safe use in filenames
+# Removes or replaces dangerous characters
+# Usage: sanitize_filename "string"
+sanitize_filename() {
+    local input="$1"
+    # Remove null bytes, newlines, and other control characters
+    # Replace spaces and special chars with underscores
+    echo "$input" | tr -d '\0\n\r' | tr -cs '[:alnum:]._-' '_' | head -c 255
+}
+
+# Validate consultant name against known valid names
+# Usage: validate_consultant_name "name"
+validate_consultant_name() {
+    local name="$1"
+    local upper
+    upper=$(to_upper "$name")
+
+    # Check against known agents
+    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR QWEN3 GLM GROK"
+    for agent in $valid_agents; do
+        if [[ "$upper" == "$agent" ]]; then
+            return 0
+        fi
+    done
+
+    # Check if it looks like a custom agent (alphanumeric only)
+    if [[ ! "$upper" =~ ^[A-Z0-9_]+$ ]]; then
+        log_error "Invalid consultant name: $name"
+        return 1
+    fi
+
+    return 0
+}
+
+# =============================================================================
 # UTILITY
 # =============================================================================
 

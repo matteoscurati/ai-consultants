@@ -615,10 +615,15 @@ save_configuration() {
     if [[ -f "$OUTPUT_FILE" ]]; then
         local backup="${OUTPUT_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
         cp "$OUTPUT_FILE" "$backup"
+        chmod 600 "$backup"  # Secure backup file too
         log_info "Backed up existing config to: $backup"
     fi
 
-    # Generate .env file
+    # Generate .env file with secure permissions
+    # Create file with restrictive permissions BEFORE writing secrets
+    touch "$OUTPUT_FILE"
+    chmod 600 "$OUTPUT_FILE"
+
     cat > "$OUTPUT_FILE" << 'HEADER'
 # =============================================================================
 # AI Consultants v2.0 - Generated Configuration

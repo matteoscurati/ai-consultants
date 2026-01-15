@@ -8,6 +8,10 @@
 
 set -euo pipefail
 
+# Load common functions for validation
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+
 # --- Parameters ---
 if [[ $# -lt 2 ]]; then
     echo "Usage: $0 <output_file> \"question\" [file1] [file2] ..." >&2
@@ -19,12 +23,27 @@ shift
 QUERY="$1"
 shift
 
-# FILES array handling (compatible with set -u)
-if [[ $# -gt 0 ]]; then
-    FILES=("$@")
-else
-    FILES=()
+# Validate output file path (allow /tmp for output)
+if [[ "$OUTPUT_FILE" == /tmp/* ]]; then
+    : # Allow /tmp paths for output
+elif ! validate_file_path "$OUTPUT_FILE" "true"; then
+    log_error "Invalid output file path: $OUTPUT_FILE"
+    exit 1
 fi
+
+# FILES array handling (compatible with set -u)
+# Validate each file path
+FILES=()
+while [[ $# -gt 0 ]]; do
+    file_arg="$1"
+    shift
+    # Allow relative paths and /tmp paths for context files
+    if [[ "$file_arg" == /tmp/* ]] || validate_file_path "$file_arg" "false" 2>/dev/null; then
+        FILES+=("$file_arg")
+    else
+        log_warn "Skipping invalid file path: $file_arg"
+    fi
+done
 
 # --- Build Context ---
 {

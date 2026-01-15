@@ -13,6 +13,32 @@ if [[ -z "${AI_CONSULTANTS_VERSION:-}" ]]; then
 fi
 
 # =============================================================================
+# SECURITY: ERROR MESSAGE SANITIZATION
+# =============================================================================
+
+# Sanitize error messages to prevent leaking sensitive data
+# Removes API keys, tokens, and other sensitive patterns
+# Usage: sanitize_error_message <message>
+sanitize_error_message() {
+    local message="$1"
+
+    # Pattern list for sensitive data that should be redacted
+    # - API keys (various formats)
+    # - Bearer tokens
+    # - Passwords in URLs
+    # - Authorization headers
+
+    echo "$message" | sed -E \
+        -e 's/(api[_-]?key[[:space:]]*[:=][[:space:]]*)[^[:space:]"'\'']+/\1[REDACTED]/gi' \
+        -e 's/(bearer[[:space:]]+)[^[:space:]"'\'']+/\1[REDACTED]/gi' \
+        -e 's/(authorization[[:space:]]*:[[:space:]]*)[^[:space:]]+/\1[REDACTED]/gi' \
+        -e 's/(password[[:space:]]*[:=][[:space:]]*)[^[:space:]"'\'']+/\1[REDACTED]/gi' \
+        -e 's/(token[[:space:]]*[:=][[:space:]]*)[^[:space:]"'\'']+/\1[REDACTED]/gi' \
+        -e 's/(sk-[a-zA-Z0-9]{20,})/[REDACTED_KEY]/g' \
+        -e 's/([a-zA-Z0-9_-]{32,})/[POSSIBLE_KEY]/g'
+}
+
+# =============================================================================
 # API KEY VALIDATION
 # =============================================================================
 
@@ -34,6 +60,17 @@ check_api_key() {
     # Basic validation: key should be non-empty and not contain obvious placeholders
     if [[ "$key_value" == *"your_"* ]] || [[ "$key_value" == *"YOUR_"* ]] || [[ "$key_value" == "xxx"* ]]; then
         log_error "[$consultant_name] API key appears to be a placeholder: $key_var_name"
+        return 1
+    fi
+
+    # Validate key format (minimum length, no whitespace)
+    if [[ ${#key_value} -lt 10 ]]; then
+        log_error "[$consultant_name] API key too short: $key_var_name"
+        return 1
+    fi
+
+    if [[ "$key_value" =~ [[:space:]] ]]; then
+        log_error "[$consultant_name] API key contains whitespace: $key_var_name"
         return 1
     fi
 
@@ -248,6 +285,9 @@ run_api_query() {
     local request_body="$6"
     local auth_style="${7:-bearer}"
 
+    # Check rate limiting before proceeding
+    check_rate_limit "$consultant_name"
+
     # Resolve API key from env var name
     local api_key="${!api_key_var:-}"
 
@@ -309,7 +349,8 @@ run_api_query() {
             log_warn "[$consultant_name] Network error (curl exit: $curl_exit)"
             local error_msg=""
             [[ -f "$error_file" ]] && error_msg=$(head -3 "$error_file" 2>/dev/null)
-            [[ -n "$error_msg" ]] && log_debug "[$consultant_name] Error: $error_msg"
+            # Sanitize error message to avoid leaking sensitive data
+            [[ -n "$error_msg" ]] && log_debug "[$consultant_name] Error: $(sanitize_error_message "$error_msg")"
             ((attempt++))
             if (( attempt <= MAX_RETRIES )); then
                 sleep "$RETRY_DELAY_SECONDS"
@@ -365,10 +406,10 @@ run_api_query() {
                 ;;
             client)
                 log_error "[$consultant_name] Client error (HTTP $http_code)"
-                # Log response body for debugging
+                # Log response body for debugging (sanitized to avoid leaking sensitive data)
                 if [[ -s "$temp_response" ]]; then
                     local error_msg=$(jq -r '.error.message // .message // .' "$temp_response" 2>/dev/null | head -5)
-                    log_debug "[$consultant_name] Response: $error_msg"
+                    log_debug "[$consultant_name] Response: $(sanitize_error_message "$error_msg")"
                 fi
                 rm -f "$temp_response" "$temp_headers" "$error_file"
                 return 1  # No retry for client errors
@@ -403,3 +444,93 @@ API_BASE_BACKOFF="${API_BASE_BACKOFF:-2}"
 
 # Maximum backoff delay in seconds
 API_MAX_BACKOFF="${API_MAX_BACKOFF:-60}"
+
+# =============================================================================
+# RATE LIMITING
+# =============================================================================
+
+# Rate limiting configuration
+# Requests per minute limit per consultant
+API_RATE_LIMIT="${API_RATE_LIMIT:-30}"
+
+# Rate limit state file (per consultant)
+RATE_LIMIT_DIR="${RATE_LIMIT_DIR:-/tmp/ai_consultants_ratelimit}"
+
+# Initialize rate limit directory
+_init_rate_limit_dir() {
+    if [[ ! -d "$RATE_LIMIT_DIR" ]]; then
+        mkdir -p "$RATE_LIMIT_DIR"
+        chmod 700 "$RATE_LIMIT_DIR"
+    fi
+}
+
+# Check and enforce rate limit for a consultant
+# Returns 0 if request can proceed, 1 if rate limited (with delay)
+# Usage: check_rate_limit <consultant_name>
+check_rate_limit() {
+    local consultant_name="$1"
+    local limit="${API_RATE_LIMIT:-30}"
+    local window=60  # 1 minute window
+
+    _init_rate_limit_dir
+
+    # Normalize consultant name for filename
+    local safe_name=$(echo "$consultant_name" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '_')
+    local state_file="${RATE_LIMIT_DIR}/${safe_name}_ratelimit"
+
+    local now=$(date +%s)
+    local window_start=$((now - window))
+
+    # Create state file if it doesn't exist
+    if [[ ! -f "$state_file" ]]; then
+        touch "$state_file"
+        chmod 600 "$state_file"
+    fi
+
+    # Read timestamps from state file and count requests in current window
+    local count=0
+    local new_timestamps=""
+
+    while IFS= read -r timestamp; do
+        if [[ -n "$timestamp" ]] && [[ "$timestamp" =~ ^[0-9]+$ ]]; then
+            if [[ $timestamp -ge $window_start ]]; then
+                ((count++)) || true
+                new_timestamps+="$timestamp"$'\n'
+            fi
+        fi
+    done < "$state_file"
+
+    # Check if we're at the limit
+    if [[ $count -ge $limit ]]; then
+        # Calculate wait time until oldest request expires
+        local oldest=$(echo "$new_timestamps" | head -1)
+        if [[ -n "$oldest" ]]; then
+            local wait_time=$((oldest + window - now + 1))
+            if [[ $wait_time -gt 0 ]]; then
+                log_warn "[$consultant_name] Rate limit reached ($count/$limit requests/min), waiting ${wait_time}s..."
+                sleep "$wait_time"
+            fi
+        fi
+    fi
+
+    # Record this request
+    new_timestamps+="$now"$'\n'
+    echo "$new_timestamps" > "$state_file"
+
+    return 0
+}
+
+# Clear rate limit state for a consultant (useful for testing)
+# Usage: clear_rate_limit <consultant_name>
+clear_rate_limit() {
+    local consultant_name="$1"
+    local safe_name=$(echo "$consultant_name" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '_')
+    local state_file="${RATE_LIMIT_DIR}/${safe_name}_ratelimit"
+
+    rm -f "$state_file" 2>/dev/null || true
+}
+
+# Clear all rate limit state
+clear_all_rate_limits() {
+    rm -rf "$RATE_LIMIT_DIR" 2>/dev/null || true
+}

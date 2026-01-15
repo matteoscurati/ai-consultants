@@ -86,9 +86,9 @@ echo "" >&2
 # --- Pre-flight Check (optional) ---
 if [[ "$ENABLE_PREFLIGHT" == "true" ]]; then
     log_info "Running pre-flight check..."
-    PREFLIGHT_ARGS=""
-    [[ "$PREFLIGHT_QUICK" == "true" ]] && PREFLIGHT_ARGS="--quick"
-    if ! "$SCRIPT_DIR/preflight_check.sh" $PREFLIGHT_ARGS > /dev/null 2>&1; then
+    local preflight_args=()
+    [[ "$PREFLIGHT_QUICK" == "true" ]] && preflight_args+=("--quick")
+    if ! "$SCRIPT_DIR/preflight_check.sh" "${preflight_args[@]}" > /dev/null 2>&1; then
         log_error "Pre-flight check failed. Run ./preflight_check.sh for details."
         exit 1
     fi
@@ -104,10 +104,15 @@ if [[ "$ENABLE_CLASSIFICATION" == "true" ]]; then
     log_info "Category: $QUESTION_CATEGORY"
 fi
 
-# --- Create Output Directory ---
+# --- Create Output Directory (with secure permissions) ---
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTPUT_DIR="${DEFAULT_OUTPUT_DIR_BASE}/${TIMESTAMP}"
+# Create base directory with restricted permissions (owner only)
+mkdir -p "$DEFAULT_OUTPUT_DIR_BASE"
+chmod 700 "$DEFAULT_OUTPUT_DIR_BASE"
+# Create session-specific directory
 mkdir -p "$OUTPUT_DIR"
+chmod 700 "$OUTPUT_DIR"
 
 log_info "Output: $OUTPUT_DIR"
 log_info "Question: ${QUERY:0:80}$([ ${#QUERY} -gt 80 ] && echo '...')"

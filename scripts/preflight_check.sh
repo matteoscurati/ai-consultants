@@ -75,15 +75,16 @@ check_cli_installed() {
 check_api_connectivity() {
     local name="$1"
     local cmd="$2"
-    local test_args="$3"
+    shift 2
+    local test_args=("$@")
 
     if [[ "${CLI_STATUS[$name]}" != "installed" ]]; then
         API_STATUS[$name]="skipped"
         return 1
     fi
 
-    # Quick test with timeout
-    if timeout 15 $cmd $test_args &>/dev/null; then
+    # Quick test with timeout - properly quoted to prevent injection
+    if timeout 15 "$cmd" "${test_args[@]}" &>/dev/null; then
         API_STATUS[$name]="connected"
         return 0
     else
