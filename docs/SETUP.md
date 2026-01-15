@@ -421,7 +421,24 @@ No special requirements. Ensure `timeout` command is available (usually pre-inst
 
 ## Configuration via Claude Code
 
-If you're using AI Consultants as a Claude Code skill, you can configure it using slash commands like `/project:config-status` and `/project:config-wizard`. See [SKILL.md](../SKILL.md#claude-code-slash-commands) for the complete command reference.
+If you're using AI Consultants as a Claude Code skill, you have two options:
+
+**Option A - Interactive Script:**
+```bash
+~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
+```
+
+**Option B - Slash Commands:**
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:config-check` | Verify which CLIs are installed |
+| `/ai-consultants:config-status` | View current configuration |
+| `/ai-consultants:config-api` | Add API consultants (Qwen3, GLM, Grok) |
+| `/ai-consultants:config-personas` | Change consultant personalities |
+| `/ai-consultants:config-wizard` | Run full interactive wizard |
+
+Both methods write to the same `.env` file. See [SKILL.md](../SKILL.md#claude-code-slash-commands) for usage commands.
 
 ---
 

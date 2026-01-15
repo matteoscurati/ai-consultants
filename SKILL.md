@@ -123,18 +123,41 @@ Query → [Classify] → [Parallel Round 1] → [Debate Round 2] → [Synthesis]
 
 For explicit invocation in Claude Code, use these slash commands:
 
+### Usage Commands
+
 | Command | Description |
 |---------|-------------|
-| `/project:consult` | Main consultation with all experts (`<question> [files...]`) |
-| `/project:ask-experts` | Quick query to consultants |
-| `/project:debate` | Consultation with multi-round debate |
-| `/project:config-status` | View current configuration |
-| `/project:config-check` | Verify CLI installations |
-| `/project:config-personas` | Change persona assignments |
-| `/project:config-api` | Configure API-based consultants |
-| `/project:config-wizard` | Run interactive configuration wizard |
+| `/ai-consultants:consult` | Main consultation with all experts (`<question> [files...]`) |
+| `/ai-consultants:ask-experts` | Quick query to consultants |
+| `/ai-consultants:debate` | Consultation with multi-round debate |
 
-Slash commands and terminal scripts (`./scripts/configure.sh`, `./scripts/preflight_check.sh`) are interoperable and write to the same `.env` file.
+### Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:config-check` | Verify which CLIs are installed |
+| `/ai-consultants:config-status` | View current configuration |
+| `/ai-consultants:config-api` | Add API consultants (Qwen3, GLM, Grok) |
+| `/ai-consultants:config-personas` | Change persona assignments |
+| `/ai-consultants:config-wizard` | Run full interactive wizard |
+
+### Two Configuration Paths
+
+After installation, choose how to configure:
+
+**Option A - Interactive Script:**
+```bash
+~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
+```
+
+**Option B - Claude Code Slash Commands:**
+```
+/ai-consultants:config-check     # Verify CLIs
+/ai-consultants:config-api       # Add API keys
+/ai-consultants:config-personas  # Change personalities
+```
+
+Both methods write to the same `.env` file and are fully interoperable.
 
 ## Advanced Configuration
 

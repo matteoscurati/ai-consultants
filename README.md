@@ -262,25 +262,54 @@ The system automatically calculates:
 - **Mistral disagrees**: Investigate identified risks
 - **Kilo proposes alternative**: Evaluate innovation vs risk
 
-## Using as an AI Agent Skill
+## Claude Code Installation
 
-AI Consultants works as a **skill** in Claude Code, Codex CLI, Gemini CLI, Cursor, and other AI assistants.
-
-**Quick Install (Claude Code):**
+**One-command install:**
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/ai-consultants.git ~/.claude/skills/ai-consultants
+curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+```
+
+**Or manual install:**
+
+```bash
+git clone git@github.com:matteoscurati/ai-consultants.git ~/.claude/skills/ai-consultants
 chmod +x ~/.claude/skills/ai-consultants/scripts/*.sh ~/.claude/skills/ai-consultants/scripts/lib/*.sh
+```
+
+### Configuration Options
+
+After installation, choose one:
+
+#### Option A: Interactive Script
+
+```bash
 ~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
 ```
 
-**Usage:** The skill triggers on phrases like "ask the consultants", "what do other models think", or "consult the experts".
+#### Option B: Claude Code Slash Commands
 
-### Claude Code Slash Commands
+**Configuration commands:**
 
-Use `/project:consult`, `/project:debate`, or `/project:ask-experts` for explicit invocation. Configuration commands (`/project:config-*`) let you manage settings directly from Claude Code.
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:config-check` | Verify which CLIs are installed |
+| `/ai-consultants:config-status` | View current configuration |
+| `/ai-consultants:config-api` | Add API consultants (Qwen3, GLM, Grok) |
+| `/ai-consultants:config-personas` | Change consultant personalities |
+| `/ai-consultants:config-wizard` | Run full interactive wizard |
 
-See **[SKILL.md](SKILL.md#claude-code-slash-commands)** for the complete command reference.
+**Usage commands:**
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:consult` | Main consultation with all experts |
+| `/ai-consultants:ask-experts` | Quick query to consultants |
+| `/ai-consultants:debate` | Consultation with multi-round debate |
+
+The skill also triggers automatically on phrases like "ask the consultants" or "what do other models think".
+
+See **[SKILL.md](SKILL.md#claude-code-slash-commands)** for details.
 
 ## Security
 
