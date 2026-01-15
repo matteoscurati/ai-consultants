@@ -278,25 +278,9 @@ chmod +x ~/.claude/skills/ai-consultants/scripts/*.sh ~/.claude/skills/ai-consul
 
 ### Claude Code Slash Commands
 
-Dedicated slash commands for explicit invocation:
+Use `/project:consult`, `/project:debate`, or `/project:ask-experts` for explicit invocation. Configuration commands (`/project:config-*`) let you manage settings directly from Claude Code.
 
-| Command | Description |
-|---------|-------------|
-| `/project:consult` | Main consultation with all experts |
-| `/project:ask-experts` | Quick query to consultants |
-| `/project:debate` | Consultation with multi-round debate |
-
-Configuration commands (manage directly from Claude Code):
-
-| Command | Description |
-|---------|-------------|
-| `/project:config-status` | View current configuration status |
-| `/project:config-check` | Verify CLI installations |
-| `/project:config-personas` | Change persona assignments |
-| `/project:config-api` | Configure API-based consultants |
-| `/project:config-wizard` | Run full interactive wizard |
-
-For detailed integration instructions with all supported tools, see **[SKILL.md](SKILL.md)**.
+See **[SKILL.md](SKILL.md#claude-code-slash-commands)** for the complete command reference.
 
 ## Security
 

@@ -123,43 +123,18 @@ Query → [Classify] → [Parallel Round 1] → [Debate Round 2] → [Synthesis]
 
 For explicit invocation in Claude Code, use these slash commands:
 
-### Consultation Commands
-
-| Command | Description | Arguments |
-|---------|-------------|-----------|
-| `/project:consult` | Main consultation with all experts | `<question> [file1] [file2] ...` |
-| `/project:ask-experts` | Quick query to consultants | `<question>` |
-| `/project:debate` | Consultation with multi-round debate | `<question> [files...]` |
-
-### Configuration Commands
-
-Manage AI Consultants configuration directly from Claude Code:
-
 | Command | Description |
 |---------|-------------|
-| `/project:config-status` | View current configuration (enabled consultants, CLI status, personas, features) |
-| `/project:config-check` | Run preflight check to verify CLI installations |
-| `/project:config-personas` | List and change persona assignments for consultants |
-| `/project:config-api` | Configure API-based consultants (Qwen3, GLM, Grok, custom) |
-| `/project:config-wizard` | Run the full interactive configuration wizard |
+| `/project:consult` | Main consultation with all experts (`<question> [files...]`) |
+| `/project:ask-experts` | Quick query to consultants |
+| `/project:debate` | Consultation with multi-round debate |
+| `/project:config-status` | View current configuration |
+| `/project:config-check` | Verify CLI installations |
+| `/project:config-personas` | Change persona assignments |
+| `/project:config-api` | Configure API-based consultants |
+| `/project:config-wizard` | Run interactive configuration wizard |
 
-### Configuration via Claude Code vs Terminal
-
-Both methods are fully interoperable and write to the same `.env` file:
-
-**Via Claude Code:**
-```
-/project:config-status     # View current config
-/project:config-personas   # Change personas interactively
-/project:config-api        # Add API keys
-```
-
-**Via Terminal:**
-```bash
-./scripts/configure.sh           # Full interactive wizard
-./scripts/preflight_check.sh     # Verify CLIs
-nano .env                        # Manual editing
-```
+Slash commands and terminal scripts (`./scripts/configure.sh`, `./scripts/preflight_check.sh`) are interoperable and write to the same `.env` file.
 
 ## Advanced Configuration
 
