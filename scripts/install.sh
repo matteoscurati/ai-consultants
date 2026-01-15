@@ -29,6 +29,11 @@ echo "Setting permissions..."
 chmod +x "$INSTALL_DIR"/scripts/*.sh
 chmod +x "$INSTALL_DIR"/scripts/lib/*.sh 2>/dev/null || true
 
+# Copy commands to user commands directory
+echo "Installing slash commands..."
+mkdir -p "${HOME}/.claude/commands"
+cp "$INSTALL_DIR"/.claude/commands/*.md "${HOME}/.claude/commands/"
+
 echo ""
 echo "Installation complete!"
 echo ""

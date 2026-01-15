@@ -81,11 +81,13 @@ If you don't have all CLIs, the wizard will auto-detect and enable only installe
 **Update:**
 ```bash
 cd ~/.claude/skills/ai-consultants && git pull
+cp .claude/commands/*.md ~/.claude/commands/
 ```
 
 **Uninstall:**
 ```bash
 rm -rf ~/.claude/skills/ai-consultants
+rm -f ~/.claude/commands/ai-consultants:*.md
 ```
 
 ## Quick Start (Claude Code)

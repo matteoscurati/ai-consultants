@@ -108,11 +108,13 @@ cp .env.example .env
 **Update to latest version:**
 ```bash
 cd ~/.claude/skills/ai-consultants && git pull
+cp .claude/commands/*.md ~/.claude/commands/
 ```
 
 **Uninstall:**
 ```bash
 rm -rf ~/.claude/skills/ai-consultants
+rm -f ~/.claude/commands/ai-consultants:*.md
 ```
 
 ### Basic Usage
