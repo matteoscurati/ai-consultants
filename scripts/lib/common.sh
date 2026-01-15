@@ -69,7 +69,10 @@ run_with_timeout() {
 
     # Fallback: implementation with background job and kill
     # Works on any POSIX system
-    "${cmd[@]}" &
+    # Note: stdin must be captured before backgrounding
+    local stdin_data
+    stdin_data=$(cat)
+    echo "$stdin_data" | "${cmd[@]}" &
     local pid=$!
 
     # Monitor in background
@@ -184,6 +187,21 @@ run_query() {
 # =============================================================================
 # CASE NORMALIZATION HELPERS
 # =============================================================================
+
+# Get current timestamp in milliseconds (portable - works on macOS and Linux)
+# Usage: get_timestamp_ms
+get_timestamp_ms() {
+    # Try GNU date with nanoseconds support first
+    if date +%s%3N 2>/dev/null | grep -qv 'N'; then
+        date +%s%3N
+    # Fallback to python3 for precision
+    elif command -v python3 &>/dev/null; then
+        python3 -c 'import time; print(int(time.time()*1000))'
+    # Last resort: seconds * 1000
+    else
+        echo "$(($(date +%s) * 1000))"
+    fi
+}
 
 # Convert string to uppercase (portable - works on Bash 3.2+)
 # Usage: to_upper "string"

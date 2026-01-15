@@ -36,7 +36,7 @@ if [[ "$ENABLE_PERSONA" == "true" ]]; then
 fi
 
 # --- Timestamp for metadata ---
-START_TIME=$(date +%s%3N 2>/dev/null || date +%s000)
+START_TIME=$(get_timestamp_ms)
 
 # --- Execution ---
 TEMP_OUTPUT=$(mktemp)
@@ -56,7 +56,7 @@ run_query \
 exit_code=$?
 
 # --- Calculate latency ---
-END_TIME=$(date +%s%3N 2>/dev/null || date +%s000)
+END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Post-processing: wrap in full schema ---
