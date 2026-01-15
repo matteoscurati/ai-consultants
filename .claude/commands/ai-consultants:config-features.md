@@ -1,24 +1,13 @@
 ---
 description: Toggle feature flags (Debate, Smart Routing, Synthesis, etc.)
-allowed-tools: Bash Read Edit AskUserQuestion
+allowed-tools: Bash Read Edit
 ---
 
 # AI Consultants - Feature Configuration
 
 Toggle feature flags for AI Consultants.
 
-## Instructions
-
-1. **Read current .env configuration:**
-
-```bash
-ENV_FILE="${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}/.env"
-grep -E '^ENABLE_(PERSONA|SYNTHESIS|DEBATE|SMART_ROUTING|COST_TRACKING|REFLECTION)=' "$ENV_FILE" 2>/dev/null || echo "No .env found"
-```
-
-2. **Show current status** and ask user which features to toggle using AskUserQuestion.
-
-3. **Available features:**
+## Available Features
 
 | Feature | Variable | Description |
 |---------|----------|-------------|
@@ -29,24 +18,37 @@ grep -E '^ENABLE_(PERSONA|SYNTHESIS|DEBATE|SMART_ROUTING|COST_TRACKING|REFLECTIO
 | Cost Tracking | `ENABLE_COST_TRACKING` | Track API costs |
 | Reflection | `ENABLE_REFLECTION` | Self-critique and refine |
 
-4. **Toggle using sed:**
+## Instructions
+
+### Step 1: Show Current Status
 
 ```bash
-# Enable a feature
-sed -i '' 's/^ENABLE_DEBATE=false/ENABLE_DEBATE=true/' "$ENV_FILE"
-
-# Disable a feature
-sed -i '' 's/^ENABLE_DEBATE=true/ENABLE_DEBATE=false/' "$ENV_FILE"
+ENV_FILE="${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}/.env"
+echo "=== Feature Flags ==="
+grep -E '^ENABLE_(PERSONA|SYNTHESIS|DEBATE|SMART_ROUTING|COST_TRACKING|REFLECTION)=' "$ENV_FILE" 2>/dev/null || echo "No .env found"
+grep -E '^DEBATE_ROUNDS=' "$ENV_FILE" 2>/dev/null
 ```
 
-5. **For Debate, also configure rounds:**
+### Step 2: Toggle a Feature
 
-```bash
-# Set debate rounds (1-3 recommended)
-sed -i '' 's/^DEBATE_ROUNDS=.*/DEBATE_ROUNDS=2/' "$ENV_FILE"
+Use the Edit tool to update the .env file. Change `true` to `false` or vice versa:
+
+```
+ENABLE_DEBATE=true
+ENABLE_SMART_ROUTING=false
 ```
 
-6. **Show updated configuration** after changes.
+### Step 3: Configure Debate Rounds (Optional)
+
+When enabling Debate, also set the number of rounds (1-3 recommended):
+
+```
+DEBATE_ROUNDS=2
+```
+
+### Step 4: Verify the Change
+
+Re-run the status check from Step 1 to confirm.
 
 ## Related Commands
 
