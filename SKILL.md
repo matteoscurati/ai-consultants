@@ -1,15 +1,15 @@
 ---
 name: ai-consultants
-description: Consult Gemini CLI, Codex CLI, Mistral Vibe, and Kilo CLI as external experts for coding questions. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "ask Gemini/Codex/Mistral/Kilo".
+description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, and Cursor as external experts for coding questions. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "ask Gemini/Codex/Mistral/Kilo", "chiedi ai consulenti", "cosa ne pensano gli altri modelli".
 ---
 
 # AI Consultants v2.0 - AI Expert Panel
 
-Simultaneously consult four AIs as "consultants" for coding questions. Each consultant has a **unique persona** that influences their response style.
+Simultaneously consult five AIs as "consultants" for coding questions. Each consultant has a **configurable persona** that influences their response style.
 
 ## What's New in v2.0
 
-- **Personas**: Each consultant has a specific role (Architect, Pragmatist, Devil's Advocate, Innovator)
+- **Configurable Personas**: 15 predefined personas to assign to any consultant
 - **Confidence Scoring**: Each response includes a confidence score from 1-10
 - **Auto-Synthesis**: Automatic synthesis of responses with weighted recommendation
 - **Multi-Agent Debate (MAD)**: Deliberation rounds where consultants critique each other
@@ -122,6 +122,42 @@ Query → [Classify] → [Parallel Round 1] → [Debate Round 2] → [Synthesis]
 ## Advanced Configuration
 
 Modify `scripts/config.sh` or use environment variables:
+
+### Configurable Personas
+
+Each consultant can be assigned a different persona from a catalog of 15 predefined roles:
+
+| ID | Persona | Focus |
+|----|---------|-------|
+| 1 | The Architect | Design patterns, scalability, enterprise |
+| 2 | The Pragmatist | Simplicity, quick wins, proven solutions |
+| 3 | The Devil's Advocate | Edge cases, risks, vulnerabilities |
+| 4 | The Innovator | Creative solutions, new technologies |
+| 5 | The Integrator | Full-stack, cross-cutting concerns |
+| 6 | The Analyst | Data-driven, metrics, performance |
+| 7 | The Methodologist | Structured approaches, processes |
+| 8 | The Provocateur | Challenge conventions, radical alternatives |
+| 9 | The Mentor | Teaching, explanations, learning focus |
+| 10 | The Optimizer | Performance, efficiency, resources |
+| 11 | The Security Expert | Security-first, vulnerabilities, hardening |
+| 12 | The Minimalist | Less is more, essential features only |
+| 13 | The DX Advocate | Developer experience, ergonomics, tooling |
+| 14 | The Debugger | Root cause analysis, troubleshooting |
+| 15 | The Reviewer | Code review, best practices, quality |
+
+```bash
+# Assign personas by ID
+GEMINI_PERSONA_ID=9      # The Mentor
+CODEX_PERSONA_ID=11      # The Security Expert
+
+# Or use custom persona text
+GEMINI_PERSONA="You are a database optimization specialist..."
+
+# List all personas
+source scripts/lib/personas.sh && list_personas
+```
+
+### Other Configuration Options
 
 ```bash
 # === Personas and Synthesis ===
@@ -391,7 +427,7 @@ ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false ENABLE_KILO=false \
 ## Changelog v2.0
 
 ### New Features
-- Personas for each consultant
+- **Configurable personas**: 15 predefined personas, assignable to any consultant
 - Confidence scoring (1-10) on each response
 - Auto-synthesis with weighted recommendation
 - Multi-Agent Debate (MAD) with cross-critique

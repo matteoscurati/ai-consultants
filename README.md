@@ -19,13 +19,14 @@ AI Consultants simultaneously queries **5 AI models** as "expert consultants", e
 
 ## Features v2.0
 
-- **Personas**: Each consultant has a specific role
+- **Configurable Personas**: 15 predefined personas to assign to each consultant
 - **Confidence Scoring**: 1-10 score on every response
 - **Auto-Synthesis**: Automatic synthesis with weighted recommendation
 - **Multi-Agent Debate (MAD)**: Deliberation rounds with cross-critique
 - **Smart Routing**: Automatic selection of best consultants
 - **Session Management**: Follow-up and continuity between consultations
 - **Cost Tracking**: Cost estimation and tracking
+- **AI Agent Skill**: Works as a skill in Claude Code, Codex, and other AI assistants
 
 ## Quick Start
 
@@ -154,6 +155,48 @@ ENABLE_KILO=true
 ENABLE_CURSOR=true
 ```
 
+### Configurable Personas
+
+Each consultant can be assigned a different persona from a catalog of 15 predefined roles. Use the setup wizard or set environment variables:
+
+```bash
+# Run interactive persona configuration
+./scripts/configure.sh
+
+# Or set via environment variables (by ID)
+GEMINI_PERSONA_ID=9     # The Mentor
+CODEX_PERSONA_ID=11     # The Security Expert
+MISTRAL_PERSONA_ID=3    # The Devil's Advocate (default)
+
+# Or use custom persona text
+GEMINI_PERSONA="You are a database optimization specialist..."
+```
+
+**Available Personas:**
+
+| ID | Persona | Focus |
+|----|---------|-------|
+| 1 | The Architect | Design patterns, scalability, enterprise |
+| 2 | The Pragmatist | Simplicity, quick wins, proven solutions |
+| 3 | The Devil's Advocate | Edge cases, risks, vulnerabilities |
+| 4 | The Innovator | Creative solutions, new technologies |
+| 5 | The Integrator | Full-stack, cross-cutting concerns |
+| 6 | The Analyst | Data-driven, metrics, performance |
+| 7 | The Methodologist | Structured approaches, processes |
+| 8 | The Provocateur | Challenge conventions, radical alternatives |
+| 9 | The Mentor | Teaching, explanations, learning focus |
+| 10 | The Optimizer | Performance, efficiency, resources |
+| 11 | The Security Expert | Security-first, vulnerabilities, hardening |
+| 12 | The Minimalist | Less is more, essential features only |
+| 13 | The DX Advocate | Developer experience, ergonomics, tooling |
+| 14 | The Debugger | Root cause analysis, troubleshooting |
+| 15 | The Reviewer | Code review, best practices, quality |
+
+List all personas programmatically:
+```bash
+source scripts/lib/personas.sh && list_personas
+```
+
 ## Output
 
 Each consultation generates:
@@ -240,15 +283,142 @@ The system automatically calculates:
 - **Mistral disagrees**: Investigate identified risks
 - **Kilo proposes alternative**: Evaluate innovation vs risk
 
-## Using as Claude Code Skill
+## Using as an AI Agent Skill
 
-To use as a skill in Claude Code, copy the folder to:
+AI Consultants can be used as a **skill** in various AI coding assistants. This allows you to seamlessly get multi-model perspectives directly from your development environment.
+
+### Claude Code
+
+**Installation:**
 
 ```bash
-cp -r ai-consultants ~/.claude/skills/
+# Clone to the Claude Code skills directory
+git clone https://github.com/YOUR-USERNAME/ai-consultants.git ~/.claude/skills/ai-consultants
+
+# Make scripts executable
+chmod +x ~/.claude/skills/ai-consultants/scripts/*.sh
+chmod +x ~/.claude/skills/ai-consultants/scripts/lib/*.sh
+
+# Run setup to configure available consultants
+~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
 ```
 
-Then invoke with: "Ask the consultants..." or "What do the other models think?"
+**Usage Examples:**
+
+```
+You: "Ask the consultants about the best way to implement caching"
+You: "What do the other models think about using Redis vs Memcached?"
+You: "Consult the experts on this authentication flow"
+You: "chiedi ai consulenti" (Italian trigger also works)
+```
+
+The skill automatically triggers when you mention "consultants", "other models", or similar phrases.
+
+**Advanced Usage in Claude Code:**
+
+```
+You: "Ask Gemini and Codex specifically about this SQL query optimization"
+You: "Run a debate between the consultants on microservices vs monolith"
+You: "Get a security review from the consultants" [attaches code file]
+```
+
+### OpenAI Codex CLI
+
+**Setup:**
+
+```bash
+# Ensure the ai-consultants directory is accessible
+export AI_CONSULTANTS_PATH="/path/to/ai-consultants"
+
+# Add to your shell profile (.bashrc, .zshrc)
+alias consult="$AI_CONSULTANTS_PATH/scripts/consult_all.sh"
+```
+
+**Usage:**
+
+```bash
+# From within Codex CLI session, reference the consultation
+codex "Review this function, and also run: consult 'Is this approach optimal?'"
+
+# Or use directly from terminal alongside Codex
+consult "How should I structure this API?" src/api.py
+codex "Now implement the approach recommended by the consultants"
+```
+
+### Gemini CLI
+
+**Integration:**
+
+```bash
+# Run consultations and feed results to Gemini
+./scripts/consult_all.sh "Best database for time-series data?" > /tmp/consultation.md
+gemini "Based on this consultation, give me a final recommendation:" /tmp/consultation.md
+```
+
+### Cursor / VS Code with AI Extensions
+
+**Setup:**
+
+1. Add the `ai-consultants` folder to your workspace
+2. Use the integrated terminal to run consultations
+3. Reference results in your AI chat
+
+**Workflow:**
+
+```bash
+# In VS Code/Cursor terminal
+./scripts/consult_all.sh "Review this component architecture" src/components/
+
+# Then in Cursor AI chat:
+"Based on the consultation results in /tmp/ai_consultations/, help me implement the recommended changes"
+```
+
+### Generic Integration Pattern
+
+For any AI assistant that supports shell commands:
+
+```bash
+# 1. Run consultation
+./scripts/consult_all.sh "Your question" [context_files...]
+
+# 2. Results are saved to /tmp/ai_consultations/TIMESTAMP/
+#    - report.md: Human-readable summary
+#    - synthesis.json: Structured recommendation
+#    - *.json: Individual consultant responses
+
+# 3. Feed results to your AI assistant
+cat /tmp/ai_consultations/latest/report.md | your-ai-tool
+```
+
+### Skill Triggers
+
+The skill responds to these natural language patterns:
+
+| Pattern | Example |
+|---------|---------|
+| "ask the consultants" | "Ask the consultants about caching strategies" |
+| "what do other models think" | "What do other models think about this approach?" |
+| "consult the experts" | "Consult the experts on this security issue" |
+| "multi-model opinion" | "Get a multi-model opinion on this architecture" |
+| "AI consultants" | "Run AI consultants on this code" |
+| "chiedi ai consulenti" | "Chiedi ai consulenti come ottimizzare" |
+
+### Environment Configuration for Skills
+
+When using as a skill, configure via environment variables in your shell profile:
+
+```bash
+# ~/.bashrc or ~/.zshrc
+export ENABLE_SYNTHESIS=true
+export ENABLE_DEBATE=false
+export MAX_SESSION_COST=1.00
+
+# Disable unavailable consultants
+export ENABLE_KILO=false
+export ENABLE_CURSOR=false
+```
+
+Or create a `.env` file in the ai-consultants directory (see `.env.example`).
 
 ## Security
 
@@ -296,7 +466,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ## Changelog
 
 ### v2.0.0
-- Personas for each consultant
+- **Configurable personas**: 15 predefined personas, assignable to any consultant
 - Confidence scoring (1-10) on every response
 - Auto-synthesis with weighted recommendation
 - Multi-Agent Debate (MAD) with cross-critique
@@ -305,3 +475,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 - Cost tracking and budget limits
 - Pre-flight health checks
 - Interactive progress bars
+- **AI Agent Skill support**: Integration with Claude Code, Codex CLI, and other tools
