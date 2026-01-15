@@ -7,8 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Source configuration
-source "$SCRIPT_DIR/config.sh"
+# Source common.sh (which already sources config.sh)
 source "$SCRIPT_DIR/lib/common.sh"
 
 # =============================================================================
@@ -60,8 +59,8 @@ status_skip() {
 # CLI DETECTION
 # =============================================================================
 
-declare -A CLI_STATUS
-declare -A CLI_AUTH_STATUS
+# Using map_* functions from common.sh for bash 3.2 compatibility
+# Maps: CLI_STATUS, CLI_AUTH_STATUS
 AVAILABLE_COUNT=0
 
 check_cli() {
@@ -70,10 +69,10 @@ check_cli() {
     local install_hint="$3"
 
     if command -v "$cmd" &> /dev/null; then
-        CLI_STATUS["$name"]="installed"
+        map_set "CLI_STATUS" "$name" "installed"
         return 0
     else
-        CLI_STATUS["$name"]="missing"
+        map_set "CLI_STATUS" "$name" "missing"
         return 1
     fi
 }
@@ -83,18 +82,18 @@ test_cli_auth() {
     local cmd="$2"
     local test_args="$3"
 
-    if [[ "${CLI_STATUS[$name]}" != "installed" ]]; then
-        CLI_AUTH_STATUS["$name"]="skipped"
+    if [[ "$(map_get "CLI_STATUS" "$name")" != "installed" ]]; then
+        map_set "CLI_AUTH_STATUS" "$name" "skipped"
         return 1
     fi
 
     # Test with timeout
     if timeout 15 $cmd $test_args &>/dev/null 2>&1; then
-        CLI_AUTH_STATUS["$name"]="authenticated"
+        map_set "CLI_AUTH_STATUS" "$name" "authenticated"
         ((AVAILABLE_COUNT++))
         return 0
     else
-        CLI_AUTH_STATUS["$name"]="failed"
+        map_set "CLI_AUTH_STATUS" "$name" "failed"
         return 1
     fi
 }
@@ -182,7 +181,7 @@ test_authentication() {
     # Gemini
     if test_cli_auth "Gemini" "$GEMINI_CMD" "--version"; then
         status_ok "Gemini authenticated"
-    elif [[ "${CLI_STATUS[Gemini]}" == "installed" ]]; then
+    elif [[ "$(map_get "CLI_STATUS" "Gemini")" == "installed" ]]; then
         status_fail "Gemini auth failed"
         echo "        Run: gemini auth login"
         echo "        Or set: GOOGLE_API_KEY=your-key"
@@ -193,7 +192,7 @@ test_authentication() {
     # Codex
     if test_cli_auth "Codex" "$CODEX_CMD" "--help"; then
         status_ok "Codex authenticated"
-    elif [[ "${CLI_STATUS[Codex]}" == "installed" ]]; then
+    elif [[ "$(map_get "CLI_STATUS" "Codex")" == "installed" ]]; then
         status_fail "Codex auth failed"
         echo "        Set: OPENAI_API_KEY=sk-your-key"
     else
@@ -203,7 +202,7 @@ test_authentication() {
     # Mistral
     if test_cli_auth "Mistral" "$MISTRAL_CMD" "--help"; then
         status_ok "Mistral authenticated"
-    elif [[ "${CLI_STATUS[Mistral]}" == "installed" ]]; then
+    elif [[ "$(map_get "CLI_STATUS" "Mistral")" == "installed" ]]; then
         status_fail "Mistral auth failed"
         echo "        Set: MISTRAL_API_KEY=your-key"
     else
@@ -213,7 +212,7 @@ test_authentication() {
     # Kilo
     if test_cli_auth "Kilo" "$KILO_CMD" "--version"; then
         status_ok "Kilo authenticated"
-    elif [[ "${CLI_STATUS[Kilo]}" == "installed" ]]; then
+    elif [[ "$(map_get "CLI_STATUS" "Kilo")" == "installed" ]]; then
         status_fail "Kilo auth failed"
         echo "        Run: kilocode auth login"
     else
@@ -223,7 +222,7 @@ test_authentication() {
     # Cursor
     if test_cli_auth "Cursor" "$CURSOR_CMD" "--help"; then
         status_ok "Cursor authenticated"
-    elif [[ "${CLI_STATUS[Cursor]}" == "installed" ]]; then
+    elif [[ "$(map_get "CLI_STATUS" "Cursor")" == "installed" ]]; then
         status_fail "Cursor auth failed"
         echo "        Cursor CLI uses your Cursor subscription"
     else
@@ -244,11 +243,11 @@ generate_config() {
     local kilo_enabled="false"
     local cursor_enabled="false"
 
-    [[ "${CLI_AUTH_STATUS[Gemini]:-}" == "authenticated" ]] && gemini_enabled="true"
-    [[ "${CLI_AUTH_STATUS[Codex]:-}" == "authenticated" ]] && codex_enabled="true"
-    [[ "${CLI_AUTH_STATUS[Mistral]:-}" == "authenticated" ]] && mistral_enabled="true"
-    [[ "${CLI_AUTH_STATUS[Kilo]:-}" == "authenticated" ]] && kilo_enabled="true"
-    [[ "${CLI_AUTH_STATUS[Cursor]:-}" == "authenticated" ]] && cursor_enabled="true"
+    [[ "$(map_get "CLI_AUTH_STATUS" "Gemini")" == "authenticated" ]] && gemini_enabled="true"
+    [[ "$(map_get "CLI_AUTH_STATUS" "Codex")" == "authenticated" ]] && codex_enabled="true"
+    [[ "$(map_get "CLI_AUTH_STATUS" "Mistral")" == "authenticated" ]] && mistral_enabled="true"
+    [[ "$(map_get "CLI_AUTH_STATUS" "Kilo")" == "authenticated" ]] && kilo_enabled="true"
+    [[ "$(map_get "CLI_AUTH_STATUS" "Cursor")" == "authenticated" ]] && cursor_enabled="true"
 
     echo "  Based on your setup, recommended settings:"
     echo ""

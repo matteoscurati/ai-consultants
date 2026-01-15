@@ -36,6 +36,9 @@ calculate_consensus_score() {
     local responses_dir="$1"
     local approaches=()
 
+    # Clear any previous map state
+    map_clear "CONSENSUS_COUNTS"
+
     # Collect all approaches
     for f in "$responses_dir"/*.json; do
         if [[ -f "$f" && -s "$f" ]]; then
@@ -52,12 +55,14 @@ calculate_consensus_score() {
 
     # Count unique approaches and the frequency of the most common
     local most_common_count=0
-    declare -A approach_counts
 
     for a in "${approaches[@]}"; do
-        approach_counts[$a]=$((${approach_counts[$a]:-0} + 1))
-        if [[ ${approach_counts[$a]} -gt $most_common_count ]]; then
-            most_common_count=${approach_counts[$a]}
+        local current_count
+        current_count=$(map_get "CONSENSUS_COUNTS" "$a")
+        current_count=$((${current_count:-0} + 1))
+        map_set "CONSENSUS_COUNTS" "$a" "$current_count"
+        if [[ $current_count -gt $most_common_count ]]; then
+            most_common_count=$current_count
         fi
     done
 
@@ -90,38 +95,45 @@ get_consensus_level() {
 calculate_weighted_recommendation() {
     local responses_dir="$1"
 
-    declare -A approach_weights
-    declare -A approach_supporters
+    # Clear any previous map state
+    map_clear "APPROACH_WEIGHTS"
+    map_clear "APPROACH_SUPPORTERS"
 
     # Collect weights for each approach
     for f in "$responses_dir"/*.json; do
         if [[ -f "$f" && -s "$f" ]]; then
-            local consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
-            local approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
-            local confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
+            local consultant approach confidence current_weight current_supporters
+            consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
+            approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
+            confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
 
             # Add weight
-            approach_weights[$approach]=$((${approach_weights[$approach]:-0} + confidence))
+            current_weight=$(map_get "APPROACH_WEIGHTS" "$approach")
+            map_set "APPROACH_WEIGHTS" "$approach" "$((${current_weight:-0} + confidence))"
 
             # Add supporter
-            if [[ -z "${approach_supporters[$approach]}" ]]; then
-                approach_supporters[$approach]="$consultant"
+            current_supporters=$(map_get "APPROACH_SUPPORTERS" "$approach")
+            if [[ -z "$current_supporters" ]]; then
+                map_set "APPROACH_SUPPORTERS" "$approach" "$consultant"
             else
-                approach_supporters[$approach]="${approach_supporters[$approach]},$consultant"
+                map_set "APPROACH_SUPPORTERS" "$approach" "${current_supporters},$consultant"
             fi
         fi
     done
 
-    # Find the approach with the highest weight
+    # Find the approach with the highest weight using map_keys
     local best_approach=""
     local best_weight=0
     local best_supporters=""
+    local approach weight
 
-    for approach in "${!approach_weights[@]}"; do
-        if [[ ${approach_weights[$approach]} -gt $best_weight ]]; then
-            best_weight=${approach_weights[$approach]}
+    for approach in $(map_keys "APPROACH_WEIGHTS"); do
+        weight=$(map_get "APPROACH_WEIGHTS" "$approach")
+        weight="${weight:-0}"
+        if [[ $weight -gt $best_weight ]]; then
+            best_weight=$weight
             best_approach="$approach"
-            best_supporters="${approach_supporters[$approach]}"
+            best_supporters=$(map_get "APPROACH_SUPPORTERS" "$approach")
         fi
     done
 
@@ -203,21 +215,29 @@ calculate_final_score() {
 # Usage: simple_majority_vote <json_responses_dir>
 simple_majority_vote() {
     local responses_dir="$1"
-    declare -A votes
+
+    # Clear any previous map state
+    map_clear "MAJORITY_VOTES"
 
     for f in "$responses_dir"/*.json; do
         if [[ -f "$f" && -s "$f" ]]; then
-            local approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
-            votes[$approach]=$((${votes[$approach]:-0} + 1))
+            local approach current_votes
+            approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
+            current_votes=$(map_get "MAJORITY_VOTES" "$approach")
+            map_set "MAJORITY_VOTES" "$approach" "$((${current_votes:-0} + 1))"
         fi
     done
 
+    # Find approach with most votes using map_keys
     local winner=""
     local max_votes=0
+    local approach votes
 
-    for approach in "${!votes[@]}"; do
-        if [[ ${votes[$approach]} -gt $max_votes ]]; then
-            max_votes=${votes[$approach]}
+    for approach in $(map_keys "MAJORITY_VOTES"); do
+        votes=$(map_get "MAJORITY_VOTES" "$approach")
+        votes="${votes:-0}"
+        if [[ $votes -gt $max_votes ]]; then
+            max_votes=$votes
             winner="$approach"
         fi
     done

@@ -7,70 +7,81 @@
 # =============================================================================
 # COST RATES (USD per 1K tokens)
 # =============================================================================
+# Using case statements for bash 3.2 compatibility (no associative arrays)
 
-# Input token costs
-declare -A INPUT_COST_PER_1K=(
-    ["gemini-2.5-pro"]=0.00125
-    ["gemini-2.5-flash"]=0.000075
-    ["gemini-2.0-flash"]=0.0001
-    ["gpt-4"]=0.03
-    ["gpt-4-turbo"]=0.01
-    ["gpt-4o"]=0.005
-    ["gpt-4o-mini"]=0.00015
-    ["o1"]=0.015
-    ["o3"]=0.015
-    ["claude-3-opus"]=0.015
-    ["claude-3-sonnet"]=0.003
-    ["claude-3-haiku"]=0.00025
-    ["mistral-large"]=0.004
-    ["mistral-medium"]=0.0027
-    ["mistral-small"]=0.001
-    ["kilo"]=0.002
-    ["cursor"]=0.005
-    # Qwen3 models (Alibaba DashScope)
-    ["qwen-max"]=0.004
-    ["qwen-plus"]=0.002
-    ["qwen-turbo"]=0.0008
-    # GLM models (Zhipu AI)
-    ["glm-4"]=0.003
-    ["glm-3-turbo"]=0.001
-    # Grok models (xAI)
-    ["grok-beta"]=0.005
-    ["grok-2"]=0.01
-    ["default"]=0.005
-)
+# Get input token cost per 1K tokens
+# Usage: get_input_cost_per_1k <model>
+get_input_cost_per_1k() {
+    local model="$1"
+    case "$model" in
+        gemini-2.5-pro)   echo "0.00125" ;;
+        gemini-2.5-flash) echo "0.000075" ;;
+        gemini-2.0-flash) echo "0.0001" ;;
+        gpt-4)            echo "0.03" ;;
+        gpt-4-turbo)      echo "0.01" ;;
+        gpt-4o)           echo "0.005" ;;
+        gpt-4o-mini)      echo "0.00015" ;;
+        o1)               echo "0.015" ;;
+        o3)               echo "0.015" ;;
+        claude-3-opus)    echo "0.015" ;;
+        claude-3-sonnet)  echo "0.003" ;;
+        claude-3-haiku)   echo "0.00025" ;;
+        mistral-large)    echo "0.004" ;;
+        mistral-medium)   echo "0.0027" ;;
+        mistral-small)    echo "0.001" ;;
+        kilo)             echo "0.002" ;;
+        cursor)           echo "0.005" ;;
+        # Qwen3 models (Alibaba DashScope)
+        qwen-max)         echo "0.004" ;;
+        qwen-plus)        echo "0.002" ;;
+        qwen-turbo)       echo "0.0008" ;;
+        # GLM models (Zhipu AI)
+        glm-4)            echo "0.003" ;;
+        glm-3-turbo)      echo "0.001" ;;
+        # Grok models (xAI)
+        grok-beta)        echo "0.005" ;;
+        grok-2)           echo "0.01" ;;
+        # Default
+        *)                echo "0.005" ;;
+    esac
+}
 
-# Output token costs (typically higher)
-declare -A OUTPUT_COST_PER_1K=(
-    ["gemini-2.5-pro"]=0.005
-    ["gemini-2.5-flash"]=0.0003
-    ["gemini-2.0-flash"]=0.0004
-    ["gpt-4"]=0.06
-    ["gpt-4-turbo"]=0.03
-    ["gpt-4o"]=0.015
-    ["gpt-4o-mini"]=0.0006
-    ["o1"]=0.06
-    ["o3"]=0.06
-    ["claude-3-opus"]=0.075
-    ["claude-3-sonnet"]=0.015
-    ["claude-3-haiku"]=0.00125
-    ["mistral-large"]=0.012
-    ["mistral-medium"]=0.0081
-    ["mistral-small"]=0.003
-    ["kilo"]=0.006
-    ["cursor"]=0.015
-    # Qwen3 models (Alibaba DashScope)
-    ["qwen-max"]=0.012
-    ["qwen-plus"]=0.006
-    ["qwen-turbo"]=0.002
-    # GLM models (Zhipu AI)
-    ["glm-4"]=0.009
-    ["glm-3-turbo"]=0.003
-    # Grok models (xAI)
-    ["grok-beta"]=0.015
-    ["grok-2"]=0.03
-    ["default"]=0.015
-)
+# Get output token cost per 1K tokens
+# Usage: get_output_cost_per_1k <model>
+get_output_cost_per_1k() {
+    local model="$1"
+    case "$model" in
+        gemini-2.5-pro)   echo "0.005" ;;
+        gemini-2.5-flash) echo "0.0003" ;;
+        gemini-2.0-flash) echo "0.0004" ;;
+        gpt-4)            echo "0.06" ;;
+        gpt-4-turbo)      echo "0.03" ;;
+        gpt-4o)           echo "0.015" ;;
+        gpt-4o-mini)      echo "0.0006" ;;
+        o1)               echo "0.06" ;;
+        o3)               echo "0.06" ;;
+        claude-3-opus)    echo "0.075" ;;
+        claude-3-sonnet)  echo "0.015" ;;
+        claude-3-haiku)   echo "0.00125" ;;
+        mistral-large)    echo "0.012" ;;
+        mistral-medium)   echo "0.0081" ;;
+        mistral-small)    echo "0.003" ;;
+        kilo)             echo "0.006" ;;
+        cursor)           echo "0.015" ;;
+        # Qwen3 models (Alibaba DashScope)
+        qwen-max)         echo "0.012" ;;
+        qwen-plus)        echo "0.006" ;;
+        qwen-turbo)       echo "0.002" ;;
+        # GLM models (Zhipu AI)
+        glm-4)            echo "0.009" ;;
+        glm-3-turbo)      echo "0.003" ;;
+        # Grok models (xAI)
+        grok-beta)        echo "0.015" ;;
+        grok-2)           echo "0.03" ;;
+        # Default
+        *)                echo "0.015" ;;
+    esac
+}
 
 # =============================================================================
 # COST CALCULATION
@@ -86,14 +97,16 @@ estimate_query_cost() {
     # Normalize model name
     model=$(echo "$model" | tr '[:upper:]' '[:lower:]')
 
-    # Get rates (fallback to default)
-    local input_rate="${INPUT_COST_PER_1K[$model]:-${INPUT_COST_PER_1K[default]}}"
-    local output_rate="${OUTPUT_COST_PER_1K[$model]:-${OUTPUT_COST_PER_1K[default]}}"
+    # Get rates using lookup functions
+    local input_rate output_rate
+    input_rate=$(get_input_cost_per_1k "$model")
+    output_rate=$(get_output_cost_per_1k "$model")
 
     # Calculate cost
-    local input_cost=$(echo "scale=6; $input_tokens / 1000 * $input_rate" | bc)
-    local output_cost=$(echo "scale=6; $output_tokens / 1000 * $output_rate" | bc)
-    local total_cost=$(echo "scale=6; $input_cost + $output_cost" | bc)
+    local input_cost output_cost total_cost
+    input_cost=$(echo "scale=6; $input_tokens / 1000 * $input_rate" | bc)
+    output_cost=$(echo "scale=6; $output_tokens / 1000 * $output_rate" | bc)
+    total_cost=$(echo "scale=6; $input_cost + $output_cost" | bc)
 
     echo "$total_cost"
 }

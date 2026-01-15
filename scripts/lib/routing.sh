@@ -6,121 +6,8 @@
 # =============================================================================
 # AFFINITY MATRIX
 # =============================================================================
-
-# Affinity scores for each category-consultant combination
-# Scale 1-10: 10 = perfect match, 1 = poor match
-
-declare -A CONSULTANT_AFFINITY
-
-# CODE_REVIEW: Codex and Kilo are the best for code review
-CONSULTANT_AFFINITY["CODE_REVIEW:Gemini"]=7
-CONSULTANT_AFFINITY["CODE_REVIEW:Codex"]=10
-CONSULTANT_AFFINITY["CODE_REVIEW:Mistral"]=8   # Devil's advocate great for finding problems
-CONSULTANT_AFFINITY["CODE_REVIEW:Kilo"]=9
-CONSULTANT_AFFINITY["CODE_REVIEW:Cursor"]=9    # Full-stack perspective on reviews
-
-# BUG_DEBUG: Codex excels at debugging
-CONSULTANT_AFFINITY["BUG_DEBUG:Gemini"]=7
-CONSULTANT_AFFINITY["BUG_DEBUG:Codex"]=10
-CONSULTANT_AFFINITY["BUG_DEBUG:Mistral"]=9     # Finds edge cases
-CONSULTANT_AFFINITY["BUG_DEBUG:Kilo"]=8
-CONSULTANT_AFFINITY["BUG_DEBUG:Cursor"]=9      # Good at tracing issues across stack
-
-# ARCHITECTURE: Gemini is The Architect
-CONSULTANT_AFFINITY["ARCHITECTURE:Gemini"]=10
-CONSULTANT_AFFINITY["ARCHITECTURE:Codex"]=6
-CONSULTANT_AFFINITY["ARCHITECTURE:Mistral"]=8  # Critiques architectures
-CONSULTANT_AFFINITY["ARCHITECTURE:Kilo"]=9     # Innovative solutions
-CONSULTANT_AFFINITY["ARCHITECTURE:Cursor"]=8   # Integration perspective
-
-# ALGORITHM: All useful, Gemini for complexity
-CONSULTANT_AFFINITY["ALGORITHM:Gemini"]=9
-CONSULTANT_AFFINITY["ALGORITHM:Codex"]=8
-CONSULTANT_AFFINITY["ALGORITHM:Mistral"]=7
-CONSULTANT_AFFINITY["ALGORITHM:Kilo"]=8
-CONSULTANT_AFFINITY["ALGORITHM:Cursor"]=7
-
-# SECURITY: All important, Mistral essential
-CONSULTANT_AFFINITY["SECURITY:Gemini"]=9
-CONSULTANT_AFFINITY["SECURITY:Codex"]=9
-CONSULTANT_AFFINITY["SECURITY:Mistral"]=10     # Devil's advocate for security
-CONSULTANT_AFFINITY["SECURITY:Kilo"]=8
-CONSULTANT_AFFINITY["SECURITY:Cursor"]=8       # Cross-cutting security concerns
-
-# QUICK_SYNTAX: Just one fast consultant needed
-CONSULTANT_AFFINITY["QUICK_SYNTAX:Gemini"]=10
-CONSULTANT_AFFINITY["QUICK_SYNTAX:Codex"]=8
-CONSULTANT_AFFINITY["QUICK_SYNTAX:Mistral"]=5
-CONSULTANT_AFFINITY["QUICK_SYNTAX:Kilo"]=6
-CONSULTANT_AFFINITY["QUICK_SYNTAX:Cursor"]=7
-
-# DATABASE: All useful
-CONSULTANT_AFFINITY["DATABASE:Gemini"]=8
-CONSULTANT_AFFINITY["DATABASE:Codex"]=9
-CONSULTANT_AFFINITY["DATABASE:Mistral"]=7
-CONSULTANT_AFFINITY["DATABASE:Kilo"]=7
-CONSULTANT_AFFINITY["DATABASE:Cursor"]=8       # Full-stack DB integration
-
-# API_DESIGN: Gemini for design, Codex for practicality
-CONSULTANT_AFFINITY["API_DESIGN:Gemini"]=10
-CONSULTANT_AFFINITY["API_DESIGN:Codex"]=9
-CONSULTANT_AFFINITY["API_DESIGN:Mistral"]=7
-CONSULTANT_AFFINITY["API_DESIGN:Kilo"]=8
-CONSULTANT_AFFINITY["API_DESIGN:Cursor"]=9     # Frontend-backend integration
-
-# TESTING: Codex and Mistral
-CONSULTANT_AFFINITY["TESTING:Gemini"]=7
-CONSULTANT_AFFINITY["TESTING:Codex"]=10
-CONSULTANT_AFFINITY["TESTING:Mistral"]=9       # Finds untested cases
-CONSULTANT_AFFINITY["TESTING:Kilo"]=7
-CONSULTANT_AFFINITY["TESTING:Cursor"]=9        # Cross-layer testing strategies
-
-# GENERAL: Balanced
-CONSULTANT_AFFINITY["GENERAL:Gemini"]=8
-CONSULTANT_AFFINITY["GENERAL:Codex"]=8
-CONSULTANT_AFFINITY["GENERAL:Mistral"]=8
-CONSULTANT_AFFINITY["GENERAL:Kilo"]=8
-CONSULTANT_AFFINITY["GENERAL:Cursor"]=8
-
-# =============================================================================
-# API-BASED CONSULTANTS AFFINITY SCORES
-# =============================================================================
-
-# Qwen3 - The Analyst (strong on algorithms, data, performance)
-CONSULTANT_AFFINITY["CODE_REVIEW:Qwen3"]=8
-CONSULTANT_AFFINITY["BUG_DEBUG:Qwen3"]=8
-CONSULTANT_AFFINITY["ARCHITECTURE:Qwen3"]=7
-CONSULTANT_AFFINITY["ALGORITHM:Qwen3"]=9
-CONSULTANT_AFFINITY["SECURITY:Qwen3"]=7
-CONSULTANT_AFFINITY["QUICK_SYNTAX:Qwen3"]=7
-CONSULTANT_AFFINITY["DATABASE:Qwen3"]=9
-CONSULTANT_AFFINITY["API_DESIGN:Qwen3"]=7
-CONSULTANT_AFFINITY["TESTING:Qwen3"]=8
-CONSULTANT_AFFINITY["GENERAL:Qwen3"]=8
-
-# GLM - The Methodologist (strong on process, testing, documentation)
-CONSULTANT_AFFINITY["CODE_REVIEW:GLM"]=8
-CONSULTANT_AFFINITY["BUG_DEBUG:GLM"]=8
-CONSULTANT_AFFINITY["ARCHITECTURE:GLM"]=7
-CONSULTANT_AFFINITY["ALGORITHM:GLM"]=7
-CONSULTANT_AFFINITY["SECURITY:GLM"]=8
-CONSULTANT_AFFINITY["QUICK_SYNTAX:GLM"]=6
-CONSULTANT_AFFINITY["DATABASE:GLM"]=7
-CONSULTANT_AFFINITY["API_DESIGN:GLM"]=8
-CONSULTANT_AFFINITY["TESTING:GLM"]=10
-CONSULTANT_AFFINITY["GENERAL:GLM"]=8
-
-# Grok - The Provocateur (strong on challenging assumptions, innovation)
-CONSULTANT_AFFINITY["CODE_REVIEW:Grok"]=7
-CONSULTANT_AFFINITY["BUG_DEBUG:Grok"]=7
-CONSULTANT_AFFINITY["ARCHITECTURE:Grok"]=9
-CONSULTANT_AFFINITY["ALGORITHM:Grok"]=8
-CONSULTANT_AFFINITY["SECURITY:Grok"]=8
-CONSULTANT_AFFINITY["QUICK_SYNTAX:Grok"]=5
-CONSULTANT_AFFINITY["DATABASE:Grok"]=6
-CONSULTANT_AFFINITY["API_DESIGN:Grok"]=8
-CONSULTANT_AFFINITY["TESTING:Grok"]=7
-CONSULTANT_AFFINITY["GENERAL:Grok"]=8
+# Using case statements for bash 3.2 compatibility (no associative arrays)
+# Affinity scores: 10 = perfect match, 1 = poor match
 
 # =============================================================================
 # SELECTION FUNCTIONS
@@ -131,9 +18,133 @@ CONSULTANT_AFFINITY["GENERAL:Grok"]=8
 get_affinity() {
     local category="$1"
     local consultant="$2"
-    local key="${category}:${consultant}"
 
-    echo "${CONSULTANT_AFFINITY[$key]:-5}"
+    case "$category" in
+        CODE_REVIEW)
+            case "$consultant" in
+                Gemini) echo 7 ;;
+                Codex)  echo 10 ;;
+                Mistral) echo 8 ;;
+                Kilo)   echo 9 ;;
+                Cursor) echo 9 ;;
+                Qwen3)  echo 8 ;;
+                GLM)    echo 8 ;;
+                Grok)   echo 7 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        BUG_DEBUG)
+            case "$consultant" in
+                Gemini) echo 7 ;;
+                Codex)  echo 10 ;;
+                Mistral) echo 9 ;;
+                Kilo)   echo 8 ;;
+                Cursor) echo 9 ;;
+                Qwen3)  echo 8 ;;
+                GLM)    echo 8 ;;
+                Grok)   echo 7 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        ARCHITECTURE)
+            case "$consultant" in
+                Gemini) echo 10 ;;
+                Codex)  echo 6 ;;
+                Mistral) echo 8 ;;
+                Kilo)   echo 9 ;;
+                Cursor) echo 8 ;;
+                Qwen3)  echo 7 ;;
+                GLM)    echo 7 ;;
+                Grok)   echo 9 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        ALGORITHM)
+            case "$consultant" in
+                Gemini) echo 9 ;;
+                Codex)  echo 8 ;;
+                Mistral) echo 7 ;;
+                Kilo)   echo 8 ;;
+                Cursor) echo 7 ;;
+                Qwen3)  echo 9 ;;
+                GLM)    echo 7 ;;
+                Grok)   echo 8 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        SECURITY)
+            case "$consultant" in
+                Gemini) echo 9 ;;
+                Codex)  echo 9 ;;
+                Mistral) echo 10 ;;
+                Kilo)   echo 8 ;;
+                Cursor) echo 8 ;;
+                Qwen3)  echo 7 ;;
+                GLM)    echo 8 ;;
+                Grok)   echo 8 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        QUICK_SYNTAX)
+            case "$consultant" in
+                Gemini) echo 10 ;;
+                Codex)  echo 8 ;;
+                Mistral) echo 5 ;;
+                Kilo)   echo 6 ;;
+                Cursor) echo 7 ;;
+                Qwen3)  echo 7 ;;
+                GLM)    echo 6 ;;
+                Grok)   echo 5 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        DATABASE)
+            case "$consultant" in
+                Gemini) echo 8 ;;
+                Codex)  echo 9 ;;
+                Mistral) echo 7 ;;
+                Kilo)   echo 7 ;;
+                Cursor) echo 8 ;;
+                Qwen3)  echo 9 ;;
+                GLM)    echo 7 ;;
+                Grok)   echo 6 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        API_DESIGN)
+            case "$consultant" in
+                Gemini) echo 10 ;;
+                Codex)  echo 9 ;;
+                Mistral) echo 7 ;;
+                Kilo)   echo 8 ;;
+                Cursor) echo 9 ;;
+                Qwen3)  echo 7 ;;
+                GLM)    echo 8 ;;
+                Grok)   echo 8 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        TESTING)
+            case "$consultant" in
+                Gemini) echo 7 ;;
+                Codex)  echo 10 ;;
+                Mistral) echo 9 ;;
+                Kilo)   echo 7 ;;
+                Cursor) echo 9 ;;
+                Qwen3)  echo 8 ;;
+                GLM)    echo 10 ;;
+                Grok)   echo 7 ;;
+                *)      echo 5 ;;
+            esac
+            ;;
+        *)
+            # GENERAL and unknown categories: all known consultants get score 8
+            case "$consultant" in
+                Gemini|Codex|Mistral|Kilo|Cursor|Qwen3|GLM|Grok) echo 8 ;;
+                *) echo 5 ;;
+            esac
+            ;;
+    esac
 }
 
 # Select the best consultants for a category
@@ -282,22 +293,20 @@ get_recommended_count() {
 # TIMEOUT ADJUSTMENTS
 # =============================================================================
 
-# Optimized timeouts by category
-declare -A CATEGORY_TIMEOUTS
-CATEGORY_TIMEOUTS["QUICK_SYNTAX"]=60
-CATEGORY_TIMEOUTS["BUG_DEBUG"]=180
-CATEGORY_TIMEOUTS["ARCHITECTURE"]=240
-CATEGORY_TIMEOUTS["SECURITY"]=240
-CATEGORY_TIMEOUTS["CODE_REVIEW"]=180
-CATEGORY_TIMEOUTS["ALGORITHM"]=180
-CATEGORY_TIMEOUTS["DATABASE"]=120
-CATEGORY_TIMEOUTS["API_DESIGN"]=180
-CATEGORY_TIMEOUTS["TESTING"]=120
-CATEGORY_TIMEOUTS["GENERAL"]=180
-
 # Get recommended timeout for a category
 # Usage: get_category_timeout <category>
 get_category_timeout() {
     local category="$1"
-    echo "${CATEGORY_TIMEOUTS[$category]:-180}"
+    case "$category" in
+        QUICK_SYNTAX)  echo 60 ;;
+        BUG_DEBUG)     echo 180 ;;
+        ARCHITECTURE)  echo 240 ;;
+        SECURITY)      echo 240 ;;
+        CODE_REVIEW)   echo 180 ;;
+        ALGORITHM)     echo 180 ;;
+        DATABASE)      echo 120 ;;
+        API_DESIGN)    echo 180 ;;
+        TESTING)       echo 120 ;;
+        GENERAL|*)     echo 180 ;;
+    esac
 }

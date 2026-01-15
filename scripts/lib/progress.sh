@@ -12,15 +12,6 @@ BAR_FILLED="█"
 BAR_EMPTY="░"
 BAR_WIDTH=20
 
-# Status icons
-declare -A STATUS_ICONS
-STATUS_ICONS["starting"]="⏳"
-STATUS_ICONS["running"]="🔄"
-STATUS_ICONS["success"]="✅"
-STATUS_ICONS["failed"]="❌"
-STATUS_ICONS["timeout"]="⏰"
-STATUS_ICONS["skipped"]="⏭️"
-
 # Colors (ANSI)
 COLOR_RESET="\033[0m"
 COLOR_GREEN="\033[0;32m"
@@ -33,18 +24,16 @@ COLOR_DIM="\033[0;90m"
 # =============================================================================
 # PROGRESS STATE
 # =============================================================================
-
-declare -A PROGRESS_PERCENT
-declare -A PROGRESS_STATUS
-declare -A PROGRESS_START_TIME
+# Using map_* functions from common.sh for bash 3.2 compatibility
+# Maps: PROGRESS_PERCENT, PROGRESS_STATUS, PROGRESS_START_TIME
 
 # Initialize progress for a consultant
 # Usage: init_progress <consultant>
 init_progress() {
     local consultant="$1"
-    PROGRESS_PERCENT[$consultant]=0
-    PROGRESS_STATUS[$consultant]="starting"
-    PROGRESS_START_TIME[$consultant]=$(date +%s)
+    map_set "PROGRESS_PERCENT" "$consultant" "0"
+    map_set "PROGRESS_STATUS" "$consultant" "starting"
+    map_set "PROGRESS_START_TIME" "$consultant" "$(date +%s)"
 }
 
 # Update progress
@@ -54,8 +43,8 @@ update_progress() {
     local percent="$2"
     local status="${3:-running}"
 
-    PROGRESS_PERCENT[$consultant]=$percent
-    PROGRESS_STATUS[$consultant]="$status"
+    map_set "PROGRESS_PERCENT" "$consultant" "$percent"
+    map_set "PROGRESS_STATUS" "$consultant" "$status"
 }
 
 # =============================================================================
@@ -84,7 +73,15 @@ generate_bar() {
 # Usage: get_status_icon <status>
 get_status_icon() {
     local status="$1"
-    echo "${STATUS_ICONS[$status]:-❓}"
+    case "$status" in
+        starting) echo "⏳" ;;
+        running)  echo "🔄" ;;
+        success)  echo "✅" ;;
+        failed)   echo "❌" ;;
+        timeout)  echo "⏰" ;;
+        skipped)  echo "⏭️" ;;
+        *)        echo "❓" ;;
+    esac
 }
 
 # Get color for status
@@ -92,21 +89,11 @@ get_status_icon() {
 get_status_color() {
     local status="$1"
     case "$status" in
-        success)
-            echo "$COLOR_GREEN"
-            ;;
-        failed|timeout)
-            echo "$COLOR_RED"
-            ;;
-        running)
-            echo "$COLOR_BLUE"
-            ;;
-        starting)
-            echo "$COLOR_YELLOW"
-            ;;
-        *)
-            echo "$COLOR_RESET"
-            ;;
+        success)        echo "$COLOR_GREEN" ;;
+        failed|timeout) echo "$COLOR_RED" ;;
+        running)        echo "$COLOR_BLUE" ;;
+        starting)       echo "$COLOR_YELLOW" ;;
+        *)              echo "$COLOR_RESET" ;;
     esac
 }
 
@@ -114,7 +101,9 @@ get_status_color() {
 # Usage: get_elapsed <consultant>
 get_elapsed() {
     local consultant="$1"
-    local start="${PROGRESS_START_TIME[$consultant]:-$(date +%s)}"
+    local start
+    start=$(map_get "PROGRESS_START_TIME" "$consultant")
+    start="${start:-$(date +%s)}"
     local now=$(date +%s)
     local elapsed=$((now - start))
     echo "${elapsed}s"
@@ -124,8 +113,11 @@ get_elapsed() {
 # Usage: render_progress_line <consultant>
 render_progress_line() {
     local consultant="$1"
-    local percent="${PROGRESS_PERCENT[$consultant]:-0}"
-    local status="${PROGRESS_STATUS[$consultant]:-starting}"
+    local percent status
+    percent=$(map_get "PROGRESS_PERCENT" "$consultant")
+    percent="${percent:-0}"
+    status=$(map_get "PROGRESS_STATUS" "$consultant")
+    status="${status:-starting}"
 
     local bar=$(generate_bar "$percent")
     local icon=$(get_status_icon "$status")
@@ -139,14 +131,16 @@ render_progress_line() {
 # Render all progress bars
 # Usage: render_all_progress
 render_all_progress() {
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo")
+    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor")
 
     echo ""
     echo "  Progress:"
     echo ""
 
     for c in "${consultants[@]}"; do
-        if [[ -n "${PROGRESS_STATUS[$c]}" ]]; then
+        local status
+        status=$(map_get "PROGRESS_STATUS" "$c")
+        if [[ -n "$status" ]]; then
             render_progress_line "$c"
         fi
     done
@@ -217,9 +211,10 @@ show_summary() {
     echo ""
 
     # Details per consultant
-    for c in Gemini Codex Mistral Kilo; do
-        if [[ -n "${PROGRESS_STATUS[$c]}" ]]; then
-            local status="${PROGRESS_STATUS[$c]}"
+    for c in Gemini Codex Mistral Kilo Cursor; do
+        local status
+        status=$(map_get "PROGRESS_STATUS" "$c")
+        if [[ -n "$status" ]]; then
             local icon=$(get_status_icon "$status")
             local elapsed=$(get_elapsed "$c")
             printf "  %s %-8s: %s (%s)\n" "$icon" "$c" "$status" "$elapsed"

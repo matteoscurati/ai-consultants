@@ -348,3 +348,85 @@ validate_query() {
     fi
     return 0
 }
+
+# =============================================================================
+# BASH 3.2 COMPATIBLE MAP FUNCTIONS
+# =============================================================================
+# These functions emulate associative arrays for compatibility with macOS
+# default bash (3.2). They use dynamic variable names with eval.
+#
+# IMPORTANT: Keys must be alphanumeric (letters, numbers, underscore).
+# Special characters in keys will be stripped.
+#
+# Usage:
+#   map_set "MYMAP" "key" "value"
+#   value=$(map_get "MYMAP" "key")
+#   map_has "MYMAP" "key" && echo "exists"
+#   map_keys "MYMAP"  # prints space-separated keys
+#   map_clear "MYMAP"
+
+# Sanitize key for use as variable name (keep only alphanumeric and underscore)
+_map_sanitize_key() {
+    echo "$1" | tr -cd '[:alnum:]_'
+}
+
+# Set a value in a map
+# Usage: map_set "MAPNAME" "key" "value"
+map_set() {
+    local map_name="$1"
+    local safe_key
+    safe_key=$(_map_sanitize_key "$2")
+    local value="$3"
+
+    eval "_MAP_${map_name}_${safe_key}=\"\$value\""
+
+    # Track keys for iteration (only add if not already present)
+    local keys_var="_MAP_${map_name}__KEYS__"
+    local current_keys
+    eval "current_keys=\"\${$keys_var:-}\""
+    if [[ ! " $current_keys " =~ " $safe_key " ]]; then
+        if [[ -z "$current_keys" ]]; then
+            eval "$keys_var=\"\$safe_key\""
+        else
+            eval "$keys_var=\"\$current_keys \$safe_key\""
+        fi
+    fi
+}
+
+# Get a value from a map
+# Usage: value=$(map_get "MAPNAME" "key")
+map_get() {
+    local map_name="$1"
+    local safe_key
+    safe_key=$(_map_sanitize_key "$2")
+    eval "echo \"\${_MAP_${map_name}_${safe_key}:-}\""
+}
+
+# Check if a key exists in a map (returns 0 if exists, 1 otherwise)
+# Usage: map_has "MAPNAME" "key" && echo "exists"
+map_has() {
+    local map_name="$1"
+    local safe_key
+    safe_key=$(_map_sanitize_key "$2")
+    eval "[ -n \"\${_MAP_${map_name}_${safe_key}+x}\" ]"
+}
+
+# Get all keys from a map (space-separated)
+# Usage: for key in $(map_keys "MAPNAME"); do ...; done
+map_keys() {
+    local map_name="$1"
+    eval "echo \"\${_MAP_${map_name}__KEYS__:-}\""
+}
+
+# Clear all values from a map
+# Usage: map_clear "MAPNAME"
+map_clear() {
+    local map_name="$1"
+    local keys_var="_MAP_${map_name}__KEYS__"
+    local keys key
+    eval "keys=\"\${$keys_var:-}\""
+    for key in $keys; do
+        eval "unset _MAP_${map_name}_${key}"
+    done
+    eval "unset $keys_var"
+}
