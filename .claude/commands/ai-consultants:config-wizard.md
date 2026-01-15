@@ -35,3 +35,4 @@ The wizard configures: CLI agents, API agents (Qwen3, GLM, Grok, custom), person
 - `/ai-consultants:config-check` - Verify CLI installations
 - `/ai-consultants:config-personas` - Change persona assignments
 - `/ai-consultants:config-api` - Configure API consultants
+- `/ai-consultants:config-features` - Toggle feature flags
