@@ -1069,11 +1069,11 @@ main() {
     for i in "${!CLI_AGENT_NAMES[@]}"; do
         [[ "${CLI_ENABLED[$i]}" == "true" ]] && echo "  [CLI] ${CLI_AGENT_NAMES[$i]}"
     done
-    for name in "${CUSTOM_NAMES[@]}"; do echo "  [CLI] $name (custom)"; done
+    for name in ${CUSTOM_NAMES[@]+"${CUSTOM_NAMES[@]}"}; do echo "  [CLI] $name (custom)"; done
     for i in "${!API_AGENT_NAMES[@]}"; do
         [[ "${API_ENABLED[$i]}" == "true" ]] && echo "  [API] ${API_AGENT_NAMES[$i]}"
     done
-    for name in "${CUSTOM_API_NAMES[@]}"; do echo "  [API] $name (custom)"; done
+    for name in ${CUSTOM_API_NAMES[@]+"${CUSTOM_API_NAMES[@]}"}; do echo "  [API] $name (custom)"; done
 
     echo ""
     echo "Next steps:"
