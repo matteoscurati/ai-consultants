@@ -59,38 +59,46 @@ Each CLI requires its own API key or authentication:
 
 ### Setup Wizard
 
-Run the interactive setup wizard to auto-detect and configure:
+Run the interactive setup wizard in Claude Code:
 
+```
+/ai-consultants:config-wizard
+```
+
+Or run directly:
 ```bash
-./scripts/setup_wizard.sh
+~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
 ```
 
 For detailed setup instructions, see [docs/SETUP.md](docs/SETUP.md).
 
 ### Partial Setup
 
-If you don't have all CLIs, disable unavailable consultants:
+If you don't have all CLIs, the wizard will auto-detect and enable only installed ones.
 
-```bash
-# Example: Only OpenAI + Google configured
-ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=false ENABLE_KILO=false ENABLE_CURSOR=false \
-./scripts/consult_all.sh "Your question"
+## Quick Start (Claude Code)
+
+```
+# Verify installation
+/ai-consultants:config-check
+
+# Basic consultation
+/ai-consultants:consult "How to optimize this function?"
+
+# With debate mode
+/ai-consultants:debate "Microservices or monolith?"
 ```
 
-## Quick Start
+## Quick Start (Bash)
 
 ```bash
-# Basic usage: question + optional files
+cd ~/.claude/skills/ai-consultants
+
+# Basic usage
 ./scripts/consult_all.sh "How to optimize this function?" src/utils.py
 
-# Multiple context files
-./scripts/consult_all.sh "Better to use Redis or Memcached for this case?" src/cache.py src/config.py
-
-# With multi-round debate (consultants critique each other)
-ENABLE_DEBATE=true DEBATE_ROUNDS=2 ./scripts/consult_all.sh "Best architecture?"
-
-# With smart routing (selects best consultants for the question)
-ENABLE_SMART_ROUTING=true ./scripts/consult_all.sh "Bug in my auth code"
+# With debate
+ENABLE_DEBATE=true ./scripts/consult_all.sh "Best architecture?"
 ```
 
 ## Workflow v2.0

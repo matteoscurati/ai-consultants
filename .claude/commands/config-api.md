@@ -12,63 +12,40 @@ Configure API-based consultants. These require API keys but no CLI installation.
 
 ## Available API Consultants
 
-| Provider | Model | API URL | Persona |
-|----------|-------|---------|---------|
-| **Qwen3** | qwen-max | DashScope API | The Analyst |
-| **GLM** | glm-4 | Zhipu BigModel | The Methodologist |
-| **Grok** | grok-beta | xAI API | The Provocateur |
+| Provider | Model | Persona | API Key Source |
+|----------|-------|---------|----------------|
+| Qwen3 | qwen-max | The Analyst | https://dashscope.console.aliyun.com/ |
+| GLM | glm-4 | The Methodologist | https://open.bigmodel.cn/ |
+| Grok | grok-beta | The Provocateur | https://console.x.ai/ |
 
 ## Instructions
 
-### Step 1: Show Current API Status
+### Step 1: Show Current Status
 
 ```bash
-cd /Users/matteoscurati/work/ai-consultants
-source scripts/config.sh
-
+cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && source scripts/config.sh
 echo "=== API Consultant Status ==="
-echo "Qwen3: ${ENABLE_QWEN3:-false}"
-echo "  - API Key: $([ -n \"$QWEN3_API_KEY\" ] && echo '****' || echo 'not set')"
-echo "  - Model: ${QWEN3_MODEL:-qwen-max}"
-echo ""
-echo "GLM: ${ENABLE_GLM:-false}"
-echo "  - API Key: $([ -n \"$GLM_API_KEY\" ] && echo '****' || echo 'not set')"
-echo "  - Model: ${GLM_MODEL:-glm-4}"
-echo ""
-echo "Grok: ${ENABLE_GROK:-false}"
-echo "  - API Key: $([ -n \"$GROK_API_KEY\" ] && echo '****' || echo 'not set')"
-echo "  - Model: ${GROK_MODEL:-grok-beta}"
+for provider in QWEN3 GLM GROK; do
+  enabled_var="ENABLE_$provider"
+  key_var="${provider}_API_KEY"
+  model_var="${provider}_MODEL"
+  echo "$provider: ${!enabled_var:-false} (API key: $([ -n \"${!key_var}\" ] && echo 'set' || echo 'not set'))"
+done
 ```
 
 ### Step 2: Configure a Provider
 
-If the user wants to enable an API consultant:
+To enable an API consultant, update the .env file:
 
-1. **Ask which provider** (Qwen3, GLM, Grok, or Custom)
-2. **Ask for the API key**
-3. **Update .env file** with:
+| Provider | Required Variables |
+|----------|-------------------|
+| Qwen3 | `ENABLE_QWEN3=true`, `QWEN3_API_KEY=<key>` |
+| GLM | `ENABLE_GLM=true`, `GLM_API_KEY=<key>` |
+| Grok | `ENABLE_GROK=true`, `GROK_API_KEY=<key>` |
 
-For Qwen3:
-```
-ENABLE_QWEN3=true
-QWEN3_API_KEY=<api-key>
-```
+### Step 3: Custom API Provider (Optional)
 
-For GLM:
-```
-ENABLE_GLM=true
-GLM_API_KEY=<api-key>
-```
-
-For Grok:
-```
-ENABLE_GROK=true
-GROK_API_KEY=<api-key>
-```
-
-### Step 3: Add Custom API Provider
-
-For any OpenAI-compatible API (OpenRouter, Groq, Together, etc.):
+For OpenAI-compatible APIs (OpenRouter, Groq, Together):
 
 ```
 ENABLE_CUSTOMNAME=true
@@ -79,22 +56,14 @@ CUSTOMNAME_TIMEOUT=180
 CUSTOMNAME_FORMAT=openai
 ```
 
-### Step 4: Set File Permissions
-
-After updating .env, ensure secure permissions:
+### Step 4: Secure the Configuration
 
 ```bash
 chmod 600 .env
 ```
 
-## API Key Sources
+## Security
 
-- **Qwen3**: https://dashscope.console.aliyun.com/
-- **GLM**: https://open.bigmodel.cn/
-- **Grok**: https://console.x.ai/
-
-## Security Notes
-
-- API keys are stored in .env with mode 600 (owner read/write only)
-- Keys are never logged or displayed in full
-- The .env file is gitignored by default
+- API keys stored with mode 600 (owner read/write only)
+- Keys never logged or displayed in full
+- The .env file is gitignored

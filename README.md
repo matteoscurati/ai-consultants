@@ -56,6 +56,20 @@ For detailed installation and authentication setup, see **[docs/SETUP.md](docs/S
 
 ### Installation
 
+**Option A: As Claude Code Skill (Recommended)**
+
+```bash
+# Install as a Claude Code skill
+git clone https://github.com/YOUR-USERNAME/ai-consultants.git ~/.claude/skills/ai-consultants
+
+# Then in Claude Code:
+# /ai-consultants:config-check    - Verify installation
+# /ai-consultants:config-wizard   - Configure consultants
+# /ai-consultants:consult "question"  - Start consulting!
+```
+
+**Option B: Standalone**
+
 ```bash
 git clone https://github.com/YOUR-USERNAME/ai-consultants.git
 cd ai-consultants

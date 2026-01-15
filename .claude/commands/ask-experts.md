@@ -9,7 +9,7 @@ allowed-tools: Bash Read Glob Grep
 Run AI consultation for: $ARGUMENTS
 
 ```bash
-./scripts/consult_all.sh "$ARGUMENTS"
+cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && ./scripts/consult_all.sh "$ARGUMENTS"
 ```
 
-After completion, summarize the key findings and recommendations from all consultants.
+Summarize the key findings and recommendations from all consultants.
