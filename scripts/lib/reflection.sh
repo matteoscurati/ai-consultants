@@ -61,33 +61,31 @@ Respond with the same JSON schema as the original response, but improved.'
 # REFLECTION FUNCTIONS
 # =============================================================================
 
+# Helper: Execute prompt with a specific consultant
+# Usage: _exec_consultant <consultant> <prompt>
+_exec_consultant() {
+    local consultant="$1"
+    local prompt="$2"
+
+    case "$consultant" in
+        Gemini)  echo "$prompt" | "$GEMINI_CMD" -p - -m "$GEMINI_MODEL" 2>/dev/null ;;
+        Codex)   "$CODEX_CMD" exec --skip-git-repo-check "$prompt" 2>/dev/null ;;
+        Mistral) "$MISTRAL_CMD" --prompt "$prompt" --auto-approve 2>/dev/null ;;
+        Kilo)    "$KILO_CMD" --auto --json "$prompt" 2>/dev/null ;;
+        *)       return 1 ;;
+    esac
+}
+
 # Generate critique of a response
 # Usage: generate_critique <consultant> <response_content>
 # Output: JSON with the critique
 generate_critique() {
     local consultant="$1"
     local response="$2"
-
     local prompt="${CRITIQUE_PROMPT_TEMPLATE//%RESPONSE%/$response}"
 
-    # Use the same consultant for the critique (self-reflection)
-    case "$consultant" in
-        Gemini)
-            echo "$prompt" | "$GEMINI_CMD" -p - -m "$GEMINI_MODEL" 2>/dev/null
-            ;;
-        Codex)
-            "$CODEX_CMD" exec --skip-git-repo-check "$prompt" 2>/dev/null
-            ;;
-        Mistral)
-            "$MISTRAL_CMD" --prompt "$prompt" --auto-approve 2>/dev/null
-            ;;
-        Kilo)
-            "$KILO_CMD" --auto --json "$prompt" 2>/dev/null
-            ;;
-        *)
-            echo '{"critique": {"error": "Unknown consultant"}, "needs_refinement": false}'
-            ;;
-    esac
+    _exec_consultant "$consultant" "$prompt" || \
+        echo '{"critique": {"error": "Unknown consultant"}, "needs_refinement": false}'
 }
 
 # Refine a response based on critique
@@ -101,20 +99,7 @@ refine_response() {
     local prompt="${REFINE_PROMPT_TEMPLATE//%ORIGINAL%/$original}"
     prompt="${prompt//%CRITIQUE%/$critique}"
 
-    case "$consultant" in
-        Gemini)
-            echo "$prompt" | "$GEMINI_CMD" -p - -m "$GEMINI_MODEL" 2>/dev/null
-            ;;
-        Codex)
-            "$CODEX_CMD" exec --skip-git-repo-check "$prompt" 2>/dev/null
-            ;;
-        Mistral)
-            "$MISTRAL_CMD" --prompt "$prompt" --auto-approve 2>/dev/null
-            ;;
-        Kilo)
-            "$KILO_CMD" --auto --json "$prompt" 2>/dev/null
-            ;;
-    esac
+    _exec_consultant "$consultant" "$prompt"
 }
 
 # Execute complete reflection cycle
@@ -233,4 +218,230 @@ calculate_quality_score() {
     fi
 
     echo $score
+}
+
+# =============================================================================
+# JUDGE STEP - OVERCONFIDENCE DETECTION (v2.2)
+# =============================================================================
+
+# Prompt template for the judge evaluation
+JUDGE_PROMPT_TEMPLATE='You are an expert meta-evaluator. Your job is to detect OVERCONFIDENCE in AI responses.
+
+Analyze this response for overconfidence signals:
+
+---
+CONSULTANT: %CONSULTANT%
+CONFIDENCE SCORE: %CONFIDENCE%/10
+
+SUMMARY:
+%SUMMARY%
+
+DETAILED RESPONSE:
+%DETAILED%
+
+REASONING FOR CONFIDENCE:
+%REASONING%
+---
+
+Evaluate for overconfidence by checking:
+
+1. **Hedging vs Certainty Mismatch**: Does the text use hedging language ("might", "could", "possibly") but claim high confidence?
+2. **Evidence Quality**: Is the confidence score justified by the evidence/reasoning provided?
+3. **Complexity Acknowledgment**: Does a high confidence score acknowledge the complexity of the problem?
+4. **Edge Cases**: Are edge cases mentioned? High confidence without edge case consideration is suspicious.
+5. **Alternative Awareness**: Does the response acknowledge alternative approaches exist?
+
+Respond ONLY with valid JSON:
+{
+  "consultant": "%CONSULTANT%",
+  "original_confidence": %CONFIDENCE%,
+  "overconfidence_detected": <true/false>,
+  "adjusted_confidence": <1-10>,
+  "analysis": {
+    "hedging_language_count": <number of hedging phrases found>,
+    "certainty_claims_count": <number of certainty claims>,
+    "evidence_quality": "<weak|moderate|strong>",
+    "complexity_acknowledged": <true/false>,
+    "edge_cases_mentioned": <true/false>,
+    "alternatives_acknowledged": <true/false>
+  },
+  "red_flags": ["<specific overconfidence indicators found>"],
+  "recommendation": "<keep|adjust_down|flag_for_review>"
+}'
+
+# Run judge evaluation on a single response
+# Usage: judge_response <response_file>
+# Output: JSON with judge evaluation
+judge_response() {
+    local response_file="$1"
+
+    if [[ ! -f "$response_file" || ! -s "$response_file" ]]; then
+        echo '{"error": "Invalid response file"}'
+        return 1
+    fi
+
+    local consultant confidence summary detailed reasoning
+    consultant=$(jq -r '.consultant // "unknown"' "$response_file" 2>/dev/null)
+    confidence=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
+    summary=$(jq -r '.response.summary // "No summary"' "$response_file" 2>/dev/null)
+    detailed=$(jq -r '.response.detailed // "No details"' "$response_file" 2>/dev/null | head -c 2000)
+    reasoning=$(jq -r '.confidence.reasoning // "No reasoning provided"' "$response_file" 2>/dev/null)
+
+    local prompt="${JUDGE_PROMPT_TEMPLATE}"
+    prompt="${prompt//%CONSULTANT%/$consultant}"
+    prompt="${prompt//%CONFIDENCE%/$confidence}"
+    prompt="${prompt//%SUMMARY%/$summary}"
+    prompt="${prompt//%DETAILED%/$detailed}"
+    prompt="${prompt//%REASONING%/$reasoning}"
+
+    # Use Claude for judging (most reliable for meta-analysis)
+    if command -v claude &> /dev/null; then
+        echo "$prompt" | claude --print 2>/dev/null
+    else
+        # Fallback: heuristic-based detection
+        heuristic_overconfidence_check "$response_file"
+    fi
+}
+
+# Heuristic-based overconfidence detection (no LLM required)
+# Usage: heuristic_overconfidence_check <response_file>
+heuristic_overconfidence_check() {
+    local response_file="$1"
+
+    local consultant confidence text
+    consultant=$(jq -r '.consultant // "unknown"' "$response_file" 2>/dev/null)
+    confidence=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
+    text=$(jq -r '(.response.summary // "") + " " + (.response.detailed // "") + " " + (.confidence.reasoning // "")' "$response_file" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+
+    # Count hedging language
+    local hedging_words="might|could|possibly|perhaps|maybe|likely|probably|seems|appears|suggest"
+    local hedging_count
+    hedging_count=$(echo "$text" | grep -oiE "$hedging_words" | wc -l | tr -d ' ')
+
+    # Count certainty language
+    local certainty_words="definitely|certainly|absolutely|always|never|must|clearly|obviously|undoubtedly"
+    local certainty_count
+    certainty_count=$(echo "$text" | grep -oiE "$certainty_words" | wc -l | tr -d ' ')
+
+    # Check for edge cases mention
+    local edge_case_mentioned=false
+    echo "$text" | grep -qiE "edge case|corner case|exception|special case" && edge_case_mentioned=true
+
+    # Check for alternatives mention
+    local alternatives_mentioned=false
+    echo "$text" | grep -qiE "alternative|another approach|other option|could also|alternatively" && alternatives_mentioned=true
+
+    # Calculate overconfidence indicators
+    local red_flags=()
+    local overconfidence=false
+    local adjusted=$confidence
+
+    # High confidence + lots of hedging = suspicious
+    if [[ $confidence -ge 8 && $hedging_count -ge 3 ]]; then
+        red_flags+=("High confidence with excessive hedging language")
+        overconfidence=true
+        adjusted=$((confidence - 2))
+    fi
+
+    # High confidence + no edge cases = suspicious
+    if [[ $confidence -ge 8 && "$edge_case_mentioned" == "false" ]]; then
+        red_flags+=("High confidence without edge case consideration")
+        overconfidence=true
+        adjusted=$((adjusted - 1))
+    fi
+
+    # Very high confidence is almost always overconfident
+    if [[ $confidence -ge 9 ]]; then
+        red_flags+=("Extremely high confidence (9-10) is rarely justified")
+        overconfidence=true
+        adjusted=$((adjusted - 1))
+    fi
+
+    # Clamp adjusted confidence
+    [[ $adjusted -lt 1 ]] && adjusted=1
+    [[ $adjusted -gt 10 ]] && adjusted=10
+
+    local recommendation="keep"
+    if [[ "$overconfidence" == "true" ]]; then
+        if [[ $((confidence - adjusted)) -ge 2 ]]; then
+            recommendation="adjust_down"
+        else
+            recommendation="flag_for_review"
+        fi
+    fi
+
+    jq -n \
+        --arg consultant "$consultant" \
+        --argjson original "$confidence" \
+        --argjson overconfidence "$overconfidence" \
+        --argjson adjusted "$adjusted" \
+        --argjson hedging "$hedging_count" \
+        --argjson certainty "$certainty_count" \
+        --argjson edge_cases "$edge_case_mentioned" \
+        --argjson alternatives "$alternatives_mentioned" \
+        --arg red_flags "$(IFS='|'; echo "${red_flags[*]:-}")" \
+        --arg recommendation "$recommendation" \
+        '{
+            consultant: $consultant,
+            original_confidence: $original,
+            overconfidence_detected: $overconfidence,
+            adjusted_confidence: $adjusted,
+            analysis: {
+                hedging_language_count: $hedging,
+                certainty_claims_count: $certainty,
+                evidence_quality: (if $hedging > $certainty then "weak" elif $hedging == $certainty then "moderate" else "strong" end),
+                complexity_acknowledged: ($hedging > 0),
+                edge_cases_mentioned: $edge_cases,
+                alternatives_acknowledged: $alternatives
+            },
+            red_flags: ($red_flags | split("|") | map(select(. != ""))),
+            recommendation: $recommendation
+        }'
+}
+
+# Run judge evaluation on all responses in a directory
+# Usage: judge_all_responses <responses_dir> <output_file>
+judge_all_responses() {
+    local responses_dir="$1"
+    local output_file="$2"
+
+    local results='[]'
+    local overconfidence_count=0
+    local total_count=0
+
+    for f in "$responses_dir"/*.json; do
+        if [[ -f "$f" && -s "$f" && "$(basename "$f")" != "voting.json" && "$(basename "$f")" != "synthesis.json" && "$(basename "$f")" != "judge_report.json" ]]; then
+            local evaluation
+            evaluation=$(judge_response "$f")
+
+            if echo "$evaluation" | jq -e '.' > /dev/null 2>&1; then
+                results=$(echo "$results" | jq --argjson eval "$evaluation" '. + [$eval]')
+
+                local is_overconfident
+                is_overconfident=$(echo "$evaluation" | jq -r '.overconfidence_detected // false')
+                [[ "$is_overconfident" == "true" ]] && ((overconfidence_count++))
+                ((total_count++))
+            fi
+        fi
+    done
+
+    # Generate summary
+    jq -n \
+        --argjson evaluations "$results" \
+        --argjson overconfident "$overconfidence_count" \
+        --argjson total "$total_count" \
+        '{
+            judge_report: {
+                timestamp: (now | todate),
+                total_evaluated: $total,
+                overconfidence_detected: $overconfident,
+                evaluations: $evaluations,
+                summary: {
+                    reliability: (if $overconfident == 0 then "high" elif ($overconfident / $total) < 0.3 then "medium" else "low" end),
+                    action_required: ($overconfident > 0)
+                }
+            }
+        }' > "$output_file"
+
+    cat "$output_file"
 }

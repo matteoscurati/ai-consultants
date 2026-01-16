@@ -246,6 +246,136 @@ simple_majority_vote() {
 }
 
 # =============================================================================
+# CONFIDENCE INTERVALS (v2.2)
+# =============================================================================
+
+# Calculate standard deviation of confidence scores
+# Usage: calculate_confidence_stddev <json_responses_dir>
+# Returns: Standard deviation value (integer, scaled by 10 for precision)
+calculate_confidence_stddev() {
+    local responses_dir="$1"
+    local scores=()
+    local sum=0
+    local count=0
+
+    # Collect all confidence scores
+    for f in "$responses_dir"/*.json; do
+        if [[ -f "$f" && -s "$f" ]]; then
+            local score=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
+            scores+=("$score")
+            sum=$((sum + score))
+            count=$((count + 1))
+        fi
+    done
+
+    if [[ $count -lt 2 ]]; then
+        echo 0
+        return
+    fi
+
+    # Calculate mean (scaled by 10 for precision)
+    local mean_scaled=$((sum * 10 / count))
+
+    # Calculate variance
+    local variance_sum=0
+    for score in "${scores[@]}"; do
+        local diff=$((score * 10 - mean_scaled))
+        variance_sum=$((variance_sum + diff * diff))
+    done
+    local variance=$((variance_sum / count))
+
+    # Approximate square root using Newton's method (integer math)
+    # For small numbers, this gives reasonable results
+    if [[ $variance -eq 0 ]]; then
+        echo 0
+        return
+    fi
+
+    local sqrt=$variance
+    local prev=0
+    for _ in {1..10}; do
+        prev=$sqrt
+        sqrt=$(( (sqrt + variance / sqrt) / 2 ))
+        [[ $sqrt -eq $prev ]] && break
+    done
+
+    # Return scaled by 10 (so 15 means 1.5)
+    echo $sqrt
+}
+
+# Calculate confidence interval
+# Usage: calculate_confidence_interval <json_responses_dir>
+# Output: JSON with mean, stddev, low, high bounds
+calculate_confidence_interval() {
+    local responses_dir="$1"
+
+    local mean=$(calculate_weighted_average "$responses_dir")
+    local stddev_scaled=$(calculate_confidence_stddev "$responses_dir")
+
+    # Convert scaled stddev back to decimal format for display
+    local stddev_int=$((stddev_scaled / 10))
+    local stddev_dec=$((stddev_scaled % 10))
+
+    # Calculate bounds (mean ± stddev)
+    local low=$((mean * 10 - stddev_scaled))
+    local high=$((mean * 10 + stddev_scaled))
+
+    # Clamp to valid range [1, 10]
+    [[ $low -lt 10 ]] && low=10
+    [[ $high -gt 100 ]] && high=100
+
+    local low_int=$((low / 10))
+    local low_dec=$((low % 10))
+    local high_int=$((high / 10))
+    local high_dec=$((high % 10))
+
+    jq -n \
+        --argjson mean "$mean" \
+        --arg stddev "${stddev_int}.${stddev_dec}" \
+        --arg low "${low_int}.${low_dec}" \
+        --arg high "${high_int}.${high_dec}" \
+        --argjson variance_high "$([ $stddev_scaled -gt 20 ] && echo "true" || echo "false")" \
+        '{
+            mean: $mean,
+            stddev: ($stddev | tonumber),
+            interval: {
+                low: ($low | tonumber),
+                high: ($high | tonumber)
+            },
+            display: "\($mean) ± \($stddev)",
+            high_variance: $variance_high
+        }'
+}
+
+# Check if confidence scores have high variance (uncertainty indicator)
+# Usage: has_high_confidence_variance <json_responses_dir>
+# Returns: 0 (true) if variance is high, 1 (false) otherwise
+has_high_confidence_variance() {
+    local responses_dir="$1"
+    local stddev_scaled=$(calculate_confidence_stddev "$responses_dir")
+
+    # Consider variance "high" if stddev > 2.0 (scaled value > 20)
+    [[ $stddev_scaled -gt 20 ]]
+}
+
+# Get confidence range as formatted string
+# Usage: format_confidence_range <json_responses_dir>
+# Output: "7 ± 1.5" or "7 (±1.5, high variance!)"
+format_confidence_range() {
+    local responses_dir="$1"
+    local interval_json=$(calculate_confidence_interval "$responses_dir")
+
+    local display=$(echo "$interval_json" | jq -r '.display')
+    local high_variance=$(echo "$interval_json" | jq -r '.high_variance')
+
+    if [[ "$high_variance" == "true" ]]; then
+        echo "$display (high variance - uncertainty detected)"
+    else
+        echo "$display"
+    fi
+}
+
+# =============================================================================
 # UTILITY
 # =============================================================================
 
@@ -257,6 +387,7 @@ generate_voting_report() {
     local consensus_score=$(calculate_consensus_score "$responses_dir")
     local consensus_level=$(get_consensus_level "$consensus_score")
     local avg_confidence=$(calculate_weighted_average "$responses_dir")
+    local confidence_interval=$(calculate_confidence_interval "$responses_dir")
     local recommendation=$(calculate_weighted_recommendation "$responses_dir")
     local winning_approach=$(echo "$recommendation" | jq -r '.recommended_approach')
     local final_score=$(calculate_final_score "$responses_dir" "$winning_approach")
@@ -265,6 +396,7 @@ generate_voting_report() {
         --argjson consensus_score "$consensus_score" \
         --arg consensus_level "$consensus_level" \
         --argjson avg_confidence "$avg_confidence" \
+        --argjson confidence_interval "$confidence_interval" \
         --argjson recommendation "$recommendation" \
         --argjson final_score "$final_score" \
         '{
@@ -274,6 +406,7 @@ generate_voting_report() {
                     level: $consensus_level
                 },
                 average_confidence: $avg_confidence,
+                confidence_interval: $confidence_interval,
                 recommendation: $recommendation,
                 final_weighted_score: $final_score
             }

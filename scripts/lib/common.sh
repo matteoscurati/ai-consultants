@@ -483,6 +483,122 @@ map_clear() {
 #   source "$SCRIPT_DIR/common.sh" 2>/dev/null || source "${SCRIPT_DIR%/*}/lib/common.sh" 2>/dev/null || true
 
 # =============================================================================
+# PANIC MODE DETECTION (v2.2)
+# =============================================================================
+
+# Check if panic mode should be triggered based on responses
+# Usage: should_trigger_panic <responses_dir>
+# Returns: 0 if panic mode should trigger, 1 otherwise
+should_trigger_panic() {
+    local responses_dir="$1"
+    local panic_mode="${ENABLE_PANIC_MODE:-auto}"
+
+    # Never trigger if disabled
+    [[ "$panic_mode" == "never" ]] && return 1
+
+    # Always trigger if set to always
+    [[ "$panic_mode" == "always" ]] && return 0
+
+    # Auto-detect mode
+    local total_confidence=0
+    local response_count=0
+    local has_uncertainty_keywords=false
+
+    for f in "$responses_dir"/*.json; do
+        if [[ -f "$f" && -s "$f" ]]; then
+            # Check confidence score
+            local confidence
+            confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
+            total_confidence=$((total_confidence + confidence))
+            ((response_count++))
+
+            # Check for uncertainty keywords in summary/detailed response
+            local keywords="${PANIC_KEYWORDS:-uncertain|maybe|not sure|possibly}"
+            local text
+            text=$(jq -r '(.response.summary // "") + " " + (.response.detailed // "")' "$f" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+
+            if echo "$text" | grep -qiE "$keywords"; then
+                has_uncertainty_keywords=true
+            fi
+        fi
+    done
+
+    # Calculate average confidence
+    if [[ $response_count -gt 0 ]]; then
+        local avg_confidence=$((total_confidence / response_count))
+        local threshold="${PANIC_CONFIDENCE_THRESHOLD:-5}"
+
+        # Trigger if average confidence is below threshold
+        if [[ $avg_confidence -lt $threshold ]]; then
+            return 0
+        fi
+    fi
+
+    # Trigger if uncertainty keywords found
+    if [[ "$has_uncertainty_keywords" == "true" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Get panic mode diagnosis (for reporting)
+# Usage: get_panic_diagnosis <responses_dir>
+# Output: JSON with diagnosis details
+get_panic_diagnosis() {
+    local responses_dir="$1"
+
+    local total_confidence=0
+    local response_count=0
+    local uncertainty_found=()
+
+    for f in "$responses_dir"/*.json; do
+        if [[ -f "$f" && -s "$f" ]]; then
+            local confidence consultant
+            confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
+            consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
+            total_confidence=$((total_confidence + confidence))
+            ((response_count++))
+
+            # Check for keywords
+            local keywords="${PANIC_KEYWORDS:-uncertain|maybe|not sure|possibly}"
+            local text
+            text=$(jq -r '(.response.summary // "") + " " + (.response.detailed // "")' "$f" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+
+            if echo "$text" | grep -qiE "$keywords"; then
+                uncertainty_found+=("$consultant")
+            fi
+        fi
+    done
+
+    local avg_confidence=5
+    if [[ $response_count -gt 0 ]]; then
+        avg_confidence=$((total_confidence / response_count))
+    fi
+
+    local threshold="${PANIC_CONFIDENCE_THRESHOLD:-5}"
+    local triggers=()
+
+    [[ $avg_confidence -lt $threshold ]] && triggers+=("low_confidence")
+    [[ ${#uncertainty_found[@]} -gt 0 ]] && triggers+=("uncertainty_keywords")
+
+    jq -n \
+        --argjson avg_confidence "$avg_confidence" \
+        --argjson threshold "$threshold" \
+        --argjson response_count "$response_count" \
+        --arg uncertainty_consultants "$(IFS=','; echo "${uncertainty_found[*]:-}")" \
+        --arg triggers "$(IFS=','; echo "${triggers[*]:-}")" \
+        '{
+            average_confidence: $avg_confidence,
+            threshold: $threshold,
+            responses_analyzed: $response_count,
+            consultants_with_uncertainty: ($uncertainty_consultants | split(",") | map(select(. != ""))),
+            triggers: ($triggers | split(",") | map(select(. != ""))),
+            triggered: (($triggers | length) > 0)
+        }'
+}
+
+# =============================================================================
 # TOKEN ESTIMATION (v2.1)
 # =============================================================================
 

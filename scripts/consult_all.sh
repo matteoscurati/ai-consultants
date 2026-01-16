@@ -1,22 +1,32 @@
 #!/bin/bash
-# consult_all.sh - AI Consultants v2.0 - Main Orchestrator
+# consult_all.sh - AI Consultants v2.2 - Main Orchestrator
 #
 # Complete workflow for multi-model AI consultation with:
 # - Specialized personas for each consultant
 # - Confidence scoring and weighted voting
-# - Auto-synthesis of responses
+# - Auto-synthesis of responses with multiple strategies
 # - Optional Multi-Agent Debate (MAD)
 # - Smart routing based on question category
+# - Configuration presets for quick setup
 # - Session management for follow-up
 # - Cost tracking
+# - Panic button mode for uncertainty detection
 #
-# Usage: ./consult_all.sh "Your question" [file1] [file2] ...
+# Usage: ./consult_all.sh [options] "Your question" [file1] [file2] ...
 #
-# Options (via environment variables):
+# Options:
+#   --preset <name>      Use a configuration preset (minimal, balanced, thorough, high-stakes, local, security, cost-capped)
+#   --strategy <name>    Synthesis strategy (majority, risk_averse, security_first, cost_capped, compare_only)
+#   --list-presets       List available presets
+#   --list-strategies    List available synthesis strategies
+#   --help               Show this help message
+#
+# Environment variables:
 #   ENABLE_SYNTHESIS=true    Enable automatic synthesis
 #   ENABLE_DEBATE=true       Enable multi-round debate
 #   DEBATE_ROUNDS=2          Number of debate rounds
 #   ENABLE_SMART_ROUTING=true Select consultants based on question
+#   ENABLE_PANIC_MODE=auto   Panic mode (auto, always, never)
 
 set -euo pipefail
 
@@ -54,25 +64,137 @@ _discover_custom_api_agents() {
     done < <(env)
 }
 
+# --- Show usage help ---
+show_help() {
+    cat << 'EOF'
+AI Consultants v2.2 - Multi-Model AI Consultation
+
+Usage: ./consult_all.sh [options] "Your question" [file1] [file2] ...
+
+Options:
+  --preset <name>      Use a configuration preset:
+                         minimal      - 2 models, fast and cheap
+                         balanced     - 4 models, good coverage
+                         thorough     - 5 models, comprehensive
+                         high-stakes  - All models + debate
+                         local        - Ollama only, full privacy
+                         security     - Security-focused + debate
+                         cost-capped  - Budget-conscious options
+
+  --strategy <name>    Synthesis strategy:
+                         majority       - Simple voting, most common wins
+                         risk_averse    - Weight conservative responses higher
+                         security_first - Prioritize security-focused insights
+                         cost_capped    - Prefer cheaper consultant opinions
+                         compare_only   - No recommendation, just comparison
+
+  --list-presets       List all available presets
+  --list-strategies    List all synthesis strategies
+  --help, -h           Show this help message
+
+Examples:
+  ./consult_all.sh "How to optimize this SQL query?"
+  ./consult_all.sh --preset minimal "Quick question about Python lists"
+  ./consult_all.sh --preset high-stakes --strategy risk_averse "Critical architecture decision"
+  ./consult_all.sh "Review this code" src/main.py src/utils.py
+
+Environment Variables:
+  ENABLE_SYNTHESIS=true       Enable automatic synthesis
+  ENABLE_DEBATE=true          Enable multi-round debate
+  DEBATE_ROUNDS=2             Number of debate rounds
+  ENABLE_SMART_ROUTING=true   Select consultants based on question category
+  ENABLE_PANIC_MODE=auto      Panic mode: auto, always, never
+  MAX_SESSION_COST=1.00       Maximum budget per session ($)
+
+For more information, run: ./doctor.sh
+EOF
+}
+
+# --- List synthesis strategies ---
+list_strategies() {
+    cat << 'EOF'
+Available synthesis strategies:
+
+  majority       Simple voting - most common answer wins (default)
+  risk_averse    Weight conservative responses higher, prefer safety
+  security_first Prioritize security-focused consultants and insights
+  cost_capped    Prefer opinions from cheaper consultants within budget
+  compare_only   No recommendation, just structured comparison table
+
+Usage: ./consult_all.sh --strategy <name> "Your question"
+EOF
+}
+
+# --- Argument Parsing ---
+PRESET=""
+SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-majority}"
+QUERY=""
+FILES=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --preset)
+            if [[ -n "${2:-}" ]]; then
+                PRESET="$2"
+                shift 2
+            else
+                log_error "--preset requires a value"
+                exit 1
+            fi
+            ;;
+        --strategy)
+            if [[ -n "${2:-}" ]]; then
+                SYNTHESIS_STRATEGY="$2"
+                shift 2
+            else
+                log_error "--strategy requires a value"
+                exit 1
+            fi
+            ;;
+        --list-presets)
+            list_presets
+            exit 0
+            ;;
+        --list-strategies)
+            list_strategies
+            exit 0
+            ;;
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        -*)
+            log_error "Unknown option: $1"
+            show_help
+            exit 1
+            ;;
+        *)
+            if [[ -z "$QUERY" ]]; then
+                QUERY="$1"
+            else
+                FILES+=("$1")
+            fi
+            shift
+            ;;
+    esac
+done
+
+# --- Apply Preset (if specified) ---
+if [[ -n "$PRESET" ]]; then
+    if ! apply_preset "$PRESET"; then
+        exit 1
+    fi
+    log_info "Applied preset: $PRESET"
+fi
+
+# Export synthesis strategy for use by synthesize.sh
+export SYNTHESIS_STRATEGY
+
 # --- Input Validation ---
-if [[ $# -eq 0 ]]; then
-    log_error "Usage: $0 \"Your question\" [file1] [file2] ..."
-    log_info "Example: $0 \"How to optimize this function?\" src/utils.py"
-    exit 1
-fi
-
-QUERY="$1"
-shift
-
-# FILES array handling (compatible with set -u)
-if [[ $# -gt 0 ]]; then
-    FILES=("$@")
-else
-    FILES=()
-fi
-
 if [[ -z "$QUERY" ]]; then
-    log_error "The question cannot be empty"
+    log_error "Usage: $0 [options] \"Your question\" [file1] [file2] ..."
+    log_info "Example: $0 \"How to optimize this function?\" src/utils.py"
+    log_info "Run with --help for more options"
     exit 1
 fi
 
@@ -149,22 +271,17 @@ if [[ "$ENABLE_SMART_ROUTING" == "true" ]]; then
     done < <(select_consultants "$QUESTION_CATEGORY" "$MIN_AFFINITY")
     log_info "Selected consultants: ${SELECTED_CONSULTANTS[*]}"
 else
-    # All enabled consultants
-    # CLI-based consultants
-    [[ "$ENABLE_GEMINI" == "true" ]] && SELECTED_CONSULTANTS+=("Gemini")
-    [[ "$ENABLE_CODEX" == "true" ]] && SELECTED_CONSULTANTS+=("Codex")
-    [[ "$ENABLE_MISTRAL" == "true" ]] && SELECTED_CONSULTANTS+=("Mistral")
-    [[ "$ENABLE_KILO" == "true" ]] && SELECTED_CONSULTANTS+=("Kilo")
-    [[ "$ENABLE_CURSOR" == "true" ]] && SELECTED_CONSULTANTS+=("Cursor")
-    [[ "$ENABLE_AIDER" == "true" ]] && SELECTED_CONSULTANTS+=("Aider")
-    # API-based consultants (predefined)
-    [[ "$ENABLE_QWEN3" == "true" ]] && SELECTED_CONSULTANTS+=("Qwen3")
-    [[ "$ENABLE_GLM" == "true" ]] && SELECTED_CONSULTANTS+=("GLM")
-    [[ "$ENABLE_GROK" == "true" ]] && SELECTED_CONSULTANTS+=("Grok")
-    [[ "$ENABLE_DEEPSEEK" == "true" ]] && SELECTED_CONSULTANTS+=("DeepSeek")
+    # All enabled consultants - use a compact loop
+    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek OLLAMA:Ollama"
+    for _entry in $_consultant_map; do
+        _flag="${_entry%%:*}"
+        _name="${_entry#*:}"
+        _enable_var="ENABLE_${_flag}"
+        [[ "${!_enable_var:-false}" == "true" ]] && SELECTED_CONSULTANTS+=("$_name")
+    done
+    unset _consultant_map _entry _flag _name _enable_var
 
     # Discover custom API agents from environment
-    # Convention: ENABLE_AGENTNAME=true with AGENTNAME_API_URL set
     _discover_custom_api_agents
 fi
 
@@ -252,6 +369,43 @@ for i in "${!PIDS[@]}"; do
 done
 
 echo "" >&2
+
+# --- Panic Mode Detection (v2.2) ---
+PANIC_TRIGGERED=false
+if [[ "$ENABLE_PANIC_MODE" != "never" && $SUCCESS_COUNT -gt 1 ]]; then
+    if should_trigger_panic "$OUTPUT_DIR"; then
+        PANIC_TRIGGERED=true
+        PANIC_DIAGNOSIS=$(get_panic_diagnosis "$OUTPUT_DIR")
+
+        log_warn "PANIC MODE TRIGGERED - Uncertainty detected!"
+        log_warn "  Diagnosis: $(echo "$PANIC_DIAGNOSIS" | jq -r '.triggers | join(", ")')"
+
+        # Save diagnosis
+        echo "$PANIC_DIAGNOSIS" > "$OUTPUT_DIR/panic_diagnosis.json"
+
+        # Actions: Enable debate if not already enabled, switch to risk_averse strategy
+        if [[ "$ENABLE_DEBATE" != "true" ]]; then
+            log_info "  Action: Enabling multi-agent debate"
+            ENABLE_DEBATE=true
+            DEBATE_ROUNDS="${PANIC_EXTRA_DEBATE_ROUNDS:-1}"
+            DEBATE_ROUNDS=$((DEBATE_ROUNDS + 1))  # At least one extra round
+        else
+            # Add extra debate rounds
+            EXTRA_ROUNDS="${PANIC_EXTRA_DEBATE_ROUNDS:-1}"
+            DEBATE_ROUNDS=$((DEBATE_ROUNDS + EXTRA_ROUNDS))
+            log_info "  Action: Adding $EXTRA_ROUNDS extra debate round(s) (total: $DEBATE_ROUNDS)"
+        fi
+
+        # Switch to risk_averse synthesis strategy
+        if [[ "$SYNTHESIS_STRATEGY" == "majority" ]]; then
+            log_info "  Action: Switching to risk_averse synthesis strategy"
+            SYNTHESIS_STRATEGY="risk_averse"
+            export SYNTHESIS_STRATEGY
+        fi
+
+        echo "" >&2
+    fi
+fi
 
 # --- Round 2+: Multi-Agent Debate (optional) ---
 if [[ "$ENABLE_DEBATE" == "true" && $DEBATE_ROUNDS -gt 1 && $SUCCESS_COUNT -gt 1 ]]; then

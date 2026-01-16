@@ -150,10 +150,39 @@ done
 NUM_CONSULTANTS=${#CONSULTANTS[@]}
 log_info "Found $NUM_CONSULTANTS responses to synthesize"
 
-# --- Build synthesis prompt (token-optimized v2.1) ---
-SYNTHESIS_PROMPT='You are an expert meta-analyst. Synthesize AI consultant responses.
+# --- Get synthesis strategy ---
+SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-majority}"
+log_info "Using synthesis strategy: $SYNTHESIS_STRATEGY"
+
+# --- Strategy-specific instructions ---
+get_strategy_instructions() {
+    local strategy="$1"
+
+    case "$strategy" in
+        majority)
+            echo "STRATEGY: MAJORITY - Weight equally, most common wins, focus on consensus" ;;
+        risk_averse)
+            echo "STRATEGY: RISK AVERSE - Prioritize safety, weight risk mentions higher, prefer established solutions, highlight risks" ;;
+        security_first)
+            echo "STRATEGY: SECURITY FIRST - Prioritize security, highlight vulnerabilities, reject insecure recommendations" ;;
+        cost_capped)
+            echo "STRATEGY: COST CAPPED - Prefer simpler solutions, minimize complexity, note cost implications" ;;
+        compare_only)
+            echo "STRATEGY: COMPARE ONLY - No recommendation, present objectively, set approach to 'user_decision_required'" ;;
+        *)
+            echo "STRATEGY: DEFAULT (MAJORITY) - Weight equally, most common wins" ;;
+    esac
+}
+
+STRATEGY_INSTRUCTIONS=$(get_strategy_instructions "$SYNTHESIS_STRATEGY")
+
+# --- Build synthesis prompt (token-optimized v2.2) ---
+SYNTHESIS_PROMPT="You are an expert meta-analyst. Synthesize AI consultant responses.
 Role context: Architect=scalability/design, Pragmatist=simplicity, Advocate=risks/edge-cases, Innovator=creativity.
-'
+
+## Synthesis Strategy
+$STRATEGY_INSTRUCTIONS
+"
 
 if [[ -n "$ORIGINAL_QUESTION" ]]; then
     SYNTHESIS_PROMPT+="
@@ -172,8 +201,9 @@ $COMBINED_RESPONSES
 Analyze carefully and produce ONLY valid JSON (no text before or after):
 
 {
-  \"synthesis_version\": \"2.0\",
+  \"synthesis_version\": \"2.2\",
   \"timestamp\": \"$(date -Iseconds)\",
+  \"strategy\": \"$SYNTHESIS_STRATEGY\",
   \"consultants_analyzed\": $NUM_CONSULTANTS,
   \"consensus\": {
     \"score\": <0-100>,

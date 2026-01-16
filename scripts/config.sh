@@ -103,6 +103,27 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # API key: Set DEEPSEEK_API_KEY environment variable
 
 # =============================================================================
+# OLLAMA CONFIGURATION - The Local Expert (v2.2)
+# =============================================================================
+
+# Default model for local inference
+OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2}"
+# Alternative models: codellama, mistral, deepseek-coder, qwen2.5-coder
+
+# Ollama server URL (default: local)
+OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
+
+# Timeout for local inference (longer than API due to local hardware)
+OLLAMA_TIMEOUT="${OLLAMA_TIMEOUT:-300}"
+
+# Temperature for generation
+OLLAMA_TEMPERATURE="${OLLAMA_TEMPERATURE:-0.7}"
+
+# Comma-separated list of models to query (for multi-model local consultations)
+# Example: OLLAMA_MODELS="llama3.2,codellama,mistral"
+OLLAMA_MODELS="${OLLAMA_MODELS:-}"
+
+# =============================================================================
 # ENABLED CONSULTANTS
 # =============================================================================
 
@@ -120,6 +141,9 @@ ENABLE_QWEN3="${ENABLE_QWEN3:-false}"
 ENABLE_GLM="${ENABLE_GLM:-false}"
 ENABLE_GROK="${ENABLE_GROK:-false}"
 ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
+
+# Local model support via Ollama (disabled by default)
+ENABLE_OLLAMA="${ENABLE_OLLAMA:-false}"
 
 # =============================================================================
 # PERSONAS (v2.0)
@@ -154,6 +178,23 @@ ENABLE_DEBATE="${ENABLE_DEBATE:-false}"
 
 # Number of debate rounds (1 = initial responses only, 2-3 = with cross-critique)
 DEBATE_ROUNDS="${DEBATE_ROUNDS:-1}"
+
+# =============================================================================
+# PANIC BUTTON MODE (v2.2)
+# =============================================================================
+
+# Panic mode triggers additional rigor when uncertainty is detected
+# Values: "auto" (detect), "always" (always enable), "never" (disable)
+ENABLE_PANIC_MODE="${ENABLE_PANIC_MODE:-auto}"
+
+# Threshold for average confidence below which panic mode triggers
+PANIC_CONFIDENCE_THRESHOLD="${PANIC_CONFIDENCE_THRESHOLD:-5}"
+
+# Number of additional debate rounds to add in panic mode
+PANIC_EXTRA_DEBATE_ROUNDS="${PANIC_EXTRA_DEBATE_ROUNDS:-1}"
+
+# Keywords that trigger panic mode when found in responses
+PANIC_KEYWORDS="${PANIC_KEYWORDS:-uncertain|maybe|not sure|possibly|unclear|depends|hard to say|difficult to determine}"
 
 # =============================================================================
 # SELF-REFLECTION (v2.0)
@@ -286,7 +327,94 @@ else
 fi
 
 # =============================================================================
+# CONFIGURATION PRESETS (v2.2)
+# =============================================================================
+
+# Presets allow quick configuration for different use cases:
+#   minimal      - 2 models (fast, cheap): Gemini + Codex
+#   balanced     - 4 models (good coverage): + Mistral + Kilo
+#   thorough     - 5 models (comprehensive): + Cursor
+#   high-stakes  - All models + debate (maximum rigor)
+#
+# Usage: ./consult_all.sh --preset balanced "Your question"
+
+# Helper: Disable all consultants
+_disable_all_consultants() {
+    export ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false
+    export ENABLE_KILO=false ENABLE_CURSOR=false ENABLE_AIDER=false
+    export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
+    export ENABLE_DEEPSEEK=false ENABLE_OLLAMA=false
+    export ENABLE_DEBATE=false ENABLE_REFLECTION=false
+}
+
+# Apply a preset configuration
+# Usage: apply_preset <preset_name>
+apply_preset() {
+    local preset="$1"
+
+    # Start with all disabled, then enable what's needed
+    _disable_all_consultants
+
+    case "$preset" in
+        minimal)
+            export ENABLE_GEMINI=true ENABLE_CODEX=true
+            ;;
+        balanced)
+            export ENABLE_GEMINI=true ENABLE_CODEX=true
+            export ENABLE_MISTRAL=true ENABLE_KILO=true
+            ;;
+        thorough)
+            export ENABLE_GEMINI=true ENABLE_CODEX=true
+            export ENABLE_MISTRAL=true ENABLE_KILO=true ENABLE_CURSOR=true
+            ;;
+        high-stakes)
+            export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
+            export ENABLE_KILO=true ENABLE_CURSOR=true ENABLE_AIDER=true
+            export ENABLE_DEBATE=true DEBATE_ROUNDS=2
+            export ENABLE_REFLECTION=true REFLECTION_CYCLES=1
+            ;;
+        local)
+            export ENABLE_OLLAMA=true
+            export OLLAMA_MODELS="${OLLAMA_MODELS:-llama3.2,codellama}"
+            ;;
+        security)
+            export ENABLE_GEMINI=true ENABLE_CODEX=true
+            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_DEBATE=true DEBATE_ROUNDS=2
+            ;;
+        cost-capped)
+            export ENABLE_GEMINI=true ENABLE_MISTRAL=true ENABLE_OLLAMA=true
+            export MAX_SESSION_COST=0.10
+            ;;
+        *)
+            echo "Unknown preset: $preset" >&2
+            echo "Available presets: minimal, balanced, thorough, high-stakes, local, security, cost-capped" >&2
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+# List available presets with descriptions
+list_presets() {
+    cat << 'EOF'
+Available presets:
+
+  minimal      2 models (Gemini + Codex) - Fast, cheap
+  balanced     4 models (+ Mistral + Kilo) - Good coverage [DEFAULT]
+  thorough     5 models (+ Cursor) - Comprehensive analysis
+  high-stakes  All models + debate - Maximum rigor for critical decisions
+  local        Ollama only - Full privacy, no API calls
+  security     Security-focused models + debate - For security reviews
+  cost-capped  Budget-conscious options - Minimal API costs
+
+Usage: ./consult_all.sh --preset <name> "Your question"
+EOF
+}
+
+# =============================================================================
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.1.0"
+AI_CONSULTANTS_VERSION="2.2.0"
