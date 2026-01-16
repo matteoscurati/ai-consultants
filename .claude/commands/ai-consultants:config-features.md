@@ -17,6 +17,8 @@ Toggle feature flags for AI Consultants.
 | Smart Routing | `ENABLE_SMART_ROUTING` | Auto-select best consultants |
 | Cost Tracking | `ENABLE_COST_TRACKING` | Track API costs |
 | Reflection | `ENABLE_REFLECTION` | Self-critique and refine |
+| Peer Review | `ENABLE_PEER_REVIEW` | Anonymous consultant peer review |
+| Panic Mode | `ENABLE_PANIC_MODE` | Auto-rigor when uncertainty detected |
 
 ## Instructions
 
@@ -25,8 +27,8 @@ Toggle feature flags for AI Consultants.
 ```bash
 ENV_FILE="${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}/.env"
 echo "=== Feature Flags ==="
-grep -E '^ENABLE_(PERSONA|SYNTHESIS|DEBATE|SMART_ROUTING|COST_TRACKING|REFLECTION)=' "$ENV_FILE" 2>/dev/null || echo "No .env found"
-grep -E '^DEBATE_ROUNDS=' "$ENV_FILE" 2>/dev/null
+grep -E '^ENABLE_(PERSONA|SYNTHESIS|DEBATE|SMART_ROUTING|COST_TRACKING|REFLECTION|PEER_REVIEW|PANIC_MODE)=' "$ENV_FILE" 2>/dev/null || echo "No .env found"
+grep -E '^(DEBATE_ROUNDS|PEER_REVIEW_MIN_RESPONSES|PANIC_CONFIDENCE_THRESHOLD)=' "$ENV_FILE" 2>/dev/null
 ```
 
 ### Step 2: Toggle a Feature

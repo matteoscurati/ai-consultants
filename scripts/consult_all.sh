@@ -127,7 +127,7 @@ EOF
 
 # --- Argument Parsing ---
 PRESET=""
-SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-majority}"
+SYNTHESIS_STRATEGY=""
 QUERY=""
 FILES=()
 
@@ -179,13 +179,18 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# --- Apply Preset (if specified) ---
+# --- Apply Preset (CLI flag or default) ---
+# Use CLI flag if provided, otherwise fall back to DEFAULT_PRESET
+PRESET="${PRESET:-${DEFAULT_PRESET:-}}"
 if [[ -n "$PRESET" ]]; then
     if ! apply_preset "$PRESET"; then
         exit 1
     fi
     log_info "Applied preset: $PRESET"
 fi
+
+# Set synthesis strategy: CLI flag > environment > DEFAULT_STRATEGY > fallback
+SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-${DEFAULT_STRATEGY:-majority}}"
 
 # Export synthesis strategy for use by synthesize.sh
 export SYNTHESIS_STRATEGY
@@ -454,6 +459,25 @@ if [[ "$ENABLE_SYNTHESIS" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
         log_success "Synthesis generated: $SYNTHESIS_FILE"
     else
         log_warn "Synthesis failed, using fallback"
+    fi
+    echo "" >&2
+fi
+
+# --- Anonymous Peer Review (v2.2, optional) ---
+if [[ "${ENABLE_PEER_REVIEW:-false}" == "true" ]]; then
+    MIN_RESPONSES="${PEER_REVIEW_MIN_RESPONSES:-3}"
+    if [[ $SUCCESS_COUNT -ge $MIN_RESPONSES ]]; then
+        log_info "Running anonymous peer review..."
+        PEER_REVIEW_DIR="$OUTPUT_DIR/peer_review"
+        mkdir -p "$PEER_REVIEW_DIR"
+
+        if "$SCRIPT_DIR/peer_review.sh" "$OUTPUT_DIR" "$PEER_REVIEW_DIR" > /dev/null 2>&1; then
+            log_success "Peer review completed: $PEER_REVIEW_DIR"
+        else
+            log_warn "Peer review failed or unavailable"
+        fi
+    else
+        log_info "Skipping peer review: need ${MIN_RESPONSES}+ responses (got $SUCCESS_COUNT)"
     fi
     echo "" >&2
 fi

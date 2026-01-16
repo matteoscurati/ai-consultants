@@ -170,6 +170,29 @@ ENABLE_SYNTHESIS="${ENABLE_SYNTHESIS:-true}"
 SYNTHESIS_CMD="${SYNTHESIS_CMD:-claude}"
 
 # =============================================================================
+# DEFAULT PRESET AND STRATEGY (v2.2)
+# =============================================================================
+
+# Default preset to use when no --preset flag is provided
+# Options: minimal, balanced, thorough, high-stakes, local, security, cost-capped
+# Leave empty to use individual ENABLE_* settings
+DEFAULT_PRESET="${DEFAULT_PRESET:-}"
+
+# Default synthesis strategy
+# Options: majority, risk_averse, security_first, cost_capped, compare_only
+DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-majority}"
+
+# =============================================================================
+# PEER REVIEW (v2.2)
+# =============================================================================
+
+# Enable anonymous peer review step
+ENABLE_PEER_REVIEW="${ENABLE_PEER_REVIEW:-false}"
+
+# Minimum responses required for peer review (default: 3)
+PEER_REVIEW_MIN_RESPONSES="${PEER_REVIEW_MIN_RESPONSES:-3}"
+
+# =============================================================================
 # MULTI-AGENT DEBATE - MAD (v2.0)
 # =============================================================================
 

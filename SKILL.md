@@ -126,6 +126,9 @@ cd ~/.claude/skills/ai-consultants
 | `/ai-consultants:config-check` | Verify CLIs installed |
 | `/ai-consultants:config-status` | View configuration |
 | `/ai-consultants:config-wizard` | Interactive setup |
+| `/ai-consultants:config-preset` | Set default preset |
+| `/ai-consultants:config-strategy` | Set synthesis strategy |
+| `/ai-consultants:config-features` | Toggle features |
 | `/ai-consultants:config-personas` | Change personas |
 | `/ai-consultants:config-api` | Add API consultants |
 
@@ -160,9 +163,14 @@ Round 1 → Cross-Critique → Round 2 → Final Synthesis
 ## Configuration
 
 ```bash
+# Defaults (v2.2)
+DEFAULT_PRESET=balanced      # Preset when --preset not given
+DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
+
 # Core features
 ENABLE_DEBATE=true           # Multi-agent debate
 ENABLE_SYNTHESIS=true        # Automatic synthesis
+ENABLE_PEER_REVIEW=false     # Anonymous peer review
 ENABLE_PANIC_MODE=auto       # Auto-rigor for uncertainty
 
 # Ollama (local models)

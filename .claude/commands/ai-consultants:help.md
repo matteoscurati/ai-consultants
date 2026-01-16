@@ -36,7 +36,9 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 | `/ai-consultants:config-wizard` | Full setup wizard (CLI detection, API keys, personas) |
 | `/ai-consultants:config-check` | Verify CLI agents are installed |
 | `/ai-consultants:config-status` | View current configuration |
-| `/ai-consultants:config-features` | Toggle features (Debate, Synthesis, Smart Routing) |
+| `/ai-consultants:config-preset` | Set default preset (minimal, balanced, high-stakes) |
+| `/ai-consultants:config-strategy` | Set default synthesis strategy |
+| `/ai-consultants:config-features` | Toggle features (Debate, Synthesis, Peer Review, etc.) |
 | `/ai-consultants:config-personas` | Change consultant personas |
 | `/ai-consultants:config-api` | Configure API-based consultants (Qwen3, GLM, Grok, DeepSeek) |
 | `/ai-consultants:help` | Show this help |
@@ -68,8 +70,10 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 | **Personas** | Each consultant has a role that shapes responses | `ENABLE_PERSONA` |
 | **Synthesis** | Auto-combine responses into recommendation | `ENABLE_SYNTHESIS` |
 | **Debate** | Consultants critique each other's answers | `ENABLE_DEBATE` |
+| **Peer Review** | Consultants anonymously rank each other | `ENABLE_PEER_REVIEW` |
 | **Smart Routing** | Auto-select best consultants per question type | `ENABLE_SMART_ROUTING` |
 | **Cost Tracking** | Track API usage costs | `ENABLE_COST_TRACKING` |
+| **Panic Mode** | Auto-add rigor when uncertainty detected | `ENABLE_PANIC_MODE` |
 
 ## Examples
 
