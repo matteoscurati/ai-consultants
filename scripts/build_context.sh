@@ -219,7 +219,7 @@ _truncate_file() {
     local file_path="$1"
     local original_size="$2"
     echo "# File: $file_path (truncated: ${original_size} bytes, showing first ${MAX_CONTEXT_FILE_BYTES})
-$(head -c "$MAX_CONTEXT_FILE_BYTES" "$file_path")
+$(head -c "$MAX_CONTEXT_FILE_BYTES" -- "$file_path")
 # ... [truncated] ..."
 }
 
@@ -236,12 +236,12 @@ _optimize_file_content() {
 
     # Small files pass through unchanged
     if [[ "$mode" != "none" && $original_size -le $MAX_CONTEXT_FILE_BYTES ]]; then
-        optimized_content=$(cat "$file_path")
+        optimized_content=$(cat -- "$file_path")
         opt_type="passthrough"
     else
         case "$mode" in
             none)
-                optimized_content=$(cat "$file_path")
+                optimized_content=$(cat -- "$file_path")
                 opt_type="none"
                 ;;
 
@@ -276,7 +276,7 @@ $extracted"
                         applied_opts="ast"
                     fi
                 fi
-                [[ -z "$temp_content" ]] && temp_content=$(cat "$file_path")
+                [[ -z "$temp_content" ]] && temp_content=$(cat -- "$file_path")
 
                 # Step 2: Symbol compression
                 if [[ "$ENABLE_SYMBOL_COMPRESSION" == "true" && "$_HAS_SYMBOL_MAP" == "true" ]]; then
