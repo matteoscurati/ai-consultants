@@ -98,8 +98,8 @@ if [[ -z "$RESPONSES_DIR" || ! -d "$RESPONSES_DIR" ]]; then
 fi
 
 # --- Check for responses ---
-RESPONSE_FILES=$(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null | head -10)
-if [[ -z "$RESPONSE_FILES" ]]; then
+RESPONSE_COUNT=$(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null | head -10 | wc -l)
+if [[ "$RESPONSE_COUNT" -eq 0 ]]; then
     log_error "No JSON responses found in $RESPONSES_DIR"
     exit 1
 fi
@@ -111,7 +111,8 @@ COMBINED_RESPONSES=""
 CONSULTANTS=()
 CONFIDENCE_SCORES=()
 
-for response_file in $RESPONSE_FILES; do
+# Use process substitution to handle filenames with spaces correctly
+while IFS= read -r response_file; do
     if [[ -f "$response_file" && -s "$response_file" ]]; then
         CONSULTANT=$(jq -r '.consultant // "unknown"' "$response_file" 2>/dev/null)
         CONFIDENCE=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
@@ -145,7 +146,7 @@ $(cat "$response_file")
 "
         fi
     fi
-done
+done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null | head -10)
 
 NUM_CONSULTANTS=${#CONSULTANTS[@]}
 log_info "Found $NUM_CONSULTANTS responses to synthesize"

@@ -97,7 +97,7 @@ _print() {
 print_header() {
     _print ""
     _print "╔══════════════════════════════════════════════════════════════╗"
-    _print "║           AI Consultants v${AI_CONSULTANTS_VERSION} - Doctor                    ║"
+    _print "║           AI Consultants v${AI_CONSULTANTS_VERSION:-2.2.0} - Doctor                    ║"
     _print "╚══════════════════════════════════════════════════════════════╝"
     _print ""
 }
@@ -507,12 +507,18 @@ attempt_fixes() {
     for issue in "${ISSUES[@]}"; do
         IFS='|' read -r category description fix <<< "$issue"
 
-        # Only auto-fix safe operations
+        # Only auto-fix safe operations with whitelisted commands
         case "$category" in
             dependency)
-                if [[ "$fix" == *"brew install"* ]] && command -v brew &>/dev/null; then
-                    echo "  Attempting: $fix"
-                    if eval "$fix" 2>/dev/null; then
+                # Extract package name safely (whitelist approach, no eval)
+                local package=""
+                if [[ "$fix" =~ ^brew\ install\ ([a-zA-Z0-9_-]+)$ ]]; then
+                    package="${BASH_REMATCH[1]}"
+                fi
+
+                if [[ -n "$package" ]] && command -v brew &>/dev/null; then
+                    echo "  Attempting: brew install $package"
+                    if brew install "$package" 2>/dev/null; then
                         echo "  ✓ Fixed: $description"
                         FIXES_APPLIED+=("$description")
                     else

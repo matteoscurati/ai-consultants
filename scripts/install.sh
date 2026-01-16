@@ -189,7 +189,6 @@ if [[ "$UNINSTALL_MODE" == "true" ]]; then
 
     # Remove commands (with confirmation)
     if [[ -d "$COMMANDS_DIR" ]]; then
-        local ai_commands
         ai_commands=$(find "$COMMANDS_DIR" -name "ai-consultants*.md" -o -name "consult*.md" 2>/dev/null || true)
         if [[ -n "$ai_commands" ]]; then
             echo "$ai_commands" | while read -r cmd_file; do
@@ -262,7 +261,6 @@ if [[ "$INSTALL_COMMANDS" == "true" ]]; then
 
     if [[ -d "$INSTALL_DIR/.claude/commands" ]]; then
         cp "$INSTALL_DIR"/.claude/commands/*.md "$COMMANDS_DIR/" 2>/dev/null || true
-        local cmd_count
         cmd_count=$(ls -1 "$INSTALL_DIR/.claude/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
         log_success "Installed $cmd_count slash commands"
     else

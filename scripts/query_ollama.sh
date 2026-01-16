@@ -18,6 +18,13 @@
 
 set -euo pipefail
 
+# Cleanup trap for temp files
+TEMP_OUTPUT=""
+cleanup() {
+    [[ -n "$TEMP_OUTPUT" && -f "$TEMP_OUTPUT" ]] && rm -f "$TEMP_OUTPUT"
+}
+trap cleanup EXIT
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/personas.sh"

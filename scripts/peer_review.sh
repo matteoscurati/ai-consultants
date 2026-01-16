@@ -221,8 +221,9 @@ aggregate_peer_scores() {
         local reviews
         reviews=$(echo "$review_content" | jq -r '.reviews // []' 2>/dev/null)
 
-        # Process each individual review
-        echo "$reviews" | jq -c '.[]' 2>/dev/null | while read -r review; do
+        # Process each individual review (using process substitution to avoid subshell)
+        while read -r review; do
+            [[ -z "$review" ]] && continue
             local response_id score
             response_id=$(echo "$review" | jq -r '.response_id // ""')
             score=$(echo "$review" | jq -r '.quality_score // 5')
@@ -244,7 +245,7 @@ aggregate_peer_scores() {
                     end
                     ')
             fi
-        done
+        done < <(echo "$reviews" | jq -c '.[]' 2>/dev/null)
     done
 
     # Calculate averages and de-anonymize
