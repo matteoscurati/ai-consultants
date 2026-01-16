@@ -7,15 +7,58 @@ description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, and 
 
 Simultaneously consult multiple AIs as "consultants" for coding questions. Each consultant has a **configurable persona** that influences their response style.
 
+## Quick Start
+
+```
+/ai-consultants:config-wizard       # Initial setup
+/ai-consultants:consult "Your question here"
+```
+
 ## What's New in v2.2
 
 - **Configuration Presets**: `--preset minimal/balanced/high-stakes/local`
-- **Doctor Command**: `./scripts/doctor.sh --fix` to diagnose and auto-fix
 - **Synthesis Strategies**: `--strategy majority/risk_averse/security_first/compare_only`
+- **Doctor Command**: `./scripts/doctor.sh --fix` to diagnose and auto-fix
 - **Anonymous Peer Review**: Consultants evaluate each other without bias
 - **Ollama Support**: Local models for privacy (zero API cost)
 - **Panic Mode**: Auto-triggers rigor when uncertainty detected
-- **Confidence Intervals**: Statistical ranges like "8 ± 1.2"
+- **Confidence Intervals**: Statistical ranges like "8 +/- 1.2"
+- **New Slash Commands**: `/ai-consultants:config-preset`, `/ai-consultants:config-strategy`
+
+## Slash Commands
+
+### Consultation Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:consult` | Main consultation - ask AI consultants a coding question |
+| `/ai-consultants:ask-experts` | Quick query alias for consult |
+| `/ai-consultants:debate` | Run consultation with multi-round debate |
+| `/ai-consultants:help` | Show all commands and usage |
+
+### Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:config-wizard` | Full interactive setup (CLI detection, API keys, personas) |
+| `/ai-consultants:config-check` | Verify CLI agents are installed and authenticated |
+| `/ai-consultants:config-status` | View current configuration |
+| `/ai-consultants:config-preset` | Set default preset (minimal, balanced, high-stakes, local) |
+| `/ai-consultants:config-strategy` | Set default synthesis strategy |
+| `/ai-consultants:config-features` | Toggle features (Debate, Synthesis, Peer Review, etc.) |
+| `/ai-consultants:config-personas` | Change consultant personas |
+| `/ai-consultants:config-api` | Configure API-based consultants (Qwen3, GLM, Grok, DeepSeek) |
+
+## Configuration Workflow
+
+Set your preferences using slash commands:
+
+```
+/ai-consultants:config-preset       # Choose default preset
+/ai-consultants:config-strategy     # Choose synthesis strategy
+/ai-consultants:config-features     # Enable/disable features
+/ai-consultants:config-status       # View current settings
+```
 
 ## Consultants and Personas
 
@@ -26,6 +69,7 @@ Simultaneously consult multiple AIs as "consultants" for coding questions. Each 
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Edge cases, vulnerabilities |
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional |
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
+| **Aider** | `aider` | The Pair Programmer | Collaborative coding |
 | **Ollama** | `ollama` | The Local Expert | Privacy-first, zero cost |
 
 ## Requirements
@@ -54,25 +98,54 @@ curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3.2
 ```
 
-## Quick Start (Claude Code)
+## Configuration Presets
+
+| Preset | Consultants | Use Case |
+|--------|-------------|----------|
+| `minimal` | 2 (Gemini + Codex) | Quick questions |
+| `balanced` | 4 (+Mistral +Kilo) | Standard use |
+| `thorough` | 5 (+Cursor) | Comprehensive |
+| `high-stakes` | All + debate | Critical decisions |
+| `local` | Ollama only | Full privacy |
+| `security` | Security-focused | +Debate |
+| `cost-capped` | Budget-friendly | Low cost |
+
+## Synthesis Strategies
+
+| Strategy | Description |
+|----------|-------------|
+| `majority` | Most common answer wins (default) |
+| `risk_averse` | Weight conservative responses |
+| `security_first` | Prioritize security |
+| `cost_capped` | Prefer cheaper solutions |
+| `compare_only` | No recommendation |
+
+## Usage Examples
+
+### Basic Consultation
 
 ```
-# Verify installation
-/ai-consultants:config-check
-
-# Basic consultation
-/ai-consultants:consult "How to optimize this function?"
-
-# With debate mode
-/ai-consultants:debate "Microservices or monolith?"
+/ai-consultants:consult "How to optimize this SQL query?"
 ```
 
-## Quick Start (Bash)
+### With File Context
+
+```
+/ai-consultants:consult "Review this authentication flow" src/auth.ts
+```
+
+### With Debate
+
+```
+/ai-consultants:debate "Microservices or monolith for our new service?"
+```
+
+### Bash Usage
 
 ```bash
 cd ~/.claude/skills/ai-consultants
 
-# With preset (recommended)
+# With preset
 ./scripts/consult_all.sh --preset balanced "Best approach for caching?"
 
 # With strategy
@@ -82,83 +155,47 @@ cd ~/.claude/skills/ai-consultants
 ./scripts/consult_all.sh --preset local "Private question"
 ```
 
-## Configuration Presets
-
-| Preset | Consultants | Use Case |
-|--------|-------------|----------|
-| `minimal` | 2 (Gemini + Codex) | Quick questions |
-| `balanced` | 4 (+ Mistral + Kilo) | Standard use |
-| `thorough` | 5 (+ Cursor) | Comprehensive |
-| `high-stakes` | All + debate | Critical decisions |
-| `local` | Ollama only | Full privacy |
-
-```bash
-./scripts/consult_all.sh --preset high-stakes "Critical choice"
-```
-
-## Synthesis Strategies
-
-| Strategy | Description |
-|----------|-------------|
-| `majority` | Most common answer wins (default) |
-| `risk_averse` | Weight conservative responses |
-| `security_first` | Prioritize security |
-| `compare_only` | No recommendation |
-
-```bash
-./scripts/consult_all.sh --strategy security_first "Auth implementation"
-```
-
-## Claude Code Slash Commands
-
-### Usage Commands
-
-| Command | Description |
-|---------|-------------|
-| `/ai-consultants:consult` | Main consultation |
-| `/ai-consultants:ask-experts` | Quick query |
-| `/ai-consultants:debate` | With multi-round debate |
-
-### Configuration Commands
-
-| Command | Description |
-|---------|-------------|
-| `/ai-consultants:config-check` | Verify CLIs installed |
-| `/ai-consultants:config-status` | View configuration |
-| `/ai-consultants:config-wizard` | Interactive setup |
-| `/ai-consultants:config-preset` | Set default preset |
-| `/ai-consultants:config-strategy` | Set synthesis strategy |
-| `/ai-consultants:config-features` | Toggle features |
-| `/ai-consultants:config-personas` | Change personas |
-| `/ai-consultants:config-api` | Add API consultants |
-
 ## Workflow
 
 ```
-Query → Classify → Parallel Queries → Voting → Synthesis → Report
-                        ↓                ↓           ↓
-                   Gemini (8)      Consensus    Recommendation
-                   Codex (7)       Analysis     Comparison
-                   Mistral (6)                  Risk Assessment
+Query -> Classify -> Parallel Queries -> Voting -> Synthesis -> Report
+                          |                |           |
+                     Gemini (8)      Consensus    Recommendation
+                     Codex (7)       Analysis     Comparison
+                     Mistral (6)                  Risk Assessment
 ```
 
 With debate:
 ```
-Round 1 → Cross-Critique → Round 2 → Final Synthesis
+Round 1 -> Cross-Critique -> Round 2 -> Final Synthesis
 ```
 
 ## Usage Triggers
 
 ### Automatic
+
 - Doubts about implementation approach
 - Validating complex solutions
 - Exploring architectural alternatives
 
 ### Explicit
+
 - "Ask the consultants..."
 - "What do the other models think?"
 - "Compare solutions"
 - "I want a second opinion"
+
+## Features
+
+| Feature | Description | Toggle |
+|---------|-------------|--------|
+| **Personas** | Each consultant has a role that shapes responses | `ENABLE_PERSONA` |
+| **Synthesis** | Auto-combine responses into recommendation | `ENABLE_SYNTHESIS` |
+| **Debate** | Consultants critique each other's answers | `ENABLE_DEBATE` |
+| **Peer Review** | Consultants anonymously rank each other | `ENABLE_PEER_REVIEW` |
+| **Smart Routing** | Auto-select best consultants per question type | `ENABLE_SMART_ROUTING` |
+| **Cost Tracking** | Track API usage costs | `ENABLE_COST_TRACKING` |
+| **Panic Mode** | Auto-add rigor when uncertainty detected | `ENABLE_PANIC_MODE` |
 
 ## Configuration
 
@@ -203,24 +240,6 @@ Diagnose and fix issues:
 ./scripts/doctor.sh --json       # JSON output
 ```
 
-## Peer Review
-
-Run anonymous peer review after consultation:
-
-```bash
-./scripts/peer_review.sh /tmp/ai_consultations/latest /tmp/peer_review
-```
-
-## Consensus and Voting
-
-```
-100%    Unanimous - All agree
-75-99%  High - 3+ agree
-50-74%  Medium - Partial agreement
-25-49%  Low - Strong disagreement
-0-24%   None - No convergence
-```
-
 ## Interpreting Results
 
 | Scenario | Recommendation |
@@ -233,32 +252,29 @@ Run anonymous peer review after consultation:
 ## Best Practices
 
 ### Security
+
 - **Never** include credentials in queries
 - Use `--preset local` for sensitive code
 
 ### Effective Queries
+
 - Be specific about the question
 - Include constraints (performance, etc.)
 - Use debate for controversial decisions
 
 ## Troubleshooting
 
-### CLI not found
-```bash
-./scripts/doctor.sh --fix
-```
-
-### Synthesis not working
-Claude CLI required. Fallback available but less accurate.
-
-### High costs
-```bash
-./scripts/consult_all.sh --preset minimal "Quick question"
-```
+| Issue | Solution |
+|-------|----------|
+| "Unknown skill" | Run install script or check `~/.claude/commands/` |
+| "Exit code 1" | Run `/ai-consultants:config-check` to diagnose |
+| No consultants | Run `/ai-consultants:config-wizard` |
+| API errors | Check `/ai-consultants:config-status` |
+| CLI not found | Run `./scripts/doctor.sh --fix` |
 
 ## Extended Documentation
 
-- [Setup Guide](docs/SETUP.md) - Installation and auth
+- [Setup Guide](docs/SETUP.md) - Installation, authentication, Claude Code setup
 - [Cost Rates](docs/COST_RATES.md) - Model pricing
 - [Smart Routing](docs/SMART_ROUTING.md) - Category routing
 - [JSON Schema](docs/JSON_SCHEMA.md) - Output format

@@ -4,6 +4,7 @@
 
 [![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
 
 ## Why AI Consultants?
@@ -17,15 +18,111 @@ Making important technical decisions? Get **multiple expert perspectives** insta
 - **Anonymous peer review** identifies the strongest arguments without bias
 - **Local model support** via Ollama for complete privacy
 
-## Quick Install
+---
+
+## Claude Code Quick Start
+
+AI Consultants is designed as a **Claude Code skill** - the fastest way to get started is within Claude Code.
+
+### Install the Skill
 
 ```bash
-# One-liner installation
+# One-liner installation (installs to ~/.claude/skills/)
 curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
-
-# Verify installation
-~/.claude/skills/ai-consultants/scripts/doctor.sh
 ```
+
+### Your First Consultation
+
+Once installed, use slash commands directly in Claude Code:
+
+```
+/ai-consultants:config-wizard       # Initial setup - configure your consultants
+/ai-consultants:consult "How should I structure my authentication system?"
+```
+
+### Essential Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:consult` | Ask AI consultants a coding question |
+| `/ai-consultants:debate` | Run consultation with multi-round debate |
+| `/ai-consultants:help` | Show all available commands |
+
+That's it! Claude Code handles everything else.
+
+---
+
+## Claude Code Integration
+
+### All Slash Commands
+
+AI Consultants provides 12 slash commands for seamless Claude Code integration:
+
+#### Consultation Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/ai-consultants:consult` | Main consultation | `/ai-consultants:consult "Redis vs Memcached?"` |
+| `/ai-consultants:ask-experts` | Quick query (alias) | `/ai-consultants:ask-experts "Best caching strategy?"` |
+| `/ai-consultants:debate` | With multi-round debate | `/ai-consultants:debate "Microservices or monolith?"` |
+
+#### Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ai-consultants:config-wizard` | Full interactive setup |
+| `/ai-consultants:config-check` | Verify CLIs are installed |
+| `/ai-consultants:config-status` | View current configuration |
+| `/ai-consultants:config-preset` | Set default preset (minimal, balanced, high-stakes) |
+| `/ai-consultants:config-strategy` | Set default synthesis strategy |
+| `/ai-consultants:config-features` | Toggle features (debate, synthesis, etc.) |
+| `/ai-consultants:config-personas` | Change consultant personas |
+| `/ai-consultants:config-api` | Configure API consultants (Qwen3, GLM, Grok, DeepSeek) |
+| `/ai-consultants:help` | Show all commands and usage |
+
+### Claude Code Workflows
+
+#### Quick Question
+
+```
+/ai-consultants:consult "How to optimize this SQL query?"
+```
+
+#### Code Review with Multiple Files
+
+```
+/ai-consultants:consult "Review this authentication flow" src/auth.ts src/middleware.ts
+```
+
+#### Architectural Decision with Debate
+
+```
+/ai-consultants:debate "Should we use GraphQL or REST for our new API?"
+```
+
+#### Configure Once, Use Everywhere
+
+Set your preferred defaults with configuration commands:
+
+```
+/ai-consultants:config-preset       # Choose: minimal, balanced, high-stakes, local
+/ai-consultants:config-strategy     # Choose: majority, risk_averse, security_first
+/ai-consultants:config-features     # Toggle: debate, synthesis, peer review
+```
+
+Your settings persist in `~/.claude/skills/ai-consultants/.env`.
+
+### Benefits of Using Claude Code
+
+| Feature | Claude Code | Standalone Bash |
+|---------|-------------|-----------------|
+| Configuration | Slash commands | Edit .env manually |
+| Results | Integrated in chat | Read from /tmp/ |
+| Follow-ups | Natural conversation | Separate followup.sh |
+| File context | Automatic | Pass file paths |
+| Setup | `/ai-consultants:config-wizard` | Run scripts manually |
+
+---
 
 ## Consultants
 
@@ -55,11 +152,20 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 |------------|-------|---------|-------|
 | **Ollama** | llama3.2 | The Local Expert | Privacy-first, zero API cost |
 
+---
+
 ## What's New in v2.2
 
 ### Configuration Presets
-Choose how many consultants to use with a single flag:
 
+Choose how many consultants to use:
+
+**Claude Code:**
+```
+/ai-consultants:config-preset       # Interactive selection
+```
+
+**Bash:**
 ```bash
 ./scripts/consult_all.sh --preset minimal "Quick question"      # 2 models
 ./scripts/consult_all.sh --preset balanced "Design question"    # 4 models
@@ -67,7 +173,25 @@ Choose how many consultants to use with a single flag:
 ./scripts/consult_all.sh --preset local "Private question"      # Ollama only
 ```
 
+### Synthesis Strategies
+
+Control how responses are combined:
+
+**Claude Code:**
+```
+/ai-consultants:config-strategy     # Interactive selection
+```
+
+**Bash:**
+```bash
+./scripts/consult_all.sh --strategy majority "Question"       # Most common wins
+./scripts/consult_all.sh --strategy risk_averse "Question"    # Prioritize safety
+./scripts/consult_all.sh --strategy security_first "Question" # Security focus
+./scripts/consult_all.sh --strategy compare_only "Question"   # No recommendation
+```
+
 ### Doctor Command
+
 Diagnose and fix configuration issues:
 
 ```bash
@@ -76,17 +200,8 @@ Diagnose and fix configuration issues:
 ./scripts/doctor.sh --json       # JSON output for automation
 ```
 
-### Synthesis Strategies
-Control how responses are combined:
-
-```bash
-./scripts/consult_all.sh --strategy majority "Question"       # Most common wins
-./scripts/consult_all.sh --strategy risk_averse "Question"    # Prioritize safety
-./scripts/consult_all.sh --strategy security_first "Question" # Security focus
-./scripts/consult_all.sh --strategy compare_only "Question"   # No recommendation
-```
-
 ### Anonymous Peer Review
+
 Consultants evaluate each other's responses without knowing the source:
 
 ```bash
@@ -94,6 +209,7 @@ Consultants evaluate each other's responses without knowing the source:
 ```
 
 ### Local Model Support (Ollama)
+
 Run consultations 100% locally with zero API cost:
 
 ```bash
@@ -101,6 +217,7 @@ ENABLE_OLLAMA=true ./scripts/consult_all.sh "Private question"
 ```
 
 ### Panic Button Mode
+
 Automatically adds rigor when uncertainty is detected:
 
 ```bash
@@ -109,16 +226,32 @@ ENABLE_PANIC_MODE=auto ./scripts/consult_all.sh "Complex question"
 ```
 
 ### Confidence Intervals
+
 See statistical confidence ranges:
 
 ```
-Gemini: 8 ± 1.2 (high confidence)
-Codex: 6 ± 2.1 (moderate variance)
+Gemini: 8 +/- 1.2 (high confidence)
+Codex: 6 +/- 2.1 (moderate variance)
 ```
+
+---
 
 ## Usage
 
-### Basic Consultation
+### With Claude Code (Recommended)
+
+```
+# Basic consultation
+/ai-consultants:consult "How to optimize this function?"
+
+# With file context
+/ai-consultants:consult "Review this code" src/utils.py
+
+# With debate for controversial topics
+/ai-consultants:debate "Which database should we use?"
+```
+
+### With Bash
 
 ```bash
 # Simple question
@@ -126,27 +259,19 @@ Codex: 6 ± 2.1 (moderate variance)
 
 # With preset
 ./scripts/consult_all.sh --preset balanced "Redis or Memcached?"
-```
 
-### With Debate
-
-```bash
-# Enable multi-agent debate
+# With debate
 ENABLE_DEBATE=true DEBATE_ROUNDS=2 ./scripts/consult_all.sh "Microservices vs monolith?"
 
-# Or use high-stakes preset (includes debate)
-./scripts/consult_all.sh --preset high-stakes "Critical architectural decision"
-```
-
-### With Smart Routing
-
-```bash
-# Auto-select best consultants for the question type
+# With smart routing
 ENABLE_SMART_ROUTING=true ./scripts/consult_all.sh "Bug in auth code"
 ```
 
 ### Follow-up Questions
 
+**Claude Code:** Just continue the conversation naturally.
+
+**Bash:**
 ```bash
 # Follow-up to all consultants
 ./scripts/followup.sh "Can you elaborate on that point?"
@@ -155,16 +280,7 @@ ENABLE_SMART_ROUTING=true ./scripts/consult_all.sh "Bug in auth code"
 ./scripts/followup.sh -c Gemini "Show me code example"
 ```
 
-### Claude Code Commands
-
-If using as a Claude Code skill:
-
-```
-/ai-consultants:consult "Your question"
-/ai-consultants:debate "Controversial topic"
-/ai-consultants:config-check
-/ai-consultants:config-wizard
-```
+---
 
 ## Configuration
 
@@ -199,6 +315,10 @@ ENABLE_SYNTHESIS=true        # Automatic synthesis
 ENABLE_SMART_ROUTING=true    # Intelligent consultant selection
 ENABLE_PANIC_MODE=auto       # Automatic rigor for uncertainty
 
+# Defaults (v2.2)
+DEFAULT_PRESET=balanced      # Preset when --preset not given
+DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
+
 # Ollama (local models)
 ENABLE_OLLAMA=true           # Enable Ollama consultant
 OLLAMA_MODEL=llama3.2        # Model to use
@@ -214,6 +334,8 @@ PANIC_EXTRA_DEBATE_ROUNDS=1  # Additional rounds in panic mode
 ```
 
 See [docs/SETUP.md](docs/SETUP.md) for complete configuration guide.
+
+---
 
 ## Output
 
@@ -231,43 +353,57 @@ Each consultation generates:
 └── round_2/             # (if debate enabled)
 ```
 
+---
+
 ## How It Works
 
 ```
-Query → Classify → Parallel Queries → Voting → Synthesis → Report
-                        ↓                ↓           ↓
-                   Gemini (8)      Consensus    Recommendation
-                   Codex (7)       Analysis     Comparison
-                   Mistral (6)                  Risk Assessment
-                   Kilo (9)                     Action Items
+Query -> Classify -> Parallel Queries -> Voting -> Synthesis -> Report
+                          |                |           |
+                     Gemini (8)      Consensus    Recommendation
+                     Codex (7)       Analysis     Comparison
+                     Mistral (6)                  Risk Assessment
+                     Kilo (9)                     Action Items
 ```
 
 With debate enabled:
 ```
-Round 1 → Cross-Critique → Round 2 → Updated Positions → Final Synthesis
+Round 1 -> Cross-Critique -> Round 2 -> Updated Positions -> Final Synthesis
 ```
 
 With peer review:
 ```
-Responses → Anonymize → Peer Ranking → De-anonymize → Peer Scores
+Responses -> Anonymize -> Peer Ranking -> De-anonymize -> Peer Scores
 ```
+
+---
 
 ## Installation Options
 
-### Option A: One-Liner (Recommended)
+### Option A: Claude Code Skill (Recommended)
 
 ```bash
+# One-liner installation
 curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+
+# Verify and fix issues
+~/.claude/skills/ai-consultants/scripts/doctor.sh --fix
 ```
 
-### Option B: Claude Code Skill
+Then in Claude Code:
+```
+/ai-consultants:config-wizard
+```
+
+### Option B: Manual Git Clone
 
 ```bash
 git clone https://github.com/matteoscurati/ai-consultants.git ~/.claude/skills/ai-consultants
 ~/.claude/skills/ai-consultants/scripts/doctor.sh --fix
+~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
 ```
 
-### Option C: Standalone
+### Option C: Standalone (No Claude Code)
 
 ```bash
 git clone https://github.com/matteoscurati/ai-consultants.git
@@ -287,6 +423,8 @@ cd ai-consultants
 ```bash
 ~/.claude/skills/ai-consultants/scripts/install.sh --uninstall
 ```
+
+---
 
 ## Requirements
 
@@ -311,13 +449,22 @@ ollama pull llama3.2
 
 ### Verify Installation
 
+**Claude Code:**
+```
+/ai-consultants:config-check
+```
+
+**Bash:**
 ```bash
 ./scripts/doctor.sh
 ```
 
+---
+
 ## Best Practices
 
 ### When to Use High-Stakes Mode
+
 - Architectural decisions affecting system design
 - Security-critical code changes
 - Performance-critical optimizations
@@ -338,39 +485,49 @@ ollama pull llama3.2
 - Use `--preset local` for sensitive code
 - Files in `/tmp` are automatically cleaned up
 
+---
+
 ## Documentation
 
-- [Setup Guide](docs/SETUP.md) - Installation and authentication
+- [Setup Guide](docs/SETUP.md) - Installation, authentication, Claude Code setup
 - [Cost Rates](docs/COST_RATES.md) - Model pricing and budgets
 - [Smart Routing](docs/SMART_ROUTING.md) - Category-based routing
 - [JSON Schema](docs/JSON_SCHEMA.md) - Output format specification
 - [Contributing](CONTRIBUTING.md) - How to contribute
 
+---
+
 ## Changelog
 
 ### v2.2.0
+
 - **Presets**: Quick configuration with `--preset minimal/balanced/high-stakes/local`
 - **Doctor command**: Diagnostic and auto-fix tool
 - **Synthesis strategies**: `--strategy majority/risk_averse/security_first/compare_only`
-- **Confidence intervals**: Statistical confidence ranges (e.g., "8 ± 1.2")
+- **Confidence intervals**: Statistical confidence ranges (e.g., "8 +/- 1.2")
 - **Anonymous peer review**: Unbiased evaluation of responses
 - **Ollama support**: Local model inference for privacy
 - **Panic mode**: Automatic rigor when uncertainty detected
 - **Judge step**: Overconfidence detection in self-reflection
 - **One-liner install**: `curl | bash` installation
+- **New slash commands**: `/ai-consultants:config-preset`, `/ai-consultants:config-strategy`
 
 ### v2.1.0
+
 - New consultants: Aider, DeepSeek
 - 17 configurable personas
 - Token optimization with AST extraction
 
 ### v2.0.0
+
 - Persona system with 15 predefined roles
 - Confidence scoring (1-10) on every response
 - Auto-synthesis with weighted recommendations
 - Multi-Agent Debate (MAD)
 - Smart routing by question category
 - Session management and cost tracking
+
+---
 
 ## License
 
