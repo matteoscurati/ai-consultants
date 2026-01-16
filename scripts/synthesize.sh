@@ -119,30 +119,41 @@ for response_file in $RESPONSE_FILES; do
         CONSULTANTS+=("$CONSULTANT")
         CONFIDENCE_SCORES+=("$CONFIDENCE")
 
-        COMBINED_RESPONSES+="
+        # Token optimization v2.1: Extract only essential fields instead of full JSON
+        SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
+        if [[ "$SYNTHESIS_EXTRACT_FIELDS" == "true" ]]; then
+            SUMMARY=$(jq -r '.response.summary // "N/A"' "$response_file" 2>/dev/null)
+            APPROACH=$(jq -r '.response.approach // "N/A"' "$response_file" 2>/dev/null)
+            PROS=$(jq -r '(.response.pros // []) | join("; ")' "$response_file" 2>/dev/null)
+            CONS=$(jq -r '(.response.cons // []) | join("; ")' "$response_file" 2>/dev/null)
+            CONF_REASONING=$(jq -r '.confidence.reasoning // "N/A"' "$response_file" 2>/dev/null)
+
+            COMBINED_RESPONSES+="
+**$CONSULTANT** (conf:$CONFIDENCE/10, approach:$APPROACH)
+Summary: $SUMMARY
++: $PROS | -: $CONS
+Reasoning: $CONF_REASONING
+---
+"
+        else
+            # Legacy mode: include full JSON
+            COMBINED_RESPONSES+="
 ### $CONSULTANT (Confidence: $CONFIDENCE/10)
 $(cat "$response_file")
 
 ---
 "
+        fi
     fi
 done
 
 NUM_CONSULTANTS=${#CONSULTANTS[@]}
 log_info "Found $NUM_CONSULTANTS responses to synthesize"
 
-# --- Build synthesis prompt ---
-SYNTHESIS_PROMPT=$(cat << 'PROMPT_END'
-You are an expert meta-analyst. Analyze the responses from these AI consultants and produce a structured synthesis.
-
-## Consultants and their Roles
-1. **Gemini (The Architect)**: Focus on design, scalability, enterprise patterns
-2. **Codex (The Pragmatist)**: Focus on simplicity, practical solutions, quick wins
-3. **Mistral (The Devils Advocate)**: Focus on problems, edge cases, vulnerabilities
-4. **Kilo (The Innovator)**: Focus on creativity, unconventional approaches
-
-PROMPT_END
-)
+# --- Build synthesis prompt (token-optimized v2.1) ---
+SYNTHESIS_PROMPT='You are an expert meta-analyst. Synthesize AI consultant responses.
+Role context: Architect=scalability/design, Pragmatist=simplicity, Advocate=risks/edge-cases, Innovator=creativity.
+'
 
 if [[ -n "$ORIGINAL_QUESTION" ]]; then
     SYNTHESIS_PROMPT+="

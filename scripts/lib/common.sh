@@ -2,6 +2,12 @@
 # common.sh - Shared functions for consultation scripts
 # Includes: logging, cross-platform timeout, retry logic, validation
 
+# Guard against double-sourcing
+if [[ -n "${_COMMON_SH_SOURCED:-}" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
+_COMMON_SH_SOURCED=1
+
 # Load configuration
 SCRIPT_DIR_COMMON="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR_COMMON/../config.sh"
@@ -275,7 +281,12 @@ validate_file_path() {
     fi
 
     # Check for null bytes (common injection technique)
-    if [[ "$path" == *$'\0'* ]]; then
+    # Bash 3.2 can't reliably detect null bytes in variables, but command-line
+    # arguments with null bytes are truncated anyway, so this is a best-effort check
+    local path_len=${#path}
+    local printf_len
+    printf_len=$(printf '%s' "$path" | wc -c | tr -d ' ')
+    if [[ "$path_len" != "$printf_len" ]]; then
         log_error "Null byte injection detected in path"
         return 1
     fi
@@ -455,4 +466,59 @@ map_clear() {
         eval "unset _MAP_${map_name}_${key}"
     done
     eval "unset $keys_var"
+}
+
+# =============================================================================
+# MODULE SOURCING HELPER
+# =============================================================================
+
+# Source common.sh from a library module with automatic path detection
+# This is called by other lib/*.sh files to source common.sh reliably
+# Usage: source_common (call from within the module's directory context)
+# Note: This function exists primarily for documentation - modules should
+# use the pattern below directly since this function may not exist yet.
+#
+# Standard pattern for lib modules:
+#   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+#   source "$SCRIPT_DIR/common.sh" 2>/dev/null || source "${SCRIPT_DIR%/*}/lib/common.sh" 2>/dev/null || true
+
+# =============================================================================
+# TOKEN ESTIMATION (v2.1)
+# =============================================================================
+
+# Estimate token count from text
+# Uses ~4 characters per token approximation for English text
+# Usage: estimate_tokens "text" or echo "text" | estimate_tokens
+estimate_tokens() {
+    local text="${1:-}"
+    if [[ -z "$text" ]]; then
+        # Read from stdin if no argument
+        text=$(cat)
+    fi
+    local chars
+    chars=$(echo -n "$text" | wc -c | tr -d ' ')
+    echo $((chars / 4))
+}
+
+# Estimate tokens from a file
+# Usage: estimate_tokens_file "/path/to/file"
+estimate_tokens_file() {
+    local file_path="$1"
+    if [[ -f "$file_path" ]]; then
+        local chars
+        chars=$(wc -c < "$file_path" | tr -d ' ')
+        echo $((chars / 4))
+    else
+        echo 0
+    fi
+}
+
+# Log token estimate with label
+# Usage: log_token_estimate "Prompt" "$prompt_text"
+log_token_estimate() {
+    local label="$1"
+    local text="$2"
+    local tokens
+    tokens=$(estimate_tokens "$text")
+    log_debug "$label: ~$tokens tokens (~$((tokens * 4)) chars)"
 }

@@ -228,6 +228,39 @@ ENABLE_PREFLIGHT="${ENABLE_PREFLIGHT:-false}"
 PREFLIGHT_QUICK="${PREFLIGHT_QUICK:-true}"
 
 # =============================================================================
+# TOKEN OPTIMIZATION (v2.1)
+# =============================================================================
+
+# Optimization mode: "none", "basic", "ast", "full"
+#   none  - No optimization, pass files as-is
+#   basic - Simple byte-based truncation (legacy)
+#   ast   - AST-based extraction (recommended, ~60% savings)
+#   full  - AST + symbol compression + chunking (~70% savings)
+TOKEN_OPTIMIZATION_MODE="${TOKEN_OPTIMIZATION_MODE:-ast}"
+
+# Maximum bytes per context file before truncation (~2000 tokens)
+# Only used when TOKEN_OPTIMIZATION_MODE=basic
+MAX_CONTEXT_FILE_BYTES="${MAX_CONTEXT_FILE_BYTES:-8000}"
+
+# Enable AST-based code extraction
+ENABLE_AST_EXTRACTION="${ENABLE_AST_EXTRACTION:-true}"
+
+# Enable symbol compression (minification)
+ENABLE_SYMBOL_COMPRESSION="${ENABLE_SYMBOL_COMPRESSION:-false}"
+
+# Enable semantic chunking for large files
+ENABLE_SEMANTIC_CHUNKING="${ENABLE_SEMANTIC_CHUNKING:-true}"
+
+# Maximum tokens per chunk (for chunking mode)
+CHUNK_MAX_TOKENS="${CHUNK_MAX_TOKENS:-500}"
+
+# Use compact prompts (shorter personas and output format)
+USE_COMPACT_PROMPTS="${USE_COMPACT_PROMPTS:-true}"
+
+# Extract only essential fields for synthesis (instead of full JSON)
+SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
+
+# =============================================================================
 # LOGGING
 # =============================================================================
 
@@ -256,4 +289,4 @@ fi
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.0.0"
+AI_CONSULTANTS_VERSION="2.1.0"
