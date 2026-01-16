@@ -113,9 +113,19 @@ _extract_python() {
         py_include_comments="False"
     fi
 
-    python3 -c "
+    # SECURITY: Pass file path via environment variable to prevent command injection
+    CODE_OPTIMIZER_FILE="$file_path" \
+    CODE_OPTIMIZER_DOCSTRINGS="$py_include_docstrings" \
+    CODE_OPTIMIZER_COMMENTS="$py_include_comments" \
+    python3 - <<'PYTHON_SCRIPT' 2>/dev/null
 import ast
 import sys
+import os
+
+# Get parameters from environment (safe from injection)
+file_path = os.environ.get('CODE_OPTIMIZER_FILE', '')
+include_docstrings = os.environ.get('CODE_OPTIMIZER_DOCSTRINGS', 'True') == 'True'
+include_comments = os.environ.get('CODE_OPTIMIZER_COMMENTS', 'True') == 'True'
 
 def get_docstring(node):
     '''Extract docstring from a node if present'''
@@ -127,8 +137,6 @@ def get_docstring(node):
 def format_args(args):
     '''Format function arguments'''
     parts = []
-
-    # Regular args
     for arg in args.args:
         annotation = ''
         if arg.annotation:
@@ -137,15 +145,10 @@ def format_args(args):
             except:
                 pass
         parts.append(arg.arg + annotation)
-
-    # *args
     if args.vararg:
         parts.append('*' + args.vararg.arg)
-
-    # **kwargs
     if args.kwarg:
         parts.append('**' + args.kwarg.arg)
-
     return ', '.join(parts)
 
 def get_return_annotation(node):
@@ -169,13 +172,13 @@ def extract_critical_comments(source):
     return comments
 
 try:
-    with open('$file_path', 'r', encoding='utf-8', errors='replace') as f:
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
         source = f.read()
 
     tree = ast.parse(source)
 
     output = []
-    output.append('# FILE: $file_path')
+    output.append(f'# FILE: {file_path}')
     output.append('# LANGUAGE: python')
     output.append('')
 
@@ -192,7 +195,7 @@ try:
 
     if imports:
         output.append('# IMPORTS:')
-        for imp in imports[:20]:  # Limit to 20 imports
+        for imp in imports[:20]:
             output.append(imp)
         if len(imports) > 20:
             output.append(f'# ... and {len(imports) - 20} more imports')
@@ -203,11 +206,10 @@ try:
         if isinstance(node, ast.ClassDef):
             output.append(f'class {node.name}:')
             docstring = get_docstring(node)
-            if docstring and $py_include_docstrings:
+            if docstring and include_docstrings:
                 first_line = docstring.split('\n')[0][:100]
-                output.append(f'    \"\"\"{ first_line }...\"\"\"')
+                output.append(f'    """{ first_line }..."""')
 
-            # Extract methods
             methods = []
             for item in node.body:
                 if isinstance(item, ast.FunctionDef) or isinstance(item, ast.AsyncFunctionDef):
@@ -227,35 +229,35 @@ try:
             output.append(signature)
 
             docstring = get_docstring(node)
-            if docstring and $py_include_docstrings:
+            if docstring and include_docstrings:
                 first_line = docstring.split('\n')[0][:100]
-                output.append(f'    \"\"\"{ first_line }...\"\"\"')
+                output.append(f'    """{ first_line }..."""')
             output.append('    ...')
             output.append('')
 
     # Extract critical comments
-    if $py_include_comments:
+    if include_comments:
         comments = extract_critical_comments(source)
         if comments:
             output.append('# CRITICAL COMMENTS:')
-            for c in comments[:10]:  # Limit to 10
+            for c in comments[:10]:
                 output.append(c)
             output.append('')
 
     print('\n'.join(output))
 
 except SyntaxError as e:
-    print(f'# FILE: $file_path')
-    print(f'# LANGUAGE: python')
+    print(f'# FILE: {file_path}')
+    print('# LANGUAGE: python')
     print(f'# ERROR: Syntax error at line {e.lineno}: {e.msg}')
     print('# Falling back to basic extraction')
     sys.exit(1)
 except Exception as e:
-    print(f'# FILE: $file_path')
-    print(f'# LANGUAGE: python')
+    print(f'# FILE: {file_path}')
+    print('# LANGUAGE: python')
     print(f'# ERROR: {str(e)}')
     sys.exit(1)
-" 2>/dev/null
+PYTHON_SCRIPT
 
     local exit_code=$?
     if [ $exit_code -ne 0 ]; then
@@ -284,13 +286,13 @@ _extract_javascript() {
 
     # Extract imports/requires
     echo "// IMPORTS:"
-    grep -E "^(import |const .* = require\(|export .* from )" "$file_path" 2>/dev/null | head -20
+    grep -E -- "^(import |const .* = require\(|export .* from )" "$file_path" 2>/dev/null | head -20
     echo ""
 
     # Extract interfaces (TypeScript)
     if [ "$lang" = "typescript" ]; then
         local interfaces
-        interfaces=$(grep -E "^(export )?(interface|type) [A-Z]" "$file_path" 2>/dev/null)
+        interfaces=$(grep -E -- "^(export )?(interface|type) [A-Z]" "$file_path" 2>/dev/null)
         if [ -n "$interfaces" ]; then
             echo "// INTERFACES/TYPES:"
             echo "$interfaces" | while IFS= read -r line; do
@@ -303,7 +305,7 @@ _extract_javascript() {
 
     # Extract class definitions
     echo "// CLASSES:"
-    grep -n "^[[:space:]]*\(export \)\?class [A-Za-z]" "$file_path" 2>/dev/null | while IFS= read -r line; do
+    grep -n -- "^[[:space:]]*\(export \)\?class [A-Za-z]" "$file_path" 2>/dev/null | while IFS= read -r line; do
         local line_num="${line%%:*}"
         local class_line="${line#*:}"
         echo "$class_line"
@@ -311,7 +313,7 @@ _extract_javascript() {
         # Extract method signatures from the class (simplified)
         # Look for methods in the next 100 lines after class declaration
         local end_line=$((line_num + 100))
-        sed -n "${line_num},${end_line}p" "$file_path" 2>/dev/null | \
+        sed -n "${line_num},${end_line}p" -- "$file_path" 2>/dev/null | \
             grep -E "^[[:space:]]+(async )?(public |private |protected )?(static )?[a-zA-Z_][a-zA-Z0-9_]*\(" | \
             head -10 | while IFS= read -r method; do
                 echo "  $method"
@@ -321,16 +323,16 @@ _extract_javascript() {
 
     # Extract function declarations
     echo "// FUNCTIONS:"
-    grep -E "^(export )?(async )?(function [a-zA-Z_]|const [a-zA-Z_][a-zA-Z0-9_]* = (async )?\(|const [a-zA-Z_][a-zA-Z0-9_]* = (async )?function)" "$file_path" 2>/dev/null | head -30
+    grep -E -- "^(export )?(async )?(function [a-zA-Z_]|const [a-zA-Z_][a-zA-Z0-9_]* = (async )?\(|const [a-zA-Z_][a-zA-Z0-9_]* = (async )?function)" "$file_path" 2>/dev/null | head -30
     echo ""
 
     # Extract arrow function exports
-    grep -E "^export (const|let) [a-zA-Z_][a-zA-Z0-9_]* = " "$file_path" 2>/dev/null | head -20
+    grep -E -- "^export (const|let) [a-zA-Z_][a-zA-Z0-9_]* = " "$file_path" 2>/dev/null | head -20
 
     # Extract critical comments
     if [ "$INCLUDE_CRITICAL_COMMENTS" = "true" ]; then
         local comments
-        comments=$(grep -n -E "(//|/\*).*(TODO|FIXME|HACK|NOTE|XXX|BUG)" "$file_path" 2>/dev/null | head -10)
+        comments=$(grep -n -E -- "(//|/\*).*(TODO|FIXME|HACK|NOTE|XXX|BUG)" "$file_path" 2>/dev/null | head -10)
         if [ -n "$comments" ]; then
             echo ""
             echo "// CRITICAL COMMENTS:"
@@ -354,7 +356,7 @@ _extract_bash() {
 
     # Extract shebang
     local shebang
-    shebang=$(head -1 "$file_path" 2>/dev/null)
+    shebang=$(head -1 -- "$file_path" 2>/dev/null)
     if [ "${shebang:0:2}" = "#!" ]; then
         echo "# SHEBANG: $shebang"
         echo ""
@@ -362,17 +364,17 @@ _extract_bash() {
 
     # Extract source/. includes (must start with source or . followed by space and path)
     echo "# SOURCED FILES:"
-    grep -E "^[[:space:]]*(source [\"'\$]|\. [\"'\$])" "$file_path" 2>/dev/null | head -10
+    grep -E -- "^[[:space:]]*(source [\"'\$]|\. [\"'\$])" "$file_path" 2>/dev/null | head -10
     echo ""
 
     # Extract global variable assignments (uppercase variables)
     echo "# CONFIGURATION VARIABLES:"
-    grep -E "^[A-Z_][A-Z0-9_]*=" "$file_path" 2>/dev/null | head -20
+    grep -E -- "^[A-Z_][A-Z0-9_]*=" "$file_path" 2>/dev/null | head -20
     echo ""
 
     # Extract function definitions
     echo "# FUNCTIONS:"
-    grep -n -E "^[a-zA-Z_][a-zA-Z0-9_]*\(\)[[:space:]]*\{?" "$file_path" 2>/dev/null | while IFS= read -r line; do
+    grep -n -E -- "^[a-zA-Z_][a-zA-Z0-9_]*\(\)[[:space:]]*\{?" "$file_path" 2>/dev/null | while IFS= read -r line; do
         local _line_num="${line%%:*}"
         local _func_line="${line#*:}"
         local _func_name
@@ -382,7 +384,7 @@ _extract_bash() {
         local _prev_line=$((_line_num - 1))
         if [ "$_prev_line" -gt 0 ]; then
             local _comment
-            _comment=$(sed -n "${_prev_line}p" "$file_path" 2>/dev/null)
+            _comment=$(sed -n "${_prev_line}p" -- "$file_path" 2>/dev/null)
             if [ "${_comment:0:1}" = "#" ]; then
                 echo "$_comment"
             fi
@@ -392,7 +394,7 @@ _extract_bash() {
     echo ""
 
     # Also check for function keyword style
-    grep -E "^function [a-zA-Z_]" "$file_path" 2>/dev/null | while IFS= read -r line; do
+    grep -E -- "^function [a-zA-Z_]" "$file_path" 2>/dev/null | while IFS= read -r line; do
         local _func_name
         _func_name=$(echo "$line" | sed 's/function //; s/[({].*//')
         echo "${_func_name}()"
@@ -401,7 +403,7 @@ _extract_bash() {
     # Extract critical comments
     if [ "$INCLUDE_CRITICAL_COMMENTS" = "true" ]; then
         local comments
-        comments=$(grep -n -E "^[[:space:]]*#.*(TODO|FIXME|HACK|NOTE|XXX|BUG)" "$file_path" 2>/dev/null | head -10)
+        comments=$(grep -n -E -- "^[[:space:]]*#.*(TODO|FIXME|HACK|NOTE|XXX|BUG)" "$file_path" 2>/dev/null | head -10)
         if [ -n "$comments" ]; then
             echo ""
             echo "# CRITICAL COMMENTS:"
@@ -425,7 +427,7 @@ _extract_go() {
 
     # Extract package declaration
     echo "// PACKAGE:"
-    grep -E "^package " "$file_path" 2>/dev/null | head -1
+    grep -E -- "^package " "$file_path" 2>/dev/null | head -1
     echo ""
 
     # Extract imports
@@ -452,14 +454,14 @@ _extract_go() {
 
     # Extract type definitions (struct, interface)
     echo "// TYPES:"
-    grep -n -E "^type [A-Z][a-zA-Z0-9_]* (struct|interface)" "$file_path" 2>/dev/null | while IFS= read -r line; do
+    grep -n -E -- "^type [A-Z][a-zA-Z0-9_]* (struct|interface)" "$file_path" 2>/dev/null | while IFS= read -r line; do
         local line_num="${line%%:*}"
         local type_line="${line#*:}"
         echo "$type_line"
 
         # Get struct/interface fields (simplified)
         local end_line=$((line_num + 20))
-        sed -n "$((line_num + 1)),${end_line}p" "$file_path" 2>/dev/null | while IFS= read -r field_line; do
+        sed -n "$((line_num + 1)),${end_line}p" -- "$file_path" 2>/dev/null | while IFS= read -r field_line; do
             if echo "$field_line" | grep -qE "^\}"; then
                 break
             fi
@@ -473,7 +475,7 @@ _extract_go() {
 
     # Extract function and method definitions
     echo "// FUNCTIONS:"
-    grep -E "^func " "$file_path" 2>/dev/null | while IFS= read -r line; do
+    grep -E -- "^func " "$file_path" 2>/dev/null | while IFS= read -r line; do
         # Extract just the signature (up to opening brace)
         local signature
         signature=$(echo "$line" | sed 's/ {$//')
@@ -484,7 +486,7 @@ _extract_go() {
     # Extract critical comments
     if [ "$INCLUDE_CRITICAL_COMMENTS" = "true" ]; then
         local comments
-        comments=$(grep -n -E "//.*( TODO| FIXME| HACK| NOTE| XXX| BUG)" "$file_path" 2>/dev/null | head -10)
+        comments=$(grep -n -E -- "//.*( TODO| FIXME| HACK| NOTE| XXX| BUG)" "$file_path" 2>/dev/null | head -10)
         if [ -n "$comments" ]; then
             echo ""
             echo "// CRITICAL COMMENTS:"
@@ -510,13 +512,13 @@ _extract_generic() {
 
     # Extract lines with common keywords
     echo "# DEFINITIONS:"
-    grep -n -E "^[[:space:]]*(public |private |protected )?(static )?(async )?(function |def |class |interface |type |struct |enum |const |let |var |import |from |require|export |module )" "$file_path" 2>/dev/null | head -50
+    grep -n -E -- "^[[:space:]]*(public |private |protected )?(static )?(async )?(function |def |class |interface |type |struct |enum |const |let |var |import |from |require|export |module )" "$file_path" 2>/dev/null | head -50
     echo ""
 
     # Extract critical comments
     if [ "$INCLUDE_CRITICAL_COMMENTS" = "true" ]; then
         local comments
-        comments=$(grep -n -E "(#|//|/\*).*(TODO|FIXME|HACK|NOTE|XXX|BUG)" "$file_path" 2>/dev/null | head -10)
+        comments=$(grep -n -E -- "(#|//|/\*).*(TODO|FIXME|HACK|NOTE|XXX|BUG)" "$file_path" 2>/dev/null | head -10)
         if [ -n "$comments" ]; then
             echo "# CRITICAL COMMENTS:"
             echo "$comments"
@@ -548,7 +550,7 @@ optimize_code_file() {
     # Check if extraction is enabled
     if [ "$ENABLE_AST_EXTRACTION" != "true" ]; then
         log_debug "AST extraction disabled, returning raw file"
-        cat "$file_path"
+        cat -- "$file_path"
         return 0
     fi
 
