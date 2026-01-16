@@ -73,7 +73,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 # API key: Set QWEN3_API_KEY environment variable
 
 # =============================================================================
-# GLM CONFIGURATION - The Methodologist (API-based)
+# GLM CONFIGURATION - The Code Specialist (API-based)
 # =============================================================================
 
 GLM_MODEL="${GLM_MODEL:-glm-4}"
@@ -93,7 +93,7 @@ GROK_FORMAT="${GROK_FORMAT:-openai}"
 # API key: Set GROK_API_KEY environment variable
 
 # =============================================================================
-# DEEPSEEK CONFIGURATION - The Code Specialist (API-based)
+# DEEPSEEK CONFIGURATION - The Methodologist (API-based)
 # =============================================================================
 
 DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-coder}"

@@ -211,9 +211,9 @@ KILO|4
 CURSOR|5
 AIDER|16
 QWEN3|6
-GLM|7
+GLM|17
 GROK|8
-DEEPSEEK|17
+DEEPSEEK|7
 "
 
 # Internal: Resolve persona ID for a consultant
