@@ -1,67 +1,55 @@
-# Setup Guide - AI Consultants v2.0
+# Setup Guide - AI Consultants v2.2
 
-This guide walks you through installing and configuring the CLI tools required for AI Consultants.
+This guide walks you through installing and configuring AI Consultants.
+
+## Quick Start
+
+```bash
+# One-liner installation
+curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+
+# Verify and fix issues
+~/.claude/skills/ai-consultants/scripts/doctor.sh --fix
+
+# Run setup wizard
+~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
+```
+
+---
 
 ## Prerequisites
 
-- **Bash 4.0+** (required for associative arrays)
-  - macOS ships with Bash 3.2 - you need to install a newer version
-  - Linux usually has Bash 4+ already
+- **Bash 4.0+** (macOS ships with 3.2 - install newer version)
 - **Node.js 18+** for npm-based CLIs
 - **Python 3.8+** for pip-based CLIs
 - **jq** for JSON processing (required)
 - **bc** for cost calculations (usually pre-installed)
 
-## Quick Start
-
-```bash
-# 1. Run the setup wizard (recommended)
-./scripts/setup_wizard.sh
-
-# 2. Or manually check your setup
-./scripts/preflight_check.sh
-```
-
 ---
 
 ## Required: Bash 4+
 
-AI Consultants uses Bash features (like associative arrays) that require Bash 4.0 or later.
+AI Consultants uses Bash features that require Bash 4.0 or later.
 
 **Check your version:**
 ```bash
 bash --version
 ```
 
-**macOS users:** macOS ships with Bash 3.2. Install a newer version:
+**macOS users:** Install newer Bash:
 ```bash
-# Install Bash 4+
 brew install bash
-
-# Add to allowed shells
 sudo bash -c 'echo /opt/homebrew/bin/bash >> /etc/shells'
 
-# Option 1: Run scripts explicitly with new bash
+# Run scripts with new bash
 /opt/homebrew/bin/bash ./scripts/consult_all.sh "Your question"
-
-# Option 2: Change your default shell (optional)
-chsh -s /opt/homebrew/bin/bash
 ```
 
-**Linux:** Usually has Bash 4+ pre-installed. If not:
-```bash
-# Ubuntu/Debian
-sudo apt-get install bash
-
-# Fedora/RHEL
-sudo dnf install bash
-```
+**Linux:** Usually has Bash 4+ pre-installed.
 
 ---
 
 ## Required: jq
-
-jq is required for JSON processing. Install it first:
 
 ```bash
 # macOS
@@ -70,39 +58,8 @@ brew install jq
 # Ubuntu/Debian
 sudo apt-get install jq
 
-# Fedora/RHEL
-sudo dnf install jq
-
-# Windows (via Chocolatey)
-choco install jq
-```
-
-Verify installation:
-```bash
+# Verify
 jq --version
-```
-
----
-
-## Optional: bc
-
-bc (basic calculator) is used for cost calculations. It's usually pre-installed on most systems.
-
-**Check if installed:**
-```bash
-which bc
-```
-
-**If not installed:**
-```bash
-# macOS (usually pre-installed)
-brew install bc
-
-# Ubuntu/Debian
-sudo apt-get install bc
-
-# Fedora/RHEL
-sudo dnf install bc
 ```
 
 ---
@@ -113,140 +70,163 @@ You need **at least 2 consultants** configured for AI Consultants to work.
 
 ### Gemini CLI (The Architect)
 
-Google's Gemini CLI for enterprise-focused architectural advice.
-
-**Installation:**
 ```bash
 npm install -g @google/gemini-cli
-```
 
-**Authentication:**
-```bash
-# Option 1: Interactive login (recommended)
+# Authentication
 gemini auth login
-
-# Option 2: API key
-export GOOGLE_API_KEY="your-api-key-here"
+# OR: export GOOGLE_API_KEY="your-key"
 ```
 
-**Get API Key:**
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create a new API key
-3. Set it as `GOOGLE_API_KEY` environment variable
-
-**Verify:**
-```bash
-gemini --version
-```
-
----
+Get API key: [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 ### Codex CLI (The Pragmatist)
 
-OpenAI's Codex CLI for practical, proven solutions.
-
-**Installation:**
 ```bash
 npm install -g @openai/codex
+
+# Authentication
+export OPENAI_API_KEY="sk-your-key"
 ```
 
-**Authentication:**
-```bash
-export OPENAI_API_KEY="sk-your-api-key-here"
-```
-
-**Get API Key:**
-1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Create a new API key
-3. Set it as `OPENAI_API_KEY` environment variable
-
-**Verify:**
-```bash
-codex --help
-```
-
----
+Get API key: [OpenAI Platform](https://platform.openai.com/api-keys)
 
 ### Mistral Vibe CLI (The Devil's Advocate)
 
-Mistral's Vibe CLI for critical analysis and edge case detection.
-
-**Installation:**
 ```bash
 pip install mistral-vibe
+
+# Authentication
+export MISTRAL_API_KEY="your-key"
 ```
 
-**Authentication:**
-```bash
-export MISTRAL_API_KEY="your-api-key-here"
-```
-
-**Get API Key:**
-1. Go to [Mistral AI Console](https://console.mistral.ai/api-keys/)
-2. Create a new API key
-3. Set it as `MISTRAL_API_KEY` environment variable
-
-**Verify:**
-```bash
-vibe --help
-```
-
----
+Get API key: [Mistral Console](https://console.mistral.ai/api-keys/)
 
 ### Kilo CLI (The Innovator)
 
-Kilo Code CLI for creative and unconventional approaches.
-
-**Installation:**
 ```bash
 npm install -g @kilocode/cli
-```
 
-**Authentication:**
-```bash
-# Run the auth flow
+# Authentication
 kilocode auth login
 ```
 
-**Verify:**
-```bash
-kilocode --version
-```
-
----
-
 ### Cursor CLI (The Integrator)
 
-Cursor's Agent CLI for full-stack perspective and cross-cutting concerns.
-
-**Installation:**
 ```bash
 curl https://cursor.com/install -fsS | bash
-```
 
-**Authentication:**
-Cursor CLI uses your Cursor subscription. No additional API key is required.
-
-**Verify:**
-```bash
-agent --help
+# Uses Cursor subscription - no additional key needed
 ```
 
 ---
 
-## Optional: Claude CLI
+## Ollama (Local Models) - v2.2
 
-Claude CLI is used for automatic synthesis of responses. If not installed, a local fallback is used.
+Run consultations 100% locally with zero API cost and full privacy.
 
-**Installation:**
+### Installation
+
+**macOS/Linux:**
 ```bash
-npm install -g @anthropic-ai/claude-code
+curl -fsSL https://ollama.com/install.sh | sh
 ```
 
-**Authentication:**
+**macOS (Homebrew):**
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
+brew install ollama
 ```
+
+**Verify installation:**
+```bash
+ollama --version
+```
+
+### Start Server
+
+Ollama needs a running server:
+
+```bash
+# Start in background
+ollama serve &
+
+# Or start manually before consultation
+ollama serve
+```
+
+### Pull Models
+
+```bash
+# Recommended for general use
+ollama pull llama3.2
+
+# For code-specific tasks
+ollama pull codellama
+ollama pull deepseek-coder
+
+# Smaller/faster options
+ollama pull mistral
+ollama pull qwen2.5-coder
+```
+
+### Configuration
+
+```bash
+# Enable Ollama consultant
+export ENABLE_OLLAMA=true
+
+# Choose model (default: llama3.2)
+export OLLAMA_MODEL=llama3.2
+
+# Server URL (default: localhost)
+export OLLAMA_HOST=http://localhost:11434
+
+# Timeout (default: 300s - longer for local inference)
+export OLLAMA_TIMEOUT=300
+```
+
+### Usage
+
+```bash
+# Use local preset (Ollama only)
+./scripts/consult_all.sh --preset local "Your question"
+
+# Add Ollama to other presets
+ENABLE_OLLAMA=true ./scripts/consult_all.sh --preset balanced "Question"
+```
+
+### Multi-Model Local
+
+Query multiple local models:
+
+```bash
+export OLLAMA_MODELS="llama3.2,codellama,mistral"
+./scripts/consult_all.sh --preset local "Question"
+```
+
+### Troubleshooting Ollama
+
+**Server not running:**
+```bash
+# Check if running
+curl http://localhost:11434/api/tags
+
+# Start server
+ollama serve
+```
+
+**Model not found:**
+```bash
+# List available models
+ollama list
+
+# Pull missing model
+ollama pull llama3.2
+```
+
+**Slow inference:**
+- Use smaller models (`mistral`, `qwen2.5-coder:7b`)
+- Increase timeout: `OLLAMA_TIMEOUT=600`
 
 ---
 
@@ -254,34 +234,36 @@ export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
 
 ### Using .env file
 
-Create a `.env` file in the project root (use `.env.example` as template):
-
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your configuration:
+Edit `.env`:
 
 ```bash
-# Enable/disable consultants based on what you have configured
+# Enable/disable consultants
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
-ENABLE_MISTRAL=false  # Set to false if not configured
-ENABLE_KILO=false     # Set to false if not configured
+ENABLE_MISTRAL=false
+ENABLE_KILO=false
+ENABLE_OLLAMA=true
 
-# API Keys (if not using CLI auth)
+# API Keys
 GOOGLE_API_KEY=your-key
 OPENAI_API_KEY=sk-your-key
 MISTRAL_API_KEY=your-key
+
+# Ollama
+OLLAMA_MODEL=llama3.2
 ```
 
 ### Minimum Requirements
 
-**At least 2 consultants must be enabled** for AI Consultants to function. The system requires multiple perspectives for meaningful comparison and voting.
+**At least 2 consultants must be enabled.**
 
 Example configurations:
 
-**OpenAI + Google only:**
+**OpenAI + Google:**
 ```bash
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
@@ -289,56 +271,107 @@ ENABLE_MISTRAL=false
 ENABLE_KILO=false
 ```
 
-**OpenAI + Mistral only:**
+**OpenAI + Local:**
 ```bash
-ENABLE_GEMINI=false
 ENABLE_CODEX=true
-ENABLE_MISTRAL=true
-ENABLE_KILO=false
+ENABLE_OLLAMA=true
+ENABLE_GEMINI=false
+ENABLE_MISTRAL=false
+```
+
+**Local only:**
+```bash
+ENABLE_OLLAMA=true
+OLLAMA_MODELS="llama3.2,codellama"
+# All others false
 ```
 
 ---
 
 ## Verification
 
-### Run Preflight Check
+### Doctor Command (Recommended)
+
+```bash
+./scripts/doctor.sh
+```
+
+Checks:
+- CLI tools installed
+- API keys configured
+- Ollama server running
+- Configuration valid
+
+**Auto-fix issues:**
+```bash
+./scripts/doctor.sh --fix
+```
+
+### Preflight Check
 
 ```bash
 ./scripts/preflight_check.sh
 ```
 
-Expected output for a working setup:
+Expected output:
 ```
 [OK] jq installed
 [OK] Gemini CLI installed and authenticated
 [OK] Codex CLI installed and authenticated
-[WARN] Mistral CLI not found (optional)
-[WARN] Kilo CLI not found (optional)
+[OK] Ollama server running
 
-Status: Ready (2/4 consultants available)
+Status: Ready (3/4 consultants available)
 ```
 
-### Run Setup Wizard
+### Setup Wizard
 
-For an interactive setup experience:
+Interactive configuration:
 
 ```bash
 ./scripts/setup_wizard.sh
 ```
 
 The wizard will:
-1. Check which CLIs are installed
-2. Test authentication for each CLI
-3. Suggest configuration based on your setup
-4. Optionally generate a `.env` file
+1. Check installed CLIs
+2. Test authentication
+3. Suggest configuration
+4. Generate `.env` file
+
+---
+
+## Claude Code Configuration
+
+If using as a Claude Code skill:
+
+```bash
+~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
+```
+
+Or use `/ai-consultants:config-wizard` command.
+
+---
+
+## Configuration Presets (v2.2)
+
+Quick configuration with presets:
+
+| Preset | Consultants | Use Case |
+|--------|-------------|----------|
+| `minimal` | 2 (Gemini + Codex) | Quick, cheap |
+| `balanced` | 4 (+ Mistral + Kilo) | Standard |
+| `thorough` | 5 (+ Cursor) | Comprehensive |
+| `high-stakes` | All + debate | Critical |
+| `local` | Ollama only | Privacy |
+
+```bash
+./scripts/consult_all.sh --preset balanced "Question"
+```
 
 ---
 
 ## Troubleshooting
 
 ### "Command not found" errors
-
-Ensure the CLI is installed globally and in your PATH:
 
 ```bash
 # Check npm global path
@@ -352,45 +385,30 @@ pip list | grep mistral
 
 **Gemini:**
 ```bash
-# Re-authenticate
 gemini auth logout
 gemini auth login
 ```
 
 **Codex:**
 ```bash
-# Verify API key is set
-echo $OPENAI_API_KEY
-
-# Test with a simple request
-codex --help
-```
-
-**Mistral:**
-```bash
-# Verify API key
-echo $MISTRAL_API_KEY
-
-# Test
-vibe --help
+echo $OPENAI_API_KEY  # Verify set
 ```
 
 ### Timeout errors
 
-Increase timeout in your `.env`:
-
+Increase timeout in `.env`:
 ```bash
 GEMINI_TIMEOUT=300
 CODEX_TIMEOUT=300
-MISTRAL_TIMEOUT=300
-KILO_TIMEOUT=300
+OLLAMA_TIMEOUT=600  # Local models need more time
 ```
 
 ### "Less than 2 consultants" error
 
-At least 2 consultants must be enabled and working. Either:
-1. Install and configure another CLI
-2. Run `./scripts/setup_wizard.sh` for guidance
+Either:
+1. Install another CLI
+2. Enable Ollama for local inference
+3. Run `./scripts/doctor.sh --fix`
 
 ---
 
@@ -400,47 +418,33 @@ At least 2 consultants must be enabled and working. Either:
 
 Install coreutils for better timeout handling:
 ```bash
-brew install coreutils
+brew install coreutils bash
 ```
 
-### Windows (WSL recommended)
+### Windows
 
-AI Consultants works best in WSL (Windows Subsystem for Linux):
+Use WSL (Windows Subsystem for Linux):
 ```bash
-# Install WSL
 wsl --install
-
 # Then follow Linux instructions
 ```
 
 ### Linux
 
-No special requirements. Ensure `timeout` command is available (usually pre-installed).
-
----
-
-## Configuration via Claude Code
-
-If you're using AI Consultants as a Claude Code skill, configure with:
-
-```bash
-~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
-```
-
-Or use `/ai-consultants:config-wizard` in Claude Code. See [SKILL.md](../SKILL.md#claude-code-slash-commands) for all available commands.
+No special requirements. Ensure `timeout` is available.
 
 ---
 
 ## Next Steps
 
-After setup is complete:
+After setup:
 
 ```bash
 # Test your configuration
-./scripts/consult_all.sh "How do I optimize a SQL query?"
+./scripts/consult_all.sh --preset minimal "How do I optimize a SQL query?"
 
-# View the generated report
+# View the report
 cat /tmp/ai_consultations/*/report.md
 ```
 
-See [README.md](../README.md) for usage examples and advanced configuration.
+See [README.md](../README.md) for usage examples.
