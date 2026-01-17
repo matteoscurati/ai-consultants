@@ -192,8 +192,8 @@ check_cli_consultant() {
     local version
     version=$("$cmd" $test_flag 2>/dev/null | head -1 || echo "unknown")
 
-    # Test basic functionality (quick check)
-    if timeout 5 "$cmd" $test_flag &>/dev/null 2>&1; then
+    # Test basic functionality (quick check) using cross-platform timeout
+    if run_with_timeout 5 "$cmd" $test_flag &>/dev/null 2>&1; then
         _print "  ✓ $name: $version"
         check_pass
     else
@@ -206,11 +206,12 @@ check_cli_consultant() {
 check_cli_consultants() {
     print_section "Checking CLI-based Consultants"
 
+    # All CLIs support --version for consistency
     check_cli_consultant "Gemini" "$GEMINI_CMD" "npm install -g @google/gemini-cli" "GEMINI" "--version"
-    check_cli_consultant "Codex" "$CODEX_CMD" "npm install -g @openai/codex" "CODEX" "--help"
-    check_cli_consultant "Mistral Vibe" "$MISTRAL_CMD" "pip install mistral-vibe" "MISTRAL" "--help"
+    check_cli_consultant "Codex" "$CODEX_CMD" "npm install -g @openai/codex" "CODEX" "--version"
+    check_cli_consultant "Mistral Vibe" "$MISTRAL_CMD" "pip install mistral-vibe" "MISTRAL" "--version"
     check_cli_consultant "Kilo" "$KILO_CMD" "npm install -g @kilocode/cli" "KILO" "--version"
-    check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR" "--help"
+    check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR" "--version"
     check_cli_consultant "Aider" "$AIDER_CMD" "pip install aider-chat" "AIDER" "--version"
 }
 
