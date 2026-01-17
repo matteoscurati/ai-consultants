@@ -232,10 +232,17 @@ git clone https://github.com/matteoscurati/ai-consultants.git ~/.{agent}/skills/
 
 Before installing consultant CLIs, ensure you have:
 
+### Required
+- **jq** for JSON processing
+- **curl** for API connectivity checks
+
+### Recommended
 - **Bash 4.0+** (macOS ships with 3.2 - install newer version)
+- **timeout/gtimeout** for command timeouts (has POSIX fallback)
 - **Node.js 18+** for npm-based CLIs
 - **Python 3.8+** for pip-based CLIs
-- **jq** for JSON processing (required)
+
+### Optional
 - **bc** for cost calculations (usually pre-installed)
 
 ### Install Bash 4+ (macOS)
@@ -257,6 +264,19 @@ sudo apt-get install jq
 # Verify
 jq --version
 ```
+
+### Install timeout (macOS)
+
+macOS doesn't include `timeout` by default. Install coreutils for `gtimeout`:
+
+```bash
+brew install coreutils
+
+# Verify (gtimeout on macOS, timeout on Linux)
+gtimeout --version
+```
+
+> **Note:** If timeout/gtimeout is not available, AI Consultants uses a POSIX fallback.
 
 ---
 
