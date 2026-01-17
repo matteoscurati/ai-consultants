@@ -276,12 +276,22 @@ if [[ "$ENABLE_SMART_ROUTING" == "true" ]]; then
     done < <(select_consultants "$QUESTION_CATEGORY" "$MIN_AFFINITY")
     log_info "Selected consultants: ${SELECTED_CONSULTANTS[*]}"
 else
+    # Log self-exclusion status for debugging
+    log_self_exclusion_status
+
     # All enabled consultants - use a compact loop
-    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek OLLAMA:Ollama"
+    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek OLLAMA:Ollama"
     for _entry in $_consultant_map; do
         _flag="${_entry%%:*}"
         _name="${_entry#*:}"
         _enable_var="ENABLE_${_flag}"
+
+        # Skip self (invoking agent shouldn't query itself)
+        if should_skip_consultant "$_flag"; then
+            log_debug "Skipping $_name (self-exclusion: invoking agent)"
+            continue
+        fi
+
         [[ "${!_enable_var:-false}" == "true" ]] && SELECTED_CONSULTANTS+=("$_name")
     done
     unset _consultant_map _entry _flag _name _enable_var

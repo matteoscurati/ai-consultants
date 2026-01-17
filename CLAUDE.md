@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-AI Consultants is a multi-model AI deliberation system that queries up to 11 AI consultants (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Qwen3, GLM, Grok, DeepSeek, Ollama) to obtain diverse perspectives on coding problems.
+AI Consultants is a multi-model AI deliberation system that queries up to 12 AI consultants (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama) to obtain diverse perspectives on coding problems.
+
+**Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
 **Version**: 2.2.0
 
@@ -17,6 +19,7 @@ ai-consultants/
 │   ├── peer_review.sh          # Anonymous peer review (v2.2)
 │   ├── install.sh              # One-liner installer (v2.2)
 │   ├── query_*.sh              # Wrapper for each consultant
+│   ├── query_claude.sh         # Claude consultant (v2.2)
 │   ├── query_ollama.sh         # Local model support (v2.2)
 │   ├── synthesize.sh           # Auto-synthesis of responses
 │   ├── debate_round.sh         # Multi-Agent Debate
@@ -121,6 +124,24 @@ Each consultant must produce JSON with this minimum structure:
 
 ## v2.2 Features
 
+### Self-Exclusion
+The invoking agent is automatically excluded from the panel:
+
+```bash
+# From Claude Code slash commands (automatic)
+# Claude is excluded, all others participate
+
+# Manual bash usage
+INVOKING_AGENT=claude ./scripts/consult_all.sh "question"   # Claude excluded
+INVOKING_AGENT=codex ./scripts/consult_all.sh "question"    # Codex excluded
+./scripts/consult_all.sh "question"                          # No exclusion
+```
+
+Functions in `lib/common.sh`:
+- `get_self_consultant_name()` - Maps invoking agent to consultant name
+- `should_skip_consultant()` - Returns true if consultant should be excluded
+- `log_self_exclusion_status()` - Debug logging for exclusion
+
 ### Configuration Presets
 ```bash
 ./scripts/consult_all.sh --preset minimal "question"    # Gemini + Codex
@@ -220,6 +241,8 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `INVOKING_AGENT` | unknown | Agent invoking the skill (for self-exclusion) |
+| `ENABLE_CLAUDE` | false | Enable Claude consultant |
 | `ENABLE_DEBATE` | false | Enable Multi-Agent Debate |
 | `DEBATE_ROUNDS` | 1 | Number of debate rounds |
 | `ENABLE_SYNTHESIS` | true | Auto-synthesis of responses |
@@ -240,9 +263,9 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `kilocode` CLI - Kilo Code
 - `agent` CLI - Cursor
 - `aider` CLI - Aider
+- `claude` CLI - Claude (v2.2, also used for synthesis)
 - `ollama` CLI - Local models (v2.2)
 - `jq` - JSON parsing
-- `claude` CLI (optional) - For advanced synthesis
 
 ## Error Handling and Retry
 
@@ -285,6 +308,8 @@ For detailed information, see:
 ## Changelog
 
 ### v2.2.0
+- Claude consultant with "The Synthesizer" persona
+- Self-exclusion logic (invoking agent excluded from panel)
 - Configuration presets (`--preset minimal/balanced/high-stakes/local`)
 - Doctor command with auto-fix
 - Synthesis strategies (`--strategy majority/risk_averse/security_first`)

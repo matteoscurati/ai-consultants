@@ -1,6 +1,23 @@
 # Setup Guide - AI Consultants v2.2
 
-This guide walks you through installing and configuring AI Consultants, with a focus on Claude Code integration.
+This guide walks you through installing and configuring AI Consultants for various AI coding agents.
+
+---
+
+## Supported Agents
+
+AI Consultants follows the open [Agent Skills standard](https://agentskills.io), enabling cross-platform compatibility:
+
+| Agent | Skills Directory | Status |
+|-------|-----------------|--------|
+| **Claude Code** | `~/.claude/skills/` | ✅ Native |
+| **OpenAI Codex CLI** | `~/.codex/skills/` | ✅ Compatible |
+| **Gemini CLI** | `~/.gemini/skills/` | ✅ Compatible |
+| **Kilo Code** | Via agentskills | ✅ Compatible |
+| **GitHub Copilot** | Via SkillPort | ✅ Via AGENTS.md |
+| **Cursor** | Via SkillPort | ✅ Via SkillPort |
+| **Windsurf** | Via SkillPort | ✅ Via SkillPort |
+| **Aider** | Via AGENTS.md | ✅ Via AGENTS.md |
 
 ---
 
@@ -94,6 +111,120 @@ Use slash commands to configure AI Consultants without editing files:
 ```
 
 All settings are saved to `~/.claude/skills/ai-consultants/.env`.
+
+---
+
+## OpenAI Codex CLI Setup
+
+Codex CLI supports the Agent Skills standard and can use AI Consultants directly.
+
+### Step 1: Install the Skill
+
+```bash
+# Option A: Clone directly
+git clone https://github.com/matteoscurati/ai-consultants.git ~/.codex/skills/ai-consultants
+
+# Option B: Symlink from existing installation
+ln -s ~/.claude/skills/ai-consultants ~/.codex/skills/ai-consultants
+
+# Option C: Symlink from any location
+ln -s /path/to/ai-consultants ~/.codex/skills/ai-consultants
+```
+
+### Step 2: Verify Installation
+
+```bash
+~/.codex/skills/ai-consultants/scripts/doctor.sh --fix
+```
+
+### Step 3: Use in Codex
+
+Once installed, Codex CLI will discover the skill and make slash commands available.
+
+---
+
+## Gemini CLI Setup
+
+Gemini CLI also supports the Agent Skills standard.
+
+### Installation
+
+```bash
+# Option A: Clone directly
+git clone https://github.com/matteoscurati/ai-consultants.git ~/.gemini/skills/ai-consultants
+
+# Option B: Symlink
+ln -s ~/.claude/skills/ai-consultants ~/.gemini/skills/ai-consultants
+```
+
+### Verify
+
+```bash
+~/.gemini/skills/ai-consultants/scripts/doctor.sh
+```
+
+---
+
+## SkillPort Setup (Multi-Agent)
+
+[SkillPort](https://github.com/gotalab/skillport) is a universal skill manager that enables skill portability across agents like Cursor, Copilot, and Windsurf.
+
+### Step 1: Install SkillPort
+
+```bash
+npm install -g skillport
+```
+
+### Step 2: Add AI Consultants
+
+```bash
+# From GitHub
+skillport add github.com/matteoscurati/ai-consultants
+
+# Or from local clone
+git clone https://github.com/matteoscurati/ai-consultants.git
+cd ai-consultants
+./scripts/skillport-install.sh
+```
+
+### Step 3: Verify Installation
+
+```bash
+skillport list                    # Should show ai-consultants
+./scripts/skillport-install.sh status  # Detailed status
+```
+
+### Step 4: Use in Your Agent
+
+```bash
+# Load skill on demand
+skillport show ai-consultants
+```
+
+SkillPort also generates `AGENTS.md` for agents that use that format (Copilot, Cursor, Aider).
+
+---
+
+## Generic agentskills Setup
+
+For any agent that supports the [agentskills.io](https://agentskills.io) standard:
+
+### Installation
+
+```bash
+# Clone to the agent's skills directory
+git clone https://github.com/matteoscurati/ai-consultants.git ~/.{agent}/skills/ai-consultants
+
+# Replace {agent} with your agent name (claude, codex, gemini, etc.)
+```
+
+### Files Available
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md` | Primary skill specification (agentskills.io format) |
+| `AGENTS.md` | Alternative discovery format (Copilot/Cursor/Aider) |
+| `scripts/` | Executable scripts for consultations |
 
 ---
 
@@ -191,6 +322,16 @@ pip install aider-chat
 
 # Authentication
 export OPENAI_API_KEY="sk-your-key"  # Or other provider
+```
+
+### Claude CLI (The Synthesizer) - v2.2
+
+```bash
+# Claude CLI is part of Claude Code
+# See https://docs.anthropic.com/en/docs/claude-code for installation
+
+# Verify installation
+claude --version
 ```
 
 ---
@@ -317,6 +458,42 @@ ollama pull llama3.2
 
 ---
 
+## Self-Exclusion (v2.2)
+
+When AI Consultants is invoked from a specific AI agent, that agent is automatically excluded from the consultant panel to prevent self-consultation.
+
+### How It Works
+
+| Invoking Agent | Excluded Consultant | Other Consultants |
+|----------------|---------------------|-------------------|
+| Claude Code | Claude | Gemini, Codex, Mistral, Kilo, Cursor, etc. |
+| Codex CLI | Codex | Claude, Gemini, Mistral, Kilo, Cursor, etc. |
+| Gemini CLI | Gemini | Claude, Codex, Mistral, Kilo, Cursor, etc. |
+| Cursor | Cursor | Claude, Gemini, Codex, Mistral, Kilo, etc. |
+| Bash (direct) | None | All enabled consultants |
+
+### Automatic Detection
+
+When using slash commands, `INVOKING_AGENT` is set automatically:
+- Claude Code: `/ai-consultants:consult` sets `INVOKING_AGENT=claude`
+- Codex CLI: `/ai-consultants:consult` sets `INVOKING_AGENT=codex`
+- Gemini CLI: `/ai-consultants:consult` sets `INVOKING_AGENT=gemini`
+
+### Manual Usage (Bash)
+
+```bash
+# Claude excluded from panel
+INVOKING_AGENT=claude ./scripts/consult_all.sh "Question"
+
+# Codex excluded from panel
+INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"
+
+# No exclusion (all enabled consultants)
+./scripts/consult_all.sh "Question"
+```
+
+---
+
 ## Configuration Presets (v2.2)
 
 Presets let you quickly configure how many consultants to use.
@@ -410,9 +587,13 @@ Edit `.env`:
 # Enable/disable consultants
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
+ENABLE_CLAUDE=false    # Auto-excluded when invoked from Claude Code
 ENABLE_MISTRAL=false
 ENABLE_KILO=false
 ENABLE_OLLAMA=true
+
+# Self-exclusion (v2.2)
+INVOKING_AGENT=unknown  # Set automatically by slash commands
 
 # API Keys
 GOOGLE_API_KEY=your-key

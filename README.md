@@ -6,6 +6,26 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
+[![agentskills.io](https://img.shields.io/badge/agentskills.io-compatible-blue.svg)](https://agentskills.io)
+
+## Supported Agents
+
+AI Consultants follows the open [Agent Skills standard](https://agentskills.io), enabling cross-platform compatibility:
+
+| Agent | Installation | Status |
+|-------|--------------|--------|
+| **Claude Code** | `~/.claude/skills/` | ✅ Native |
+| **OpenAI Codex CLI** | `~/.codex/skills/` | ✅ Compatible |
+| **Gemini CLI** | `~/.gemini/skills/` | ✅ Compatible |
+| **Kilo Code** | Via agentskills | ✅ Compatible |
+| **GitHub Copilot** | Via [SkillPort](https://github.com/gotalab/skillport) | ✅ Via AGENTS.md |
+| **Cursor** | Via SkillPort | ✅ Via SkillPort |
+| **Windsurf** | Via SkillPort | ✅ Via SkillPort |
+| **Aider** | Via AGENTS.md | ✅ Via AGENTS.md |
+
+See [Installation Options](#installation-options) for agent-specific setup.
+
+---
 
 ## Why AI Consultants?
 
@@ -136,6 +156,7 @@ Your settings persist in `~/.claude/skills/ai-consultants/.env`.
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional approaches |
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
 | **Aider** | `aider` | The Pair Programmer | Collaborative coding |
+| **Claude** | `claude` | The Synthesizer | Big picture, synthesis, connecting ideas |
 
 ### API-Based Consultants
 
@@ -151,6 +172,30 @@ Your settings persist in `~/.claude/skills/ai-consultants/.env`.
 | Consultant | Model | Persona | Focus |
 |------------|-------|---------|-------|
 | **Ollama** | llama3.2 | The Local Expert | Privacy-first, zero API cost |
+
+### Self-Exclusion (v2.2)
+
+The invoking agent is automatically excluded from the consultant panel to prevent self-consultation:
+
+| Invoking Agent | Excluded Consultant |
+|----------------|---------------------|
+| Claude Code | Claude |
+| Codex CLI | Codex |
+| Gemini CLI | Gemini |
+| Cursor | Cursor |
+
+This is handled automatically via the `INVOKING_AGENT` environment variable. When invoked from slash commands, it's set automatically. For bash usage:
+
+```bash
+# Claude will be excluded from the panel
+INVOKING_AGENT=claude ./scripts/consult_all.sh "Question"
+
+# Codex will be excluded from the panel
+INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"
+
+# No exclusion (all enabled consultants participate)
+./scripts/consult_all.sh "Question"
+```
 
 ---
 
@@ -395,7 +440,53 @@ Then in Claude Code:
 /ai-consultants:config-wizard
 ```
 
-### Option B: Manual Git Clone
+### Option B: OpenAI Codex CLI
+
+```bash
+# Clone to Codex skills directory
+git clone https://github.com/matteoscurati/ai-consultants.git ~/.codex/skills/ai-consultants
+
+# Or symlink if already installed elsewhere
+ln -s /path/to/ai-consultants ~/.codex/skills/ai-consultants
+
+# Verify installation
+~/.codex/skills/ai-consultants/scripts/doctor.sh --fix
+```
+
+### Option C: Gemini CLI
+
+```bash
+# Clone to Gemini skills directory
+git clone https://github.com/matteoscurati/ai-consultants.git ~/.gemini/skills/ai-consultants
+
+# Or symlink
+ln -s /path/to/ai-consultants ~/.gemini/skills/ai-consultants
+```
+
+### Option D: SkillPort (Multi-Agent)
+
+For Cursor, Copilot, Windsurf, and other SkillPort-compatible agents:
+
+```bash
+# Install SkillPort if not already installed
+npm install -g skillport
+
+# Add AI Consultants skill
+skillport add github.com/matteoscurati/ai-consultants
+
+# Load skill in your agent
+skillport show ai-consultants
+```
+
+Or use the included installer:
+
+```bash
+git clone https://github.com/matteoscurati/ai-consultants.git
+cd ai-consultants
+./scripts/skillport-install.sh
+```
+
+### Option E: Manual Git Clone
 
 ```bash
 git clone https://github.com/matteoscurati/ai-consultants.git ~/.claude/skills/ai-consultants
@@ -403,7 +494,7 @@ git clone https://github.com/matteoscurati/ai-consultants.git ~/.claude/skills/a
 ~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
 ```
 
-### Option C: Standalone (No Claude Code)
+### Option F: Standalone (No Agent)
 
 ```bash
 git clone https://github.com/matteoscurati/ai-consultants.git
@@ -501,6 +592,8 @@ ollama pull llama3.2
 
 ### v2.2.0
 
+- **Claude consultant**: New consultant with "The Synthesizer" persona
+- **Self-exclusion**: Invoking agent automatically excluded from panel (Claude Code won't query Claude, etc.)
 - **Presets**: Quick configuration with `--preset minimal/balanced/high-stakes/local`
 - **Doctor command**: Diagnostic and auto-fix tool
 - **Synthesis strategies**: `--strategy majority/risk_averse/security_first/compare_only`

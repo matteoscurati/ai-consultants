@@ -241,7 +241,7 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER CLAUDE"
 KNOWN_API_AGENTS="QWEN3 GLM GROK DEEPSEEK"
 KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
 
@@ -253,6 +253,49 @@ is_known_agent() {
         [[ "$agent_upper" == "$known" ]] && return 0
     done
     return 1
+}
+
+# =============================================================================
+# SELF-EXCLUSION LOGIC (v2.2)
+# =============================================================================
+
+# Maps invoking agent identifier to the consultant name that should be excluded.
+# Prevents an agent from consulting itself (e.g., Claude Code shouldn't query Claude).
+#
+# Usage: excluded=$(get_self_consultant_name)
+# Returns: Uppercase consultant name (e.g., "CLAUDE", "CODEX") or empty string
+get_self_consultant_name() {
+    local invoking
+    invoking=$(to_lower "${INVOKING_AGENT:-unknown}")
+
+    # Normalize aliases to canonical names
+    case "$invoking" in
+        claude|claude_code|claudecode)  echo "CLAUDE" ;;
+        codex|codex_cli|codexcli)       echo "CODEX" ;;
+        gemini|gemini_cli|geminicli)    echo "GEMINI" ;;
+        mistral|vibe|mistral_vibe)      echo "MISTRAL" ;;
+        kilo|kilocode|kilo_code)        echo "KILO" ;;
+        cursor|aider)                   echo "$(to_upper "$invoking")" ;;
+        *)                              echo "" ;;
+    esac
+}
+
+# Check if a consultant should be skipped due to self-exclusion
+# Usage: should_skip_consultant "CONSULTANTNAME"
+# Returns: 0 (true) if should skip, 1 (false) if should include
+should_skip_consultant() {
+    local self_name
+    self_name=$(get_self_consultant_name)
+    [[ -n "$self_name" && "$(to_upper "$1")" == "$self_name" ]]
+}
+
+# Log self-exclusion status for debugging
+log_self_exclusion_status() {
+    local self_name
+    self_name=$(get_self_consultant_name)
+    if [[ -n "$self_name" ]]; then
+        log_debug "Self-exclusion: excluding $self_name (invoking: ${INVOKING_AGENT:-unknown})"
+    fi
 }
 
 # =============================================================================

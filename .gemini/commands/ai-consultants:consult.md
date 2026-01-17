@@ -1,5 +1,5 @@
 ---
-description: Consult AI experts (Gemini, Codex, Mistral, Kilo, Cursor) for coding questions
+description: Consult AI experts (Claude, Codex, Mistral, Kilo, Cursor) for coding questions
 argument-hint: <question> [file1] [file2] ...
 allowed-tools: Bash Read Glob Grep
 ---
@@ -16,7 +16,7 @@ Query multiple AI models for expert opinions on a coding question.
 
 2. Run the consultation:
    ```bash
-   cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && INVOKING_AGENT=claude ./scripts/consult_all.sh "$ARGUMENTS"
+   cd "${AI_CONSULTANTS_DIR:-$HOME/.gemini/skills/ai-consultants}" && INVOKING_AGENT=gemini ./scripts/consult_all.sh "$ARGUMENTS"
    ```
 
 3. Present a summary of the results:
@@ -27,7 +27,7 @@ Query multiple AI models for expert opinions on a coding question.
 
 4. For follow-up questions:
    ```bash
-   cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && INVOKING_AGENT=claude ./scripts/followup.sh "<follow-up question>"
+   cd "${AI_CONSULTANTS_DIR:-$HOME/.gemini/skills/ai-consultants}" && INVOKING_AGENT=gemini ./scripts/followup.sh "<follow-up question>"
    ```
 
 ## Options
@@ -40,5 +40,5 @@ Query multiple AI models for expert opinions on a coding question.
 
 Example with debate:
 ```bash
-cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && INVOKING_AGENT=claude ENABLE_DEBATE=true ./scripts/consult_all.sh "$ARGUMENTS"
+cd "${AI_CONSULTANTS_DIR:-$HOME/.gemini/skills/ai-consultants}" && INVOKING_AGENT=gemini ENABLE_DEBATE=true ./scripts/consult_all.sh "$ARGUMENTS"
 ```

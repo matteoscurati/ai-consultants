@@ -9,7 +9,7 @@ allowed-tools: Bash Read Glob Grep
 Run AI consultation for: $ARGUMENTS
 
 ```bash
-cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && INVOKING_AGENT=claude ./scripts/consult_all.sh "$ARGUMENTS"
+cd "${AI_CONSULTANTS_DIR:-$HOME/.codex/skills/ai-consultants}" && INVOKING_AGENT=codex ./scripts/consult_all.sh "$ARGUMENTS"
 ```
 
 Summarize the key findings and recommendations from all consultants.

@@ -1,6 +1,6 @@
 ---
 name: ai-consultants
-description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, and Ollama as external experts for coding questions. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "ask Gemini/Codex/Mistral/Kilo", "chiedi ai consulenti", "cosa ne pensano gli altri modelli".
+description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions".
 ---
 
 # AI Consultants v2.2 - AI Expert Panel
@@ -70,7 +70,10 @@ Set your preferences using slash commands:
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional |
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
 | **Aider** | `aider` | The Pair Programmer | Collaborative coding |
+| **Claude** | `claude` | The Synthesizer | Big picture, synthesis |
 | **Ollama** | `ollama` | The Local Expert | Privacy-first, zero cost |
+
+**Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 
 ## Requirements
 

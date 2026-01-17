@@ -103,6 +103,13 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # API key: Set DEEPSEEK_API_KEY environment variable
 
 # =============================================================================
+# CLAUDE CONFIGURATION - The Synthesizer (v2.2)
+# =============================================================================
+
+CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
+CLAUDE_CMD="${CLAUDE_CMD:-claude}"
+
+# =============================================================================
 # OLLAMA CONFIGURATION - The Local Expert (v2.2)
 # =============================================================================
 
@@ -135,6 +142,7 @@ ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
 ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 ENABLE_AIDER="${ENABLE_AIDER:-false}"
+ENABLE_CLAUDE="${ENABLE_CLAUDE:-false}"  # Auto-disabled when invoked by Claude Code
 
 # API-based consultants (disabled by default - require API keys)
 ENABLE_QWEN3="${ENABLE_QWEN3:-false}"
@@ -144,6 +152,16 @@ ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
 
 # Local model support via Ollama (disabled by default)
 ENABLE_OLLAMA="${ENABLE_OLLAMA:-false}"
+
+# =============================================================================
+# INVOKING AGENT DETECTION (v2.2)
+# =============================================================================
+
+# Agent that invoked this skill - used for self-exclusion to prevent
+# an agent from consulting itself.
+# Values: claude, codex, gemini, cursor, mistral, kilo, aider, or "unknown"
+# Example: INVOKING_AGENT=claude ./scripts/consult_all.sh "question"
+INVOKING_AGENT="${INVOKING_AGENT:-unknown}"
 
 # =============================================================================
 # PERSONAS (v2.0)
@@ -365,6 +383,7 @@ fi
 _disable_all_consultants() {
     export ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false
     export ENABLE_KILO=false ENABLE_CURSOR=false ENABLE_AIDER=false
+    export ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
     export ENABLE_DEEPSEEK=false ENABLE_OLLAMA=false
     export ENABLE_DEBATE=false ENABLE_REFLECTION=false
