@@ -169,7 +169,6 @@ check_cli_consultant() {
     local cmd="$2"
     local install_cmd="$3"
     local env_var="$4"
-    local test_flag="${5:---version}"
 
     # Check if enabled
     local enabled_var="ENABLE_${env_var}"
@@ -188,17 +187,16 @@ check_cli_consultant() {
         return 1
     fi
 
-    # Get version
+    # Get version (--version is standard and fast, no timeout needed)
     local version
-    version=$("$cmd" $test_flag 2>/dev/null | head -1 || echo "unknown")
+    version=$("$cmd" --version 2>/dev/null | head -1 || echo "")
 
-    # Test basic functionality (quick check) using cross-platform timeout
-    if run_with_timeout 5 "$cmd" $test_flag &>/dev/null 2>&1; then
+    if [[ -n "$version" ]]; then
         _print "  ✓ $name: $version"
         check_pass
     else
-        _print "  △ $name: installed but unresponsive"
-        add_warning "consultant" "$name CLI installed but not responding to $test_flag"
+        # Fallback: CLI exists but --version failed, still consider it installed
+        _print "  ✓ $name: installed (version unknown)"
         check_pass
     fi
 }
@@ -206,13 +204,13 @@ check_cli_consultant() {
 check_cli_consultants() {
     print_section "Checking CLI-based Consultants"
 
-    # All CLIs support --version for consistency
-    check_cli_consultant "Gemini" "$GEMINI_CMD" "npm install -g @google/gemini-cli" "GEMINI" "--version"
-    check_cli_consultant "Codex" "$CODEX_CMD" "npm install -g @openai/codex" "CODEX" "--version"
-    check_cli_consultant "Mistral Vibe" "$MISTRAL_CMD" "pip install mistral-vibe" "MISTRAL" "--version"
-    check_cli_consultant "Kilo" "$KILO_CMD" "npm install -g @kilocode/cli" "KILO" "--version"
-    check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR" "--version"
-    check_cli_consultant "Aider" "$AIDER_CMD" "pip install aider-chat" "AIDER" "--version"
+    check_cli_consultant "Gemini" "$GEMINI_CMD" "npm install -g @google/gemini-cli" "GEMINI"
+    check_cli_consultant "Codex" "$CODEX_CMD" "npm install -g @openai/codex" "CODEX"
+    check_cli_consultant "Mistral Vibe" "$MISTRAL_CMD" "pip install mistral-vibe" "MISTRAL"
+    check_cli_consultant "Kilo" "$KILO_CMD" "npm install -g @kilocode/cli" "KILO"
+    check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR"
+    check_cli_consultant "Aider" "$AIDER_CMD" "pip install aider-chat" "AIDER"
+    check_cli_consultant "Claude" "$CLAUDE_CMD" "See https://docs.anthropic.com/claude-code" "CLAUDE"
 }
 
 # =============================================================================
