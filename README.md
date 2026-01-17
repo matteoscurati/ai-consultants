@@ -8,22 +8,26 @@
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
 [![agentskills.io](https://img.shields.io/badge/agentskills.io-compatible-blue.svg)](https://agentskills.io)
 
-## Supported Agents
+---
 
-AI Consultants follows the open [Agent Skills standard](https://agentskills.io), enabling cross-platform compatibility:
+## Table of Contents
 
-| Agent | Installation | Status |
-|-------|--------------|--------|
-| **Claude Code** | `~/.claude/skills/` | ✅ Native |
-| **OpenAI Codex CLI** | `~/.codex/skills/` | ✅ Compatible |
-| **Gemini CLI** | `~/.gemini/skills/` | ✅ Compatible |
-| **Kilo Code** | Via agentskills | ✅ Compatible |
-| **GitHub Copilot** | Via [SkillPort](https://github.com/gotalab/skillport) | ✅ Via AGENTS.md |
-| **Cursor** | Via SkillPort | ✅ Via SkillPort |
-| **Windsurf** | Via SkillPort | ✅ Via SkillPort |
-| **Aider** | Via AGENTS.md | ✅ Via AGENTS.md |
-
-See [Installation Options](#installation-options) for agent-specific setup.
+- [Why AI Consultants?](#why-ai-consultants)
+- [Quick Start](#quick-start)
+- [Supported CLI Agents](#supported-cli-agents)
+  - [Claude Code](#claude-code)
+  - [OpenAI Codex CLI](#openai-codex-cli)
+  - [Gemini CLI](#gemini-cli)
+  - [Cursor / Copilot / Windsurf](#cursor--copilot--windsurf-via-skillport)
+  - [Aider](#aider)
+  - [Standalone Bash](#standalone-bash)
+- [Consultants](#consultants)
+- [Configuration](#configuration)
+- [How It Works](#how-it-works)
+- [Best Practices](#best-practices)
+- [Documentation](#documentation)
+- [Changelog](#changelog)
+- [License](#license)
 
 ---
 
@@ -40,56 +44,44 @@ Making important technical decisions? Get **multiple expert perspectives** insta
 
 ---
 
-## Claude Code Quick Start
+## Quick Start
 
-AI Consultants is designed as a **Claude Code skill** - the fastest way to get started is within Claude Code.
-
-### Install the Skill
+Get started in 30 seconds:
 
 ```bash
-# One-liner installation (installs to ~/.claude/skills/)
+# Install the skill
 curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
-```
 
-### Your First Consultation
+# Run the setup wizard (in Claude Code)
+/ai-consultants:config-wizard
 
-Once installed, use slash commands directly in Claude Code:
-
-```
-/ai-consultants:config-wizard       # Initial setup - configure your consultants
+# Ask your first question
 /ai-consultants:consult "How should I structure my authentication system?"
 ```
 
-### Essential Slash Commands
+---
+
+## Supported CLI Agents
+
+AI Consultants follows the open [Agent Skills standard](https://agentskills.io), enabling cross-platform compatibility.
+
+### Claude Code
+
+> **Status:** ✅ Native support
+
+**Installation:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+```
+
+**Slash Commands:**
 
 | Command | Description |
 |---------|-------------|
 | `/ai-consultants:consult` | Ask AI consultants a coding question |
+| `/ai-consultants:ask-experts` | Quick query (alias for consult) |
 | `/ai-consultants:debate` | Run consultation with multi-round debate |
-| `/ai-consultants:help` | Show all available commands |
-
-That's it! Claude Code handles everything else.
-
----
-
-## Claude Code Integration
-
-### All Slash Commands
-
-AI Consultants provides 12 slash commands for seamless Claude Code integration:
-
-#### Consultation Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `/ai-consultants:consult` | Main consultation | `/ai-consultants:consult "Redis vs Memcached?"` |
-| `/ai-consultants:ask-experts` | Quick query (alias) | `/ai-consultants:ask-experts "Best caching strategy?"` |
-| `/ai-consultants:debate` | With multi-round debate | `/ai-consultants:debate "Microservices or monolith?"` |
-
-#### Configuration Commands
-
-| Command | Description |
-|---------|-------------|
 | `/ai-consultants:config-wizard` | Full interactive setup |
 | `/ai-consultants:config-check` | Verify CLIs are installed |
 | `/ai-consultants:config-status` | View current configuration |
@@ -100,47 +92,182 @@ AI Consultants provides 12 slash commands for seamless Claude Code integration:
 | `/ai-consultants:config-api` | Configure API consultants (Qwen3, GLM, Grok, DeepSeek) |
 | `/ai-consultants:help` | Show all commands and usage |
 
-### Claude Code Workflows
+**Self-Exclusion:** Claude consultant is automatically excluded when invoked from Claude Code.
 
-#### Quick Question
-
-```
-/ai-consultants:consult "How to optimize this SQL query?"
-```
-
-#### Code Review with Multiple Files
+**Verify:**
 
 ```
-/ai-consultants:consult "Review this authentication flow" src/auth.ts src/middleware.ts
+/ai-consultants:config-check
 ```
 
-#### Architectural Decision with Debate
+---
 
-```
-/ai-consultants:debate "Should we use GraphQL or REST for our new API?"
-```
+### OpenAI Codex CLI
 
-#### Configure Once, Use Everywhere
+> **Status:** ✅ Compatible
 
-Set your preferred defaults with configuration commands:
+**Installation:**
 
-```
-/ai-consultants:config-preset       # Choose: minimal, balanced, high-stakes, local
-/ai-consultants:config-strategy     # Choose: majority, risk_averse, security_first
-/ai-consultants:config-features     # Toggle: debate, synthesis, peer review
+```bash
+git clone https://github.com/matteoscurati/ai-consultants.git ~/.codex/skills/ai-consultants
+~/.codex/skills/ai-consultants/scripts/doctor.sh --fix
 ```
 
-Your settings persist in `~/.claude/skills/ai-consultants/.env`.
+**Commands:**
 
-### Benefits of Using Claude Code
+Use the same slash commands as Claude Code. Codex CLI loads skills from `~/.codex/skills/`.
 
-| Feature | Claude Code | Standalone Bash |
-|---------|-------------|-----------------|
-| Configuration | Slash commands | Edit .env manually |
-| Results | Integrated in chat | Read from /tmp/ |
-| Follow-ups | Natural conversation | Separate followup.sh |
-| File context | Automatic | Pass file paths |
-| Setup | `/ai-consultants:config-wizard` | Run scripts manually |
+**Self-Exclusion:** Codex consultant is automatically excluded when invoked from Codex CLI.
+
+**Verify:**
+
+```bash
+~/.codex/skills/ai-consultants/scripts/doctor.sh
+```
+
+---
+
+### Gemini CLI
+
+> **Status:** ✅ Compatible
+
+**Installation:**
+
+```bash
+git clone https://github.com/matteoscurati/ai-consultants.git ~/.gemini/skills/ai-consultants
+~/.gemini/skills/ai-consultants/scripts/doctor.sh --fix
+```
+
+**Commands:**
+
+Use the same slash commands as Claude Code. Gemini CLI loads skills from `~/.gemini/skills/`.
+
+**Self-Exclusion:** Gemini consultant is automatically excluded when invoked from Gemini CLI.
+
+**Verify:**
+
+```bash
+~/.gemini/skills/ai-consultants/scripts/doctor.sh
+```
+
+---
+
+### Cursor / Copilot / Windsurf (via SkillPort)
+
+> **Status:** ✅ Via SkillPort
+
+**Installation:**
+
+```bash
+# Install SkillPort if not already installed
+npm install -g skillport
+
+# Add AI Consultants skill
+skillport add github.com/matteoscurati/ai-consultants
+
+# Load skill in your agent
+skillport show ai-consultants
+```
+
+Or clone and use the included installer:
+
+```bash
+git clone https://github.com/matteoscurati/ai-consultants.git
+cd ai-consultants
+./scripts/skillport-install.sh
+```
+
+**Commands:**
+
+SkillPort translates skill commands to the native agent format.
+
+**Self-Exclusion:** Cursor consultant is automatically excluded when invoked from Cursor.
+
+**Verify:**
+
+```bash
+skillport status ai-consultants
+```
+
+---
+
+### Aider
+
+> **Status:** ✅ Via AGENTS.md
+
+**Installation:**
+
+```bash
+git clone https://github.com/matteoscurati/ai-consultants.git
+cd ai-consultants
+# Aider reads AGENTS.md for skill instructions
+```
+
+**Usage:**
+
+Reference the skill in your Aider session:
+
+```
+/add AGENTS.md
+# Then ask: "Use ai-consultants to review my code"
+```
+
+**Self-Exclusion:** When using Aider as the invoking agent, set `INVOKING_AGENT=aider`.
+
+**Verify:**
+
+```bash
+./scripts/doctor.sh
+```
+
+---
+
+### Standalone Bash
+
+> **Status:** ✅ Direct execution
+
+**Installation:**
+
+```bash
+git clone https://github.com/matteoscurati/ai-consultants.git
+cd ai-consultants
+./scripts/doctor.sh --fix
+./scripts/setup_wizard.sh
+```
+
+**Commands:**
+
+```bash
+# Basic consultation
+./scripts/consult_all.sh "How to optimize this function?" src/utils.py
+
+# With preset
+./scripts/consult_all.sh --preset balanced "Redis or Memcached?"
+
+# With debate
+ENABLE_DEBATE=true DEBATE_ROUNDS=2 ./scripts/consult_all.sh "Microservices vs monolith?"
+
+# With smart routing
+ENABLE_SMART_ROUTING=true ./scripts/consult_all.sh "Bug in auth code"
+
+# Follow-up questions
+./scripts/followup.sh "Can you elaborate on that point?"
+./scripts/followup.sh -c Gemini "Show me code example"
+```
+
+**Self-Exclusion:** Set `INVOKING_AGENT` environment variable:
+
+```bash
+INVOKING_AGENT=claude ./scripts/consult_all.sh "Question"   # Claude excluded
+INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
+./scripts/consult_all.sh "Question"                          # No exclusion
+```
+
+**Verify:**
+
+```bash
+./scripts/doctor.sh
+```
 
 ---
 
@@ -167,169 +294,35 @@ Your settings persist in `~/.claude/skills/ai-consultants/.env`.
 | **Grok** | grok-beta | The Provocateur | Challenge conventions |
 | **DeepSeek** | deepseek-coder | The Code Specialist | Algorithms, code generation |
 
-### Local Consultants (v2.2)
+### Local Consultants
 
 | Consultant | Model | Persona | Focus |
 |------------|-------|---------|-------|
 | **Ollama** | llama3.2 | The Local Expert | Privacy-first, zero API cost |
 
-### Self-Exclusion (v2.2)
+### Installing Consultant CLIs
 
-The invoking agent is automatically excluded from the consultant panel to prevent self-consultation:
-
-| Invoking Agent | Excluded Consultant |
-|----------------|---------------------|
-| Claude Code | Claude |
-| Codex CLI | Codex |
-| Gemini CLI | Gemini |
-| Cursor | Cursor |
-
-This is handled automatically via the `INVOKING_AGENT` environment variable. When invoked from slash commands, it's set automatically. For bash usage:
+At least 2 consultant CLIs are required:
 
 ```bash
-# Claude will be excluded from the panel
-INVOKING_AGENT=claude ./scripts/consult_all.sh "Question"
+npm install -g @google/gemini-cli      # Gemini
+npm install -g @openai/codex           # Codex
+pip install mistral-vibe               # Mistral
+npm install -g @kilocode/cli           # Kilo
+curl https://cursor.com/install -fsS | bash  # Cursor
 
-# Codex will be excluded from the panel
-INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"
-
-# No exclusion (all enabled consultants participate)
-./scripts/consult_all.sh "Question"
-```
-
----
-
-## What's New in v2.2
-
-### Configuration Presets
-
-Choose how many consultants to use:
-
-**Claude Code:**
-```
-/ai-consultants:config-preset       # Interactive selection
-```
-
-**Bash:**
-```bash
-./scripts/consult_all.sh --preset minimal "Quick question"      # 2 models
-./scripts/consult_all.sh --preset balanced "Design question"    # 4 models
-./scripts/consult_all.sh --preset high-stakes "Critical choice" # All + debate
-./scripts/consult_all.sh --preset local "Private question"      # Ollama only
-```
-
-### Synthesis Strategies
-
-Control how responses are combined:
-
-**Claude Code:**
-```
-/ai-consultants:config-strategy     # Interactive selection
-```
-
-**Bash:**
-```bash
-./scripts/consult_all.sh --strategy majority "Question"       # Most common wins
-./scripts/consult_all.sh --strategy risk_averse "Question"    # Prioritize safety
-./scripts/consult_all.sh --strategy security_first "Question" # Security focus
-./scripts/consult_all.sh --strategy compare_only "Question"   # No recommendation
-```
-
-### Doctor Command
-
-Diagnose and fix configuration issues:
-
-```bash
-./scripts/doctor.sh              # Full diagnostic
-./scripts/doctor.sh --fix        # Auto-fix common issues
-./scripts/doctor.sh --json       # JSON output for automation
-```
-
-### Anonymous Peer Review
-
-Consultants evaluate each other's responses without knowing the source:
-
-```bash
-./scripts/peer_review.sh /tmp/ai_consultations/latest /tmp/peer_review
-```
-
-### Local Model Support (Ollama)
-
-Run consultations 100% locally with zero API cost:
-
-```bash
-ENABLE_OLLAMA=true ./scripts/consult_all.sh "Private question"
-```
-
-### Panic Button Mode
-
-Automatically adds rigor when uncertainty is detected:
-
-```bash
-ENABLE_PANIC_MODE=auto ./scripts/consult_all.sh "Complex question"
-# Triggers when average confidence < 5 or uncertainty keywords detected
-```
-
-### Confidence Intervals
-
-See statistical confidence ranges:
-
-```
-Gemini: 8 +/- 1.2 (high confidence)
-Codex: 6 +/- 2.1 (moderate variance)
-```
-
----
-
-## Usage
-
-### With Claude Code (Recommended)
-
-```
-# Basic consultation
-/ai-consultants:consult "How to optimize this function?"
-
-# With file context
-/ai-consultants:consult "Review this code" src/utils.py
-
-# With debate for controversial topics
-/ai-consultants:debate "Which database should we use?"
-```
-
-### With Bash
-
-```bash
-# Simple question
-./scripts/consult_all.sh "How to optimize this function?" src/utils.py
-
-# With preset
-./scripts/consult_all.sh --preset balanced "Redis or Memcached?"
-
-# With debate
-ENABLE_DEBATE=true DEBATE_ROUNDS=2 ./scripts/consult_all.sh "Microservices vs monolith?"
-
-# With smart routing
-ENABLE_SMART_ROUTING=true ./scripts/consult_all.sh "Bug in auth code"
-```
-
-### Follow-up Questions
-
-**Claude Code:** Just continue the conversation naturally.
-
-**Bash:**
-```bash
-# Follow-up to all consultants
-./scripts/followup.sh "Can you elaborate on that point?"
-
-# Follow-up to specific consultant
-./scripts/followup.sh -c Gemini "Show me code example"
+# For local inference (optional)
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2
 ```
 
 ---
 
 ## Configuration
 
-### Available Presets
+### Presets
+
+Choose how many consultants to use:
 
 | Preset | Consultants | Use Case |
 |--------|-------------|----------|
@@ -341,7 +334,19 @@ ENABLE_SMART_ROUTING=true ./scripts/consult_all.sh "Bug in auth code"
 | `security` | Security-focused + debate | Security reviews |
 | `cost-capped` | Budget-conscious | Minimal API costs |
 
-### Available Strategies
+**Claude Code:**
+```
+/ai-consultants:config-preset
+```
+
+**Bash:**
+```bash
+./scripts/consult_all.sh --preset balanced "Question"
+```
+
+### Synthesis Strategies
+
+Control how responses are combined:
 
 | Strategy | Description |
 |----------|-------------|
@@ -350,6 +355,16 @@ ENABLE_SMART_ROUTING=true ./scripts/consult_all.sh "Bug in auth code"
 | `security_first` | Prioritize security considerations |
 | `cost_capped` | Prefer simpler, cheaper solutions |
 | `compare_only` | No recommendation, just comparison |
+
+**Claude Code:**
+```
+/ai-consultants:config-strategy
+```
+
+**Bash:**
+```bash
+./scripts/consult_all.sh --strategy risk_averse "Question"
+```
 
 ### Environment Variables
 
@@ -360,7 +375,7 @@ ENABLE_SYNTHESIS=true        # Automatic synthesis
 ENABLE_SMART_ROUTING=true    # Intelligent consultant selection
 ENABLE_PANIC_MODE=auto       # Automatic rigor for uncertainty
 
-# Defaults (v2.2)
+# Defaults
 DEFAULT_PRESET=balanced      # Preset when --preset not given
 DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
 
@@ -378,24 +393,14 @@ PANIC_CONFIDENCE_THRESHOLD=5 # Trigger threshold
 PANIC_EXTRA_DEBATE_ROUNDS=1  # Additional rounds in panic mode
 ```
 
-See [docs/SETUP.md](docs/SETUP.md) for complete configuration guide.
+### Doctor Command
 
----
+Diagnose and fix configuration issues:
 
-## Output
-
-Each consultation generates:
-
-```
-/tmp/ai_consultations/TIMESTAMP/
-├── gemini.json          # Individual responses
-├── codex.json           #   with confidence scores
-├── mistral.json
-├── kilo.json
-├── voting.json          # Consensus calculation
-├── synthesis.json       # Weighted recommendation
-├── report.md            # Human-readable report
-└── round_2/             # (if debate enabled)
+```bash
+./scripts/doctor.sh              # Full diagnostic
+./scripts/doctor.sh --fix        # Auto-fix common issues
+./scripts/doctor.sh --json       # JSON output for automation
 ```
 
 ---
@@ -421,133 +426,20 @@ With peer review:
 Responses -> Anonymize -> Peer Ranking -> De-anonymize -> Peer Scores
 ```
 
----
+### Output
 
-## Installation Options
+Each consultation generates:
 
-### Option A: Claude Code Skill (Recommended)
-
-```bash
-# One-liner installation
-curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
-
-# Verify and fix issues
-~/.claude/skills/ai-consultants/scripts/doctor.sh --fix
 ```
-
-Then in Claude Code:
-```
-/ai-consultants:config-wizard
-```
-
-### Option B: OpenAI Codex CLI
-
-```bash
-# Clone to Codex skills directory
-git clone https://github.com/matteoscurati/ai-consultants.git ~/.codex/skills/ai-consultants
-
-# Or symlink if already installed elsewhere
-ln -s /path/to/ai-consultants ~/.codex/skills/ai-consultants
-
-# Verify installation
-~/.codex/skills/ai-consultants/scripts/doctor.sh --fix
-```
-
-### Option C: Gemini CLI
-
-```bash
-# Clone to Gemini skills directory
-git clone https://github.com/matteoscurati/ai-consultants.git ~/.gemini/skills/ai-consultants
-
-# Or symlink
-ln -s /path/to/ai-consultants ~/.gemini/skills/ai-consultants
-```
-
-### Option D: SkillPort (Multi-Agent)
-
-For Cursor, Copilot, Windsurf, and other SkillPort-compatible agents:
-
-```bash
-# Install SkillPort if not already installed
-npm install -g skillport
-
-# Add AI Consultants skill
-skillport add github.com/matteoscurati/ai-consultants
-
-# Load skill in your agent
-skillport show ai-consultants
-```
-
-Or use the included installer:
-
-```bash
-git clone https://github.com/matteoscurati/ai-consultants.git
-cd ai-consultants
-./scripts/skillport-install.sh
-```
-
-### Option E: Manual Git Clone
-
-```bash
-git clone https://github.com/matteoscurati/ai-consultants.git ~/.claude/skills/ai-consultants
-~/.claude/skills/ai-consultants/scripts/doctor.sh --fix
-~/.claude/skills/ai-consultants/scripts/setup_wizard.sh
-```
-
-### Option F: Standalone (No Agent)
-
-```bash
-git clone https://github.com/matteoscurati/ai-consultants.git
-cd ai-consultants
-./scripts/doctor.sh --fix
-./scripts/setup_wizard.sh
-```
-
-### Update
-
-```bash
-~/.claude/skills/ai-consultants/scripts/install.sh --update
-```
-
-### Uninstall
-
-```bash
-~/.claude/skills/ai-consultants/scripts/install.sh --uninstall
-```
-
----
-
-## Requirements
-
-- **Bash 4.0+** (macOS: `brew install bash`)
-- **jq** for JSON processing
-- **At least 2 consultant CLIs** installed and authenticated
-
-### Install Consultant CLIs
-
-```bash
-# At least 2 required
-npm install -g @google/gemini-cli      # Gemini
-npm install -g @openai/codex           # Codex
-pip install mistral-vibe               # Mistral
-npm install -g @kilocode/cli           # Kilo
-curl https://cursor.com/install -fsS | bash  # Cursor
-
-# For local inference (optional)
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2
-```
-
-### Verify Installation
-
-**Claude Code:**
-```
-/ai-consultants:config-check
-```
-
-**Bash:**
-```bash
-./scripts/doctor.sh
+/tmp/ai_consultations/TIMESTAMP/
+├── gemini.json          # Individual responses
+├── codex.json           #   with confidence scores
+├── mistral.json
+├── kilo.json
+├── voting.json          # Consensus calculation
+├── synthesis.json       # Weighted recommendation
+├── report.md            # Human-readable report
+└── round_2/             # (if debate enabled)
 ```
 
 ---
@@ -593,7 +485,7 @@ ollama pull llama3.2
 ### v2.2.0
 
 - **Claude consultant**: New consultant with "The Synthesizer" persona
-- **Self-exclusion**: Invoking agent automatically excluded from panel (Claude Code won't query Claude, etc.)
+- **Self-exclusion**: Invoking agent automatically excluded from panel
 - **Presets**: Quick configuration with `--preset minimal/balanced/high-stakes/local`
 - **Doctor command**: Diagnostic and auto-fix tool
 - **Synthesis strategies**: `--strategy majority/risk_averse/security_first/compare_only`
@@ -601,9 +493,7 @@ ollama pull llama3.2
 - **Anonymous peer review**: Unbiased evaluation of responses
 - **Ollama support**: Local model inference for privacy
 - **Panic mode**: Automatic rigor when uncertainty detected
-- **Judge step**: Overconfidence detection in self-reflection
 - **One-liner install**: `curl | bash` installation
-- **New slash commands**: `/ai-consultants:config-preset`, `/ai-consultants:config-strategy`
 
 ### v2.1.0
 
