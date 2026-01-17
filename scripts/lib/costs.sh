@@ -282,3 +282,148 @@ tokens_to_cost() {
 
     estimate_query_cost "$model" "$input" "$output"
 }
+
+# =============================================================================
+# RESPONSE LENGTH LIMITS (v2.3)
+# =============================================================================
+
+# Get max response tokens for a category
+# Usage: get_max_response_tokens <category>
+get_max_response_tokens() {
+    local category="$1"
+    local limits="${MAX_RESPONSE_TOKENS_BY_CATEGORY:-QUICK_SYNTAX:200,CODE_REVIEW:800,BUG_DEBUG:800,ARCHITECTURE:1000,SECURITY:1000,DATABASE:600,GENERAL:500}"
+
+    # Search for category in the limits string
+    local limit
+    limit=$(echo "$limits" | tr ',' '\n' | grep -i "^${category}:" | cut -d: -f2 | head -1)
+
+    # Return limit or default
+    if [[ -n "$limit" && "$limit" =~ ^[0-9]+$ ]]; then
+        echo "$limit"
+    else
+        echo "500"  # Default
+    fi
+}
+
+# Check if response limits are enabled
+# Usage: is_response_limits_enabled
+is_response_limits_enabled() {
+    [[ "${ENABLE_RESPONSE_LIMITS:-true}" == "true" ]]
+}
+
+# Get model tier (economy, standard, premium)
+# Usage: get_model_tier <model>
+get_model_tier() {
+    local model="$1"
+    model=$(echo "$model" | tr '[:upper:]' '[:lower:]')
+
+    case "$model" in
+        # Economy tier - cheapest models
+        gemini-2.5-flash|gemini-2.0-flash|gpt-4o-mini|claude-3-haiku|mistral-small|qwen-turbo|glm-3-turbo)
+            echo "economy"
+            ;;
+        # Premium tier - most expensive models
+        gpt-4|gpt-4-turbo|o1|o3|claude-3-opus|mistral-large|grok-2|qwen-max)
+            echo "premium"
+            ;;
+        # Standard tier - default/mid-range
+        *)
+            echo "standard"
+            ;;
+    esac
+}
+
+# Get economic model for a consultant
+# Usage: get_economic_model <consultant>
+get_economic_model() {
+    local consultant="$1"
+    consultant=$(echo "$consultant" | tr '[:upper:]' '[:lower:]')
+
+    case "$consultant" in
+        gemini)   echo "gemini-2.5-flash" ;;
+        codex)    echo "gpt-4o-mini" ;;
+        mistral)  echo "mistral-small" ;;
+        kilo)     echo "kilo" ;;           # No economy variant
+        cursor)   echo "cursor" ;;          # No economy variant
+        claude)   echo "claude-3-haiku" ;;
+        qwen3)    echo "qwen-turbo" ;;
+        glm)      echo "glm-3-turbo" ;;
+        grok)     echo "grok-beta" ;;       # No economy variant
+        deepseek) echo "deepseek-coder" ;;  # No economy variant
+        *)        echo "" ;;
+    esac
+}
+
+# Calculate query complexity score (1-10)
+# Usage: calculate_query_complexity <query> <num_files> <category>
+calculate_query_complexity() {
+    local query="$1"
+    local num_files="${2:-0}"
+    local category="${3:-GENERAL}"
+
+    local score=5  # Base score
+
+    # Length factor
+    local query_len=${#query}
+    if [[ $query_len -gt 500 ]]; then
+        score=$((score + 2))
+    elif [[ $query_len -gt 200 ]]; then
+        score=$((score + 1))
+    elif [[ $query_len -lt 50 ]]; then
+        score=$((score - 1))
+    fi
+
+    # File count factor
+    if [[ $num_files -gt 5 ]]; then
+        score=$((score + 2))
+    elif [[ $num_files -gt 2 ]]; then
+        score=$((score + 1))
+    elif [[ $num_files -eq 0 ]]; then
+        score=$((score - 1))
+    fi
+
+    # Category factor
+    case "$category" in
+        ARCHITECTURE|SECURITY)
+            score=$((score + 2))
+            ;;
+        CODE_REVIEW|BUG_DEBUG)
+            score=$((score + 1))
+            ;;
+        QUICK_SYNTAX)
+            score=$((score - 2))
+            ;;
+    esac
+
+    # Keyword complexity indicators
+    if echo "$query" | grep -qiE "(architecture|design|scalab|security|performance|refactor|migrate)"; then
+        score=$((score + 1))
+    fi
+    if echo "$query" | grep -qiE "(fix|bug|error|typo|rename)"; then
+        score=$((score - 1))
+    fi
+
+    # Cap at 1-10
+    [[ $score -gt 10 ]] && score=10
+    [[ $score -lt 1 ]] && score=1
+
+    echo "$score"
+}
+
+# Check if query is simple (should use economic models)
+# Usage: is_simple_query <complexity_score>
+is_simple_query() {
+    local complexity="${1:-5}"
+    local threshold="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
+
+    [[ $complexity -le $threshold ]]
+}
+
+# Check if query is complex (should use premium models)
+# Usage: is_complex_query <complexity_score>
+is_complex_query() {
+    local complexity="${1:-5}"
+    local threshold="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
+
+    [[ $complexity -gt $threshold ]]
+}

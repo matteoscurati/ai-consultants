@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 12 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.2.0
+**Version**: 2.3.0
 
 ## Structure
 
@@ -31,9 +31,10 @@ ai-consultants/
 │       ├── personas.sh         # Consultant persona definitions
 │       ├── schema.json         # JSON output schema
 │       ├── voting.sh           # Voting/consensus + confidence intervals
-│       ├── routing.sh          # Smart routing
+│       ├── routing.sh          # Smart routing + cost-aware routing
 │       ├── session.sh          # Session management
-│       ├── costs.sh            # Cost tracking
+│       ├── costs.sh            # Cost tracking + response limits
+│       ├── cache.sh            # Semantic caching (v2.3)
 │       ├── progress.sh         # Progress bars
 │       └── reflection.sh       # Self-reflection + judge step
 └── templates/
@@ -215,6 +216,122 @@ Functions in `lib/reflection.sh`:
 - `heuristic_overconfidence_check()` - Fast fallback without LLM
 - `judge_all_responses()` - Batch evaluation
 
+## v2.3 Features
+
+### Semantic Caching
+Reduces redundant API calls by caching responses based on query + context fingerprints.
+
+```bash
+# Configuration in config.sh
+ENABLE_SEMANTIC_CACHE=true      # Enable caching (default: true)
+CACHE_TTL_HOURS=24              # Cache expiration
+CACHE_DIR=/tmp/ai_consultants_cache
+```
+
+Functions in `lib/cache.sh`:
+- `generate_fingerprint()` - Creates hash from query + category + context
+- `check_cache()` - Returns cached response if valid
+- `store_cache()` - Stores response with metadata
+- `cleanup_cache()` - Removes expired entries
+- `get_cache_stats()` - Returns cache statistics as JSON
+
+### Response Length Limits (Opt-in)
+Limits output tokens by question category to reduce costs.
+
+```bash
+ENABLE_RESPONSE_LIMITS=false    # Default: false (opt-in per quality review)
+MAX_RESPONSE_TOKENS_BY_CATEGORY="QUICK_SYNTAX:200,CODE_REVIEW:800,ARCHITECTURE:1000,SECURITY:1000,GENERAL:500"
+```
+
+Functions in `lib/costs.sh`:
+- `get_max_response_tokens()` - Returns limit for category
+- `is_response_limits_enabled()` - Check if enabled
+
+### Cost-Aware Routing
+Routes simple queries to cheaper models, complex queries to premium models.
+
+```bash
+ENABLE_COST_AWARE_ROUTING=false # Enable cost-based routing
+USE_ECONOMIC_MODELS_FOR_SIMPLE=true
+COMPLEXITY_THRESHOLD_SIMPLE=3   # Score 1-3 = simple
+COMPLEXITY_THRESHOLD_MEDIUM=6   # Score 4-6 = medium, 7-10 = complex
+```
+
+Functions in `lib/routing.sh`:
+- `select_consultants_cost_aware()` - Selects consultants based on complexity
+- `get_cost_aware_model()` - Returns economic model for simple queries
+- `calculate_query_complexity()` - Scores query 1-10
+
+Functions in `lib/costs.sh`:
+- `get_economic_model()` - Maps consultant to cheaper model
+- `get_model_tier()` - Returns economy/standard/premium
+
+### Fallback Escalation
+Automatically re-queries with premium models if confidence is too low.
+
+```bash
+FALLBACK_CONFIDENCE_THRESHOLD=7  # Escalate if confidence < 7
+```
+
+Functions in `lib/routing.sh`:
+- `needs_escalation()` - Returns true if response needs premium model
+- `get_premium_model()` - Returns premium model for consultant
+- `get_escalation_summary()` - Returns escalation info as JSON
+
+### Debate Optimization (Opt-in)
+Skips debate if confidence spread is low (all consultants agree).
+
+```bash
+ENABLE_DEBATE_OPTIMIZATION=false  # Default: false (opt-in per quality review)
+DEBATE_CONFIDENCE_SPREAD_THRESHOLD=2  # Min spread to trigger debate
+DEBATE_USE_SUMMARIES=true         # Use summaries in debate rounds
+```
+
+**Category Exceptions**: SECURITY and ARCHITECTURE always trigger debate regardless of confidence spread.
+
+Functions in `lib/debate_round.sh`:
+- `is_mandatory_debate_category()` - Returns true for SECURITY/ARCHITECTURE
+- `should_skip_debate()` - Returns true if debate can be skipped
+- `extract_compact_summary()` - Token-optimized summary for debates
+
+### Quality Monitoring
+Logs optimization metrics and saves to output directory.
+
+```bash
+# In LOG_LEVEL=DEBUG mode, shows optimization status
+# Always saves optimization_metrics.json to output directory
+```
+
+Output file `optimization_metrics.json`:
+```json
+{
+  "optimization_settings": {
+    "cache_enabled": true,
+    "cache_hits": 2,
+    "response_limits_enabled": false,
+    "cost_aware_routing": false,
+    "debate_optimization": false,
+    "compact_report": true
+  },
+  "quality_metrics": {
+    "consensus_score": 75,
+    "consensus_level": "medium",
+    "successful_responses": 4,
+    "total_consultants": 4,
+    "category": "ARCHITECTURE"
+  },
+  "timestamp": "2026-01-17T10:30:00Z"
+}
+```
+
+### Compact Reports
+Generates shorter reports by default (summaries only, no full JSON).
+
+```bash
+ENABLE_COMPACT_REPORT=true       # Default: true
+REPORT_MAX_JSON_LINES=50         # Max JSON lines in full report
+```
+
 ## Testing
 
 ```bash
@@ -254,6 +371,12 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_OLLAMA` | false | Local model support (v2.2) |
 | `OLLAMA_MODEL` | llama3.2 | Ollama model (v2.2) |
 | `SYNTHESIS_STRATEGY` | majority | Synthesis strategy (v2.2) |
+| `ENABLE_SEMANTIC_CACHE` | true | Semantic response caching (v2.3) |
+| `CACHE_TTL_HOURS` | 24 | Cache expiration in hours (v2.3) |
+| `ENABLE_RESPONSE_LIMITS` | false | Response token limits (v2.3, opt-in) |
+| `ENABLE_COST_AWARE_ROUTING` | false | Cost-based model routing (v2.3) |
+| `ENABLE_DEBATE_OPTIMIZATION` | false | Skip debate if all agree (v2.3, opt-in) |
+| `ENABLE_COMPACT_REPORT` | true | Compact report format (v2.3) |
 
 ## External Dependencies
 
@@ -306,6 +429,17 @@ For detailed information, see:
 - Run `./scripts/doctor.sh` to verify configuration
 
 ## Changelog
+
+### v2.3.0
+- Semantic caching with fingerprint-based cache keys
+- Response length limits (opt-in, per category)
+- Cost-aware routing (economic models for simple queries)
+- Fallback escalation (premium model if confidence < 7)
+- Debate optimization (opt-in, skip if all agree)
+- Mandatory debate for SECURITY/ARCHITECTURE categories
+- Quality monitoring with `optimization_metrics.json`
+- Compact reports (summaries only by default)
+- Code simplification (extracted helper functions)
 
 ### v2.2.0
 - Claude consultant with "The Synthesizer" persona

@@ -38,6 +38,7 @@ source "$SCRIPT_DIR/lib/progress.sh"
 source "$SCRIPT_DIR/lib/costs.sh"
 source "$SCRIPT_DIR/lib/voting.sh"
 source "$SCRIPT_DIR/lib/routing.sh"
+source "$SCRIPT_DIR/lib/cache.sh"
 
 # --- Custom API Agent Discovery ---
 # Discovers custom API agents from environment variables
@@ -329,12 +330,29 @@ for c in "${SELECTED_CONSULTANTS[@]}"; do
     init_progress "$c"
 done
 
-# Launch consultants in parallel
+# Track cache hits
+declare -a CACHE_HITS=()
+
+# Launch consultants in parallel (with cache check)
 for consultant in "${SELECTED_CONSULTANTS[@]}"; do
     consultant_lower=$(to_lower "$consultant")
     local_output_file="$OUTPUT_DIR/${consultant_lower}.json"
     OUTPUT_FILES+=("$local_output_file")
     NAMES+=("$consultant")
+
+    # Check cache first (v2.3)
+    if is_cache_enabled; then
+        cached_response=$(check_cache "$QUERY" "$QUESTION_CATEGORY" "$consultant_lower" "$CONTEXT_FILE" 2>/dev/null || echo "")
+        if [[ -n "$cached_response" ]]; then
+            # Use cached response
+            echo "$cached_response" | mark_from_cache > "$local_output_file"
+            PIDS+=("cache")  # Marker for cache hit
+            CACHE_HITS+=("$consultant")
+            update_progress "$consultant" 100 "cached"
+            log_debug "Cache hit for $consultant"
+            continue
+        fi
+    fi
 
     # Convention: query script is query_<lowercase_name>.sh
     query_script="$SCRIPT_DIR/query_${consultant_lower}.sh"
@@ -354,6 +372,11 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
     update_progress "$consultant" 10 "running"
 done
 
+# Log cache status
+if [[ ${#CACHE_HITS[@]} -gt 0 ]]; then
+    log_info "Cache hits: ${CACHE_HITS[*]}"
+fi
+
 # --- Wait and Collect Results ---
 log_info "Waiting for responses from ${#PIDS[@]} consultants..."
 
@@ -364,6 +387,20 @@ for i in "${!PIDS[@]}"; do
     pid="${PIDS[$i]}"
     name="${NAMES[$i]}"
     output_file="${OUTPUT_FILES[$i]}"
+    name_lower=$(to_lower "$name")
+
+    # Handle cache hits (pid is "cache" marker)
+    if [[ "$pid" == "cache" ]]; then
+        if [[ -s "$output_file" ]]; then
+            log_success "  $name: OK (cached)"
+            RESULTS+=("$name:OK")
+            ((SUCCESS_COUNT++))
+        else
+            log_warn "  $name: Cache miss"
+            RESULTS+=("$name:EMPTY")
+        fi
+        continue
+    fi
 
     if wait "$pid" 2>/dev/null; then
         if [[ -s "$output_file" ]]; then
@@ -371,6 +408,12 @@ for i in "${!PIDS[@]}"; do
             RESULTS+=("$name:OK")
             ((SUCCESS_COUNT++))
             update_progress "$name" 100 "success"
+
+            # Store in cache (v2.3)
+            if is_cache_enabled; then
+                response_content=$(cat "$output_file")
+                store_cache "$QUERY" "$QUESTION_CATEGORY" "$name_lower" "$response_content" "$CONTEXT_FILE" 2>/dev/null || true
+            fi
         else
             log_warn "  $name: Empty response"
             RESULTS+=("$name:EMPTY")
@@ -428,7 +471,8 @@ if [[ "$ENABLE_DEBATE" == "true" && $DEBATE_ROUNDS -gt 1 && $SUCCESS_COUNT -gt 1
 
     for ((round=2; round<=DEBATE_ROUNDS; round++)); do
         log_info "  Round $round..."
-        DEBATE_OUTPUT=$("$SCRIPT_DIR/debate_round.sh" "$OUTPUT_DIR" "$round" "$OUTPUT_DIR/round_$round")
+        # v2.3: Pass category for mandatory debate check (SECURITY/ARCHITECTURE always debate)
+        DEBATE_OUTPUT=$("$SCRIPT_DIR/debate_round.sh" "$OUTPUT_DIR" "$round" "$OUTPUT_DIR/round_$round" "$QUESTION_CATEGORY")
 
         # Update responses with debate results
         if [[ -d "$OUTPUT_DIR/round_$round" ]]; then
@@ -458,6 +502,49 @@ CONSENSUS_SCORE=$(echo "$VOTING_REPORT" | jq -r '.voting_report.consensus.score 
 CONSENSUS_LEVEL=$(echo "$VOTING_REPORT" | jq -r '.voting_report.consensus.level // "unknown"')
 log_info "  Consensus: ${CONSENSUS_SCORE}% ($CONSENSUS_LEVEL)"
 echo "" >&2
+
+# --- Quality Monitoring (v2.3) ---
+# Log optimization metrics for quality tracking
+if [[ "${LOG_LEVEL:-INFO}" == "DEBUG" ]]; then
+    log_debug "=== Token Optimization Metrics ==="
+    log_debug "  Cache enabled: ${ENABLE_SEMANTIC_CACHE:-true}"
+    log_debug "  Cache hits: ${#CACHE_HITS[@]}"
+    log_debug "  Response limits enabled: ${ENABLE_RESPONSE_LIMITS:-false}"
+    log_debug "  Cost-aware routing: ${ENABLE_COST_AWARE_ROUTING:-false}"
+    log_debug "  Debate optimization: ${ENABLE_DEBATE_OPTIMIZATION:-false}"
+fi
+
+# Save optimization metrics to output directory
+jq -n \
+    --argjson cache_enabled "${ENABLE_SEMANTIC_CACHE:-true}" \
+    --argjson cache_hits "${#CACHE_HITS[@]}" \
+    --argjson response_limits "${ENABLE_RESPONSE_LIMITS:-false}" \
+    --argjson cost_aware "${ENABLE_COST_AWARE_ROUTING:-false}" \
+    --argjson debate_opt "${ENABLE_DEBATE_OPTIMIZATION:-false}" \
+    --argjson compact "${ENABLE_COMPACT_REPORT:-true}" \
+    --argjson consensus "$CONSENSUS_SCORE" \
+    --arg consensus_level "$CONSENSUS_LEVEL" \
+    --argjson success_count "$SUCCESS_COUNT" \
+    --argjson total "${#PIDS[@]}" \
+    --arg category "$QUESTION_CATEGORY" \
+    '{
+        optimization_settings: {
+            cache_enabled: $cache_enabled,
+            cache_hits: $cache_hits,
+            response_limits_enabled: $response_limits,
+            cost_aware_routing: $cost_aware,
+            debate_optimization: $debate_opt,
+            compact_report: $compact
+        },
+        quality_metrics: {
+            consensus_score: $consensus,
+            consensus_level: $consensus_level,
+            successful_responses: $success_count,
+            total_consultants: $total,
+            category: $category
+        },
+        timestamp: (now | todate)
+    }' > "$OUTPUT_DIR/optimization_metrics.json"
 
 # --- Auto-Synthesis (optional) ---
 SYNTHESIS_FILE=""
@@ -526,6 +613,25 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         echo ""
     fi
 
+    # Quick Summary Table (v2.3)
+    echo "## Quick Summary"
+    echo ""
+    echo "| Consultant | Confidence | Approach |"
+    echo "|------------|------------|----------|"
+    for i in "${!NAMES[@]}"; do
+        name="${NAMES[$i]}"
+        output_file="${OUTPUT_FILES[$i]}"
+        result="${RESULTS[$i]}"
+        if [[ "$result" == *":OK" ]] && [[ -s "$output_file" ]]; then
+            conf=$(jq -r '.confidence.score // "?"' "$output_file" 2>/dev/null)
+            appr=$(jq -r '.response.approach // "N/A"' "$output_file" 2>/dev/null | head -c 30)
+            echo "| $name | $conf/10 | $appr |"
+        else
+            echo "| $name | - | (no response) |"
+        fi
+    done
+    echo ""
+
     echo "---"
     echo ""
 
@@ -586,23 +692,27 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
             approach=$(jq -r '.response.approach // "N/A"' "$output_file" 2>/dev/null)
             summary=$(jq -r '.response.summary // "No summary"' "$output_file" 2>/dev/null)
 
-            echo "**Persona**: $persona"
-            echo "**Confidence**: $confidence/10"
-            echo "**Approach**: $approach"
+            echo "**Persona**: $persona | **Confidence**: $confidence/10 | **Approach**: $approach"
             echo ""
-            echo "**Summary**: $summary"
+            echo "$summary"
             echo ""
-            echo "<details>"
-            echo "<summary>Full response</summary>"
-            echo ""
-            echo '```json'
-            jq '.' "$output_file" 2>/dev/null | head -100
-            if [[ $(wc -l < "$output_file") -gt 100 ]]; then
+
+            # Include full JSON only if compact report is disabled (v2.3)
+            if [[ "${ENABLE_COMPACT_REPORT:-true}" != "true" ]]; then
+                local max_lines="${REPORT_MAX_JSON_LINES:-50}"
+                echo "<details>"
+                echo "<summary>Full response</summary>"
                 echo ""
-                echo "[... output truncated ...]"
+                echo '```json'
+                jq '.' "$output_file" 2>/dev/null | head -"$max_lines"
+                if [[ $(wc -l < "$output_file") -gt $max_lines ]]; then
+                    echo ""
+                    echo "[... truncated, see ${output_file} for full response ...]"
+                fi
+                echo '```'
+                echo "</details>"
+                echo ""
             fi
-            echo '```'
-            echo "</details>"
         elif [[ "$result" == *":EMPTY" ]]; then
             echo "*Empty response*"
         else

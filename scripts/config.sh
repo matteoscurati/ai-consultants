@@ -343,6 +343,52 @@ USE_COMPACT_PROMPTS="${USE_COMPACT_PROMPTS:-true}"
 SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
 
 # =============================================================================
+# TOKEN COST OPTIMIZATION (v2.3)
+# =============================================================================
+
+# --- Semantic Caching ---
+# Cache responses based on query + context hash
+ENABLE_SEMANTIC_CACHE="${ENABLE_SEMANTIC_CACHE:-true}"
+CACHE_TTL_HOURS="${CACHE_TTL_HOURS:-24}"
+CACHE_DIR="${CACHE_DIR:-/tmp/ai_consultants_cache}"
+
+# --- Response Length Limits ---
+# Limit output tokens by question category
+# NOTE: Default is FALSE (opt-in) per quality review - can truncate critical info
+ENABLE_RESPONSE_LIMITS="${ENABLE_RESPONSE_LIMITS:-false}"
+# Format: "CATEGORY:MAX_TOKENS,..."
+MAX_RESPONSE_TOKENS_BY_CATEGORY="${MAX_RESPONSE_TOKENS_BY_CATEGORY:-QUICK_SYNTAX:200,CODE_REVIEW:800,BUG_DEBUG:800,ARCHITECTURE:1000,SECURITY:1000,DATABASE:600,GENERAL:500}"
+
+# --- Cost-Aware Model Routing ---
+# Route simple queries to cheaper models
+ENABLE_COST_AWARE_ROUTING="${ENABLE_COST_AWARE_ROUTING:-false}"
+USE_ECONOMIC_MODELS_FOR_SIMPLE="${USE_ECONOMIC_MODELS_FOR_SIMPLE:-true}"
+# Complexity thresholds (1-10 scale)
+COMPLEXITY_THRESHOLD_SIMPLE="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
+COMPLEXITY_THRESHOLD_MEDIUM="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
+
+# --- Selective Context ---
+# Send only relevant files to each consultant
+ENABLE_SELECTIVE_CONTEXT="${ENABLE_SELECTIVE_CONTEXT:-false}"
+MAX_FILES_PER_CONSULTANT="${MAX_FILES_PER_CONSULTANT:-5}"
+
+# --- Debate Optimization ---
+# Optimize debate rounds for token efficiency
+# NOTE: Default is FALSE (opt-in) per quality review - can miss critical disagreements
+ENABLE_DEBATE_OPTIMIZATION="${ENABLE_DEBATE_OPTIMIZATION:-false}"
+# Only activate debate if confidence spread exceeds threshold
+# Lowered to 2 per quality review (original: 3)
+DEBATE_CONFIDENCE_SPREAD_THRESHOLD="${DEBATE_CONFIDENCE_SPREAD_THRESHOLD:-2}"
+# Use summaries in debate rounds instead of full responses
+DEBATE_USE_SUMMARIES="${DEBATE_USE_SUMMARIES:-true}"
+
+# --- Report Optimization ---
+# Generate compact reports by default (summaries only)
+ENABLE_COMPACT_REPORT="${ENABLE_COMPACT_REPORT:-true}"
+# Max lines of JSON to include per consultant in full report
+REPORT_MAX_JSON_LINES="${REPORT_MAX_JSON_LINES:-50}"
+
+# =============================================================================
 # LOGGING
 # =============================================================================
 
@@ -459,4 +505,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.2.0"
+AI_CONSULTANTS_VERSION="2.3.0"

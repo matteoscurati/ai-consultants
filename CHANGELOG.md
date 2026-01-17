@@ -5,6 +5,62 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-01-17
+
+### Added
+
+#### Token Cost Optimization
+- **Semantic Caching**: Cache responses based on query + context fingerprints
+  - New library: `scripts/lib/cache.sh`
+  - Functions: `generate_fingerprint()`, `check_cache()`, `store_cache()`, `cleanup_cache()`
+  - Configuration: `ENABLE_SEMANTIC_CACHE`, `CACHE_TTL_HOURS`, `CACHE_DIR`
+  - Estimated savings: 15-25% on repeated/similar queries
+
+- **Response Length Limits**: Limit output tokens by question category
+  - Functions: `get_max_response_tokens()`, `is_response_limits_enabled()`
+  - Configuration: `ENABLE_RESPONSE_LIMITS` (default: false, opt-in)
+  - Per-category limits: `MAX_RESPONSE_TOKENS_BY_CATEGORY`
+  - Estimated savings: 15-25% on output tokens
+
+- **Cost-Aware Routing**: Route simple queries to cheaper models
+  - Functions: `select_consultants_cost_aware()`, `get_cost_aware_model()`, `calculate_query_complexity()`
+  - Configuration: `ENABLE_COST_AWARE_ROUTING`, `COMPLEXITY_THRESHOLD_SIMPLE`, `COMPLEXITY_THRESHOLD_MEDIUM`
+  - Model tier functions: `get_economic_model()`, `get_model_tier()`
+  - Estimated savings: 30-50% on simple queries
+
+- **Fallback Escalation**: Re-query with premium model if confidence too low
+  - Functions: `needs_escalation()`, `get_premium_model()`, `get_escalation_summary()`
+  - Configuration: `FALLBACK_CONFIDENCE_THRESHOLD` (default: 7)
+  - Prevents low-quality responses from economic models
+
+- **Debate Optimization**: Skip debate if confidence spread is low
+  - Functions: `should_skip_debate()`, `is_mandatory_debate_category()`, `extract_compact_summary()`
+  - Configuration: `ENABLE_DEBATE_OPTIMIZATION` (default: false, opt-in)
+  - `DEBATE_CONFIDENCE_SPREAD_THRESHOLD` (default: 2)
+  - Category exceptions: SECURITY and ARCHITECTURE always trigger debate
+  - Estimated savings: 40-60% on debate tokens
+
+- **Quality Monitoring**: Track optimization metrics
+  - New output file: `optimization_metrics.json`
+  - Logs: cache hits, consensus score, optimization settings
+  - Debug mode: `LOG_LEVEL=DEBUG` shows detailed metrics
+
+- **Compact Reports**: Shorter reports by default
+  - Configuration: `ENABLE_COMPACT_REPORT` (default: true)
+  - `REPORT_MAX_JSON_LINES` for truncation control
+
+### Changed
+- `scripts/config.sh` - Added v2.3 token optimization settings, version 2.3.0
+- `scripts/lib/costs.sh` - Added response limits and complexity scoring
+- `scripts/lib/routing.sh` - Added cost-aware routing, fallback escalation, `_ensure_costs_sourced()` helper
+- `scripts/debate_round.sh` - Added debate optimization, category exceptions
+- `scripts/consult_all.sh` - Integrated cache, quality monitoring with `jq` for JSON generation
+
+### Improved
+- Extracted `_ensure_costs_sourced()` helper to reduce code duplication
+- Replaced echo-based JSON with `jq -n` for cleaner generation
+- Conservative defaults for risky optimizations (opt-in)
+
 ## [2.2.0] - 2026-01-16
 
 ### Added

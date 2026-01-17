@@ -328,3 +328,212 @@ get_category_timeout() {
         GENERAL|*)     echo 180 ;;
     esac
 }
+
+# =============================================================================
+# COST-AWARE ROUTING (v2.3)
+# =============================================================================
+
+# Ensure costs.sh is sourced (lazy loading helper)
+_ensure_costs_sourced() {
+    if ! type get_economic_model &>/dev/null; then
+        local script_dir
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        source "$script_dir/costs.sh" 2>/dev/null || true
+    fi
+}
+
+# Select consultants based on cost efficiency
+# Usage: select_consultants_cost_aware <category> <complexity> [min_affinity]
+# Returns: list of consultants optimized for cost/quality balance
+select_consultants_cost_aware() {
+    local category="$1"
+    local complexity="${2:-5}"
+    local min_affinity="${3:-7}"
+
+    # Check if cost-aware routing is enabled
+    if [[ "${ENABLE_COST_AWARE_ROUTING:-false}" != "true" ]]; then
+        # Fall back to standard selection
+        select_consultants "$category" "$min_affinity"
+        return
+    fi
+
+    _ensure_costs_sourced
+
+    local simple_threshold="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
+    local medium_threshold="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
+
+    # Simple queries: only economic models, fewer consultants
+    if [[ $complexity -le $simple_threshold ]]; then
+        # For simple queries, use only 2 consultants with economic models
+        select_consultants "$category" "$min_affinity" 2
+        return
+    fi
+
+    # Medium complexity: balanced selection
+    if [[ $complexity -le $medium_threshold ]]; then
+        # Use standard selection but limit to 3-4 consultants
+        select_consultants "$category" "$min_affinity" 4
+        return
+    fi
+
+    # Complex queries: full selection
+    select_consultants "$category" "$min_affinity"
+}
+
+# Get model override for cost-aware routing
+# Usage: get_cost_aware_model <consultant> <complexity>
+# Returns: model name to use, or empty for default
+get_cost_aware_model() {
+    local consultant="$1"
+    local complexity="${2:-5}"
+
+    # Check if cost-aware routing is enabled
+    if [[ "${ENABLE_COST_AWARE_ROUTING:-false}" != "true" ]]; then
+        echo ""
+        return
+    fi
+
+    # Check if we should use economic models for simple queries
+    if [[ "${USE_ECONOMIC_MODELS_FOR_SIMPLE:-true}" != "true" ]]; then
+        echo ""
+        return
+    fi
+
+    local simple_threshold="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
+
+    # Simple queries: use economic model
+    if [[ $complexity -le $simple_threshold ]]; then
+        _ensure_costs_sourced
+        local economic_model
+        economic_model=$(get_economic_model "$consultant" 2>/dev/null || echo "")
+        echo "$economic_model"
+        return
+    fi
+
+    # Complex queries: use default model
+    echo ""
+}
+
+# Check if cost-aware routing is enabled
+# Usage: is_cost_aware_routing_enabled
+is_cost_aware_routing_enabled() {
+    [[ "${ENABLE_COST_AWARE_ROUTING:-false}" == "true" ]]
+}
+
+# Get routing summary for logging
+# Usage: get_routing_summary <category> <complexity> <num_consultants>
+get_routing_summary() {
+    local category="$1"
+    local complexity="${2:-5}"
+    local num_consultants="${3:-5}"
+
+    local mode="standard"
+    if is_cost_aware_routing_enabled; then
+        local simple_threshold="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
+        local medium_threshold="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
+
+        if [[ $complexity -le $simple_threshold ]]; then
+            mode="economic"
+        elif [[ $complexity -le $medium_threshold ]]; then
+            mode="balanced"
+        else
+            mode="comprehensive"
+        fi
+    fi
+
+    echo "{\"category\":\"$category\",\"complexity\":$complexity,\"mode\":\"$mode\",\"consultants\":$num_consultants}"
+}
+
+# =============================================================================
+# FALLBACK ESCALATION (v2.3 Quality Review)
+# =============================================================================
+
+# Fallback escalation threshold - escalate to premium if confidence below this
+FALLBACK_CONFIDENCE_THRESHOLD="${FALLBACK_CONFIDENCE_THRESHOLD:-7}"
+
+# Check if response needs escalation based on confidence
+# Usage: needs_escalation <response_file>
+# Returns: 0 if escalation needed, 1 otherwise
+needs_escalation() {
+    local response_file="$1"
+
+    if [[ ! -f "$response_file" || ! -s "$response_file" ]]; then
+        return 0  # No response = needs escalation
+    fi
+
+    local confidence
+    confidence=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
+
+    if [[ ! "$confidence" =~ ^[0-9]+$ ]]; then
+        confidence=5
+    fi
+
+    local threshold="${FALLBACK_CONFIDENCE_THRESHOLD:-7}"
+
+    if [[ $confidence -lt $threshold ]]; then
+        return 0  # Needs escalation
+    fi
+
+    return 1  # No escalation needed
+}
+
+# Get premium model for escalation
+# Usage: get_premium_model <consultant>
+get_premium_model() {
+    local consultant="$1"
+    consultant=$(echo "$consultant" | tr '[:upper:]' '[:lower:]')
+
+    case "$consultant" in
+        gemini)   echo "gemini-2.5-pro" ;;
+        codex)    echo "gpt-4o" ;;
+        mistral)  echo "mistral-large" ;;
+        kilo)     echo "kilo" ;;
+        cursor)   echo "cursor" ;;
+        claude)   echo "claude-3-opus" ;;
+        qwen3)    echo "qwen-max" ;;
+        glm)      echo "glm-4" ;;
+        grok)     echo "grok-2" ;;
+        deepseek) echo "deepseek-coder" ;;
+        *)        echo "" ;;
+    esac
+}
+
+# Check if escalation is enabled
+# Usage: is_escalation_enabled
+is_escalation_enabled() {
+    # Escalation is enabled when cost-aware routing is on
+    [[ "${ENABLE_COST_AWARE_ROUTING:-false}" == "true" ]]
+}
+
+# Get escalation summary for a response
+# Usage: get_escalation_summary <response_file> <consultant>
+get_escalation_summary() {
+    local response_file="$1"
+    local consultant="$2"
+
+    local needs_it="false"
+    local confidence=0
+    local threshold="${FALLBACK_CONFIDENCE_THRESHOLD:-7}"
+
+    if [[ -f "$response_file" && -s "$response_file" ]]; then
+        confidence=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
+        [[ ! "$confidence" =~ ^[0-9]+$ ]] && confidence=5
+    fi
+
+    if [[ $confidence -lt $threshold ]]; then
+        needs_it="true"
+    fi
+
+    local premium_model
+    premium_model=$(get_premium_model "$consultant")
+
+    cat << EOF
+{
+  "consultant": "$consultant",
+  "confidence": $confidence,
+  "threshold": $threshold,
+  "needs_escalation": $needs_it,
+  "premium_model": "$premium_model"
+}
+EOF
+}

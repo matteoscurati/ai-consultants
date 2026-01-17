@@ -1,8 +1,8 @@
-# AI Consultants v2.2
+# AI Consultants v2.3
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -491,6 +491,17 @@ Each consultation generates:
 ---
 
 ## Changelog
+
+### v2.3.0
+
+- **Semantic caching**: Cache responses to avoid redundant API calls (15-25% savings)
+- **Cost-aware routing**: Route simple queries to cheaper models (30-50% savings)
+- **Fallback escalation**: Auto-escalate to premium model if confidence < 7
+- **Debate optimization**: Skip debate if all consultants agree (opt-in)
+- **Category exceptions**: SECURITY/ARCHITECTURE always trigger debate
+- **Quality monitoring**: `optimization_metrics.json` tracks optimization impact
+- **Compact reports**: Shorter reports by default (summaries only)
+- **Response limits**: Per-category token limits (opt-in)
 
 ### v2.2.0
 

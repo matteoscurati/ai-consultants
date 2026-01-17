@@ -15,14 +15,99 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/personas.sh"
+source "$SCRIPT_DIR/config.sh" 2>/dev/null || true
+
+# =============================================================================
+# DEBATE OPTIMIZATION (v2.3)
+# =============================================================================
+
+# Check if category requires mandatory debate (v2.3 Quality Review)
+# Usage: is_mandatory_debate_category <category>
+is_mandatory_debate_category() {
+    local category="${1:-GENERAL}"
+    case "$category" in
+        SECURITY|ARCHITECTURE)
+            return 0  # Mandatory debate
+            ;;
+        *)
+            return 1  # Not mandatory
+            ;;
+    esac
+}
+
+# Check if debate should be skipped based on confidence spread
+# Usage: should_skip_debate <responses_dir> [category]
+should_skip_debate() {
+    local responses_dir="$1"
+    local category="${2:-GENERAL}"
+
+    # SECURITY and ARCHITECTURE always require debate (v2.3 Quality Review)
+    if is_mandatory_debate_category "$category"; then
+        return 1  # Don't skip - mandatory categories always debate
+    fi
+
+    # Skip if debate optimization is not enabled
+    if [[ "${ENABLE_DEBATE_OPTIMIZATION:-false}" != "true" ]]; then
+        return 1  # Don't skip
+    fi
+
+    local threshold="${DEBATE_CONFIDENCE_SPREAD_THRESHOLD:-3}"
+    local min_confidence=10
+    local max_confidence=0
+    local count=0
+
+    for f in "$responses_dir"/*.json; do
+        if [[ -f "$f" && "$f" != *"summary"* && "$f" != *"round_"* ]]; then
+            local confidence
+            confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
+            if [[ "$confidence" =~ ^[0-9]+$ ]]; then
+                [[ $confidence -lt $min_confidence ]] && min_confidence=$confidence
+                [[ $confidence -gt $max_confidence ]] && max_confidence=$confidence
+                ((count++))
+            fi
+        fi
+    done
+
+    if [[ $count -lt 2 ]]; then
+        return 1  # Not enough responses to evaluate
+    fi
+
+    local spread=$((max_confidence - min_confidence))
+    if [[ $spread -lt $threshold ]]; then
+        log_debug "Debate optimization: Skipping debate (confidence spread: $spread < threshold: $threshold)"
+        return 0  # Skip debate
+    fi
+
+    return 1  # Don't skip
+}
+
+# Extract compact summary for token-optimized debate
+# Usage: extract_compact_summary <response_file>
+extract_compact_summary() {
+    local response_file="$1"
+
+    if [[ "${DEBATE_USE_SUMMARIES:-true}" == "true" ]]; then
+        # Use only summary field (compact)
+        local consultant=$(jq -r '.consultant // "Unknown"' "$response_file" 2>/dev/null)
+        local summary=$(jq -r '.response.summary // "No summary"' "$response_file" 2>/dev/null | head -c 300)
+        local approach=$(jq -r '.response.approach // "unknown"' "$response_file" 2>/dev/null)
+        local confidence=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
+
+        echo "**$consultant** ($approach, conf:$confidence): $summary"
+    else
+        # Use full extract_summary (original behavior)
+        extract_summary "$response_file"
+    fi
+}
 
 # --- Parameters ---
 RESPONSES_DIR="${1:-}"
 ROUND_NUMBER="${2:-2}"
 OUTPUT_DIR="${3:-}"
+QUESTION_CATEGORY="${4:-GENERAL}"  # v2.3: Category for mandatory debate check
 
 if [[ -z "$RESPONSES_DIR" || ! -d "$RESPONSES_DIR" ]]; then
-    log_error "Usage: $0 <responses_dir> <round_number> [output_dir]"
+    log_error "Usage: $0 <responses_dir> <round_number> [output_dir] [category]"
     exit 1
 fi
 
@@ -59,13 +144,13 @@ build_debate_prompt() {
     local my_response=$(cat "$my_response_file" 2>/dev/null)
     local other_summaries=""
 
-    # Collect summaries from other consultants
+    # Collect summaries from other consultants (using compact summaries when optimized)
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" ]]; then
+        if [[ -f "$f" && "$f" != *"summary"* && "$f" != *"round_"* ]]; then
             local other_consultant=$(jq -r '.consultant // "Unknown"' "$f" 2>/dev/null)
             if [[ "$other_consultant" != "$consultant" ]]; then
                 other_summaries+="
-$(extract_summary "$f")
+$(extract_compact_summary "$f")
 ---
 "
             fi
@@ -258,6 +343,14 @@ generate_round_summary() {
 # =============================================================================
 # ENTRY POINT
 # =============================================================================
+
+# Check if debate should be skipped based on confidence spread (v2.3)
+if [[ "$ROUND_NUMBER" == "2" ]] && should_skip_debate "$RESPONSES_DIR" "$QUESTION_CATEGORY"; then
+    log_info "Debate skipped: confidence spread below threshold (all consultants agree)"
+    echo '{"skipped": true, "reason": "confidence_spread_below_threshold"}' > "$OUTPUT_DIR/round_summary.json"
+    echo "$OUTPUT_DIR"
+    exit 0
+fi
 
 run_debate_round
 echo "$OUTPUT_DIR"
