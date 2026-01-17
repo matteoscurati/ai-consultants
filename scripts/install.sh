@@ -49,9 +49,9 @@ fi
 
 print_header() {
     echo ""
-    echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║          AI Consultants v2.2 - Installation                   ║${NC}"
-    echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${BLUE}+---------------------------------------------------------------+${NC}"
+    echo -e "${BLUE}|           AI Consultants v2.2 - Installation                  |${NC}"
+    echo -e "${BLUE}+---------------------------------------------------------------+${NC}"
     echo ""
 }
 
@@ -282,31 +282,41 @@ fi
 # =============================================================================
 
 echo ""
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                    Installation Complete!                      ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${GREEN}+---------------------------------------------------------------+${NC}"
+echo -e "${GREEN}|                   Installation Complete!                      |${NC}"
+echo -e "${GREEN}+---------------------------------------------------------------+${NC}"
 echo ""
 
 log_info "Installation directory: $INSTALL_DIR"
 echo ""
 
-log_info "Next steps:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "  1. Configure your consultants:"
-echo "     $INSTALL_DIR/scripts/setup_wizard.sh"
+log_info "Option A: Configure via Claude Code (recommended)"
 echo ""
-echo "  2. Or use directly in Claude Code:"
+echo "  1. Run the setup wizard:"
+echo "     /ai-consultants:config-wizard"
+echo ""
+echo "  2. Start consulting:"
 echo "     /ai-consultants:consult \"Your question here\""
 echo ""
-echo "  3. Run the doctor for diagnostics:"
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+log_info "Option B: Configure via Bash"
+echo ""
+echo "  1. Run the setup wizard:"
+echo "     $INSTALL_DIR/scripts/setup_wizard.sh"
+echo ""
+echo "  2. Run a consultation:"
+echo "     $INSTALL_DIR/scripts/consult_all.sh \"Your question\""
+echo ""
+echo "  3. Diagnose issues:"
 echo "     $INSTALL_DIR/scripts/doctor.sh"
 echo ""
 
-log_info "Available presets:"
-echo "     --preset minimal      (2 models, fast)"
-echo "     --preset balanced     (4 models, recommended)"
-echo "     --preset high-stakes  (all models + debate)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-
-log_info "Documentation: https://github.com/matteoscurati/ai-consultants"
+log_info "Using another CLI? (Codex, Gemini, Cursor, Aider)"
+echo "     See: https://github.com/matteoscurati/ai-consultants#supported-cli-agents"
 echo ""
