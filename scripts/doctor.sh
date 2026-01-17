@@ -81,12 +81,12 @@ add_warning() {
 }
 
 check_pass() {
-    ((TOTAL_CHECKS++))
-    ((PASSED_CHECKS++))
+    (( ++TOTAL_CHECKS ))
+    (( ++PASSED_CHECKS ))
 }
 
 check_fail() {
-    ((TOTAL_CHECKS++))
+    (( ++TOTAL_CHECKS ))
 }
 
 # Print only in non-JSON mode
