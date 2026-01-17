@@ -59,6 +59,16 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 /ai-consultants:consult "How should I structure my authentication system?"
 ```
 
+### Update & Uninstall
+
+```bash
+# Update to latest version
+~/.claude/skills/ai-consultants/scripts/install.sh --update
+
+# Uninstall completely
+~/.claude/skills/ai-consultants/scripts/install.sh --uninstall
+```
+
 ---
 
 ## Supported CLI Agents
