@@ -279,6 +279,14 @@ WARN_AT_COST="${WARN_AT_COST:-0.50}"
 # File for cumulative tracking
 COST_TRACKING_FILE="${COST_TRACKING_FILE:-/tmp/ai_consultants_costs.json}"
 
+# --- Budget Enforcement (v2.4) ---
+# Enable budget limit enforcement (opt-in, default OFF)
+ENABLE_BUDGET_LIMIT="${ENABLE_BUDGET_LIMIT:-false}"
+
+# Action to take when budget is exceeded
+# Options: warn (log warning but continue), stop (halt consultation with partial results)
+BUDGET_ACTION="${BUDGET_ACTION:-warn}"
+
 # =============================================================================
 # SESSION MANAGEMENT (v2.0)
 # =============================================================================
@@ -505,4 +513,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.3.1"
+AI_CONSULTANTS_VERSION="2.4.0"

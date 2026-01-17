@@ -681,3 +681,83 @@ log_token_estimate() {
     tokens=$(estimate_tokens "$text")
     log_debug "$label: ~$tokens tokens (~$((tokens * 4)) chars)"
 }
+
+# =============================================================================
+# RESPONSE BUILDERS (v2.4)
+# =============================================================================
+# Shared helpers for building standardized JSON responses in query scripts
+
+# Build metadata JSON for responses
+# Usage: build_response_metadata <latency_ms> <model> [error_msg]
+build_response_metadata() {
+    local latency="$1"
+    local model="$2"
+    local error="${3:-}"
+
+    jq -n \
+        --argjson latency "$latency" \
+        --arg model "$model" \
+        --arg timestamp "$(date -Iseconds)" \
+        --arg error "$error" \
+        '{tokens_used: 0, latency_ms: $latency, model_version: $model, timestamp: $timestamp} + (if $error != "" then {error: $error} else {} end)'
+}
+
+# Build a complete structured response JSON
+# Usage: build_structured_response <consultant> <model> <persona> <inner_json> <latency_ms>
+build_structured_response() {
+    local consultant="$1"
+    local model="$2"
+    local persona="$3"
+    local inner_json="$4"
+    local latency="$5"
+
+    jq -n \
+        --arg consultant "$consultant" \
+        --arg model "$model" \
+        --arg persona "$persona" \
+        --argjson inner "$inner_json" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model")" \
+        '{consultant: $consultant, model: $model, persona: $persona, response: $inner.response, confidence: $inner.confidence, metadata: $metadata}'
+}
+
+# Build a fallback response from unstructured text
+# Usage: build_fallback_response <consultant> <model> <persona> <response_text> <latency_ms>
+build_fallback_response() {
+    local consultant="$1"
+    local model="$2"
+    local persona="$3"
+    local response_text="$4"
+    local latency="$5"
+
+    jq -n \
+        --arg consultant "$consultant" \
+        --arg model "$model" \
+        --arg persona "$persona" \
+        --arg response "$response_text" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model")" \
+        '{consultant: $consultant, model: $model, persona: $persona,
+          response: {summary: "Unstructured response - see detailed", detailed: $response, approach: "unknown", pros: [], cons: [], caveats: ["Unstructured output from consultant"]},
+          confidence: {score: 5, reasoning: "Confidence not provided by consultant", uncertainty_factors: ["Non-standard response format"]},
+          metadata: $metadata}'
+}
+
+# Build an error response
+# Usage: build_error_response <consultant> <model> <persona> <error_msg> <latency_ms>
+build_error_response() {
+    local consultant="$1"
+    local model="$2"
+    local persona="$3"
+    local error_msg="$4"
+    local latency="$5"
+
+    jq -n \
+        --arg consultant "$consultant" \
+        --arg model "$model" \
+        --arg persona "$persona" \
+        --arg error "$error_msg" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "$error_msg")" \
+        '{consultant: $consultant, model: $model, persona: $persona,
+          response: {summary: "ERROR: Consultation failed", detailed: $error, approach: "error", pros: [], cons: [], caveats: []},
+          confidence: {score: 0, reasoning: "Consultation failed", uncertainty_factors: ["Execution error"]},
+          metadata: $metadata}'
+}

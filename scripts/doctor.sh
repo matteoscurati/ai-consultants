@@ -322,8 +322,15 @@ check_configuration() {
         check_pass
     fi
 
-    # Budget check
-    _print "  ○ Max session cost: \$${MAX_SESSION_COST}"
+    # Budget enforcement status
+    local budget_enabled="${ENABLE_BUDGET_LIMIT:-false}"
+    local budget_action="${BUDGET_ACTION:-warn}"
+    if [[ "$budget_enabled" == "true" ]]; then
+        _print "  ✓ Budget limit: \$${MAX_SESSION_COST} (enabled, action: $budget_action)"
+        check_pass
+    else
+        _print "  ○ Budget limit: \$${MAX_SESSION_COST} (disabled)"
+    fi
 }
 
 # =============================================================================

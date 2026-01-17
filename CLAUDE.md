@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 12 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.3.0
+**Version**: 2.4.0
 
 ## Structure
 
@@ -216,6 +216,37 @@ Functions in `lib/reflection.sh`:
 - `heuristic_overconfidence_check()` - Fast fallback without LLM
 - `judge_all_responses()` - Batch evaluation
 
+## v2.4 Features
+
+### Budget Enforcement (Opt-in)
+Optional budget limits to prevent consultations from exceeding configurable cost limits.
+
+```bash
+# Enable budget enforcement
+ENABLE_BUDGET_LIMIT=true
+MAX_SESSION_COST=1.00
+BUDGET_ACTION=warn  # or "stop"
+```
+
+**BUDGET_ACTION options:**
+- `warn` - Log warning but continue consultation
+- `stop` - Halt consultation and return partial results
+
+**Enforcement Points:**
+1. Before Round 1 - Check estimated cost vs budget
+2. After Round 1 - Check actual cost vs warning threshold
+3. Before Debate - Check cumulative + debate estimate
+4. Before Synthesis - Check cumulative + synthesis estimate
+
+Functions in `lib/costs.sh`:
+- `is_budget_enabled()` - Check if budget enforcement is enabled
+- `enforce_budget()` - Check budget and take action based on BUDGET_ACTION
+- `get_remaining_budget()` - Get remaining budget
+- `format_budget_status()` - Format budget status for display
+- `estimate_phase_cost()` - Estimate cost for a specific phase
+
+Configuration via `/ai-consultants:config-budget` slash command.
+
 ## v2.3 Features
 
 ### Semantic Caching
@@ -377,6 +408,8 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_COST_AWARE_ROUTING` | false | Cost-based model routing (v2.3) |
 | `ENABLE_DEBATE_OPTIMIZATION` | false | Skip debate if all agree (v2.3, opt-in) |
 | `ENABLE_COMPACT_REPORT` | true | Compact report format (v2.3) |
+| `ENABLE_BUDGET_LIMIT` | false | Budget enforcement (v2.4, opt-in) |
+| `BUDGET_ACTION` | warn | Action on budget exceeded: warn/stop (v2.4) |
 
 ## External Dependencies
 
@@ -429,6 +462,13 @@ For detailed information, see:
 - Run `./scripts/doctor.sh` to verify configuration
 
 ## Changelog
+
+### v2.4.0
+- Budget enforcement (opt-in) with configurable limits
+- ENABLE_BUDGET_LIMIT and BUDGET_ACTION configuration
+- Budget checks at 4 enforcement points (before/after consultation, debate, synthesis)
+- `/ai-consultants:config-budget` slash command
+- Updated doctor.sh to display budget status
 
 ### v2.3.0
 - Semantic caching with fingerprint-based cache keys

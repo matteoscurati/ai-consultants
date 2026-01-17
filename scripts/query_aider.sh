@@ -59,108 +59,25 @@ exit_code=$?
 END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
-# --- Post-processing: wrap in full schema ---
+# --- Configuration for response building ---
+MODEL_USED="${AIDER_MODEL:-gpt-4o}"
+PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
+
+# --- Post-processing: wrap in full schema using shared helpers ---
 if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
     RAW_RESPONSE=$(cat "$TEMP_OUTPUT")
+    rm -f "$TEMP_OUTPUT"
 
-    # Aider outputs plain text, try to parse as JSON first
+    # Try to parse as structured JSON
     if echo "$RAW_RESPONSE" | jq -e '.response.summary' > /dev/null 2>&1; then
-        # It's already in our format, wrap with metadata
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg model "${AIDER_MODEL:-default}" \
-            --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-            --argjson inner "$RAW_RESPONSE" \
-            --argjson latency "$LATENCY_MS" \
-            --arg timestamp "$(date -Iseconds)" \
-            '{
-                consultant: $consultant,
-                model: $model,
-                persona: $persona,
-                response: $inner.response,
-                confidence: $inner.confidence,
-                metadata: {
-                    tokens_used: 0,
-                    latency_ms: $latency,
-                    model_version: $model,
-                    timestamp: $timestamp
-                }
-            }' > "$OUTPUT_FILE"
+        build_structured_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" > "$OUTPUT_FILE"
     else
-        # Fallback: response is not structured JSON, create base structure
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg model "${AIDER_MODEL:-default}" \
-            --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-            --arg response "$RAW_RESPONSE" \
-            --argjson latency "$LATENCY_MS" \
-            --arg timestamp "$(date -Iseconds)" \
-            '{
-                consultant: $consultant,
-                model: $model,
-                persona: $persona,
-                response: {
-                    summary: "Unstructured response - see detailed",
-                    detailed: $response,
-                    approach: "unknown",
-                    pros: [],
-                    cons: [],
-                    caveats: ["Unstructured output from consultant"]
-                },
-                confidence: {
-                    score: 5,
-                    reasoning: "Confidence not provided by consultant",
-                    uncertainty_factors: ["Non-standard response format"]
-                },
-                metadata: {
-                    tokens_used: 0,
-                    latency_ms: $latency,
-                    model_version: $model,
-                    timestamp: $timestamp
-                }
-            }' > "$OUTPUT_FILE"
+        build_fallback_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" > "$OUTPUT_FILE"
     fi
-
-    rm -f "$TEMP_OUTPUT"
-
-    # Output the result
-    cat "$OUTPUT_FILE"
 else
-    # Error - create structured error output
-    jq -n \
-        --arg consultant "$CONSULTANT_NAME" \
-        --arg model "${AIDER_MODEL:-default}" \
-        --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-        --argjson latency "$LATENCY_MS" \
-        --arg timestamp "$(date -Iseconds)" \
-        --arg error "Query failed with exit code $exit_code" \
-        '{
-            consultant: $consultant,
-            model: $model,
-            persona: $persona,
-            response: {
-                summary: "ERROR: Consultation failed",
-                detailed: $error,
-                approach: "error",
-                pros: [],
-                cons: [],
-                caveats: []
-            },
-            confidence: {
-                score: 0,
-                reasoning: "Consultation failed",
-                uncertainty_factors: ["Execution error"]
-            },
-            metadata: {
-                latency_ms: $latency,
-                model_version: $model,
-                timestamp: $timestamp,
-                error: $error
-            }
-        }' > "$OUTPUT_FILE"
-
     rm -f "$TEMP_OUTPUT"
-    cat "$OUTPUT_FILE"
+    build_error_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "Query failed with exit code $exit_code" "$LATENCY_MS" > "$OUTPUT_FILE"
 fi
 
+cat "$OUTPUT_FILE"
 exit $exit_code

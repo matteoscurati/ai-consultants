@@ -5,14 +5,124 @@
 # and manages budget limits.
 
 # =============================================================================
+# EXTERNAL RATES FILE (v2.4)
+# =============================================================================
+# Path to external rates file for easy updates
+
+# Get the script directory for relative path resolution
+_COSTS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COST_RATES_FILE="${COST_RATES_FILE:-$_COSTS_SCRIPT_DIR/../../docs/cost_rates.json}"
+
+# Load rate from JSON file
+# Usage: get_rate_from_file <model> <type: input|output>
+# Returns: rate as string, or exits with 1 if not found
+get_rate_from_file() {
+    local model="$1"
+    local type="$2"
+
+    if [[ -f "$COST_RATES_FILE" ]]; then
+        local rate
+        rate=$(jq -r ".models[\"$model\"].$type // null" "$COST_RATES_FILE" 2>/dev/null)
+        if [[ "$rate" != "null" && -n "$rate" ]]; then
+            echo "$rate"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Get fallback model for a consultant
+# Usage: get_consultant_fallback_model <consultant>
+# Returns: fallback model name (empty string if not found)
+get_consultant_fallback_model() {
+    local consultant="$1"
+    consultant=$(echo "$consultant" | tr '[:upper:]' '[:lower:]')
+
+    if [[ -f "$COST_RATES_FILE" ]]; then
+        local fallback
+        fallback=$(jq -r ".consultant_fallbacks[\"$consultant\"] // null" "$COST_RATES_FILE" 2>/dev/null)
+        if [[ "$fallback" != "null" && -n "$fallback" ]]; then
+            echo "$fallback"
+        fi
+    fi
+}
+
+# Resolve model name: use reported model if known, else fallback
+# Usage: resolve_model_for_cost <reported_model> <consultant>
+# Returns: resolved model name for cost calculation
+resolve_model_for_cost() {
+    local model="$1"
+    local consultant="$2"
+
+    # Fetch fallback once for reuse
+    local fallback
+    fallback=$(get_consultant_fallback_model "$consultant")
+
+    # If model is "default", empty, or unknown, use fallback
+    if [[ -z "$model" || "$model" == "default" ]]; then
+        if [[ -n "$fallback" ]]; then
+            type log_debug &>/dev/null && log_debug "Using fallback model '$fallback' for $consultant (reported: '$model')"
+            echo "$fallback"
+            return 0
+        fi
+    fi
+
+    # Check if model exists in rates file
+    if get_rate_from_file "$model" "input" >/dev/null 2>&1; then
+        echo "$model"
+        return 0
+    fi
+
+    # Model not in rates file, try fallback
+    if [[ -n "$fallback" ]]; then
+        type log_debug &>/dev/null && log_debug "Model '$model' not in rates, using fallback '$fallback' for $consultant"
+        echo "$fallback"
+        return 0
+    fi
+
+    # Return original (will use default rate)
+    echo "$model"
+}
+
+# Get default rate from JSON file
+# Usage: get_default_rate <type: input|output>
+get_default_rate() {
+    local type="$1"
+    if [[ -f "$COST_RATES_FILE" ]]; then
+        local rate
+        rate=$(jq -r ".default_rate.$type // null" "$COST_RATES_FILE" 2>/dev/null)
+        if [[ "$rate" != "null" && -n "$rate" ]]; then
+            echo "$rate"
+            return 0
+        fi
+    fi
+    # Hardcoded fallback
+    case "$type" in
+        input)  echo "0.005" ;;
+        output) echo "0.015" ;;
+    esac
+}
+
+# =============================================================================
 # COST RATES (USD per 1K tokens)
 # =============================================================================
 # Using case statements for bash 3.2 compatibility (no associative arrays)
+# External JSON file is tried first, then fallback to hardcoded rates
 
 # Get input token cost per 1K tokens
 # Usage: get_input_cost_per_1k <model>
 get_input_cost_per_1k() {
     local model="$1"
+    model=$(echo "$model" | tr '[:upper:]' '[:lower:]')
+
+    # Try external file first
+    local rate
+    if rate=$(get_rate_from_file "$model" "input" 2>/dev/null); then
+        echo "$rate"
+        return
+    fi
+
+    # Fallback to hardcoded rates for backwards compatibility
     case "$model" in
         gemini-2.5-pro)   echo "0.00125" ;;
         gemini-2.5-flash) echo "0.000075" ;;
@@ -50,6 +160,16 @@ get_input_cost_per_1k() {
 # Usage: get_output_cost_per_1k <model>
 get_output_cost_per_1k() {
     local model="$1"
+    model=$(echo "$model" | tr '[:upper:]' '[:lower:]')
+
+    # Try external file first
+    local rate
+    if rate=$(get_rate_from_file "$model" "output" 2>/dev/null); then
+        echo "$rate"
+        return
+    fi
+
+    # Fallback to hardcoded rates for backwards compatibility
     case "$model" in
         gemini-2.5-pro)   echo "0.005" ;;
         gemini-2.5-flash) echo "0.0003" ;;
@@ -177,10 +297,12 @@ check_warning_threshold() {
 }
 
 # Estimate pre-consultation cost (before executing)
-# Usage: estimate_consultation_cost <num_consultants> <context_size_chars>
+# Usage: estimate_consultation_cost <num_consultants> <context_size_chars> [consultants_csv]
+# The consultants_csv parameter is a comma-separated list of consultant names (e.g., "Gemini,Codex,Mistral")
 estimate_consultation_cost() {
     local num_consultants="${1:-5}"
     local context_size="${2:-5000}"
+    local consultants="${3:-}"
 
     # Estimate tokens from context (approximately 4 chars per token)
     local estimated_input_tokens=$((context_size / 4))
@@ -189,12 +311,31 @@ estimate_consultation_cost() {
     local estimated_output_tokens=750
 
     local total=0
-    local models=("gemini-2.5-pro" "default" "mistral-large" "default" "cursor")
 
-    for ((i=0; i<num_consultants && i<${#models[@]}; i++)); do
-        local cost=$(estimate_query_cost "${models[$i]}" "$estimated_input_tokens" "$estimated_output_tokens")
-        total=$(echo "scale=6; $total + $cost" | bc)
-    done
+    if [[ -n "$consultants" ]]; then
+        # Use provided consultant list with fallback models
+        local IFS=','
+        read -ra consultant_list <<< "$consultants"
+        for consultant in "${consultant_list[@]}"; do
+            local fallback_model
+            fallback_model=$(get_consultant_fallback_model "$consultant")
+            local model_to_use="${fallback_model:-default}"
+            local cost=$(estimate_query_cost "$model_to_use" "$estimated_input_tokens" "$estimated_output_tokens")
+            total=$(echo "scale=6; $total + $cost" | bc)
+        done
+    else
+        # Fallback to generic estimate using default rate
+        for ((i=0; i<num_consultants; i++)); do
+            local default_input default_output
+            default_input=$(get_default_rate "input")
+            default_output=$(get_default_rate "output")
+            local input_cost output_cost cost
+            input_cost=$(echo "scale=6; $estimated_input_tokens / 1000 * $default_input" | bc)
+            output_cost=$(echo "scale=6; $estimated_output_tokens / 1000 * $default_output" | bc)
+            cost=$(echo "scale=6; $input_cost + $output_cost" | bc)
+            total=$(echo "scale=6; $total + $cost" | bc)
+        done
+    fi
 
     echo "$total"
 }
@@ -426,4 +567,105 @@ is_complex_query() {
     local threshold="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
 
     [[ $complexity -gt $threshold ]]
+}
+
+# =============================================================================
+# BUDGET ENFORCEMENT (v2.4)
+# =============================================================================
+
+# Check if budget enforcement is enabled
+# Usage: is_budget_enabled
+is_budget_enabled() {
+    [[ "${ENABLE_BUDGET_LIMIT:-false}" == "true" ]]
+}
+
+# Get remaining budget
+# Usage: get_remaining_budget <current_cost>
+get_remaining_budget() {
+    local current_cost="${1:-0}"
+    local budget="${MAX_SESSION_COST:-1.00}"
+
+    echo "scale=6; $budget - $current_cost" | bc
+}
+
+# Format budget status for display
+# Usage: format_budget_status <current_cost> [budget]
+format_budget_status() {
+    local current_cost="${1:-0}"
+    local budget="${2:-${MAX_SESSION_COST:-1.00}}"
+
+    local remaining
+    remaining=$(get_remaining_budget "$current_cost")
+    local percent_used
+    percent_used=$(echo "scale=1; $current_cost / $budget * 100" | bc 2>/dev/null || echo "0")
+
+    echo "$(format_cost "$current_cost") / $(format_cost "$budget") (${percent_used}% used)"
+}
+
+# Enforce budget and take action based on BUDGET_ACTION
+# Returns: 0 = proceed, 1 = stop
+# Usage: enforce_budget <current_cost> <additional_estimate> <context_msg>
+enforce_budget() {
+    local current_cost="${1:-0}"
+    local additional_estimate="${2:-0}"
+    local context_msg="${3:-operation}"
+    local budget="${MAX_SESSION_COST:-1.00}"
+    local action="${BUDGET_ACTION:-warn}"
+
+    # Skip if budget enforcement is disabled
+    if ! is_budget_enabled; then
+        return 0
+    fi
+
+    # Calculate projected cost
+    local projected_cost
+    projected_cost=$(echo "scale=6; $current_cost + $additional_estimate" | bc)
+
+    # Check if projected cost exceeds budget
+    if ! check_budget "$projected_cost" "$budget"; then
+        local msg="Budget limit exceeded for $context_msg: projected $(format_cost "$projected_cost") > $(format_cost "$budget")"
+
+        case "$action" in
+            stop)
+                log_error "$msg"
+                log_error "Stopping consultation (BUDGET_ACTION=stop)"
+                return 1
+                ;;
+            warn|*)
+                log_warn "$msg"
+                log_warn "Continuing despite budget limit (BUDGET_ACTION=warn)"
+                return 0
+                ;;
+        esac
+    fi
+
+    return 0
+}
+
+# Estimate cost for a specific phase
+# Usage: estimate_phase_cost <phase> <num_consultants> <context_size>
+estimate_phase_cost() {
+    local phase="$1"
+    local num_consultants="${2:-4}"
+    local context_size="${3:-5000}"
+
+    case "$phase" in
+        round1|consultation)
+            # Initial consultation: all consultants
+            estimate_consultation_cost "$num_consultants" "$context_size"
+            ;;
+        debate)
+            # Debate round: ~50% of consultation cost per round
+            local base
+            base=$(estimate_consultation_cost "$num_consultants" "$context_size")
+            echo "scale=6; $base * 0.5" | bc
+            ;;
+        synthesis)
+            # Synthesis: single model, larger output
+            estimate_query_cost "claude-3-sonnet" 2000 1500
+            ;;
+        *)
+            echo "0"
+            ;;
+    esac
 }

@@ -260,10 +260,21 @@ fi
 log_success "Context created: $CONTEXT_FILE ($(wc -l < "$CONTEXT_FILE" | tr -d ' ') lines)"
 
 # --- Cost Estimation (optional) ---
+CONTEXT_SIZE=0
+ESTIMATED_COST=0
 if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
     CONTEXT_SIZE=$(wc -c < "$CONTEXT_FILE" | tr -d ' ')
     ESTIMATED_COST=$(estimate_consultation_cost 4 "$CONTEXT_SIZE")
     log_info "Estimated cost: $(format_cost "$ESTIMATED_COST")"
+fi
+
+# --- Budget Check: Before Round 1 ---
+if is_budget_enabled; then
+    log_debug "Budget enforcement enabled: \$${MAX_SESSION_COST} limit"
+    if ! enforce_budget 0 "$ESTIMATED_COST" "initial consultation"; then
+        log_error "Consultation aborted: estimated cost exceeds budget"
+        exit 1
+    fi
 fi
 echo "" >&2
 
@@ -315,6 +326,22 @@ if [[ ${#SELECTED_CONSULTANTS[@]} -lt 2 ]]; then
     log_info "Or manually enable more:"
     log_info "  ENABLE_GEMINI=true ENABLE_CODEX=true ./scripts/consult_all.sh \"query\""
     exit 1
+fi
+
+# --- Refined Cost Estimation (v2.4) ---
+# Now that we know which consultants are selected, recalculate with accurate model rates
+if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
+    CONSULTANT_LIST=$(IFS=','; echo "${SELECTED_CONSULTANTS[*]}")
+    ESTIMATED_COST=$(estimate_consultation_cost "${#SELECTED_CONSULTANTS[@]}" "$CONTEXT_SIZE" "$CONSULTANT_LIST")
+    log_debug "Refined estimate with ${#SELECTED_CONSULTANTS[@]} consultants: $(format_cost "$ESTIMATED_COST")"
+
+    # Re-check budget with refined estimate
+    if is_budget_enabled; then
+        if ! enforce_budget 0 "$ESTIMATED_COST" "refined consultation estimate"; then
+            log_error "Consultation aborted: refined estimate exceeds budget"
+            exit 1
+        fi
+    fi
 fi
 
 # --- Round 1: Parallel Consultation ---
@@ -428,6 +455,22 @@ done
 
 echo "" >&2
 
+# --- Budget Check: After Round 1 ---
+CURRENT_COST=0
+if [[ "$ENABLE_COST_TRACKING" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
+    CURRENT_COST=$(calculate_session_cost "$OUTPUT_DIR")
+
+    # Check warning threshold
+    if check_warning_threshold "$CURRENT_COST"; then
+        log_warn "Cost warning: $(format_budget_status "$CURRENT_COST")"
+    fi
+
+    # Budget enforcement check
+    if is_budget_enabled; then
+        log_debug "Current cost after Round 1: $(format_cost "$CURRENT_COST")"
+    fi
+fi
+
 # --- Panic Mode Detection (v2.2) ---
 PANIC_TRIGGERED=false
 if [[ "$ENABLE_PANIC_MODE" != "never" && $SUCCESS_COUNT -gt 1 ]]; then
@@ -467,30 +510,43 @@ fi
 
 # --- Round 2+: Multi-Agent Debate (optional) ---
 if [[ "$ENABLE_DEBATE" == "true" && $DEBATE_ROUNDS -gt 1 && $SUCCESS_COUNT -gt 1 ]]; then
-    log_info "Starting Multi-Agent Debate (${DEBATE_ROUNDS} total rounds)..."
-
-    for ((round=2; round<=DEBATE_ROUNDS; round++)); do
-        log_info "  Round $round..."
-        # v2.3: Pass category for mandatory debate check (SECURITY/ARCHITECTURE always debate)
-        DEBATE_OUTPUT=$("$SCRIPT_DIR/debate_round.sh" "$OUTPUT_DIR" "$round" "$OUTPUT_DIR/round_$round" "$QUESTION_CATEGORY")
-
-        # Update responses with debate results
-        if [[ -d "$OUTPUT_DIR/round_$round" ]]; then
-            for f in "$OUTPUT_DIR/round_$round"/*.json; do
-                if [[ -f "$f" && "$f" != *"summary"* ]]; then
-                    consultant=$(basename "$f" .json)
-                    # Merge debate data into main response
-                    if [[ -f "$OUTPUT_DIR/${consultant}.json" ]]; then
-                        jq -s '.[0] * {debate: .[1].debate}' \
-                            "$OUTPUT_DIR/${consultant}.json" "$f" \
-                            > "$OUTPUT_DIR/${consultant}.json.tmp" && \
-                            mv "$OUTPUT_DIR/${consultant}.json.tmp" "$OUTPUT_DIR/${consultant}.json"
-                    fi
-                fi
-            done
+    # Budget Check: Before Debate
+    if is_budget_enabled; then
+        DEBATE_ESTIMATE=$(estimate_phase_cost "debate" "$SUCCESS_COUNT" "$CONTEXT_SIZE")
+        DEBATE_ESTIMATE=$(echo "scale=6; $DEBATE_ESTIMATE * $DEBATE_ROUNDS" | bc)
+        if ! enforce_budget "$CURRENT_COST" "$DEBATE_ESTIMATE" "debate rounds"; then
+            log_warn "Skipping debate due to budget constraints"
+            ENABLE_DEBATE=false
         fi
-    done
-    echo "" >&2
+    fi
+
+    # Proceed with debate if still enabled after budget check
+    if [[ "$ENABLE_DEBATE" == "true" ]]; then
+        log_info "Starting Multi-Agent Debate (${DEBATE_ROUNDS} total rounds)..."
+
+        for ((round=2; round<=DEBATE_ROUNDS; round++)); do
+            log_info "  Round $round..."
+            # v2.3: Pass category for mandatory debate check (SECURITY/ARCHITECTURE always debate)
+            DEBATE_OUTPUT=$("$SCRIPT_DIR/debate_round.sh" "$OUTPUT_DIR" "$round" "$OUTPUT_DIR/round_$round" "$QUESTION_CATEGORY")
+
+            # Update responses with debate results
+            if [[ -d "$OUTPUT_DIR/round_$round" ]]; then
+                for f in "$OUTPUT_DIR/round_$round"/*.json; do
+                    if [[ -f "$f" && "$f" != *"summary"* ]]; then
+                        consultant=$(basename "$f" .json)
+                        # Merge debate data into main response
+                        if [[ -f "$OUTPUT_DIR/${consultant}.json" ]]; then
+                            jq -s '.[0] * {debate: .[1].debate}' \
+                                "$OUTPUT_DIR/${consultant}.json" "$f" \
+                                > "$OUTPUT_DIR/${consultant}.json.tmp" && \
+                                mv "$OUTPUT_DIR/${consultant}.json.tmp" "$OUTPUT_DIR/${consultant}.json"
+                        fi
+                    fi
+                done
+            fi
+        done
+        echo "" >&2
+    fi
 fi
 
 # --- Voting and Consensus ---
@@ -549,15 +605,31 @@ jq -n \
 # --- Auto-Synthesis (optional) ---
 SYNTHESIS_FILE=""
 if [[ "$ENABLE_SYNTHESIS" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
-    log_info "Generating automatic synthesis..."
-    SYNTHESIS_FILE="$OUTPUT_DIR/synthesis.json"
-
-    if "$SCRIPT_DIR/synthesize.sh" "$OUTPUT_DIR" "$SYNTHESIS_FILE" "$QUERY" > /dev/null 2>&1; then
-        log_success "Synthesis generated: $SYNTHESIS_FILE"
-    else
-        log_warn "Synthesis failed, using fallback"
+    # Budget Check: Before Synthesis
+    if is_budget_enabled; then
+        # Update current cost after debate
+        if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
+            CURRENT_COST=$(calculate_session_cost "$OUTPUT_DIR")
+        fi
+        SYNTHESIS_ESTIMATE=$(estimate_phase_cost "synthesis" 1 "$CONTEXT_SIZE")
+        if ! enforce_budget "$CURRENT_COST" "$SYNTHESIS_ESTIMATE" "synthesis"; then
+            log_warn "Skipping synthesis due to budget constraints"
+            ENABLE_SYNTHESIS=false
+        fi
     fi
-    echo "" >&2
+
+    # Proceed with synthesis if still enabled after budget check
+    if [[ "$ENABLE_SYNTHESIS" == "true" ]]; then
+        log_info "Generating automatic synthesis..."
+        SYNTHESIS_FILE="$OUTPUT_DIR/synthesis.json"
+
+        if "$SCRIPT_DIR/synthesize.sh" "$OUTPUT_DIR" "$SYNTHESIS_FILE" "$QUERY" > /dev/null 2>&1; then
+            log_success "Synthesis generated: $SYNTHESIS_FILE"
+        else
+            log_warn "Synthesis failed, using fallback"
+        fi
+        echo "" >&2
+    fi
 fi
 
 # --- Anonymous Peer Review (v2.2, optional) ---
@@ -699,7 +771,7 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
 
             # Include full JSON only if compact report is disabled (v2.3)
             if [[ "${ENABLE_COMPACT_REPORT:-true}" != "true" ]]; then
-                local max_lines="${REPORT_MAX_JSON_LINES:-50}"
+                max_lines="${REPORT_MAX_JSON_LINES:-50}"
                 echo "<details>"
                 echo "<summary>Full response</summary>"
                 echo ""

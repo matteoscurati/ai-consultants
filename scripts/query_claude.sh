@@ -22,6 +22,7 @@ OUTPUT_FILE="${3:-/tmp/claude_response.json}"
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Claude"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
+MODEL_USED="${CLAUDE_MODEL:-claude-3-sonnet}"
 
 # --- Check prerequisites ---
 check_command "$CLAUDE_CMD" "Claude CLI" "Visit https://docs.anthropic.com/en/docs/claude-code" || exit 1
@@ -54,58 +55,24 @@ exit_code=$?
 END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
-# --- Helper: Build metadata JSON ---
-build_metadata() {
-    local latency="$1"
-    local error="${2:-}"
-    jq -n \
-        --argjson latency "$latency" \
-        --arg timestamp "$(date -Iseconds)" \
-        --arg error "$error" \
-        '{tokens_used: 0, latency_ms: $latency, model_version: "claude", timestamp: $timestamp} + (if $error != "" then {error: $error} else {} end)'
-}
-
-# --- Post-processing: wrap in full schema ---
+# --- Configuration for response building ---
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
+# --- Post-processing: wrap in full schema using shared helpers ---
 if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
     RAW_RESPONSE=$(cat "$TEMP_OUTPUT")
     rm -f "$TEMP_OUTPUT"
 
-    # Check if response is already structured JSON
+    # Try to parse as structured JSON
     if echo "$RAW_RESPONSE" | jq -e '.response.summary' > /dev/null 2>&1; then
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg persona "$PERSONA_NAME" \
-            --argjson inner "$RAW_RESPONSE" \
-            --argjson metadata "$(build_metadata "$LATENCY_MS")" \
-            '{consultant: $consultant, model: "claude", persona: $persona, response: $inner.response, confidence: $inner.confidence, metadata: $metadata}' > "$OUTPUT_FILE"
+        build_structured_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" > "$OUTPUT_FILE"
     else
-        # Fallback: wrap unstructured response
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg persona "$PERSONA_NAME" \
-            --arg response "$RAW_RESPONSE" \
-            --argjson metadata "$(build_metadata "$LATENCY_MS")" \
-            '{consultant: $consultant, model: "claude", persona: $persona,
-              response: {summary: "Unstructured response - see detailed", detailed: $response, approach: "unknown", pros: [], cons: [], caveats: ["Unstructured output"]},
-              confidence: {score: 5, reasoning: "Confidence not provided", uncertainty_factors: ["Non-standard format"]},
-              metadata: $metadata}' > "$OUTPUT_FILE"
+        build_fallback_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" > "$OUTPUT_FILE"
     fi
 else
     rm -f "$TEMP_OUTPUT"
-    ERROR_MSG="Query failed with exit code $exit_code"
-    jq -n \
-        --arg consultant "$CONSULTANT_NAME" \
-        --arg persona "$PERSONA_NAME" \
-        --arg error "$ERROR_MSG" \
-        --argjson metadata "$(build_metadata "$LATENCY_MS" "$ERROR_MSG")" \
-        '{consultant: $consultant, model: "claude", persona: $persona,
-          response: {summary: "ERROR: Consultation failed", detailed: $error, approach: "error", pros: [], cons: [], caveats: []},
-          confidence: {score: 0, reasoning: "Consultation failed", uncertainty_factors: ["Execution error"]},
-          metadata: $metadata}' > "$OUTPUT_FILE"
+    build_error_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "Query failed with exit code $exit_code" "$LATENCY_MS" > "$OUTPUT_FILE"
 fi
 
 cat "$OUTPUT_FILE"
-
 exit $exit_code
