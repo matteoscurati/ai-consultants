@@ -156,7 +156,10 @@ run_query() {
         log_debug "[$consultant_name] Attempt $attempt of $MAX_RETRIES..."
 
         # Execute the command with timeout, passing stdin
-        if echo "$stdin_content" | run_with_timeout "$timeout_seconds" "${cmd[@]}" > "$output_file" 2> "$error_file"; then
+        echo "$stdin_content" | run_with_timeout "$timeout_seconds" "${cmd[@]}" > "$output_file" 2> "$error_file"
+        local exit_code=$?
+
+        if [[ $exit_code -eq 0 ]]; then
             # Verify that the output is not empty
             if [[ -s "$output_file" ]]; then
                 log_success "[$consultant_name] Response received ($(wc -c < "$output_file" | tr -d ' ') bytes)"
@@ -164,11 +167,11 @@ run_query() {
                 return 0
             else
                 log_warn "[$consultant_name] Empty response"
+                exit_code=1  # Treat empty response as failure
             fi
         fi
 
         # Error handling
-        local exit_code=$?
         local error_msg=""
         [[ -f "$error_file" ]] && error_msg=$(head -5 "$error_file" 2>/dev/null)
 
@@ -562,10 +565,22 @@ _map_sanitize_key() {
     echo "$1" | tr -cd '[:alnum:]_'
 }
 
+# Validate map name to prevent eval injection
+# Only allows alphanumeric characters and underscores
+_map_validate_name() {
+    local name="$1"
+    if [[ ! "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        log_error "Invalid map name: $name (must be alphanumeric with underscores)"
+        return 1
+    fi
+    echo "$name"
+}
+
 # Set a value in a map
 # Usage: map_set "MAPNAME" "key" "value"
 map_set() {
-    local map_name="$1"
+    local map_name
+    map_name=$(_map_validate_name "$1") || return 1
     local safe_key
     safe_key=$(_map_sanitize_key "$2")
     local value="$3"
@@ -588,7 +603,8 @@ map_set() {
 # Get a value from a map
 # Usage: value=$(map_get "MAPNAME" "key")
 map_get() {
-    local map_name="$1"
+    local map_name
+    map_name=$(_map_validate_name "$1") || return 1
     local safe_key
     safe_key=$(_map_sanitize_key "$2")
     eval "echo \"\${_MAP_${map_name}_${safe_key}:-}\""
@@ -597,7 +613,8 @@ map_get() {
 # Check if a key exists in a map (returns 0 if exists, 1 otherwise)
 # Usage: map_has "MAPNAME" "key" && echo "exists"
 map_has() {
-    local map_name="$1"
+    local map_name
+    map_name=$(_map_validate_name "$1") || return 1
     local safe_key
     safe_key=$(_map_sanitize_key "$2")
     eval "[ -n \"\${_MAP_${map_name}_${safe_key}+x}\" ]"
@@ -606,14 +623,16 @@ map_has() {
 # Get all keys from a map (space-separated)
 # Usage: for key in $(map_keys "MAPNAME"); do ...; done
 map_keys() {
-    local map_name="$1"
+    local map_name
+    map_name=$(_map_validate_name "$1") || return 1
     eval "echo \"\${_MAP_${map_name}__KEYS__:-}\""
 }
 
 # Clear all values from a map
 # Usage: map_clear "MAPNAME"
 map_clear() {
-    local map_name="$1"
+    local map_name
+    map_name=$(_map_validate_name "$1") || return 1
     local keys_var="_MAP_${map_name}__KEYS__"
     local keys key
     eval "keys=\"\${$keys_var:-}\""
@@ -872,4 +891,87 @@ build_error_response() {
           response: {summary: "ERROR: Consultation failed", detailed: $error, approach: "error", pros: [], cons: [], caveats: []},
           confidence: {score: 0, reasoning: "Consultation failed", uncertainty_factors: ["Execution error"]},
           metadata: $metadata}'
+}
+
+# Process consultant response and write to output file
+# This encapsulates the common post-processing pattern found in all query scripts
+# Usage: process_consultant_response <consultant> <model> <persona> <temp_output> <output_file> <exit_code> <latency_ms> [native_json_field]
+# Parameters:
+#   consultant       - Consultant name (e.g., "Gemini")
+#   model            - Model used (e.g., "gemini-3.0-pro")
+#   persona          - Persona name (e.g., "The Architect")
+#   temp_output      - Path to temporary output file from CLI/API
+#   output_file      - Path to final output file
+#   exit_code        - Exit code from CLI/API call
+#   latency_ms       - Latency in milliseconds
+#   native_json_field - Optional field name to extract from native JSON (e.g., "response" for Gemini)
+# Returns: The same exit code passed in
+process_consultant_response() {
+    local consultant="$1"
+    local model="$2"
+    local persona="$3"
+    local temp_output="$4"
+    local output_file="$5"
+    local exit_code="$6"
+    local latency_ms="$7"
+    local native_json_field="${8:-}"
+
+    if [[ $exit_code -eq 0 && -f "$temp_output" && -s "$temp_output" ]]; then
+        local raw_response inner_response
+        raw_response=$(cat "$temp_output")
+
+        # Try to extract from native JSON format if field specified
+        if [[ -n "$native_json_field" ]] && echo "$raw_response" | jq -e ".$native_json_field" > /dev/null 2>&1; then
+            inner_response=$(echo "$raw_response" | jq -r ".$native_json_field")
+        else
+            inner_response="$raw_response"
+        fi
+
+        rm -f "$temp_output"
+
+        # Use shared helpers for response building
+        if echo "$inner_response" | jq -e '.response.summary' > /dev/null 2>&1; then
+            build_structured_response "$consultant" "$model" "$persona" "$inner_response" "$latency_ms" > "$output_file"
+        else
+            build_fallback_response "$consultant" "$model" "$persona" "$inner_response" "$latency_ms" > "$output_file"
+        fi
+    else
+        rm -f "$temp_output"
+        build_error_response "$consultant" "$model" "$persona" "Query failed with exit code $exit_code" "$latency_ms" > "$output_file"
+    fi
+
+    return $exit_code
+}
+
+# Check if a consultant is enabled
+# Usage: is_consultant_enabled <consultant_name>
+# Returns: 0 if enabled, 1 if disabled
+is_consultant_enabled() {
+    local name="$1"
+    local name_upper
+    name_upper=$(to_upper "$name")
+    local var_name="ENABLE_${name_upper}"
+
+    # Get default based on consultant type
+    local default="true"
+    case "$name_upper" in
+        AIDER|CLAUDE|QWEN3|GLM|GROK|DEEPSEEK|OLLAMA)
+            default="false"
+            ;;
+    esac
+
+    [[ "${!var_name:-$default}" == "true" ]]
+}
+
+# Get list of enabled consultants
+# Usage: get_enabled_consultants
+# Output: Space-separated list of enabled consultant names
+get_enabled_consultants() {
+    local enabled=()
+    for consultant in "${ALL_CONSULTANTS[@]}"; do
+        if is_consultant_enabled "$consultant"; then
+            enabled+=("$consultant")
+        fi
+    done
+    echo "${enabled[@]}"
 }

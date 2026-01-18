@@ -448,8 +448,9 @@ get_max_response_tokens() {
 
 # Check if response limits are enabled
 # Usage: is_response_limits_enabled
+# NOTE: Default is false (opt-in) per quality review - aligns with config.sh
 is_response_limits_enabled() {
-    [[ "${ENABLE_RESPONSE_LIMITS:-true}" == "true" ]]
+    [[ "${ENABLE_RESPONSE_LIMITS:-false}" == "true" ]]
 }
 
 # Get model tier (economy, standard, premium)

@@ -218,7 +218,12 @@ EOF
 # =============================================================================
 
 run_debate_round() {
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo")
+    # Use shared function to get enabled consultants
+    local consultants_str
+    consultants_str=$(get_enabled_consultants)
+    # shellcheck disable=SC2206
+    local consultants=($consultants_str)
+
     local pids=()
     local output_files=()
 
@@ -246,26 +251,43 @@ run_debate_round() {
             local start_time
             start_time=$(get_timestamp_ms)
 
+            # Route to appropriate query script based on consultant
             case "$consultant" in
                 Gemini)
-                    if [[ "$ENABLE_GEMINI" == "true" ]]; then
-                        echo "$debate_prompt" | "$SCRIPT_DIR/query_gemini.sh" "" "" "$output_file" > /dev/null 2>&1
-                    fi
+                    echo "$debate_prompt" | "$SCRIPT_DIR/query_gemini.sh" "" "" "$output_file" > /dev/null 2>&1
                     ;;
                 Codex)
-                    if [[ "$ENABLE_CODEX" == "true" ]]; then
-                        "$SCRIPT_DIR/query_codex.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
-                    fi
+                    "$SCRIPT_DIR/query_codex.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
                     ;;
                 Mistral)
-                    if [[ "$ENABLE_MISTRAL" == "true" ]]; then
-                        "$SCRIPT_DIR/query_mistral.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
-                    fi
+                    "$SCRIPT_DIR/query_mistral.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
                     ;;
                 Kilo)
-                    if [[ "$ENABLE_KILO" == "true" ]]; then
-                        "$SCRIPT_DIR/query_kilo.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
-                    fi
+                    "$SCRIPT_DIR/query_kilo.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    ;;
+                Cursor)
+                    "$SCRIPT_DIR/query_cursor.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    ;;
+                Aider)
+                    "$SCRIPT_DIR/query_aider.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    ;;
+                Claude)
+                    "$SCRIPT_DIR/query_claude.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    ;;
+                Qwen3)
+                    "$SCRIPT_DIR/query_qwen3.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    ;;
+                GLM)
+                    "$SCRIPT_DIR/query_glm.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    ;;
+                Grok)
+                    "$SCRIPT_DIR/query_grok.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    ;;
+                DeepSeek)
+                    "$SCRIPT_DIR/query_deepseek.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    ;;
+                Ollama)
+                    "$SCRIPT_DIR/query_ollama.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
                     ;;
             esac
 

@@ -233,8 +233,10 @@ if [[ "$ENABLE_CLASSIFICATION" == "true" ]]; then
 fi
 
 # --- Create Output Directory (with secure permissions) ---
+# Add random suffix to prevent predictable directory names (security improvement)
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-OUTPUT_DIR="${DEFAULT_OUTPUT_DIR_BASE}/${TIMESTAMP}"
+RANDOM_SUFFIX="${RANDOM}${$}"
+OUTPUT_DIR="${DEFAULT_OUTPUT_DIR_BASE}/${TIMESTAMP}_${RANDOM_SUFFIX}"
 # Create base directory with restricted permissions (owner only)
 mkdir -p "$DEFAULT_OUTPUT_DIR_BASE"
 chmod 700 "$DEFAULT_OUTPUT_DIR_BASE"

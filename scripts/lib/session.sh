@@ -282,7 +282,8 @@ cleanup_old_sessions() {
     local days="${1:-7}"
 
     # Clean up old output files
-    find /tmp/ai_consultations -type d -mtime "+$days" -exec rm -rf {} \; 2>/dev/null || true
+    # Note: $days must be quoted to prevent injection via specially crafted days value
+    find /tmp/ai_consultations -type d -mtime +"$days" -exec rm -rf {} \; 2>/dev/null || true
 
     # Remove old sessions from history
     init_history

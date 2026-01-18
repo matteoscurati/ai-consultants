@@ -389,7 +389,11 @@ run_api_query() {
     local auth_headers=()
     case "$auth_style" in
         none)
-            # No auth header (API key is in URL, e.g., Google AI)
+            # No auth header needed
+            ;;
+        google_ai)
+            # Google AI uses x-goog-api-key header (more secure than URL param)
+            auth_headers+=("-H" "x-goog-api-key: $api_key")
             ;;
         anthropic)
             auth_headers+=("-H" "x-api-key: $api_key")
@@ -407,6 +411,10 @@ run_api_query() {
     local temp_response=$(mktemp)
     local temp_headers=$(mktemp)
     local error_file="${output_file}.err"
+
+    # Note: We rely on explicit cleanup before each return rather than a trap,
+    # because traps in functions affect the entire shell and can interfere
+    # with other code paths. Cleanup happens in each exit branch below.
 
     log_info "[$consultant_name] Querying API (timeout: ${timeout_seconds}s, max retry: $MAX_RETRIES)..."
 

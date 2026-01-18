@@ -158,6 +158,21 @@ OLLAMA_TEMPERATURE="${OLLAMA_TEMPERATURE:-0.7}"
 OLLAMA_MODELS="${OLLAMA_MODELS:-}"
 
 # =============================================================================
+# CANONICAL CONSULTANT LIST
+# =============================================================================
+# This is the single source of truth for all available consultants.
+# Use this array when iterating over consultants programmatically.
+
+# All available consultants (ordered by typical usage)
+ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "Ollama")
+
+# CLI-based consultants (use CLI tools)
+CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Claude" "Ollama")
+
+# API-only consultants (use HTTP API directly, no CLI)
+API_CONSULTANTS=("Qwen3" "GLM" "Grok" "DeepSeek")
+
+# =============================================================================
 # ENABLED CONSULTANTS
 # =============================================================================
 

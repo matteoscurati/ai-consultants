@@ -295,6 +295,8 @@ calculate_confidence_stddev() {
     local prev=0
     for _ in {1..10}; do
         prev=$sqrt
+        # Guard against division by zero
+        [[ $sqrt -eq 0 ]] && sqrt=1
         sqrt=$(( (sqrt + variance / sqrt) / 2 ))
         [[ $sqrt -eq $prev ]] && break
     done

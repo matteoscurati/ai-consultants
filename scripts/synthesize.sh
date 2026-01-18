@@ -215,10 +215,7 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
       {
         \"topic\": \"<topic>\",
         \"positions\": {
-          \"Gemini\": \"<position or N/A>\",
-          \"Codex\": \"<position or N/A>\",
-          \"Mistral\": \"<position or N/A>\",
-          \"Kilo\": \"<position or N/A>\"
+          \"<consultant_name>\": \"<position for each consultant that responded, or N/A if they did not address this topic>\"
         }
       }
     ]
@@ -235,31 +232,19 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
   \"comparison_table\": [
     {
       \"aspect\": \"Approach\",
-      \"Gemini\": \"<value>\",
-      \"Codex\": \"<value>\",
-      \"Mistral\": \"<value>\",
-      \"Kilo\": \"<value>\"
+      \"<consultant_name>\": \"<value for each consultant that responded>\"
     },
     {
       \"aspect\": \"Complexity\",
-      \"Gemini\": \"<value>\",
-      \"Codex\": \"<value>\",
-      \"Mistral\": \"<value>\",
-      \"Kilo\": \"<value>\"
+      \"<consultant_name>\": \"<value for each consultant that responded>\"
     },
     {
       \"aspect\": \"Scalability\",
-      \"Gemini\": \"<value>\",
-      \"Codex\": \"<value>\",
-      \"Mistral\": \"<value>\",
-      \"Kilo\": \"<value>\"
+      \"<consultant_name>\": \"<value for each consultant that responded>\"
     },
     {
       \"aspect\": \"Risks\",
-      \"Gemini\": \"<value>\",
-      \"Codex\": \"<value>\",
-      \"Mistral\": \"<value>\",
-      \"Kilo\": \"<value>\"
+      \"<consultant_name>\": \"<value for each consultant that responded>\"
     }
   ],
   \"risk_assessment\": {
@@ -291,7 +276,8 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
 RULES:
 - consensus.score: 100% = all agree, 75-99% = 3+ agree, 50-74% = 2v2, 25-49% = strong disagreement, 0-24% = no convergence
 - confidence_weighted_score = weighted average by confidence of consultants supporting the approach
-- Include ALL consultants in comparison_table even if response was empty (use \"N/A\")
+- Include ALL consultants that responded in comparison_table (use consultant name as key, \"N/A\" if no data)
+- For disagreed_points, include all consultants that took a position on that topic
 - Respond ONLY with valid JSON, no markdown or additional text
 "
 

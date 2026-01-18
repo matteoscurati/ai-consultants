@@ -219,8 +219,13 @@ store_cache() {
     cached_response=$(echo "$response" | jq --arg ts "$timestamp" --arg fp "$fingerprint" \
         '. + {cache_metadata: {cached_at: $ts, fingerprint: $fp, from_cache: false}}' 2>/dev/null || echo "$response")
 
-    echo "$cached_response" > "$cache_file"
-    chmod 600 "$cache_file"
+    # Atomic write: write to temp file first, then move to final location
+    # This prevents race conditions with parallel consultants
+    local temp_file
+    temp_file=$(mktemp "${CACHE_DIR}/cache_tmp.XXXXXX")
+    echo "$cached_response" > "$temp_file"
+    chmod 600 "$temp_file"
+    mv "$temp_file" "$cache_file"
 }
 
 # Invalidate cache for a specific query

@@ -217,6 +217,16 @@ run_preflight() {
         ((ERRORS++))
     fi
 
+    # Check for bc (required for floating-point math in cost calculations)
+    if command -v bc &> /dev/null; then
+        map_set "CLI_STATUS" "bc" "installed"
+        map_set "VERSIONS" "bc" "$(bc --version 2>/dev/null | head -1 || echo "unknown")"
+    else
+        map_set "CLI_STATUS" "bc" "missing"
+        map_set "VERSIONS" "bc" "N/A"
+        ((ERRORS++))
+    fi
+
     # Check for claude CLI (optional but recommended for synthesis)
     if command -v claude &> /dev/null; then
         map_set "CLI_STATUS" "claude" "installed"
@@ -229,7 +239,7 @@ run_preflight() {
 
     if [[ "$JSON_OUTPUT" != "true" ]]; then
         # CLI-based consultants
-        for name in Gemini Codex Mistral Kilo Cursor jq claude; do
+        for name in Gemini Codex Mistral Kilo Cursor jq bc claude; do
             local status version
             status=$(map_get "CLI_STATUS" "$name")
             version=$(map_get "VERSIONS" "$name")
@@ -392,6 +402,7 @@ run_preflight() {
             [[ "$(map_get "CLI_STATUS" "Kilo")" == "missing" ]] && echo "    npm install -g @kilocode/cli"
             [[ "$(map_get "CLI_STATUS" "Cursor")" == "missing" ]] && echo "    curl https://cursor.com/install -fsS | bash"
             [[ "$(map_get "CLI_STATUS" "jq")" == "missing" ]] && echo "    brew install jq  # or apt install jq"
+            [[ "$(map_get "CLI_STATUS" "bc")" == "missing" ]] && echo "    brew install bc  # or apt install bc"
             echo ""
             exit 1
         elif [[ $WARNINGS -gt 0 ]]; then

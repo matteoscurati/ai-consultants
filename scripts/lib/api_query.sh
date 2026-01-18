@@ -67,11 +67,9 @@ run_api_mode_query() {
     case "$api_format" in
         google_ai)
             request_body=$(build_google_ai_request "$query")
-            # Google AI appends model to URL and uses API key in URL
-            local api_key_value="${!api_key_var:-}"
-            final_api_url="${api_url}/${model}:generateContent?key=${api_key_value}"
-            auth_style="none"
-            api_key_var=""  # No separate auth header needed
+            # Google AI appends model to URL; use x-goog-api-key header for security
+            final_api_url="${api_url}/${model}:generateContent"
+            auth_style="google_ai"
             ;;
         anthropic)
             request_body=$(build_anthropic_request "$query" "$model")
@@ -136,5 +134,95 @@ run_api_mode_query() {
     log_debug "[$consultant_name] Tokens used: $tokens"
 
     rm -f "$temp_response"
+    return 0
+}
+
+# =============================================================================
+# GENERIC API CONSULTANT FUNCTION (v2.6)
+# =============================================================================
+
+# Run a consultation using API mode for any API-based consultant
+# This function is called by consult_all.sh for custom API agents and
+# as a fallback when no dedicated query script exists.
+#
+# Usage: run_api_consultant <consultant_name> <query> <context_file> <output_file>
+#
+# Parameters:
+#   consultant_name - Name of the consultant (e.g., "Qwen3", "DeepSeek")
+#   query           - The query text (can be empty if context_file provides all content)
+#   context_file    - Path to context file (can be empty)
+#   output_file     - Path to write the JSON response
+#
+# Returns:
+#   0 on success
+#   1 on failure
+run_api_consultant() {
+    local consultant_name="$1"
+    local query="$2"
+    local context_file="$3"
+    local output_file="$4"
+
+    local consultant_upper
+    consultant_upper=$(to_upper "$consultant_name")
+
+    # Get configuration for this consultant
+    local model_var="${consultant_upper}_MODEL"
+    local timeout_var="${consultant_upper}_TIMEOUT_SECONDS"
+
+    local model="${!model_var:-}"
+    local timeout_seconds="${!timeout_var:-180}"
+
+    # Build full query from query + context
+    local full_query
+    full_query=$(build_full_query "$query" "$context_file")
+
+    if [[ -z "$full_query" ]]; then
+        log_error "[$consultant_name] No query to send"
+        return 1
+    fi
+
+    local start_time
+    start_time=$(get_timestamp_ms)
+
+    # Create temp file for API response
+    local temp_response
+    temp_response=$(mktemp)
+
+    # Use run_api_mode_query which handles all the API format/auth logic
+    run_api_mode_query "$consultant_name" "$model" "$full_query" "$temp_response" "$timeout_seconds"
+    local exit_code=$?
+
+    local end_time
+    end_time=$(get_timestamp_ms)
+    local latency=$((end_time - start_time))
+
+    if [[ $exit_code -ne 0 ]]; then
+        build_error_response "$consultant_name" "${model:-unknown}" "API Consultant" \
+            "API query failed (exit code: $exit_code)" "$latency" > "$output_file"
+        rm -f "$temp_response"
+        return 1
+    fi
+
+    # Read parsed content from temp file (run_api_mode_query already parsed it)
+    local parsed_content
+    parsed_content=$(cat "$temp_response")
+    rm -f "$temp_response"
+
+    if [[ -z "$parsed_content" ]]; then
+        build_error_response "$consultant_name" "${model:-unknown}" "API Consultant" \
+            "Empty response from API" "$latency" > "$output_file"
+        return 1
+    fi
+
+    # Try to parse as structured JSON response
+    if echo "$parsed_content" | jq -e '.response' >/dev/null 2>&1; then
+        build_structured_response "$consultant_name" "${model:-unknown}" "API Consultant" \
+            "$parsed_content" "$latency" > "$output_file"
+    else
+        build_fallback_response "$consultant_name" "${model:-unknown}" "API Consultant" \
+            "$parsed_content" "$latency" > "$output_file"
+    fi
+
+    log_success "[$consultant_name] Response generated"
     return 0
 }
