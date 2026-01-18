@@ -22,7 +22,7 @@ OUTPUT_FILE="${3:-/tmp/claude_response.json}"
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Claude"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
-MODEL_USED="${CLAUDE_MODEL:-claude-3-sonnet}"
+MODEL_USED="${CLAUDE_MODEL:-claude-opus-4-5-20251124}"
 
 # --- Check prerequisites ---
 check_command "$CLAUDE_CMD" "Claude CLI" "Visit https://docs.anthropic.com/en/docs/claude-code" || exit 1

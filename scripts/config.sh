@@ -19,7 +19,7 @@ DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-/tmp/ai_consultations}"
 # GEMINI CONFIGURATION - The Architect
 # =============================================================================
 
-GEMINI_MODEL="${GEMINI_MODEL:-gemini-2.5-pro}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.0-pro}"
 GEMINI_TIMEOUT_SECONDS="${GEMINI_TIMEOUT:-180}"
 GEMINI_CMD="${GEMINI_CMD:-gemini}"
 
@@ -27,8 +27,8 @@ GEMINI_CMD="${GEMINI_CMD:-gemini}"
 # CODEX CONFIGURATION - The Pragmatist
 # =============================================================================
 
-# Model: empty = default, or "o3", "gpt-4", "gpt-4o", etc.
-CODEX_MODEL="${CODEX_MODEL:-}"
+# Model: "gpt-5.2-codex" (default), "gpt-5.2", "gpt-4o-mini", etc.
+CODEX_MODEL="${CODEX_MODEL:-gpt-5.2-codex}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
@@ -36,6 +36,7 @@ CODEX_CMD="${CODEX_CMD:-codex}"
 # MISTRAL VIBE CONFIGURATION - The Devil's Advocate
 # =============================================================================
 
+MISTRAL_MODEL="${MISTRAL_MODEL:-mistral-large-3}"
 MISTRAL_TIMEOUT_SECONDS="${MISTRAL_TIMEOUT:-180}"
 MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
 
@@ -58,7 +59,7 @@ CURSOR_CMD="${CURSOR_CMD:-agent}"
 # AIDER CONFIGURATION - The Pair Programmer
 # =============================================================================
 
-AIDER_MODEL="${AIDER_MODEL:-}"
+AIDER_MODEL="${AIDER_MODEL:-gpt-5.2-codex}"
 AIDER_TIMEOUT_SECONDS="${AIDER_TIMEOUT:-180}"
 AIDER_CMD="${AIDER_CMD:-aider}"
 
@@ -66,7 +67,7 @@ AIDER_CMD="${AIDER_CMD:-aider}"
 # QWEN3 CONFIGURATION - The Analyst (API-based)
 # =============================================================================
 
-QWEN3_MODEL="${QWEN3_MODEL:-qwen-max}"
+QWEN3_MODEL="${QWEN3_MODEL:-qwen3-max}"
 QWEN3_TIMEOUT_SECONDS="${QWEN3_TIMEOUT:-180}"
 QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
 QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
@@ -76,7 +77,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 # GLM CONFIGURATION - The Code Specialist (API-based)
 # =============================================================================
 
-GLM_MODEL="${GLM_MODEL:-glm-4}"
+GLM_MODEL="${GLM_MODEL:-glm-4.7}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
 GLM_API_URL="${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
@@ -86,7 +87,7 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 # GROK CONFIGURATION - The Provocateur (API-based)
 # =============================================================================
 
-GROK_MODEL="${GROK_MODEL:-grok-beta}"
+GROK_MODEL="${GROK_MODEL:-grok-4-1-fast-reasoning}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
@@ -96,7 +97,7 @@ GROK_FORMAT="${GROK_FORMAT:-openai}"
 # DEEPSEEK CONFIGURATION - The Methodologist (API-based)
 # =============================================================================
 
-DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-coder}"
+DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v3.2-speciale}"
 DEEPSEEK_TIMEOUT_SECONDS="${DEEPSEEK_TIMEOUT:-180}"
 DEEPSEEK_API_URL="${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}"
 DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
@@ -106,6 +107,7 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
 # =============================================================================
 
+CLAUDE_MODEL="${CLAUDE_MODEL:-claude-opus-4-5-20251124}"
 CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 
@@ -113,9 +115,9 @@ CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 # OLLAMA CONFIGURATION - The Local Expert (v2.2)
 # =============================================================================
 
-# Default model for local inference
-OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2}"
-# Alternative models: codellama, mistral, deepseek-coder, qwen2.5-coder
+# Default model for local inference (premium: qwen2.5-coder:32b)
+OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5-coder:32b}"
+# Alternative models: llama3.3, llama3.2, codellama, mistral, deepseek-coder
 
 # Ollama server URL (default: local)
 OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
@@ -422,6 +424,69 @@ else
 fi
 
 # =============================================================================
+# MODEL QUALITY TIERS (v2.5)
+# =============================================================================
+
+# Apply model tier to all consultants
+# Usage: apply_model_tier <tier: premium|standard|economy>
+# Premium = latest flagship models, highest quality
+# Standard = good balance of quality and cost
+# Economy = optimized for speed and low cost
+apply_model_tier() {
+    local tier="$1"
+
+    case "$tier" in
+        premium|max|best)
+            # Verified January 2026 - Latest flagship models
+            export CLAUDE_MODEL="claude-opus-4-5-20251124"
+            export GEMINI_MODEL="gemini-3.0-pro"
+            export CODEX_MODEL="gpt-5.2-codex"
+            export MISTRAL_MODEL="mistral-large-3"
+            export DEEPSEEK_MODEL="deepseek-v3.2-speciale"
+            export GLM_MODEL="glm-4.7"
+            export GROK_MODEL="grok-4-1-fast-reasoning"
+            export QWEN3_MODEL="qwen3-max"
+            export AIDER_MODEL="gpt-5.2-codex"
+            export OLLAMA_MODEL="qwen2.5-coder:32b"
+            ;;
+        standard|medium|balanced)
+            # Good quality at reasonable cost
+            export CLAUDE_MODEL="claude-sonnet-4-5-20251124"
+            export GEMINI_MODEL="gemini-3.0-flash"
+            export CODEX_MODEL="gpt-5.2"
+            export MISTRAL_MODEL="mistral-medium-latest"
+            export DEEPSEEK_MODEL="deepseek-v3.2"
+            # GLM-4.7 is used for both premium and standard (no mid-tier GLM available)
+            export GLM_MODEL="glm-4.7"
+            export GROK_MODEL="grok-3"
+            export QWEN3_MODEL="qwen3-235b-a22b"
+            export AIDER_MODEL="gpt-5.2"
+            export OLLAMA_MODEL="llama3.3"
+            ;;
+        economy|fast|quick)
+            # Optimized for speed and low cost
+            export CLAUDE_MODEL="claude-3-5-haiku-20241022"
+            export GEMINI_MODEL="gemini-2.0-flash-lite"
+            export CODEX_MODEL="gpt-4o-mini"
+            export MISTRAL_MODEL="devstral-small-2"
+            export DEEPSEEK_MODEL="deepseek-chat"
+            export GLM_MODEL="glm-4-flash"
+            export GROK_MODEL="grok-3-mini"
+            export QWEN3_MODEL="qwen3-32b"
+            export AIDER_MODEL="gpt-4o-mini"
+            export OLLAMA_MODEL="llama3.2"
+            ;;
+        *)
+            echo "Unknown model tier: $tier" >&2
+            echo "Available tiers: premium, standard, economy" >&2
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+# =============================================================================
 # CONFIGURATION PRESETS (v2.2)
 # =============================================================================
 
@@ -430,6 +495,11 @@ fi
 #   balanced     - 4 models (good coverage): + Mistral + Kilo
 #   thorough     - 5 models (comprehensive): + Cursor
 #   high-stakes  - All models + debate (maximum rigor)
+#
+# Quality Tiers (v2.5):
+#   max_quality  - All consultants + premium models + debate + reflection
+#   medium       - 4 consultants + standard models + light debate
+#   fast         - 2 consultants + economy models, no debate
 #
 # Usage: ./consult_all.sh --preset balanced "Your question"
 
@@ -470,6 +540,8 @@ apply_preset() {
             export ENABLE_REFLECTION=true REFLECTION_CYCLES=1
             ;;
         local)
+            # Local inference with Ollama - use economy tier for speed
+            apply_model_tier "economy"
             export ENABLE_OLLAMA=true
             export OLLAMA_MODELS="${OLLAMA_MODELS:-llama3.2,codellama}"
             ;;
@@ -482,9 +554,34 @@ apply_preset() {
             export ENABLE_GEMINI=true ENABLE_MISTRAL=true ENABLE_OLLAMA=true
             export MAX_SESSION_COST=0.10
             ;;
+        # --- Quality Tier Presets (v2.5) ---
+        max_quality|max-quality)
+            # Maximum quality - all premium models + all features
+            apply_model_tier "premium"
+            export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
+            export ENABLE_KILO=true ENABLE_CURSOR=true ENABLE_AIDER=true
+            export ENABLE_CLAUDE=true
+            export ENABLE_DEBATE=true DEBATE_ROUNDS=3
+            export ENABLE_REFLECTION=true REFLECTION_CYCLES=2
+            export ENABLE_PEER_REVIEW=true
+            ;;
+        medium)
+            # Balanced quality - standard models, good coverage
+            apply_model_tier "standard"
+            export ENABLE_GEMINI=true ENABLE_CODEX=true
+            export ENABLE_MISTRAL=true ENABLE_KILO=true
+            export ENABLE_DEBATE=true DEBATE_ROUNDS=1
+            ;;
+        fast)
+            # Super fast - economy models, minimal consultants
+            apply_model_tier "economy"
+            export ENABLE_GEMINI=true ENABLE_CODEX=true
+            export ENABLE_DEBATE=false ENABLE_REFLECTION=false
+            export ENABLE_COMPACT_REPORT=true
+            ;;
         *)
             echo "Unknown preset: $preset" >&2
-            echo "Available presets: minimal, balanced, thorough, high-stakes, local, security, cost-capped" >&2
+            echo "Available presets: minimal, balanced, thorough, high-stakes, local, security, cost-capped, max_quality, medium, fast" >&2
             return 1
             ;;
     esac
@@ -497,6 +594,12 @@ list_presets() {
     cat << 'EOF'
 Available presets:
 
+Quality Tiers (v2.5):
+  max_quality  All consultants + premium models + debate + reflection
+  medium       4 consultants + standard models + light debate
+  fast         2 consultants + economy models, no debate
+
+Use Cases:
   minimal      2 models (Gemini + Codex) - Fast, cheap
   balanced     4 models (+ Mistral + Kilo) - Good coverage [DEFAULT]
   thorough     5 models (+ Cursor) - Comprehensive analysis
@@ -513,4 +616,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.4.0"
+AI_CONSULTANTS_VERSION="2.5.0"

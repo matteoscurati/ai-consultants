@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 12 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.4.0
+**Version**: 2.5.0
 
 ## Structure
 
@@ -145,6 +145,12 @@ Functions in `lib/common.sh`:
 
 ### Configuration Presets
 ```bash
+# Quality Tier Presets (v2.5)
+./scripts/consult_all.sh --preset max_quality "question"  # All + premium models + debate
+./scripts/consult_all.sh --preset medium "question"       # 4 consultants + standard models
+./scripts/consult_all.sh --preset fast "question"         # 2 consultants + economy models
+
+# Use Case Presets
 ./scripts/consult_all.sh --preset minimal "question"    # Gemini + Codex
 ./scripts/consult_all.sh --preset balanced "question"   # + Mistral + Kilo
 ./scripts/consult_all.sh --preset high-stakes "question" # All + debate
@@ -178,7 +184,7 @@ OLLAMA_MODEL=codellama ./scripts/consult_all.sh "question"
 ```
 
 Configuration in `config.sh`:
-- `OLLAMA_MODEL` - Model to use (default: llama3.2)
+- `OLLAMA_MODEL` - Model to use (default: qwen2.5-coder:32b)
 - `OLLAMA_HOST` - Server URL (default: http://localhost:11434)
 - `OLLAMA_TIMEOUT` - Timeout in seconds (default: 300)
 
@@ -215,6 +221,59 @@ Functions in `lib/reflection.sh`:
 - `judge_response()` - Evaluates single response for overconfidence
 - `heuristic_overconfidence_check()` - Fast fallback without LLM
 - `judge_all_responses()` - Batch evaluation
+
+## v2.5 Features
+
+### Model Quality Tiers
+Three tiers of models are available for each consultant, configurable via `apply_model_tier()`:
+
+| Tier | Description | Example Models |
+|------|-------------|----------------|
+| **premium** | Latest flagship models | claude-opus-4-5, gemini-3.0-pro, gpt-5.2-codex |
+| **standard** | Good quality at reasonable cost | claude-sonnet-4-5, gemini-3.0-flash, gpt-5.2 |
+| **economy** | Optimized for speed and low cost | claude-3-5-haiku, gemini-2.0-flash-lite, gpt-4o-mini |
+
+**Default models are now premium tier** for maximum quality.
+
+```bash
+# Programmatic usage
+source scripts/config.sh
+apply_model_tier "premium"   # Set all consultants to premium models
+apply_model_tier "standard"  # Set all consultants to standard models
+apply_model_tier "economy"   # Set all consultants to economy models
+```
+
+### Quality Tier Presets
+Three new presets leverage the model tiers:
+
+```bash
+# Maximum quality - all premium models + debate + reflection
+./scripts/consult_all.sh --preset max_quality "critical architecture decision"
+
+# Balanced quality - standard models, 4 consultants, light debate
+./scripts/consult_all.sh --preset medium "general coding question"
+
+# Super fast - economy models, 2 consultants, no debate
+./scripts/consult_all.sh --preset fast "quick syntax question"
+```
+
+### Premium Model Defaults (January 2026)
+All consultants now use premium models by default:
+
+| Consultant | Default Model |
+|------------|---------------|
+| Claude | claude-opus-4-5-20251124 |
+| Gemini | gemini-3.0-pro |
+| Codex | gpt-5.2-codex |
+| Mistral | mistral-large-3 |
+| DeepSeek | deepseek-v3.2-speciale |
+| GLM | glm-4.7 |
+| Grok | grok-4-1-fast-reasoning |
+| Qwen3 | qwen3-max |
+| Aider | gpt-5.2-codex |
+| Ollama | qwen2.5-coder:32b |
+
+Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, etc.
 
 ## v2.4 Features
 
@@ -400,7 +459,11 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_PANIC_MODE` | auto | Panic mode trigger (v2.2) |
 | `PANIC_CONFIDENCE_THRESHOLD` | 5 | Panic threshold (v2.2) |
 | `ENABLE_OLLAMA` | false | Local model support (v2.2) |
-| `OLLAMA_MODEL` | llama3.2 | Ollama model (v2.2) |
+| `OLLAMA_MODEL` | qwen2.5-coder:32b | Ollama model (v2.5 - premium default) |
+| `CLAUDE_MODEL` | claude-opus-4-5-20251124 | Claude model (v2.5) |
+| `GEMINI_MODEL` | gemini-3.0-pro | Gemini model (v2.5) |
+| `CODEX_MODEL` | gpt-5.2-codex | Codex model (v2.5) |
+| `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
 | `SYNTHESIS_STRATEGY` | majority | Synthesis strategy (v2.2) |
 | `ENABLE_SEMANTIC_CACHE` | true | Semantic response caching (v2.3) |
 | `CACHE_TTL_HOURS` | 24 | Cache expiration in hours (v2.3) |
@@ -462,6 +525,13 @@ For detailed information, see:
 - Run `./scripts/doctor.sh` to verify configuration
 
 ## Changelog
+
+### v2.5.0
+- Model quality tiers: premium, standard, economy
+- New `apply_model_tier()` function for programmatic tier selection
+- Quality tier presets: `max_quality`, `medium`, `fast`
+- Premium model defaults for all consultants (January 2026 models)
+- Updated docs/cost_rates.json with tier-based model rates
 
 ### v2.4.0
 - Budget enforcement (opt-in) with configurable limits

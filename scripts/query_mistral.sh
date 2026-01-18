@@ -52,7 +52,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${MISTRAL_MODEL:-mistral-large}"
+MODEL_USED="${MISTRAL_MODEL:-mistral-large-3}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: wrap in full schema using shared helpers ---

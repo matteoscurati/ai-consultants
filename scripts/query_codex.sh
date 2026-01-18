@@ -60,7 +60,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${CODEX_MODEL:-gpt-4o}"
+MODEL_USED="${CODEX_MODEL:-gpt-5.2-codex}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: wrap in full schema using shared helpers ---
