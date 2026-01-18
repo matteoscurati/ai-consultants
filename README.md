@@ -1,8 +1,8 @@
-# AI Consultants v2.3
+# AI Consultants v2.5
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -22,6 +22,7 @@
   - [Aider](#aider)
   - [Standalone Bash](#standalone-bash)
 - [Consultants](#consultants)
+- [Quality Tiers](#quality-tiers)
 - [Configuration](#configuration)
 - [How It Works](#how-it-works)
 - [Best Practices](#best-practices)
@@ -297,18 +298,18 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 
 ### API-Based Consultants
 
-| Consultant | Model | Persona | Focus |
-|------------|-------|---------|-------|
-| **Qwen3** | qwen-max | The Analyst | Data-driven analysis |
-| **GLM** | glm-4 | The Methodologist | Structured approaches |
-| **Grok** | grok-beta | The Provocateur | Challenge conventions |
-| **DeepSeek** | deepseek-coder | The Code Specialist | Algorithms, code generation |
+| Consultant | Default Model | Persona | Focus |
+|------------|---------------|---------|-------|
+| **Qwen3** | qwen3-max | The Analyst | Data-driven analysis |
+| **GLM** | glm-4.7 | The Methodologist | Structured approaches |
+| **Grok** | grok-4-1-fast-reasoning | The Provocateur | Challenge conventions |
+| **DeepSeek** | deepseek-v3.2-speciale | The Code Specialist | Algorithms, code generation |
 
 ### Local Consultants
 
-| Consultant | Model | Persona | Focus |
-|------------|-------|---------|-------|
-| **Ollama** | llama3.2 | The Local Expert | Privacy-first, zero API cost |
+| Consultant | Default Model | Persona | Focus |
+|------------|---------------|---------|-------|
+| **Ollama** | qwen2.5-coder:32b | The Local Expert | Privacy-first, zero API cost |
 
 ### Installing Consultant CLIs
 
@@ -328,21 +329,72 @@ ollama pull llama3.2
 
 ---
 
+## Quality Tiers
+
+Choose the right balance of quality, speed, and cost with model quality tiers.
+
+### Tier Presets
+
+| Preset | Tier | Agents | Debate | Reflection | Use Case |
+|--------|------|--------|--------|------------|----------|
+| `max_quality` | Premium | 7 (all) | 3 rounds | 2 cycles + peer review | Critical decisions |
+| `medium` | Standard | 4 | 1 round | No | General questions |
+| `fast` | Economy | 2 | No | No | Quick checks |
+| `local` | Economy | 1 (Ollama) | No | No | Full privacy |
+
+### Models by Tier
+
+| Consultant | Premium | Standard | Economy |
+|------------|---------|----------|---------|
+| Claude | claude-opus-4-5 | claude-sonnet-4-5 | claude-3-5-haiku |
+| Gemini | gemini-3.0-pro | gemini-3.0-flash | gemini-2.0-flash-lite |
+| Codex | gpt-5.2-codex | gpt-5.2 | gpt-4o-mini |
+| Mistral | mistral-large-3 | mistral-medium | devstral-small-2 |
+| DeepSeek | deepseek-v3.2-speciale | deepseek-v3.2 | deepseek-chat |
+| GLM | glm-4.7 | glm-4.7 | glm-4-flash |
+| Grok | grok-4-1-fast-reasoning | grok-3 | grok-3-mini |
+| Qwen3 | qwen3-max | qwen3-235b | qwen3-32b |
+| Ollama | qwen2.5-coder:32b | llama3.3 | llama3.2 |
+
+### Usage
+
+**Claude Code:**
+```
+/ai-consultants:consult --preset max_quality "critical architecture decision"
+/ai-consultants:consult --preset fast "quick syntax question"
+```
+
+**Bash:**
+```bash
+./scripts/consult_all.sh --preset max_quality "microservices vs monolith?"
+./scripts/consult_all.sh --preset fast "how to use async/await?"
+
+# Programmatic tier selection
+source scripts/config.sh
+apply_model_tier "premium"   # Set all to premium models
+apply_model_tier "economy"   # Set all to economy models
+```
+
+---
+
 ## Configuration
 
 ### Presets
 
 Choose how many consultants to use:
 
-| Preset | Consultants | Use Case |
-|--------|-------------|----------|
-| `minimal` | 2 (Gemini + Codex) | Quick questions, low cost |
-| `balanced` | 4 (+ Mistral + Kilo) | Standard consultations |
-| `thorough` | 5 (+ Cursor) | Comprehensive analysis |
-| `high-stakes` | All + debate | Critical decisions |
-| `local` | Ollama only | Full privacy |
-| `security` | Security-focused + debate | Security reviews |
-| `cost-capped` | Budget-conscious | Minimal API costs |
+| Preset | Consultants | Tier | Use Case |
+|--------|-------------|------|----------|
+| `max_quality` | 7 (all) + debate + reflection | Premium | Critical decisions |
+| `medium` | 4 + light debate | Standard | General questions |
+| `fast` | 2 | Economy | Quick checks |
+| `minimal` | 2 (Gemini + Codex) | Default | Quick questions, low cost |
+| `balanced` | 4 (+ Mistral + Kilo) | Default | Standard consultations |
+| `thorough` | 5 (+ Cursor) | Default | Comprehensive analysis |
+| `high-stakes` | All + debate | Default | Critical decisions |
+| `local` | Ollama only | Economy | Full privacy |
+| `security` | Security-focused + debate | Default | Security reviews |
+| `cost-capped` | Budget-conscious | Default | Minimal API costs |
 
 **Claude Code:**
 ```
@@ -391,7 +443,7 @@ DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
 
 # Ollama (local models)
 ENABLE_OLLAMA=true           # Enable Ollama consultant
-OLLAMA_MODEL=llama3.2        # Model to use
+OLLAMA_MODEL=qwen2.5-coder:32b  # Model to use (premium default)
 OLLAMA_HOST=http://localhost:11434
 
 # Cost management
@@ -491,6 +543,20 @@ Each consultation generates:
 ---
 
 ## Changelog
+
+### v2.5.0
+
+- **Model quality tiers**: Premium, standard, and economy tiers for all consultants
+- **New presets**: `max_quality`, `medium`, `fast` for quick tier selection
+- **Premium defaults**: All consultants now use premium models by default (January 2026)
+- **`apply_model_tier()` function**: Programmatically switch all models to a tier
+- **Updated models**: claude-opus-4-5, gemini-3.0-pro, gpt-5.2-codex, mistral-large-3, etc.
+
+### v2.4.0
+
+- **Budget enforcement**: Optional budget limits with configurable actions (warn/stop)
+- **Budget checks**: 4 enforcement points (before/after consultation, debate, synthesis)
+- **`/ai-consultants:config-budget`**: New slash command for budget configuration
 
 ### v2.3.0
 
