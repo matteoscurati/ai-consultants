@@ -14,6 +14,7 @@
 
 - [Why AI Consultants?](#why-ai-consultants)
 - [Quick Start](#quick-start)
+- [Prerequisites](#prerequisites)
 - [Supported CLI Agents](#supported-cli-agents)
   - [Claude Code](#claude-code)
   - [OpenAI Codex CLI](#openai-codex-cli)
@@ -68,6 +69,111 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 # Uninstall completely
 ~/.claude/skills/ai-consultants/scripts/install.sh --uninstall
+```
+
+---
+
+## Prerequisites
+
+Before installing AI Consultants, ensure you have the following dependencies installed.
+
+### Required Dependencies
+
+| Dependency | Purpose |
+|------------|---------|
+| **jq** | JSON processing |
+| **curl** | HTTP requests and connectivity |
+| **Bash 4.0+** | Script execution (macOS ships with 3.2) |
+
+### Installation by Platform
+
+#### macOS
+
+```bash
+# Install Homebrew if not already installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install required dependencies
+brew install jq bash coreutils
+
+# Verify installation
+jq --version && bash --version | head -1
+```
+
+> **Note:** macOS ships with Bash 3.2. The Homebrew version (4.x) is installed to `/opt/homebrew/bin/bash`.
+
+#### Linux (Ubuntu/Debian)
+
+```bash
+# Install required dependencies
+sudo apt-get update
+sudo apt-get install -y jq curl bash
+
+# Verify installation
+jq --version && bash --version | head -1
+```
+
+#### Linux (Fedora/RHEL/CentOS)
+
+```bash
+# Install required dependencies
+sudo dnf install -y jq curl bash
+
+# Verify installation
+jq --version && bash --version | head -1
+```
+
+#### Linux (Arch)
+
+```bash
+# Install required dependencies
+sudo pacman -S jq curl bash
+
+# Verify installation
+jq --version && bash --version | head -1
+```
+
+#### Windows
+
+Use **WSL (Windows Subsystem for Linux)**:
+
+```powershell
+# Install WSL (run in PowerShell as Administrator)
+wsl --install
+
+# After restart, open WSL and follow Linux instructions
+sudo apt-get update
+sudo apt-get install -y jq curl bash
+```
+
+Alternatively, use **Git Bash** or **MSYS2** with the required packages.
+
+### Optional Dependencies
+
+For CLI-based consultants, you'll also need:
+
+| Dependency | Required for |
+|------------|--------------|
+| **Node.js 18+** | Gemini CLI, Codex CLI, Kilo CLI |
+| **Python 3.8+** | Mistral Vibe CLI, Aider |
+
+```bash
+# macOS
+brew install node python
+
+# Ubuntu/Debian
+sudo apt-get install -y nodejs npm python3 python3-pip
+
+# Verify
+node --version && python3 --version
+```
+
+### Verify All Prerequisites
+
+Run the doctor command to check everything is installed:
+
+```bash
+./scripts/doctor.sh
 ```
 
 ---
