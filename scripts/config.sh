@@ -16,6 +16,31 @@ RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
 DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-/tmp/ai_consultations}"
 
 # =============================================================================
+# CLI/API MODE SWITCHING (v2.6)
+# =============================================================================
+# For agents that support both CLI and API mode, set USE_API=true to use API mode.
+# When API mode is enabled, CLI mode is automatically disabled (mutual exclusivity).
+# Only 4 agents support switching: Gemini, Codex, Claude, Mistral
+
+# Mode switching (true = use API, false = use CLI)
+GEMINI_USE_API="${GEMINI_USE_API:-false}"
+CODEX_USE_API="${CODEX_USE_API:-false}"
+CLAUDE_USE_API="${CLAUDE_USE_API:-false}"
+MISTRAL_USE_API="${MISTRAL_USE_API:-false}"
+
+# API endpoints for CLI-switchable agents
+GEMINI_API_URL="${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models}"
+CODEX_API_URL="${CODEX_API_URL:-https://api.openai.com/v1/chat/completions}"
+CLAUDE_API_URL="${CLAUDE_API_URL:-https://api.anthropic.com/v1/messages}"
+MISTRAL_API_URL="${MISTRAL_API_URL:-https://api.mistral.ai/v1/chat/completions}"
+
+# API keys (use existing or set new)
+# GEMINI_API_KEY - Google AI API key (for Gemini API mode)
+# OPENAI_API_KEY - For Codex API mode (existing)
+# ANTHROPIC_API_KEY - For Claude API mode
+# MISTRAL_API_KEY - For Mistral API mode (existing)
+
+# =============================================================================
 # GEMINI CONFIGURATION - The Architect
 # =============================================================================
 
@@ -616,4 +641,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.5.0"
+AI_CONSULTANTS_VERSION="2.6.0"

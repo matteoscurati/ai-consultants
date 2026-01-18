@@ -174,20 +174,61 @@ build_qwen_request() {
         }'
 }
 
-# Build request body for OpenAI-compatible APIs (GLM, Grok)
-# Usage: build_openai_request <prompt> <model>
+# Build request body for OpenAI-compatible APIs (GLM, Grok, Codex API mode, Mistral API mode)
+# Usage: build_openai_request <prompt> <model> [max_tokens]
 build_openai_request() {
     local prompt="$1"
     local model="${2:-gpt-4}"
+    local max_tokens="${3:-4096}"
 
     jq -n \
         --arg model "$model" \
         --arg prompt "$prompt" \
+        --argjson max_tokens "$max_tokens" \
         '{
             model: $model,
             messages: [
                 { role: "user", content: $prompt }
+            ],
+            max_tokens: $max_tokens
+        }'
+}
+
+# Build request body for Anthropic API (Claude API mode)
+# Usage: build_anthropic_request <prompt> <model> [max_tokens]
+build_anthropic_request() {
+    local prompt="$1"
+    local model="${2:-claude-sonnet-4-5-20251124}"
+    local max_tokens="${3:-4096}"
+
+    jq -n \
+        --arg model "$model" \
+        --arg prompt "$prompt" \
+        --argjson max_tokens "$max_tokens" \
+        '{
+            model: $model,
+            max_tokens: $max_tokens,
+            messages: [
+                { role: "user", content: $prompt }
             ]
+        }'
+}
+
+# Build request body for Google AI API (Gemini API mode)
+# Usage: build_google_ai_request <prompt> [model]
+# Note: Model is appended to URL, not in request body for Google AI
+build_google_ai_request() {
+    local prompt="$1"
+
+    jq -n \
+        --arg prompt "$prompt" \
+        '{
+            contents: [
+                { parts: [{ text: $prompt }] }
+            ],
+            generationConfig: {
+                maxOutputTokens: 4096
+            }
         }'
 }
 
@@ -213,7 +254,7 @@ parse_qwen_response() {
     echo "$response" | jq -r '.output // empty' 2>/dev/null
 }
 
-# Parse OpenAI-compatible response (GLM, Grok)
+# Parse OpenAI-compatible response (GLM, Grok, Codex API mode, Mistral API mode)
 # Usage: parse_openai_response <response_json>
 parse_openai_response() {
     local response="$1"
@@ -230,9 +271,43 @@ parse_openai_response() {
     return 1
 }
 
+# Parse Anthropic API response (Claude API mode)
+# Usage: parse_anthropic_response <response_json>
+parse_anthropic_response() {
+    local response="$1"
+
+    local content
+    content=$(echo "$response" | jq -r '.content[0].text // empty' 2>/dev/null)
+
+    if [[ -n "$content" && "$content" != "null" ]]; then
+        echo "$content"
+        return 0
+    fi
+
+    echo ""
+    return 1
+}
+
+# Parse Google AI API response (Gemini API mode)
+# Usage: parse_google_ai_response <response_json>
+parse_google_ai_response() {
+    local response="$1"
+
+    local content
+    content=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
+
+    if [[ -n "$content" && "$content" != "null" ]]; then
+        echo "$content"
+        return 0
+    fi
+
+    echo ""
+    return 1
+}
+
 # Extract token usage from API response
 # Usage: extract_token_usage <response_json> <format>
-# format: "qwen" or "openai"
+# format: "qwen", "openai", "anthropic", or "google_ai"
 extract_token_usage() {
     local response="$1"
     local format="${2:-openai}"
@@ -240,13 +315,24 @@ extract_token_usage() {
     local input_tokens=0
     local output_tokens=0
 
-    if [[ "$format" == "qwen" ]]; then
-        input_tokens=$(echo "$response" | jq -r '.usage.input_tokens // 0' 2>/dev/null)
-        output_tokens=$(echo "$response" | jq -r '.usage.output_tokens // 0' 2>/dev/null)
-    else
-        input_tokens=$(echo "$response" | jq -r '.usage.prompt_tokens // 0' 2>/dev/null)
-        output_tokens=$(echo "$response" | jq -r '.usage.completion_tokens // 0' 2>/dev/null)
-    fi
+    case "$format" in
+        qwen)
+            input_tokens=$(echo "$response" | jq -r '.usage.input_tokens // 0' 2>/dev/null)
+            output_tokens=$(echo "$response" | jq -r '.usage.output_tokens // 0' 2>/dev/null)
+            ;;
+        anthropic)
+            input_tokens=$(echo "$response" | jq -r '.usage.input_tokens // 0' 2>/dev/null)
+            output_tokens=$(echo "$response" | jq -r '.usage.output_tokens // 0' 2>/dev/null)
+            ;;
+        google_ai)
+            input_tokens=$(echo "$response" | jq -r '.usageMetadata.promptTokenCount // 0' 2>/dev/null)
+            output_tokens=$(echo "$response" | jq -r '.usageMetadata.candidatesTokenCount // 0' 2>/dev/null)
+            ;;
+        *)  # openai format (default)
+            input_tokens=$(echo "$response" | jq -r '.usage.prompt_tokens // 0' 2>/dev/null)
+            output_tokens=$(echo "$response" | jq -r '.usage.completion_tokens // 0' 2>/dev/null)
+            ;;
+    esac
 
     local total=$((input_tokens + output_tokens))
     echo "$total"
@@ -267,8 +353,9 @@ extract_token_usage() {
 #   timeout_sec     - Request timeout in seconds
 #   api_endpoint    - Full API URL
 #   api_key_var     - Name of env var containing API key (not the value!)
+#                     For auth_style="none", pass empty string ""
 #   request_body    - JSON request body
-#   auth_style      - Optional: "bearer" (default) or "apikey"
+#   auth_style      - Optional: "bearer" (default), "apikey", "anthropic", or "none"
 #
 # Returns:
 #   0 on success
@@ -288,22 +375,31 @@ run_api_query() {
     # Check rate limiting before proceeding
     check_rate_limit "$consultant_name"
 
-    # Resolve API key from env var name
-    local api_key="${!api_key_var:-}"
-
-    if [[ -z "$api_key" ]]; then
-        log_error "[$consultant_name] API key not available: $api_key_var"
-        return 1
+    # Resolve API key from env var name (skip for "none" auth style)
+    local api_key=""
+    if [[ "$auth_style" != "none" ]]; then
+        api_key="${!api_key_var:-}"
+        if [[ -z "$api_key" ]]; then
+            log_error "[$consultant_name] API key not available: $api_key_var"
+            return 1
+        fi
     fi
 
-    # Build authorization header
-    local auth_header
+    # Build authorization headers based on auth style
+    local auth_headers=()
     case "$auth_style" in
+        none)
+            # No auth header (API key is in URL, e.g., Google AI)
+            ;;
+        anthropic)
+            auth_headers+=("-H" "x-api-key: $api_key")
+            auth_headers+=("-H" "anthropic-version: 2023-06-01")
+            ;;
         apikey)
-            auth_header="X-API-Key: $api_key"
+            auth_headers+=("-H" "X-API-Key: $api_key")
             ;;
         *)  # Default to bearer token
-            auth_header="Authorization: Bearer $api_key"
+            auth_headers+=("-H" "Authorization: Bearer $api_key")
             ;;
     esac
 
@@ -327,7 +423,7 @@ run_api_query() {
             -o "$temp_response" \
             -D "$temp_headers" \
             -X POST "$api_endpoint" \
-            -H "$auth_header" \
+            "${auth_headers[@]}" \
             -H "Content-Type: application/json" \
             -m "$timeout_seconds" \
             -d "$request_body" 2>"$error_file")

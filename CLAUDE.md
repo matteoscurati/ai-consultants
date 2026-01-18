@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 12 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.5.0
+**Version**: 2.6.0
 
 ## Structure
 
@@ -35,6 +35,7 @@ ai-consultants/
 │       ├── session.sh          # Session management
 │       ├── costs.sh            # Cost tracking + response limits
 │       ├── cache.sh            # Semantic caching (v2.3)
+│       ├── api_query.sh        # API mode query execution (v2.6)
 │       ├── progress.sh         # Progress bars
 │       └── reflection.sh       # Self-reflection + judge step
 └── templates/
@@ -221,6 +222,74 @@ Functions in `lib/reflection.sh`:
 - `judge_response()` - Evaluates single response for overconfidence
 - `heuristic_overconfidence_check()` - Fast fallback without LLM
 - `judge_all_responses()` - Batch evaluation
+
+## v2.6 Features
+
+### CLI/API Mode Switching
+Four consultants can now switch between CLI and API mode: **Gemini, Codex, Claude, Mistral**.
+
+When API mode is enabled for an agent, CLI mode is disabled (mutual exclusivity).
+
+```bash
+# Enable API mode for individual consultants
+export GEMINI_USE_API=true
+export GEMINI_API_KEY="your-google-ai-key"
+./scripts/consult_all.sh "question"
+
+export CODEX_USE_API=true
+export OPENAI_API_KEY="sk-..."
+./scripts/consult_all.sh "question"
+
+export CLAUDE_USE_API=true
+export ANTHROPIC_API_KEY="sk-ant-..."
+./scripts/consult_all.sh "question"
+
+export MISTRAL_USE_API=true
+export MISTRAL_API_KEY="your-mistral-key"
+./scripts/consult_all.sh "question"
+```
+
+### API Mode Configuration
+New environment variables in `config.sh`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GEMINI_USE_API` | false | Use Google AI API instead of gemini CLI |
+| `CODEX_USE_API` | false | Use OpenAI API instead of codex CLI |
+| `CLAUDE_USE_API` | false | Use Anthropic API instead of claude CLI |
+| `MISTRAL_USE_API` | false | Use Mistral API instead of vibe CLI |
+| `GEMINI_API_URL` | https://generativelanguage.googleapis.com/v1beta/models | Google AI endpoint |
+| `CODEX_API_URL` | https://api.openai.com/v1/chat/completions | OpenAI endpoint |
+| `CLAUDE_API_URL` | https://api.anthropic.com/v1/messages | Anthropic endpoint |
+| `MISTRAL_API_URL` | https://api.mistral.ai/v1/chat/completions | Mistral endpoint |
+
+### API Keys for API Mode
+
+| Agent | API Key Variable | Notes |
+|-------|------------------|-------|
+| Gemini | `GEMINI_API_KEY` | Google AI API key |
+| Codex | `OPENAI_API_KEY` | Same as existing OpenAI key |
+| Claude | `ANTHROPIC_API_KEY` | Anthropic API key |
+| Mistral | `MISTRAL_API_KEY` | Same as existing Mistral key |
+
+### Mode Checking Functions
+New functions in `lib/common.sh`:
+- `is_api_mode()` - Check if agent is in API mode
+- `validate_api_mode()` - Validate API key is set
+- `get_api_key_var()` - Get API key variable name
+- `get_api_url()` - Get API endpoint URL
+- `get_api_format()` - Get response format (openai, anthropic, google_ai)
+
+### Doctor Diagnostics
+The `doctor.sh` script now shows CLI/API mode status:
+```bash
+./scripts/doctor.sh --verbose
+# Shows:
+#   ✓ Gemini: API mode (key: AIza...1234)
+#   ○ Codex: CLI mode
+#   ○ Claude: CLI mode
+#   ○ Mistral: CLI mode
+```
 
 ## v2.5 Features
 
@@ -525,6 +594,16 @@ For detailed information, see:
 - Run `./scripts/doctor.sh` to verify configuration
 
 ## Changelog
+
+### v2.6.0
+- CLI/API mode switching for Gemini, Codex, Claude, and Mistral
+- New environment variables: `*_USE_API`, `*_API_URL`
+- API request builders for Anthropic and Google AI formats
+- Response parsers for all API formats (OpenAI, Anthropic, Google AI)
+- New `lib/api_query.sh` module for unified API query execution
+- Mode checking functions in `lib/common.sh`
+- Doctor diagnostics for CLI/API mode status
+- Updated query scripts with CLI/API branching
 
 ### v2.5.0
 - Model quality tiers: premium, standard, economy

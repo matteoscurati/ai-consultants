@@ -214,6 +214,68 @@ check_cli_consultants() {
 }
 
 # =============================================================================
+# CHECK: CLI/API Mode Switching (v2.6)
+# =============================================================================
+
+check_api_mode() {
+    local name="$1"
+    local use_api_var="$2"
+    local api_key_var="$3"
+    local enabled_var="$4"
+
+    local is_enabled="${!enabled_var:-false}"
+    local use_api="${!use_api_var:-false}"
+
+    if [[ "$is_enabled" != "true" ]]; then
+        return 0  # Skip disabled consultants
+    fi
+
+    if [[ "$use_api" == "true" ]]; then
+        local api_key="${!api_key_var:-}"
+        if [[ -z "$api_key" ]]; then
+            _print "  ✗ $name: API mode enabled but $api_key_var not set"
+            add_issue "api_mode" "$name API mode enabled but API key missing" "export ${api_key_var}='your-api-key'"
+            check_fail
+            return 1
+        else
+            local masked_key="${api_key:0:4}...${api_key: -4}"
+            _print "  ✓ $name: API mode (key: $masked_key)"
+            check_pass
+        fi
+    else
+        _print "  ○ $name: CLI mode"
+    fi
+}
+
+check_api_mode_switching() {
+    print_section "Checking CLI/API Mode Switching (v2.6)"
+
+    local has_api_mode=false
+
+    # Check switchable consultants
+    for agent in GEMINI CODEX CLAUDE MISTRAL; do
+        local enabled_var="ENABLE_${agent}"
+        local use_api_var="${agent}_USE_API"
+        local is_enabled="${!enabled_var:-false}"
+        local use_api="${!use_api_var:-false}"
+
+        if [[ "$is_enabled" == "true" && "$use_api" == "true" ]]; then
+            has_api_mode=true
+            break
+        fi
+    done
+
+    if [[ "$has_api_mode" == "true" ]] || [[ "$VERBOSE" == "true" ]]; then
+        check_api_mode "Gemini" "GEMINI_USE_API" "GEMINI_API_KEY" "ENABLE_GEMINI"
+        check_api_mode "Codex" "CODEX_USE_API" "OPENAI_API_KEY" "ENABLE_CODEX"
+        check_api_mode "Claude" "CLAUDE_USE_API" "ANTHROPIC_API_KEY" "ENABLE_CLAUDE"
+        check_api_mode "Mistral" "MISTRAL_USE_API" "MISTRAL_API_KEY" "ENABLE_MISTRAL"
+    else
+        _print "  ○ All switchable consultants using CLI mode"
+    fi
+}
+
+# =============================================================================
 # CHECK: API-based Consultants
 # =============================================================================
 
@@ -557,6 +619,7 @@ main() {
     print_header
     check_dependencies
     check_cli_consultants
+    check_api_mode_switching
     check_api_consultants
     check_configuration
     check_synthesis

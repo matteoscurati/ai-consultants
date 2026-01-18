@@ -256,6 +256,118 @@ is_known_agent() {
 }
 
 # =============================================================================
+# CLI/API MODE SWITCHING (v2.6)
+# =============================================================================
+
+# Check if an agent is configured to use API mode instead of CLI
+# Usage: is_api_mode <agent_name>
+# Returns: 0 (true) if API mode, 1 (false) if CLI mode
+is_api_mode() {
+    local agent="$1"
+    local agent_upper
+    agent_upper=$(to_upper "$agent")
+
+    local var_name="${agent_upper}_USE_API"
+    [[ "${!var_name:-false}" == "true" ]]
+}
+
+# Validate API mode configuration for an agent
+# Checks if the required API key is set
+# Usage: validate_api_mode <agent_name>
+# Returns: 0 if valid, 1 if API key missing
+validate_api_mode() {
+    local agent="$1"
+    local agent_upper
+    agent_upper=$(to_upper "$agent")
+
+    local api_key_var
+    case "$agent_upper" in
+        GEMINI)     api_key_var="GEMINI_API_KEY" ;;
+        CODEX)      api_key_var="OPENAI_API_KEY" ;;
+        CLAUDE)     api_key_var="ANTHROPIC_API_KEY" ;;
+        MISTRAL)    api_key_var="MISTRAL_API_KEY" ;;
+        *)
+            log_error "Unknown agent for API mode: $agent"
+            return 1
+            ;;
+    esac
+
+    if [[ -z "${!api_key_var:-}" ]]; then
+        log_error "[$agent] API mode enabled but $api_key_var is not set"
+        return 1
+    fi
+
+    log_debug "[$agent] API mode validated with $api_key_var"
+    return 0
+}
+
+# Get the API key variable name for an agent
+# Usage: get_api_key_var <agent_name>
+get_api_key_var() {
+    local agent="$1"
+    local agent_upper
+    agent_upper=$(to_upper "$agent")
+
+    case "$agent_upper" in
+        GEMINI)     echo "GEMINI_API_KEY" ;;
+        CODEX)      echo "OPENAI_API_KEY" ;;
+        CLAUDE)     echo "ANTHROPIC_API_KEY" ;;
+        MISTRAL)    echo "MISTRAL_API_KEY" ;;
+        QWEN3)      echo "QWEN3_API_KEY" ;;
+        GLM)        echo "GLM_API_KEY" ;;
+        GROK)       echo "GROK_API_KEY" ;;
+        DEEPSEEK)   echo "DEEPSEEK_API_KEY" ;;
+        *)          echo "" ;;
+    esac
+}
+
+# Get the API URL for an agent
+# Usage: get_api_url <agent_name>
+get_api_url() {
+    local agent="$1"
+    local agent_upper
+    agent_upper=$(to_upper "$agent")
+
+    case "$agent_upper" in
+        GEMINI)     echo "${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models}" ;;
+        CODEX)      echo "${CODEX_API_URL:-https://api.openai.com/v1/chat/completions}" ;;
+        CLAUDE)     echo "${CLAUDE_API_URL:-https://api.anthropic.com/v1/messages}" ;;
+        MISTRAL)    echo "${MISTRAL_API_URL:-https://api.mistral.ai/v1/chat/completions}" ;;
+        QWEN3)      echo "${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}" ;;
+        GLM)        echo "${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}" ;;
+        GROK)       echo "${GROK_API_URL:-https://api.x.ai/v1/chat/completions}" ;;
+        DEEPSEEK)   echo "${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}" ;;
+        *)          echo "" ;;
+    esac
+}
+
+# Get the API response format for an agent
+# Usage: get_api_format <agent_name>
+get_api_format() {
+    local agent="$1"
+    local agent_upper
+    agent_upper=$(to_upper "$agent")
+
+    case "$agent_upper" in
+        GEMINI)     echo "google_ai" ;;
+        CLAUDE)     echo "anthropic" ;;
+        CODEX|MISTRAL|GLM|GROK|DEEPSEEK)  echo "openai" ;;
+        QWEN3)      echo "qwen" ;;
+        *)          echo "openai" ;;
+    esac
+}
+
+# Log API mode status for debugging
+log_api_mode_status() {
+    local agent="$1"
+    if is_api_mode "$agent"; then
+        log_debug "[$agent] Mode: API"
+    else
+        log_debug "[$agent] Mode: CLI"
+    fi
+}
+
+# =============================================================================
 # SELF-EXCLUSION LOGIC (v2.2)
 # =============================================================================
 
@@ -370,7 +482,7 @@ validate_consultant_name() {
     upper=$(to_upper "$name")
 
     # Check against known agents
-    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR QWEN3 GLM GROK"
+    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR AIDER CLAUDE QWEN3 GLM GROK DEEPSEEK OLLAMA"
     for agent in $valid_agents; do
         if [[ "$upper" == "$agent" ]]; then
             return 0
