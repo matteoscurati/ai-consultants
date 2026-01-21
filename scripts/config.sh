@@ -137,6 +137,7 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # AMP CONFIGURATION - The Systems Thinker (v2.8)
 # =============================================================================
 
+AMP_MODEL="${AMP_MODEL:-amp}"
 AMP_TIMEOUT_SECONDS="${AMP_TIMEOUT:-180}"
 AMP_CMD="${AMP_CMD:-amp}"
 # CLI installation: curl -fsSL https://ampcode.com/install.sh | bash
@@ -562,7 +563,7 @@ apply_model_tier() {
 _disable_all_consultants() {
     export ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false
     export ENABLE_KILO=false ENABLE_CURSOR=false ENABLE_AIDER=false
-    export ENABLE_CLAUDE=false
+    export ENABLE_AMP=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
     export ENABLE_DEEPSEEK=false ENABLE_OLLAMA=false
     export ENABLE_DEBATE=false ENABLE_REFLECTION=false

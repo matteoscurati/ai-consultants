@@ -4,6 +4,7 @@
 # Usage: ./query_amp.sh "question" [context_file] [output_file]
 #
 # Environment variables:
+#   AMP_MODEL     - Model identifier (default: amp)
 #   AMP_TIMEOUT   - Timeout in seconds (default: 180)
 #   AMP_API_KEY   - API key for authentication (required)
 #   ENABLE_PERSONA - Enable "The Systems Thinker" persona (default: true)
@@ -23,9 +24,6 @@ OUTPUT_FILE="${3:-/tmp/amp_response.json}"
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Amp"
 
-# --- Check prerequisites ---
-check_command "$AMP_CMD" "Amp CLI" "curl -fsSL https://ampcode.com/install.sh | bash" || exit 1
-
 # --- Build query ---
 FULL_QUERY=$(build_full_query "$QUERY" "$CONTEXT_FILE")
 validate_query "$FULL_QUERY" "Amp" || exit 1
@@ -41,8 +39,10 @@ START_TIME=$(get_timestamp_ms)
 # --- Execution ---
 TEMP_OUTPUT=$(mktemp)
 
+# Check CLI prerequisite
+check_command "$AMP_CMD" "Amp CLI" "curl -fsSL https://ampcode.com/install.sh | bash" || exit 1
+
 # Amp CLI uses -x (execute mode) for non-interactive usage
-# Piped input with -x reads from stdin
 echo "$FULL_QUERY" | run_query \
     "Amp" \
     "$TEMP_OUTPUT" \
@@ -56,7 +56,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="amp"
+MODEL_USED="${AMP_MODEL:-amp}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---

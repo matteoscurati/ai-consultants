@@ -391,6 +391,8 @@ get_self_consultant_name() {
         gemini|gemini_cli|geminicli)    echo "GEMINI" ;;
         mistral|vibe|mistral_vibe)      echo "MISTRAL" ;;
         kilo|kilocode|kilo_code)        echo "KILO" ;;
+        amp|amp_code|ampcode)           echo "AMP" ;;
+        qwen|qwen3|qwen_code|qwencode)  echo "QWEN3" ;;
         cursor|aider)                   echo "$(to_upper "$invoking")" ;;
         *)                              echo "" ;;
     esac
@@ -486,7 +488,7 @@ validate_consultant_name() {
     upper=$(to_upper "$name")
 
     # Check against known agents
-    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR AIDER CLAUDE QWEN3 GLM GROK DEEPSEEK OLLAMA"
+    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP CLAUDE QWEN3 GLM GROK DEEPSEEK OLLAMA"
     for agent in $valid_agents; do
         if [[ "$upper" == "$agent" ]]; then
             return 0
