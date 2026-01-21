@@ -1,8 +1,8 @@
-# AI Consultants v2.7
+# AI Consultants v2.8
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.7.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -400,6 +400,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional approaches |
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
 | **Aider** | `aider` | The Pair Programmer | Collaborative coding |
+| **Amp** | `amp` | The Systems Thinker | System design, interactions, emergent behavior |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis, connecting ideas |
 
 ### API-Based Consultants
@@ -429,6 +430,7 @@ npm install -g @kilocode/cli           # Kilo
 curl https://cursor.com/install -fsS | bash  # Cursor
 
 # Optional CLI-based consultants
+curl -fsSL https://ampcode.com/install.sh | bash  # Amp
 npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
 
 # For local inference (optional)
@@ -652,6 +654,12 @@ Each consultation generates:
 ---
 
 ## Changelog
+
+### v2.8.0
+
+- **Amp CLI support**: New consultant with "The Systems Thinker" persona
+- **13 consultants total**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama
+- **Installation**: `curl -fsSL https://ampcode.com/install.sh | bash`
 
 ### v2.7.0
 

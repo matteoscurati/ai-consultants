@@ -244,7 +244,7 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER CLAUDE QWEN3"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP CLAUDE QWEN3"
 KNOWN_API_AGENTS="GLM GROK DEEPSEEK"
 KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
 
@@ -956,7 +956,7 @@ is_consultant_enabled() {
     # Get default based on consultant type
     local default="true"
     case "$name_upper" in
-        AIDER|CLAUDE|QWEN3|GLM|GROK|DEEPSEEK|OLLAMA)
+        AIDER|AMP|CLAUDE|QWEN3|GLM|GROK|DEEPSEEK|OLLAMA)
             default="false"
             ;;
     esac

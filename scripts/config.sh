@@ -134,6 +134,15 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # API key: Set DEEPSEEK_API_KEY environment variable
 
 # =============================================================================
+# AMP CONFIGURATION - The Systems Thinker (v2.8)
+# =============================================================================
+
+AMP_TIMEOUT_SECONDS="${AMP_TIMEOUT:-180}"
+AMP_CMD="${AMP_CMD:-amp}"
+# CLI installation: curl -fsSL https://ampcode.com/install.sh | bash
+# API key: Set AMP_API_KEY environment variable for authentication
+
+# =============================================================================
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
 # =============================================================================
 
@@ -169,10 +178,10 @@ OLLAMA_MODELS="${OLLAMA_MODELS:-}"
 # Use this array when iterating over consultants programmatically.
 
 # All available consultants (ordered by typical usage)
-ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "Ollama")
+ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "Ollama")
 
 # CLI-based consultants (use CLI tools, some support CLI/API switching)
-CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Claude" "Qwen3" "Ollama")
+CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Claude" "Qwen3" "Ollama")
 
 # API-only consultants (use HTTP API directly, no CLI available)
 API_CONSULTANTS=("GLM" "Grok" "DeepSeek")
@@ -189,6 +198,7 @@ ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
 ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 ENABLE_AIDER="${ENABLE_AIDER:-false}"
+ENABLE_AMP="${ENABLE_AMP:-false}"        # Amp Code (v2.8)
 ENABLE_CLAUDE="${ENABLE_CLAUDE:-false}"  # Auto-disabled when invoked by Claude Code
 
 # API-based consultants (disabled by default - require API keys)
@@ -661,4 +671,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.7.0"
+AI_CONSULTANTS_VERSION="2.8.0"

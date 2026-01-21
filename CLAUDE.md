@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 12 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.7.0
+**Version**: 2.8.0
 
 ## Structure
 
@@ -222,6 +222,30 @@ Functions in `lib/reflection.sh`:
 - `judge_response()` - Evaluates single response for overconfidence
 - `heuristic_overconfidence_check()` - Fast fallback without LLM
 - `judge_all_responses()` - Batch evaluation
+
+## v2.8 Features
+
+### Amp CLI Support
+Amp Code is now supported as a CLI-based consultant with "The Systems Thinker" persona.
+
+```bash
+# Enable Amp consultant
+export ENABLE_AMP=true
+./scripts/consult_all.sh "question"
+```
+
+**CLI Installation:**
+```bash
+curl -fsSL https://ampcode.com/install.sh | bash
+```
+
+**Environment Variables:**
+- `ENABLE_AMP` - Enable Amp consultant (default: false)
+- `AMP_CMD` - CLI command (default: amp)
+- `AMP_TIMEOUT` - Timeout in seconds (default: 180)
+- `AMP_API_KEY` - API key for authentication
+
+**Persona:** The Systems Thinker - Focuses on holistic system design, component interactions, and emergent behaviors.
 
 ## v2.7 Features
 
@@ -583,6 +607,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `kilocode` CLI - Kilo Code
 - `agent` CLI - Cursor
 - `aider` CLI - Aider
+- `amp` CLI - Amp Code (v2.8)
 - `claude` CLI - Claude (v2.2, also used for synthesis)
 - `qwen` CLI - Qwen via qwen-code (v2.7, optional)
 - `ollama` CLI - Local models (v2.2)
@@ -627,6 +652,13 @@ For detailed information, see:
 - Run `./scripts/doctor.sh` to verify configuration
 
 ## Changelog
+
+### v2.8.0
+- Amp CLI support via ampcode (`curl -fsSL https://ampcode.com/install.sh | bash`)
+- New consultant: Amp with "The Systems Thinker" persona (ID: 19)
+- New environment variables: `ENABLE_AMP`, `AMP_CMD`, `AMP_TIMEOUT`
+- Updated doctor.sh diagnostics for Amp CLI
+- Now supports 13 consultants total
 
 ### v2.7.0
 - Qwen CLI support via qwen-code (`npm install -g @qwen-code/qwen-code@latest`)
