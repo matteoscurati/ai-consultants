@@ -1,8 +1,8 @@
-# AI Consultants v2.5
+# AI Consultants v2.7
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.7.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -428,6 +428,9 @@ pip install mistral-vibe               # Mistral
 npm install -g @kilocode/cli           # Kilo
 curl https://cursor.com/install -fsS | bash  # Cursor
 
+# Optional CLI-based consultants
+npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
+
 # For local inference (optional)
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3.2
@@ -649,6 +652,18 @@ Each consultation generates:
 ---
 
 ## Changelog
+
+### v2.7.0
+
+- **Qwen CLI support**: CLI/API mode switching for Qwen3 via qwen-code
+- **5 switchable agents**: Gemini, Codex, Claude, Mistral, and now Qwen3 support CLI/API mode
+- **Backward compatible**: `QWEN3_USE_API` defaults to `true` to preserve v2.6 behavior
+
+### v2.6.0
+
+- **CLI/API mode switching**: Gemini, Codex, Claude, and Mistral can switch between CLI and API mode
+- **New environment variables**: `*_USE_API` and `*_API_URL` for each switchable agent
+- **Unified API query module**: `lib/api_query.sh` for consistent API handling
 
 ### v2.5.0
 

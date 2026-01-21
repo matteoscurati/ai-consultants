@@ -211,6 +211,7 @@ check_cli_consultants() {
     check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR"
     check_cli_consultant "Aider" "$AIDER_CMD" "pip install aider-chat" "AIDER"
     check_cli_consultant "Claude" "$CLAUDE_CMD" "See https://docs.anthropic.com/claude-code" "CLAUDE"
+    check_cli_consultant "Qwen" "$QWEN3_CMD" "npm install -g @qwen-code/qwen-code@latest" "QWEN3"
 }
 
 # =============================================================================
@@ -248,12 +249,12 @@ check_api_mode() {
 }
 
 check_api_mode_switching() {
-    print_section "Checking CLI/API Mode Switching (v2.6)"
+    print_section "Checking CLI/API Mode Switching (v2.7)"
 
     local has_api_mode=false
 
     # Check switchable consultants
-    for agent in GEMINI CODEX CLAUDE MISTRAL; do
+    for agent in GEMINI CODEX CLAUDE MISTRAL QWEN3; do
         local enabled_var="ENABLE_${agent}"
         local use_api_var="${agent}_USE_API"
         local is_enabled="${!enabled_var:-false}"
@@ -270,6 +271,7 @@ check_api_mode_switching() {
         check_api_mode "Codex" "CODEX_USE_API" "OPENAI_API_KEY" "ENABLE_CODEX"
         check_api_mode "Claude" "CLAUDE_USE_API" "ANTHROPIC_API_KEY" "ENABLE_CLAUDE"
         check_api_mode "Mistral" "MISTRAL_USE_API" "MISTRAL_API_KEY" "ENABLE_MISTRAL"
+        check_api_mode "Qwen3" "QWEN3_USE_API" "QWEN3_API_KEY" "ENABLE_QWEN3"
     else
         _print "  ○ All switchable consultants using CLI mode"
     fi
@@ -323,9 +325,8 @@ check_api_consultant() {
 }
 
 check_api_consultants() {
-    print_section "Checking API-based Consultants"
+    print_section "Checking API-only Consultants"
 
-    check_api_consultant "Qwen3" "QWEN3_API_KEY" "QWEN3_API_URL" "ENABLE_QWEN3"
     check_api_consultant "GLM" "GLM_API_KEY" "GLM_API_URL" "ENABLE_GLM"
     check_api_consultant "Grok" "GROK_API_KEY" "GROK_API_URL" "ENABLE_GROK"
     check_api_consultant "DeepSeek" "DEEPSEEK_API_KEY" "DEEPSEEK_API_URL" "ENABLE_DEEPSEEK"

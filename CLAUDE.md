@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 12 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.6.0
+**Version**: 2.7.0
 
 ## Structure
 
@@ -223,10 +223,33 @@ Functions in `lib/reflection.sh`:
 - `heuristic_overconfidence_check()` - Fast fallback without LLM
 - `judge_all_responses()` - Batch evaluation
 
+## v2.7 Features
+
+### Qwen CLI Support (qwen-code)
+Qwen3 now supports CLI/API mode switching using the qwen-code CLI.
+
+```bash
+# CLI mode (new in v2.7)
+export QWEN3_USE_API=false
+./scripts/consult_all.sh "question"
+
+# API mode (default, preserves v2.6 behavior)
+export QWEN3_USE_API=true
+export QWEN3_API_KEY="your-dashscope-key"
+./scripts/consult_all.sh "question"
+```
+
+**CLI Installation:**
+```bash
+npm install -g @qwen-code/qwen-code@latest
+```
+
+**Note:** `QWEN3_USE_API` defaults to `true` to preserve backward compatibility with v2.6 API behavior.
+
 ## v2.6 Features
 
 ### CLI/API Mode Switching
-Four consultants can now switch between CLI and API mode: **Gemini, Codex, Claude, Mistral**.
+Five consultants can now switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3**.
 
 When API mode is enabled for an agent, CLI mode is disabled (mutual exclusivity).
 
@@ -247,6 +270,10 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 export MISTRAL_USE_API=true
 export MISTRAL_API_KEY="your-mistral-key"
 ./scripts/consult_all.sh "question"
+
+export QWEN3_USE_API=true  # Default for backward compat
+export QWEN3_API_KEY="your-dashscope-key"
+./scripts/consult_all.sh "question"
 ```
 
 ### API Mode Configuration
@@ -258,6 +285,7 @@ New environment variables in `config.sh`:
 | `CODEX_USE_API` | false | Use OpenAI API instead of codex CLI |
 | `CLAUDE_USE_API` | false | Use Anthropic API instead of claude CLI |
 | `MISTRAL_USE_API` | false | Use Mistral API instead of vibe CLI |
+| `QWEN3_USE_API` | true | Use DashScope API instead of qwen CLI (v2.7) |
 | `GEMINI_API_URL` | https://generativelanguage.googleapis.com/v1beta/models | Google AI endpoint |
 | `CODEX_API_URL` | https://api.openai.com/v1/chat/completions | OpenAI endpoint |
 | `CLAUDE_API_URL` | https://api.anthropic.com/v1/messages | Anthropic endpoint |
@@ -271,6 +299,7 @@ New environment variables in `config.sh`:
 | Codex | `OPENAI_API_KEY` | Same as existing OpenAI key |
 | Claude | `ANTHROPIC_API_KEY` | Anthropic API key |
 | Mistral | `MISTRAL_API_KEY` | Same as existing Mistral key |
+| Qwen3 | `QWEN3_API_KEY` | DashScope API key |
 
 ### Mode Checking Functions
 New functions in `lib/common.sh`:
@@ -289,6 +318,7 @@ The `doctor.sh` script now shows CLI/API mode status:
 #   ○ Codex: CLI mode
 #   ○ Claude: CLI mode
 #   ○ Mistral: CLI mode
+#   ✓ Qwen3: API mode (key: sk-...1234)
 ```
 
 ## v2.5 Features
@@ -542,6 +572,8 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_COMPACT_REPORT` | true | Compact report format (v2.3) |
 | `ENABLE_BUDGET_LIMIT` | false | Budget enforcement (v2.4, opt-in) |
 | `BUDGET_ACTION` | warn | Action on budget exceeded: warn/stop (v2.4) |
+| `QWEN3_USE_API` | true | Use DashScope API instead of qwen CLI (v2.7) |
+| `QWEN3_CMD` | qwen | Qwen CLI command (v2.7) |
 
 ## External Dependencies
 
@@ -552,6 +584,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `agent` CLI - Cursor
 - `aider` CLI - Aider
 - `claude` CLI - Claude (v2.2, also used for synthesis)
+- `qwen` CLI - Qwen via qwen-code (v2.7, optional)
 - `ollama` CLI - Local models (v2.2)
 - `jq` - JSON parsing
 
@@ -594,6 +627,15 @@ For detailed information, see:
 - Run `./scripts/doctor.sh` to verify configuration
 
 ## Changelog
+
+### v2.7.0
+- Qwen CLI support via qwen-code (`npm install -g @qwen-code/qwen-code@latest`)
+- CLI/API mode switching for Qwen3 (now 5 agents support switching)
+- New environment variables: `QWEN3_USE_API`, `QWEN3_CMD`
+- `QWEN3_USE_API` defaults to `true` to preserve v2.6 API behavior
+- Updated `validate_api_mode()` to support Qwen3
+- Moved Qwen3 from API-only to CLI/API switchable consultant
+- Updated doctor.sh diagnostics for Qwen3 CLI/API mode
 
 ### v2.6.0
 - CLI/API mode switching for Gemini, Codex, Claude, and Mistral
