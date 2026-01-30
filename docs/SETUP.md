@@ -1,4 +1,4 @@
-# Setup Guide - AI Consultants v2.2
+# Setup Guide - AI Consultants v2.8
 
 This guide walks you through installing and configuring AI Consultants for various AI coding agents.
 
@@ -354,6 +354,42 @@ export OPENAI_API_KEY="sk-your-key"  # Or other provider
 claude --version
 ```
 
+### Qwen CLI (The Analyst) - v2.7
+
+```bash
+npm install -g @qwen-code/qwen-code@latest
+
+# Verify installation
+qwen --version
+
+# Authentication (API mode, default)
+export QWEN3_API_KEY="your-dashscope-key"
+
+# Or use CLI mode (requires qwen-code)
+export QWEN3_USE_API=false
+```
+
+Get API key: [Alibaba Cloud DashScope](https://dashscope.console.aliyun.com/)
+
+**CLI/API Mode**: Qwen3 defaults to API mode (`QWEN3_USE_API=true`). Set to `false` to use the qwen-code CLI.
+
+### Amp CLI (The Systems Thinker) - v2.8
+
+```bash
+# One-liner installation
+curl -fsSL https://ampcode.com/install.sh | bash
+
+# Verify installation
+amp --version
+
+# Authentication
+export AMP_API_KEY="your-amp-key"
+```
+
+Get API key: [Amp Code](https://ampcode.com)
+
+**Usage**: Amp CLI uses `-x` flag for non-interactive execution (required for script integration).
+
 ---
 
 ## Ollama (Local Models) - v2.2
@@ -486,11 +522,13 @@ When AI Consultants is invoked from a specific AI agent, that agent is automatic
 
 | Invoking Agent | Excluded Consultant | Other Consultants |
 |----------------|---------------------|-------------------|
-| Claude Code | Claude | Gemini, Codex, Mistral, Kilo, Cursor, etc. |
-| Codex CLI | Codex | Claude, Gemini, Mistral, Kilo, Cursor, etc. |
-| Gemini CLI | Gemini | Claude, Codex, Mistral, Kilo, Cursor, etc. |
-| Cursor | Cursor | Claude, Gemini, Codex, Mistral, Kilo, etc. |
-| Bash (direct) | None | All enabled consultants |
+| Claude Code | Claude | Gemini, Codex, Mistral, Kilo, Cursor, Amp, Qwen, etc. |
+| Codex CLI | Codex | Claude, Gemini, Mistral, Kilo, Cursor, Amp, Qwen, etc. |
+| Gemini CLI | Gemini | Claude, Codex, Mistral, Kilo, Cursor, Amp, Qwen, etc. |
+| Cursor | Cursor | Claude, Gemini, Codex, Mistral, Kilo, Amp, Qwen, etc. |
+| Amp CLI | Amp | Claude, Gemini, Codex, Mistral, Kilo, Cursor, Qwen, etc. |
+| Qwen CLI | Qwen3 | Claude, Gemini, Codex, Mistral, Kilo, Cursor, Amp, etc. |
+| Bash (direct) | None | All enabled consultants (up to 13) |
 
 ### Automatic Detection
 
@@ -510,6 +548,62 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"
 
 # No exclusion (all enabled consultants)
 ./scripts/consult_all.sh "Question"
+```
+
+---
+
+## CLI/API Mode Switching (v2.6+)
+
+Five consultants can switch between CLI mode (using local CLI tools) and API mode (direct API calls): **Gemini, Codex, Claude, Mistral, and Qwen3**.
+
+### Why Use API Mode?
+
+- **No CLI installation required**: Use API keys without installing CLI tools
+- **Consistent behavior**: API responses are more predictable
+- **Easier deployment**: No need to manage CLI binaries
+
+### Configuration
+
+```bash
+# Enable API mode for individual consultants
+export GEMINI_USE_API=true
+export GEMINI_API_KEY="your-google-ai-key"
+
+export CODEX_USE_API=true
+export OPENAI_API_KEY="sk-..."
+
+export CLAUDE_USE_API=true
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+export MISTRAL_USE_API=true
+export MISTRAL_API_KEY="your-mistral-key"
+
+export QWEN3_USE_API=true   # Default for Qwen3
+export QWEN3_API_KEY="your-dashscope-key"
+```
+
+### API Endpoints (Custom)
+
+```bash
+GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models
+CODEX_API_URL=https://api.openai.com/v1/chat/completions
+CLAUDE_API_URL=https://api.anthropic.com/v1/messages
+MISTRAL_API_URL=https://api.mistral.ai/v1/chat/completions
+QWEN3_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+```
+
+### Mode Detection
+
+Check current mode with doctor command:
+
+```bash
+./scripts/doctor.sh --verbose
+# Shows:
+#   ✓ Gemini: API mode (key: AIza...1234)
+#   ○ Codex: CLI mode
+#   ○ Claude: CLI mode
+#   ○ Mistral: CLI mode
+#   ✓ Qwen3: API mode (key: sk-...abcd)
 ```
 
 ---
@@ -604,12 +698,19 @@ cp .env.example .env
 Edit `.env`:
 
 ```bash
-# Enable/disable consultants
+# Enable/disable consultants (13 available)
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_CLAUDE=false    # Auto-excluded when invoked from Claude Code
 ENABLE_MISTRAL=false
 ENABLE_KILO=false
+ENABLE_CURSOR=false
+ENABLE_AIDER=false
+ENABLE_AMP=false       # v2.8: The Systems Thinker
+ENABLE_QWEN3=false     # v2.7: The Analyst (CLI/API)
+ENABLE_GLM=false
+ENABLE_GROK=false
+ENABLE_DEEPSEEK=false
 ENABLE_OLLAMA=true
 
 # Self-exclusion (v2.2)
@@ -619,18 +720,33 @@ INVOKING_AGENT=unknown  # Set automatically by slash commands
 GOOGLE_API_KEY=your-key
 OPENAI_API_KEY=sk-your-key
 MISTRAL_API_KEY=your-key
+ANTHROPIC_API_KEY=sk-ant-your-key
+AMP_API_KEY=your-amp-key
+QWEN3_API_KEY=your-dashscope-key
 
-# Defaults (v2.2)
+# CLI/API Mode Switching (v2.6+)
+GEMINI_USE_API=false
+CODEX_USE_API=false
+CLAUDE_USE_API=false
+MISTRAL_USE_API=false
+QWEN3_USE_API=true     # Default: API mode
+
+# Defaults (v2.8)
 DEFAULT_PRESET=balanced
 DEFAULT_STRATEGY=majority
 
 # Ollama
-OLLAMA_MODEL=llama3.2
+OLLAMA_MODEL=qwen2.5-coder:32b
 
 # Features
 ENABLE_DEBATE=false
 ENABLE_SYNTHESIS=true
 ENABLE_PANIC_MODE=auto
+
+# Budget (v2.4)
+ENABLE_BUDGET_LIMIT=false
+MAX_SESSION_COST=1.00
+BUDGET_ACTION=warn
 ```
 
 ### Minimum Requirements

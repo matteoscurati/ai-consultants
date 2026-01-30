@@ -211,7 +211,7 @@ select_consultants() {
             break
         fi
         echo "$c"
-        ((count++))
+        count=$((count + 1))
     done
 }
 
@@ -478,24 +478,15 @@ needs_escalation() {
 }
 
 # Get premium model for escalation
+# Delegates to get_model_for_tier() in config.sh (single source of truth)
 # Usage: get_premium_model <consultant>
 get_premium_model() {
     local consultant="$1"
-    consultant=$(echo "$consultant" | tr '[:upper:]' '[:lower:]')
-
-    case "$consultant" in
-        gemini)   echo "gemini-2.5-pro" ;;
-        codex)    echo "gpt-4o" ;;
-        mistral)  echo "mistral-large" ;;
-        kilo)     echo "kilo" ;;
-        cursor)   echo "cursor" ;;
-        claude)   echo "claude-3-opus" ;;
-        qwen3)    echo "qwen-max" ;;
-        glm)      echo "glm-4" ;;
-        grok)     echo "grok-2" ;;
-        deepseek) echo "deepseek-coder" ;;
-        *)        echo "" ;;
-    esac
+    if type get_model_for_tier &>/dev/null; then
+        get_model_for_tier "$consultant" "premium"
+    else
+        echo ""
+    fi
 }
 
 # Check if escalation is enabled
