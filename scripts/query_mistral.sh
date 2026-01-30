@@ -1,5 +1,5 @@
 #!/bin/bash
-# query_mistral.sh - Query Mistral Vibe CLI or API (v2.6 with API mode support)
+# query_mistral.sh - Query Mistral Vibe CLI or API
 #
 # Usage: ./query_mistral.sh "question" [context_file] [output_file]
 #
@@ -64,7 +64,7 @@ else
         "Mistral Vibe" \
         "$TEMP_OUTPUT" \
         "$MISTRAL_TIMEOUT_SECONDS" \
-        "$MISTRAL_CMD" --prompt "$FULL_QUERY" --auto-approve < /dev/null
+        "$MISTRAL_CMD" -p "$FULL_QUERY" --output text < /dev/null
 
     exit_code=$?
 fi

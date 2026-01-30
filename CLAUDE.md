@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 12 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.8.0
+**Version**: 2.8.1
 
 ## Structure
 
@@ -81,6 +81,13 @@ log_success "Operation completed"
 log_warn "Warning"
 log_error "Critical error"
 log_debug "Debug message"  # Only shown when LOG_LEVEL=DEBUG
+```
+
+### Shared Response Processing
+Query scripts should use `process_consultant_response()` from `lib/common.sh` for DRY response handling:
+```bash
+source "$SCRIPT_DIR/lib/common.sh"
+process_consultant_response "$raw_output" "$consultant_name" "$model" "$persona" "$output_file"
 ```
 
 ### JSON Output
@@ -364,6 +371,10 @@ source scripts/config.sh
 apply_model_tier "premium"   # Set all consultants to premium models
 apply_model_tier "standard"  # Set all consultants to standard models
 apply_model_tier "economy"   # Set all consultants to economy models
+
+# Get model for a specific consultant and tier (v2.8.1)
+get_model_for_tier "gemini" "premium"   # → gemini-3.0-pro
+get_model_for_tier "claude" "economy"   # → haiku
 ```
 
 ### Quality Tier Presets
@@ -652,6 +663,16 @@ For detailed information, see:
 - Run `./scripts/doctor.sh` to verify configuration
 
 ## Changelog
+
+### v2.8.1
+- CRITICAL: Fixed `((count++))` abort under `set -e` in consult_all.sh and routing.sh
+- Fixed missing integer validation for jq confidence values in escalation
+- Fixed Amp missing from `_consultant_map` in consult_all.sh
+- Fixed hardcoded `"claude"` in synthesize.sh (now uses `$CLAUDE_CMD`)
+- Security: Variable name validation before `export` in escalation and cost-aware routing
+- DRY: Rewrote `query_kilo.sh` and `query_cursor.sh` using `process_consultant_response()`
+- DRY: Added `get_model_for_tier()` as single source of truth for model tier mappings
+- Removed hardcoded version numbers from script headers
 
 ### v2.8.0
 - Amp CLI support via ampcode (`curl -fsSL https://ampcode.com/install.sh | bash`)

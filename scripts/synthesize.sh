@@ -1,5 +1,5 @@
 #!/bin/bash
-# synthesize.sh - Auto-synthesis engine for AI Consultants v2.0
+# synthesize.sh - Auto-synthesis engine for AI Consultants
 #
 # Analyzes responses from all consultants and generates an automatic synthesis
 # with consensus score, weighted recommendation, and comparison table.
@@ -288,7 +288,12 @@ TEMP_OUTPUT=$(mktemp)
 
 # Try first with claude CLI
 if command -v claude &> /dev/null; then
-    echo "$SYNTHESIS_PROMPT" | claude --print > "$TEMP_OUTPUT" 2>/dev/null
+    SYNTHESIS_MODEL="${SYNTHESIS_MODEL:-${CLAUDE_MODEL:-}}"
+    SYNTHESIS_ARGS=("${CLAUDE_CMD:-claude}" "--print")
+    if [[ -n "$SYNTHESIS_MODEL" ]]; then
+        SYNTHESIS_ARGS+=("--model" "$SYNTHESIS_MODEL")
+    fi
+    echo "$SYNTHESIS_PROMPT" | "${SYNTHESIS_ARGS[@]}" > "$TEMP_OUTPUT" 2>/dev/null
     exit_code=$?
 else
     log_warn "Claude CLI not found, using local fallback"

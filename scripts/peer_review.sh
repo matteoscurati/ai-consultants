@@ -1,5 +1,5 @@
 #!/bin/bash
-# peer_review.sh - Anonymous Peer Review for AI Consultants v2.2
+# peer_review.sh - Anonymous Peer Review for AI Consultants
 #
 # Implements blind peer review where consultants evaluate each other's
 # responses without knowing the source, reducing bias and identifying

@@ -1,5 +1,5 @@
 #!/bin/bash
-# query_qwen3.sh - Query Qwen3 via CLI (qwen-code) or HTTP API (v2.7 with CLI/API mode switching)
+# query_qwen3.sh - Query Qwen3 via CLI (qwen-code) or HTTP API
 #
 # Usage: ./query_qwen3.sh "question" [context_file] [output_file]
 #
@@ -61,11 +61,18 @@ else
     check_command "$QWEN3_CMD" "Qwen CLI" "npm install -g @qwen-code/qwen-code@latest" || exit 1
 
     # qwen-code uses -p for prompt, reads from stdin with -p -
+    # Build command args with optional model
+    QWEN_ARGS=("$QWEN3_CMD")
+    if [[ -n "${QWEN3_MODEL:-}" ]]; then
+        QWEN_ARGS+=("-m" "$QWEN3_MODEL")
+    fi
+    QWEN_ARGS+=("-p" "-")
+
     echo "$FULL_QUERY" | run_query \
         "Qwen3" \
         "$TEMP_OUTPUT" \
         "$QWEN3_TIMEOUT_SECONDS" \
-        "$QWEN3_CMD" -p -
+        "${QWEN_ARGS[@]}"
 
     exit_code=$?
 fi

@@ -1,5 +1,5 @@
 #!/bin/bash
-# costs.sh - Cost tracking and budget management for AI Consultants v2.0
+# costs.sh - Cost tracking and budget management for AI Consultants
 #
 # Tracks consultation costs based on estimated token usage
 # and manages budget limits.

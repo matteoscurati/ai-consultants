@@ -1,5 +1,5 @@
 #!/bin/bash
-# query_aider.sh - Query Aider CLI (v2.0 with Persona and Confidence)
+# query_aider.sh - Query Aider CLI
 #
 # Usage: ./query_aider.sh "question" [context_file] [output_file]
 #

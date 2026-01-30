@@ -1,5 +1,5 @@
 #!/bin/bash
-# query_claude.sh - Query Claude CLI or API (v2.6 with API mode support)
+# query_claude.sh - Query Claude CLI or API
 #
 # Usage: ./query_claude.sh "question" [context_file] [output_file]
 #
@@ -25,7 +25,7 @@ OUTPUT_FILE="${3:-/tmp/claude_response.json}"
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Claude"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
-MODEL_USED="${CLAUDE_MODEL:-claude-opus-4-5-20251124}"
+MODEL_USED="${CLAUDE_MODEL:-opus}"
 
 # --- Build query ---
 FULL_QUERY=$(build_full_query "$QUERY" "$CONTEXT_FILE")
@@ -67,7 +67,7 @@ else
         "Claude" \
         "$TEMP_OUTPUT" \
         "$CLAUDE_TIMEOUT_SECONDS" \
-        "$CLAUDE_CMD" --print
+        "$CLAUDE_CMD" --print --model "$MODEL_USED"
 
     exit_code=$?
 fi

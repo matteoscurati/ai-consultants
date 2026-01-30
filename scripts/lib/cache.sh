@@ -1,5 +1,5 @@
 #!/bin/bash
-# cache.sh - Semantic caching for AI Consultants v2.3
+# cache.sh - Semantic caching for AI Consultants
 #
 # Caches consultation responses based on semantic fingerprints
 # to avoid redundant API calls for similar queries.
@@ -331,8 +331,8 @@ EOF
 }
 
 # Mark response as from cache (for logging/metrics)
-# Usage: mark_from_cache <response_json>
+# Usage: echo "$json" | mark_from_cache   OR   mark_from_cache "$json"
 mark_from_cache() {
-    local response="$1"
+    local response="${1:-$(cat)}"
     echo "$response" | jq '.cache_metadata.from_cache = true' 2>/dev/null || echo "$response"
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# debate_round.sh - Multi-Agent Debate (MAD) implementation for AI Consultants v2.0
+# debate_round.sh - Multi-Agent Debate (MAD) implementation for AI Consultants
 #
 # Implements deliberation rounds where consultants can see and
 # respond to each other's responses.

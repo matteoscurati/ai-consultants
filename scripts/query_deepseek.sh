@@ -1,5 +1,5 @@
 #!/bin/bash
-# query_deepseek.sh - Query DeepSeek via HTTP API (v2.0 with Persona and Confidence)
+# query_deepseek.sh - Query DeepSeek via HTTP API
 #
 # Usage: ./query_deepseek.sh "question" [context_file] [output_file]
 #

@@ -1,8 +1,8 @@
-# AI Consultants v2.8
+# AI Consultants v2.8.1
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.8.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -654,6 +654,12 @@ Each consultation generates:
 ---
 
 ## Changelog
+
+### v2.8.1
+
+- **Bug fixes**: Fixed `((count++))` abort under `set -e`, missing Amp in consultant map, hardcoded `claude` in synthesize.sh
+- **Security**: Variable name validation before `export` in escalation and cost-aware routing
+- **DRY refactoring**: Rewrote `query_kilo.sh` and `query_cursor.sh` using shared `process_consultant_response()`; added `get_model_for_tier()` as single source of truth
 
 ### v2.8.0
 

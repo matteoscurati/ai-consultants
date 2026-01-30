@@ -1,9 +1,9 @@
 ---
 name: ai-consultants
-description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions".
+description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Qwen, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions".
 ---
 
-# AI Consultants v2.2 - AI Expert Panel
+# AI Consultants v2.8.1 - AI Expert Panel
 
 Simultaneously consult multiple AIs as "consultants" for coding questions. Each consultant has a **configurable persona** that influences their response style.
 
@@ -14,16 +14,15 @@ Simultaneously consult multiple AIs as "consultants" for coding questions. Each 
 /ai-consultants:consult "Your question here"
 ```
 
-## What's New in v2.2
+## What's New in v2.8
 
-- **Configuration Presets**: `--preset minimal/balanced/high-stakes/local`
-- **Synthesis Strategies**: `--strategy majority/risk_averse/security_first/compare_only`
-- **Doctor Command**: `./scripts/doctor.sh --fix` to diagnose and auto-fix
-- **Anonymous Peer Review**: Consultants evaluate each other without bias
-- **Ollama Support**: Local models for privacy (zero API cost)
-- **Panic Mode**: Auto-triggers rigor when uncertainty detected
-- **Confidence Intervals**: Statistical ranges like "8 +/- 1.2"
-- **New Slash Commands**: `/ai-consultants:config-preset`, `/ai-consultants:config-strategy`
+- **Amp CLI Consultant**: New "The Systems Thinker" persona for system design
+- **Qwen CLI Support**: CLI/API mode switching for Qwen3 (v2.7)
+- **CLI/API Mode Switching**: Gemini, Codex, Claude, Mistral, Qwen3 can use CLI or API (v2.6)
+- **Model Quality Tiers**: premium, standard, economy with `apply_model_tier()` (v2.5)
+- **Budget Enforcement**: Configurable cost limits with `ENABLE_BUDGET_LIMIT` (v2.4)
+- **Premium Model Defaults**: All consultants now use flagship models by default
+- **13 Consultants**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama
 
 ## Slash Commands
 
@@ -70,8 +69,14 @@ Set your preferences using slash commands:
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional |
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
 | **Aider** | `aider` | The Pair Programmer | Collaborative coding |
+| **Amp** | `amp` | The Systems Thinker | System design, interactions |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis |
+| **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
 | **Ollama** | `ollama` | The Local Expert | Privacy-first, zero cost |
+
+**API-only consultants**: GLM (The Methodologist), Grok (The Provocateur), DeepSeek (The Code Specialist)
+
+**CLI/API Mode**: Gemini, Codex, Claude, Mistral, and Qwen can switch between CLI and API mode via `*_USE_API` environment variables.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 
@@ -94,6 +99,8 @@ npm install -g @google/gemini-cli      # Gemini
 npm install -g @openai/codex           # Codex
 pip install mistral-vibe               # Mistral
 npm install -g @kilocode/cli           # Kilo
+npm install -g @qwen-code/qwen-code@latest  # Qwen
+curl -fsSL https://ampcode.com/install.sh | bash  # Amp
 brew install jq                        # Required
 
 # For local inference (optional)
@@ -203,7 +210,7 @@ Round 1 -> Cross-Critique -> Round 2 -> Final Synthesis
 ## Configuration
 
 ```bash
-# Defaults (v2.2)
+# Defaults (v2.8)
 DEFAULT_PRESET=balanced      # Preset when --preset not given
 DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
 
@@ -213,13 +220,27 @@ ENABLE_SYNTHESIS=true        # Automatic synthesis
 ENABLE_PEER_REVIEW=false     # Anonymous peer review
 ENABLE_PANIC_MODE=auto       # Auto-rigor for uncertainty
 
+# CLI/API Mode Switching (v2.6+)
+GEMINI_USE_API=false         # Use Google AI API instead of CLI
+CODEX_USE_API=false          # Use OpenAI API instead of CLI
+CLAUDE_USE_API=false         # Use Anthropic API instead of CLI
+MISTRAL_USE_API=false        # Use Mistral API instead of CLI
+QWEN3_USE_API=true           # Use DashScope API (default) or CLI
+
+# New consultants (v2.7-2.8)
+ENABLE_AMP=false             # Amp CLI - The Systems Thinker
+AMP_MODEL=amp
+ENABLE_QWEN3=false           # Qwen CLI/API - The Analyst
+QWEN3_MODEL=qwen3-max
+
 # Ollama (local models)
 ENABLE_OLLAMA=true
-OLLAMA_MODEL=llama3.2
-OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen2.5-coder:32b
 
-# Cost management
+# Budget management (v2.4)
+ENABLE_BUDGET_LIMIT=false
 MAX_SESSION_COST=1.00
+BUDGET_ACTION=warn           # warn or stop
 ```
 
 ## Output

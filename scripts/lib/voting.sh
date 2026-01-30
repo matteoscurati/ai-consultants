@@ -1,5 +1,5 @@
 #!/bin/bash
-# voting.sh - Confidence-weighted voting system for AI Consultants v2.0
+# voting.sh - Confidence-weighted voting system for AI Consultants
 #
 # Implements weighted voting algorithms to calculate consensus
 # and recommendations based on consultant confidence scores.

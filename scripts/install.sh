@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI Consultants - Installation Script v2.2
+# AI Consultants - Installation Script
 #
 # One-liner install:
 #   curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash

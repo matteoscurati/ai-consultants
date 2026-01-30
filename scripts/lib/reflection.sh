@@ -1,5 +1,5 @@
 #!/bin/bash
-# reflection.sh - Self-reflection (Reflexion pattern) for AI Consultants v2.0
+# reflection.sh - Self-reflection (Reflexion pattern) for AI Consultants
 #
 # Implements the generate-critique-refine pattern to improve
 # response quality through self-criticism.

@@ -1,9 +1,10 @@
 #!/bin/bash
-# query_cursor.sh - Query Cursor CLI (v2.0 with Persona and Confidence)
+# query_cursor.sh - Query Cursor CLI
 #
 # Usage: ./query_cursor.sh "question" [context_file] [output_file]
 #
 # Environment variables:
+#   CURSOR_MODEL   - Model to use (default: uses Cursor's default)
 #   CURSOR_TIMEOUT - Timeout in seconds (default: 180)
 #   ENABLE_PERSONA - Enable "The Integrator" persona (default: true)
 
@@ -21,6 +22,7 @@ OUTPUT_FILE="${3:-/tmp/cursor_response.json}"
 # --- Configuration ---
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Cursor"
+MODEL_USED="${CURSOR_MODEL:-cursor}"
 
 # --- Check prerequisites ---
 check_command "$CURSOR_CMD" "Cursor CLI" "curl https://cursor.com/install -fsS | bash" || exit 1
@@ -39,11 +41,19 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution ---
 TEMP_OUTPUT=$(mktemp)
+trap 'rm -f "$TEMP_OUTPUT"' EXIT
+
+# Build command args with optional model
+CMD_ARGS=("$CURSOR_CMD" "-p" "-" "--output-format" "text")
+if [[ -n "${CURSOR_MODEL:-}" ]]; then
+    CMD_ARGS+=("--model" "$CURSOR_MODEL")
+fi
+
 echo "$FULL_QUERY" | run_query \
     "Cursor" \
     "$TEMP_OUTPUT" \
     "$CURSOR_TIMEOUT_SECONDS" \
-    "$CURSOR_CMD" -p - --output-format text
+    "${CMD_ARGS[@]}"
 
 exit_code=$?
 
@@ -51,108 +61,11 @@ exit_code=$?
 END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
-# --- Post-processing: wrap in full schema ---
-if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
-    RAW_RESPONSE=$(cat "$TEMP_OUTPUT")
+# --- Post-processing: use shared helper ---
+PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
-    # Check if response is already structured JSON (from our instruction)
-    if echo "$RAW_RESPONSE" | jq -e '.response.summary' > /dev/null 2>&1; then
-        # It's already in our format, wrap with metadata
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg model "cursor" \
-            --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-            --argjson inner "$RAW_RESPONSE" \
-            --argjson latency "$LATENCY_MS" \
-            --arg timestamp "$(date -Iseconds)" \
-            '{
-                consultant: $consultant,
-                model: $model,
-                persona: $persona,
-                response: $inner.response,
-                confidence: $inner.confidence,
-                metadata: {
-                    tokens_used: 0,
-                    latency_ms: $latency,
-                    model_version: $model,
-                    timestamp: $timestamp
-                }
-            }' > "$OUTPUT_FILE"
-    else
-        # Fallback: response is not structured JSON, create base structure
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg model "cursor" \
-            --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-            --arg response "$RAW_RESPONSE" \
-            --argjson latency "$LATENCY_MS" \
-            --arg timestamp "$(date -Iseconds)" \
-            '{
-                consultant: $consultant,
-                model: $model,
-                persona: $persona,
-                response: {
-                    summary: "Unstructured response - see detailed",
-                    detailed: $response,
-                    approach: "unknown",
-                    pros: [],
-                    cons: [],
-                    caveats: ["Unstructured output from consultant"]
-                },
-                confidence: {
-                    score: 5,
-                    reasoning: "Confidence not provided by consultant",
-                    uncertainty_factors: ["Non-standard response format"]
-                },
-                metadata: {
-                    tokens_used: 0,
-                    latency_ms: $latency,
-                    model_version: $model,
-                    timestamp: $timestamp
-                }
-            }' > "$OUTPUT_FILE"
-    fi
+process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS"
 
-    rm -f "$TEMP_OUTPUT"
-
-    # Output the result
-    cat "$OUTPUT_FILE"
-else
-    # Error - create structured error output
-    jq -n \
-        --arg consultant "$CONSULTANT_NAME" \
-        --arg model "cursor" \
-        --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-        --argjson latency "$LATENCY_MS" \
-        --arg timestamp "$(date -Iseconds)" \
-        --arg error "Query failed with exit code $exit_code" \
-        '{
-            consultant: $consultant,
-            model: $model,
-            persona: $persona,
-            response: {
-                summary: "ERROR: Consultation failed",
-                detailed: $error,
-                approach: "error",
-                pros: [],
-                cons: [],
-                caveats: []
-            },
-            confidence: {
-                score: 0,
-                reasoning: "Consultation failed",
-                uncertainty_factors: ["Execution error"]
-            },
-            metadata: {
-                latency_ms: $latency,
-                model_version: $model,
-                timestamp: $timestamp,
-                error: $error
-            }
-        }' > "$OUTPUT_FILE"
-
-    rm -f "$TEMP_OUTPUT"
-    cat "$OUTPUT_FILE"
-fi
-
+cat "$OUTPUT_FILE"
 exit $exit_code

@@ -1,4 +1,4 @@
-# JSON Schema - AI Consultants v2.0
+# JSON Schema - AI Consultants v2.8
 
 This document describes the JSON schema used for consultant responses.
 
@@ -11,7 +11,7 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
 ```json
 {
   "consultant": "Gemini",
-  "model": "gemini-2.5-pro",
+  "model": "gemini-3.0-pro",
   "persona": "The Architect",
   "response": {
     "summary": "TL;DR in 2-3 sentences (max 500 characters)",
@@ -33,7 +33,7 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
   "metadata": {
     "tokens_used": 1500,
     "latency_ms": 2345,
-    "model_version": "gemini-2.5-pro",
+    "model_version": "gemini-3.0-pro",
     "timestamp": "2024-01-14T12:34:56Z"
   }
 }
@@ -189,7 +189,7 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
   "metadata": {
     "tokens_used": 1500,
     "latency_ms": 2345,
-    "model_version": "gemini-2.5-pro",
+    "model_version": "gemini-3.0-pro",
     "timestamp": "2024-01-14T12:34:56Z"
   }
 }
@@ -207,13 +207,16 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
 ### consultant
 
 ```
-"Gemini" | "Codex" | "Mistral" | "Kilo"
+"Gemini" | "Codex" | "Mistral" | "Kilo" | "Cursor" | "Aider" | "Amp" | "Claude" | "Qwen3" | "GLM" | "Grok" | "DeepSeek" | "Ollama"
 ```
 
 ### persona
 
 ```
-"The Architect" | "The Pragmatist" | "The Devil's Advocate" | "The Innovator"
+"The Architect" | "The Pragmatist" | "The Devil's Advocate" | "The Innovator" |
+"The Integrator" | "The Pair Programmer" | "The Systems Thinker" | "The Synthesizer" |
+"The Analyst" | "The Methodologist" | "The Provocateur" | "The Code Specialist" |
+"The Local Expert"
 ```
 
 ### critiques[].severity
@@ -250,7 +253,7 @@ jq 'has("consultant") and has("response") and has("confidence")' output.json
 ```json
 {
   "consultant": "Gemini",
-  "model": "gemini-2.5-pro",
+  "model": "gemini-3.0-pro",
   "persona": "The Architect",
   "response": {
     "summary": "I recommend using a Repository pattern to separate data access logic from business logic, improving testability and maintainability.",
@@ -295,7 +298,7 @@ jq 'has("consultant") and has("response") and has("confidence")' output.json
   "metadata": {
     "tokens_used": 1250,
     "latency_ms": 1850,
-    "model_version": "gemini-2.5-pro",
+    "model_version": "gemini-3.0-pro",
     "timestamp": "2024-01-14T12:34:56Z"
   }
 }

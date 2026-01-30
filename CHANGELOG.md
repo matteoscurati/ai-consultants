@@ -5,6 +5,139 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.1] - 2026-01-30
+
+### Fixed
+- **CRITICAL**: `((count++))` abort under `set -e` in consult_all.sh (SUCCESS_COUNT, ESCALATED_COUNT) and routing.sh
+- **HIGH**: Missing integer validation for jq confidence values in escalation
+- **HIGH**: Amp missing from `_consultant_map` in consult_all.sh
+- Hardcoded `"claude"` in synthesize.sh now uses `$CLAUDE_CMD`
+
+### Security
+- Variable name validation before `export` in escalation and cost-aware routing blocks
+
+### Changed
+- Rewrote `query_kilo.sh` using `process_consultant_response()` (224 to 94 lines)
+- Rewrote `query_cursor.sh` using `process_consultant_response()` (165 to 72 lines)
+- Added `get_model_for_tier()` as single source of truth for model tier mappings (config.sh)
+- Simplified `apply_model_tier()` to iterate via `get_model_for_tier()`
+- Simplified `get_premium_model()` to delegate to `get_model_for_tier()`
+- Removed hardcoded version numbers from script headers (source of truth: `config.sh:AI_CONSULTANTS_VERSION`)
+
+## [2.8.0] - 2026-01-21
+
+### Added
+- **Amp CLI Consultant**: New "The Systems Thinker" consultant via Amp CLI
+  - New script: `scripts/query_amp.sh`
+  - Persona ID 19: Focus on system design, component interactions, emergent behaviors
+  - CLI command: `amp -x` for non-interactive execution
+  - Installation: `curl -fsSL https://ampcode.com/install.sh | bash`
+  - Configuration: `ENABLE_AMP`, `AMP_MODEL`, `AMP_TIMEOUT`, `AMP_CMD`
+
+### Changed
+- Updated `scripts/config.sh` with Amp configuration
+- Updated `scripts/lib/personas.sh` with PERSONA_AMP (ID 19)
+- Updated `scripts/lib/common.sh` with AMP in known CLI agents
+- Updated `scripts/doctor.sh` with Amp CLI checks
+- Consultant count: 12 → 13
+
+## [2.7.0] - 2026-01-21
+
+### Added
+- **Qwen CLI Support**: CLI/API mode switching for Qwen3 consultant
+  - New environment variable: `QWEN3_USE_API` (default: true for backward compatibility)
+  - CLI mode uses `qwen-code` via `qwen -p -` command
+  - Installation: `npm install -g @qwen-code/qwen-code@latest`
+  - Configuration: `QWEN3_CMD` for custom command path
+
+### Changed
+- Rewrote `scripts/query_qwen3.sh` with CLI/API mode branching
+- Moved Qwen3 from `API_CONSULTANTS` to `CLI_CONSULTANTS` array
+- Updated `scripts/lib/common.sh` with Qwen3 in `KNOWN_CLI_AGENTS`
+- Updated `scripts/doctor.sh` with Qwen3 CLI mode checks
+
+## [2.6.0] - 2026-01-20
+
+### Added
+- **CLI/API Mode Switching**: Four consultants can switch between CLI and API mode
+  - Gemini: `GEMINI_USE_API` (CLI: `gemini`, API: Google AI)
+  - Codex: `CODEX_USE_API` (CLI: `codex`, API: OpenAI)
+  - Claude: `CLAUDE_USE_API` (CLI: `claude`, API: Anthropic)
+  - Mistral: `MISTRAL_USE_API` (CLI: `vibe`, API: Mistral)
+
+- **New API Mode Library**: `scripts/lib/api_query.sh`
+  - Unified API query execution for all formats
+  - Request builders: OpenAI, Anthropic, Google AI
+  - Response parsers: All API formats
+
+- **API Configuration**: New environment variables
+  - `*_USE_API` - Enable API mode (default: false)
+  - `*_API_URL` - Custom API endpoints
+  - `*_API_KEY` - API keys for authentication
+
+### Changed
+- Rewrote `scripts/query_gemini.sh` with CLI/API branching
+- Rewrote `scripts/query_codex.sh` with CLI/API branching
+- Rewrote `scripts/query_claude.sh` with CLI/API branching
+- Rewrote `scripts/query_mistral.sh` with CLI/API branching
+- Updated `scripts/lib/common.sh` with mode checking functions
+- Updated `scripts/doctor.sh` with CLI/API mode diagnostics
+
+## [2.5.0] - 2026-01-19
+
+### Added
+- **Model Quality Tiers**: Three tiers for model selection
+  - `premium` - Latest flagship models (default)
+  - `standard` - Good quality at reasonable cost
+  - `economy` - Optimized for speed and low cost
+
+- **Quality Tier Presets**: New presets using model tiers
+  - `max_quality` - All + premium models + debate
+  - `medium` - 4 consultants + standard models
+  - `fast` - 2 consultants + economy models
+
+- **New function**: `apply_model_tier()` for programmatic tier selection
+
+### Changed
+- **Premium Model Defaults** (January 2026):
+  - Claude: `claude-opus-4-5-20251124`
+  - Gemini: `gemini-3.0-pro`
+  - Codex: `gpt-5.2-codex`
+  - Mistral: `mistral-large-3`
+  - DeepSeek: `deepseek-v3.2-speciale`
+  - GLM: `glm-4.7`
+  - Grok: `grok-4-1-fast-reasoning`
+  - Qwen3: `qwen3-max`
+  - Aider: `gpt-5.2-codex`
+  - Ollama: `qwen2.5-coder:32b`
+
+- Updated `docs/cost_rates.json` with tier-based model rates
+
+## [2.4.0] - 2026-01-18
+
+### Added
+- **Budget Enforcement** (opt-in): Configurable cost limits
+  - New environment variable: `ENABLE_BUDGET_LIMIT` (default: false)
+  - `BUDGET_ACTION` - Action on budget exceeded: `warn` or `stop`
+  - Budget checks at 4 enforcement points:
+    1. Before Round 1 - Check estimated cost
+    2. After Round 1 - Check actual cost vs warning threshold
+    3. Before Debate - Check cumulative + debate estimate
+    4. Before Synthesis - Check cumulative + synthesis estimate
+
+- **New functions in `lib/costs.sh`**:
+  - `is_budget_enabled()` - Check if budget enforcement is enabled
+  - `enforce_budget()` - Check budget and take action
+  - `get_remaining_budget()` - Get remaining budget
+  - `format_budget_status()` - Format budget status for display
+  - `estimate_phase_cost()` - Estimate cost for a specific phase
+
+- **New slash command**: `/ai-consultants:config-budget`
+
+### Changed
+- Updated `scripts/doctor.sh` to display budget status
+- Updated `scripts/consult_all.sh` with budget enforcement points
+
 ## [2.3.0] - 2026-01-17
 
 ### Added

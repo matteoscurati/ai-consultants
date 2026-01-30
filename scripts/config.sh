@@ -1,5 +1,5 @@
 #!/bin/bash
-# config.sh - Centralized configuration for AI Consultants v2.0
+# config.sh - Centralized configuration for AI Consultants
 # Modify this file to customize skill behavior
 
 # =============================================================================
@@ -72,6 +72,7 @@ MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
 # KILO CONFIGURATION - The Innovator
 # =============================================================================
 
+KILO_MODEL="${KILO_MODEL:-}"
 KILO_TIMEOUT_SECONDS="${KILO_TIMEOUT:-180}"
 KILO_WORKSPACE="${KILO_WORKSPACE:-$(pwd)}"
 KILO_CMD="${KILO_CMD:-kilocode}"
@@ -80,6 +81,7 @@ KILO_CMD="${KILO_CMD:-kilocode}"
 # CURSOR CONFIGURATION - The Integrator
 # =============================================================================
 
+CURSOR_MODEL="${CURSOR_MODEL:-}"
 CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
 CURSOR_CMD="${CURSOR_CMD:-agent}"
 
@@ -147,7 +149,7 @@ AMP_CMD="${AMP_CMD:-amp}"
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
 # =============================================================================
 
-CLAUDE_MODEL="${CLAUDE_MODEL:-claude-opus-4-5-20251124}"
+CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"
 CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 
@@ -483,6 +485,71 @@ fi
 # MODEL QUALITY TIERS (v2.5)
 # =============================================================================
 
+# Get model name for a specific consultant and tier (single source of truth)
+# Usage: get_model_for_tier <consultant> <tier>
+# Returns: model name, or empty string if no model override (e.g., Kilo)
+get_model_for_tier() {
+    local consultant="$1"
+    local tier="${2:-premium}"
+    consultant=$(echo "$consultant" | tr '[:upper:]' '[:lower:]')
+
+    case "$tier" in
+        premium|max|best)
+            case "$consultant" in
+                claude)   echo "opus" ;;
+                gemini)   echo "gemini-3.0-pro" ;;
+                codex)    echo "gpt-5.2-codex" ;;
+                mistral)  echo "mistral-large-3" ;;
+                cursor)   echo "opus-4.5-thinking" ;;
+                deepseek) echo "deepseek-v3.2-speciale" ;;
+                glm)      echo "glm-4.7" ;;
+                grok)     echo "grok-4-1-fast-reasoning" ;;
+                qwen3)    echo "qwen3-max" ;;
+                aider)    echo "gpt-5.2-codex" ;;
+                ollama)   echo "qwen2.5-coder:32b" ;;
+                kilo)     echo "" ;;  # Uses internal provider routing
+                *)        echo "" ;;
+            esac
+            ;;
+        standard|medium|balanced)
+            case "$consultant" in
+                claude)   echo "sonnet" ;;
+                gemini)   echo "gemini-3.0-flash" ;;
+                codex)    echo "gpt-5.2" ;;
+                mistral)  echo "mistral-medium-latest" ;;
+                cursor)   echo "sonnet-4.5" ;;
+                deepseek) echo "deepseek-v3.2" ;;
+                glm)      echo "glm-4.7" ;;  # Same as premium (no mid-tier GLM)
+                grok)     echo "grok-3" ;;
+                qwen3)    echo "qwen3-235b-a22b" ;;
+                aider)    echo "gpt-5.2" ;;
+                ollama)   echo "llama3.3" ;;
+                kilo)     echo "" ;;
+                *)        echo "" ;;
+            esac
+            ;;
+        economy|fast|quick)
+            case "$consultant" in
+                claude)   echo "haiku" ;;
+                gemini)   echo "gemini-2.0-flash-lite" ;;
+                codex)    echo "gpt-4o-mini" ;;
+                mistral)  echo "devstral-small-2" ;;
+                cursor)   echo "gemini-3-flash" ;;
+                deepseek) echo "deepseek-chat" ;;
+                glm)      echo "glm-4-flash" ;;
+                grok)     echo "grok-3-mini" ;;
+                qwen3)    echo "qwen3-32b" ;;
+                aider)    echo "gpt-4o-mini" ;;
+                ollama)   echo "llama3.2" ;;
+                kilo)     echo "" ;;
+                *)        echo "" ;;
+            esac
+            ;;
+        *)
+            echo "" ;;
+    esac
+}
+
 # Apply model tier to all consultants
 # Usage: apply_model_tier <tier: premium|standard|economy>
 # Premium = latest flagship models, highest quality
@@ -491,53 +558,26 @@ fi
 apply_model_tier() {
     local tier="$1"
 
+    # Validate tier name
     case "$tier" in
-        premium|max|best)
-            # Verified January 2026 - Latest flagship models
-            export CLAUDE_MODEL="claude-opus-4-5-20251124"
-            export GEMINI_MODEL="gemini-3.0-pro"
-            export CODEX_MODEL="gpt-5.2-codex"
-            export MISTRAL_MODEL="mistral-large-3"
-            export DEEPSEEK_MODEL="deepseek-v3.2-speciale"
-            export GLM_MODEL="glm-4.7"
-            export GROK_MODEL="grok-4-1-fast-reasoning"
-            export QWEN3_MODEL="qwen3-max"
-            export AIDER_MODEL="gpt-5.2-codex"
-            export OLLAMA_MODEL="qwen2.5-coder:32b"
-            ;;
-        standard|medium|balanced)
-            # Good quality at reasonable cost
-            export CLAUDE_MODEL="claude-sonnet-4-5-20251124"
-            export GEMINI_MODEL="gemini-3.0-flash"
-            export CODEX_MODEL="gpt-5.2"
-            export MISTRAL_MODEL="mistral-medium-latest"
-            export DEEPSEEK_MODEL="deepseek-v3.2"
-            # GLM-4.7 is used for both premium and standard (no mid-tier GLM available)
-            export GLM_MODEL="glm-4.7"
-            export GROK_MODEL="grok-3"
-            export QWEN3_MODEL="qwen3-235b-a22b"
-            export AIDER_MODEL="gpt-5.2"
-            export OLLAMA_MODEL="llama3.3"
-            ;;
-        economy|fast|quick)
-            # Optimized for speed and low cost
-            export CLAUDE_MODEL="claude-3-5-haiku-20241022"
-            export GEMINI_MODEL="gemini-2.0-flash-lite"
-            export CODEX_MODEL="gpt-4o-mini"
-            export MISTRAL_MODEL="devstral-small-2"
-            export DEEPSEEK_MODEL="deepseek-chat"
-            export GLM_MODEL="glm-4-flash"
-            export GROK_MODEL="grok-3-mini"
-            export QWEN3_MODEL="qwen3-32b"
-            export AIDER_MODEL="gpt-4o-mini"
-            export OLLAMA_MODEL="llama3.2"
-            ;;
+        premium|max|best|standard|medium|balanced|economy|fast|quick) ;;
         *)
             echo "Unknown model tier: $tier" >&2
             echo "Available tiers: premium, standard, economy" >&2
             return 1
             ;;
     esac
+
+    local consultants="claude gemini codex mistral cursor deepseek glm grok qwen3 aider ollama"
+    for c in $consultants; do
+        local model
+        model=$(get_model_for_tier "$c" "$tier")
+        if [[ -n "$model" ]]; then
+            local var_name
+            var_name="$(echo "$c" | tr '[:lower:]' '[:upper:]')_MODEL"
+            export "$var_name=$model"
+        fi
+    done
 
     return 0
 }
@@ -672,4 +712,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.8.0"
+AI_CONSULTANTS_VERSION="2.8.1"

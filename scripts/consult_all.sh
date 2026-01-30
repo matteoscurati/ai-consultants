@@ -1,5 +1,5 @@
 #!/bin/bash
-# consult_all.sh - AI Consultants v2.2 - Main Orchestrator
+# consult_all.sh - AI Consultants - Main Orchestrator
 #
 # Complete workflow for multi-model AI consultation with:
 # - Specialized personas for each consultant
@@ -294,7 +294,7 @@ else
     log_self_exclusion_status
 
     # All enabled consultants - use a compact loop
-    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek OLLAMA:Ollama"
+    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek OLLAMA:Ollama AMP:Amp"
     for _entry in $_consultant_map; do
         _flag="${_entry%%:*}"
         _name="${_entry#*:}"
@@ -387,7 +387,26 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
     query_script="$SCRIPT_DIR/query_${consultant_lower}.sh"
 
     if [[ -x "$query_script" ]]; then
-        # Use dedicated query script
+        # Apply cost-aware model override if enabled (v2.3)
+        if [[ "${ENABLE_COST_AWARE_ROUTING:-false}" == "true" ]] && type get_cost_aware_model &>/dev/null; then
+            local_model=$(get_cost_aware_model "$consultant_lower" "${QUERY_COMPLEXITY:-5}" 2>/dev/null || echo "")
+            if [[ -n "$local_model" ]]; then
+                model_var="$(echo "${consultant_lower}" | tr '[:lower:]' '[:upper:]')_MODEL"
+                if [[ ! "$model_var" =~ ^[A-Z0-9_]+_MODEL$ ]]; then
+                    log_warn "Invalid model variable name: $model_var, skipping cost-aware override"
+                    continue
+                fi
+                log_debug "Cost-aware: $consultant using model $local_model"
+                (
+                    export "$model_var=$local_model"
+                    "$query_script" "" "$CONTEXT_FILE" "$local_output_file"
+                ) > /dev/null 2>&1 &
+                PIDS+=($!)
+                update_progress "$consultant" 10 "running"
+                continue
+            fi
+        fi
+        # Standard launch (inherits current environment models)
         "$query_script" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
     else
         # Fallback: custom API agent via generic API query
@@ -423,7 +442,7 @@ for i in "${!PIDS[@]}"; do
         if [[ -s "$output_file" ]]; then
             log_success "  $name: OK (cached)"
             RESULTS+=("$name:OK")
-            ((SUCCESS_COUNT++))
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
         else
             log_warn "  $name: Cache miss"
             RESULTS+=("$name:EMPTY")
@@ -435,7 +454,7 @@ for i in "${!PIDS[@]}"; do
         if [[ -s "$output_file" ]]; then
             log_success "  $name: OK ($(wc -c < "$output_file" | tr -d ' ') bytes)"
             RESULTS+=("$name:OK")
-            ((SUCCESS_COUNT++))
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             update_progress "$name" 100 "success"
 
             # Store in cache (v2.3)
@@ -470,6 +489,54 @@ if [[ "$ENABLE_COST_TRACKING" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
     # Budget enforcement check
     if is_budget_enabled; then
         log_debug "Current cost after Round 1: $(format_cost "$CURRENT_COST")"
+    fi
+fi
+
+# --- Fallback Escalation: Re-query low-confidence with premium models ---
+if is_escalation_enabled && [[ $SUCCESS_COUNT -gt 0 ]]; then
+    ESCALATED_COUNT=0
+    for consultant in "${SELECTED_CONSULTANTS[@]}"; do
+        consultant_lower=$(to_lower "$consultant")
+        response_file="$OUTPUT_DIR/${consultant_lower}.json"
+
+        if needs_escalation "$response_file"; then
+            premium_model=$(get_premium_model "$consultant_lower")
+            if [[ -n "$premium_model" ]]; then
+                original_confidence=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
+                [[ "$original_confidence" =~ ^[0-9]+$ ]] || original_confidence=5
+                log_info "Escalating $consultant (confidence: $original_confidence) → premium model: $premium_model"
+
+                query_script="$SCRIPT_DIR/query_${consultant_lower}.sh"
+                if [[ -x "$query_script" ]]; then
+                    escalation_file="$OUTPUT_DIR/${consultant_lower}_escalated.json"
+                    model_var="$(echo "${consultant_lower}" | tr '[:lower:]' '[:upper:]')_MODEL"
+                    if [[ ! "$model_var" =~ ^[A-Z0-9_]+_MODEL$ ]]; then
+                        log_warn "Invalid model variable name: $model_var, skipping escalation for $consultant"
+                        continue
+                    fi
+                    (
+                        export "$model_var=$premium_model"
+                        "$query_script" "" "$CONTEXT_FILE" "$escalation_file"
+                    ) > /dev/null 2>&1
+
+                    # Replace original if escalated response has higher confidence
+                    if [[ -f "$escalation_file" && -s "$escalation_file" ]]; then
+                        new_confidence=$(jq -r '.confidence.score // 0' "$escalation_file" 2>/dev/null)
+                        [[ "$new_confidence" =~ ^[0-9]+$ ]] || new_confidence=0
+                        if [[ "$new_confidence" -gt "$original_confidence" ]]; then
+                            cp "$escalation_file" "$response_file"
+                            log_success "  $consultant escalated: confidence $original_confidence → $new_confidence"
+                            ESCALATED_COUNT=$((ESCALATED_COUNT + 1))
+                        else
+                            log_debug "  $consultant escalation did not improve confidence"
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    done
+    if [[ $ESCALATED_COUNT -gt 0 ]]; then
+        log_info "Escalated $ESCALATED_COUNT consultant(s) to premium models"
     fi
 fi
 

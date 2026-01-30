@@ -1,11 +1,11 @@
 #!/bin/bash
-# query_kilo.sh - Query Kilo Code CLI (v2.0 with Persona and Confidence)
+# query_kilo.sh - Query Kilo Code CLI
 #
 # Usage: ./query_kilo.sh "question" [context_file] [output_file]
 #
 # Environment variables:
+#   KILO_MODEL   - Model to use (default: uses Kilo's internal provider)
 #   KILO_TIMEOUT - Timeout in seconds (default: 180)
-#   KILO_WORKSPACE - Working directory (default: pwd)
 #   ENABLE_PERSONA - Enable "The Innovator" persona (default: true)
 
 set -euo pipefail
@@ -22,6 +22,7 @@ OUTPUT_FILE="${3:-/tmp/kilo_response.json}"
 # --- Configuration ---
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Kilo"
+MODEL_USED="${KILO_MODEL:-kilo}"
 
 # --- Check prerequisites ---
 check_command "$KILO_CMD" "Kilo Code CLI" "npm install -g @kilocode/cli" || exit 1
@@ -40,156 +41,53 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution ---
 TEMP_OUTPUT=$(mktemp)
-run_query \
-    "Kilo Code" \
-    "$TEMP_OUTPUT" \
-    "$KILO_TIMEOUT_SECONDS" \
-    "$KILO_CMD" --auto --json --workspace "$KILO_WORKSPACE" "$FULL_QUERY" < /dev/null
+TEMP_RAW=$(mktemp)
+trap 'rm -f "$TEMP_OUTPUT" "$TEMP_RAW"' EXIT
 
-exit_code=$?
+# Build command args with optional model and -- separator for safety
+KILO_ARGS=("$KILO_CMD" "--auto" "--json" "--timeout" "$((KILO_TIMEOUT_SECONDS - 10))")
+if [[ -n "${KILO_MODEL:-}" ]]; then
+    KILO_ARGS+=("--model" "$KILO_MODEL")
+fi
+KILO_ARGS+=("--" "$FULL_QUERY")
+
+# Use run_with_timeout for cross-platform support (Linux/macOS/POSIX)
+log_info "Consulting Kilo Code (timeout: ${KILO_TIMEOUT_SECONDS}s)..."
+
+if run_with_timeout "$KILO_TIMEOUT_SECONDS" "${KILO_ARGS[@]}" > "$TEMP_RAW" 2>&1; then
+    exit_code=0
+else
+    exit_code=$?
+fi
+
+# --- Extract completion_result content from Kilo's JSON stream ---
+if [[ -f "$TEMP_RAW" && -s "$TEMP_RAW" ]]; then
+    # Kilo outputs multiple JSON lines with ANSI codes; extract the final answer
+    CONTENT=$(LC_ALL=C cat -v "$TEMP_RAW" \
+        | { grep 'completion_result' || true; } \
+        | { grep '"partial":false' || true; } \
+        | head -1 \
+        | LC_ALL=C sed 's/.*"content":"\([^"]*\)".*/\1/') || true
+
+    if [[ -n "${CONTENT:-}" ]]; then
+        echo "$CONTENT" > "$TEMP_OUTPUT"
+        exit_code=0
+        log_success "[Kilo Code] Response received (${#CONTENT} chars)"
+    else
+        log_error "[Kilo Code] Could not extract response"
+        exit_code=1
+    fi
+fi
 
 # --- Calculate latency ---
 END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
-# --- Post-processing: wrap in full schema ---
-if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
-    RAW_RESPONSE=$(cat "$TEMP_OUTPUT")
+# --- Post-processing: use shared helper ---
+PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
-    # Kilo already returns JSON, but with different schema
-    # Try to extract useful data
+process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS"
 
-    # First check if it's already in our format
-    if echo "$RAW_RESPONSE" | jq -e '.response.summary' > /dev/null 2>&1; then
-        # It's already in our format
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg model "kilo" \
-            --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-            --argjson inner "$RAW_RESPONSE" \
-            --argjson latency "$LATENCY_MS" \
-            --arg timestamp "$(date -Iseconds)" \
-            '{
-                consultant: $consultant,
-                model: $model,
-                persona: $persona,
-                response: $inner.response,
-                confidence: $inner.confidence,
-                metadata: {
-                    tokens_used: 0,
-                    latency_ms: $latency,
-                    model_version: $model,
-                    timestamp: $timestamp
-                }
-            }' > "$OUTPUT_FILE"
-    elif echo "$RAW_RESPONSE" | jq -e '.' > /dev/null 2>&1; then
-        # It's JSON but not in our format - extract content
-        CONTENT=$(echo "$RAW_RESPONSE" | jq -r '.response // .output // .message // .' 2>/dev/null || echo "$RAW_RESPONSE")
-
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg model "kilo" \
-            --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-            --arg response "$CONTENT" \
-            --argjson latency "$LATENCY_MS" \
-            --arg timestamp "$(date -Iseconds)" \
-            '{
-                consultant: $consultant,
-                model: $model,
-                persona: $persona,
-                response: {
-                    summary: "Unstructured response - see detailed",
-                    detailed: $response,
-                    approach: "unknown",
-                    pros: [],
-                    cons: [],
-                    caveats: ["Unstructured output from consultant"]
-                },
-                confidence: {
-                    score: 5,
-                    reasoning: "Confidence not provided by consultant",
-                    uncertainty_factors: ["Non-standard response format"]
-                },
-                metadata: {
-                    tokens_used: 0,
-                    latency_ms: $latency,
-                    model_version: $model,
-                    timestamp: $timestamp
-                }
-            }' > "$OUTPUT_FILE"
-    else
-        # Not JSON, plain text
-        jq -n \
-            --arg consultant "$CONSULTANT_NAME" \
-            --arg model "kilo" \
-            --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-            --arg response "$RAW_RESPONSE" \
-            --argjson latency "$LATENCY_MS" \
-            --arg timestamp "$(date -Iseconds)" \
-            '{
-                consultant: $consultant,
-                model: $model,
-                persona: $persona,
-                response: {
-                    summary: "Unstructured response - see detailed",
-                    detailed: $response,
-                    approach: "unknown",
-                    pros: [],
-                    cons: [],
-                    caveats: ["Unstructured output from consultant"]
-                },
-                confidence: {
-                    score: 5,
-                    reasoning: "Confidence not provided by consultant",
-                    uncertainty_factors: ["Non-standard response format"]
-                },
-                metadata: {
-                    tokens_used: 0,
-                    latency_ms: $latency,
-                    model_version: $model,
-                    timestamp: $timestamp
-                }
-            }' > "$OUTPUT_FILE"
-    fi
-
-    rm -f "$TEMP_OUTPUT"
-    cat "$OUTPUT_FILE"
-else
-    # Error - create structured output
-    jq -n \
-        --arg consultant "$CONSULTANT_NAME" \
-        --arg model "kilo" \
-        --arg persona "$(get_persona_name "$CONSULTANT_NAME")" \
-        --argjson latency "$LATENCY_MS" \
-        --arg timestamp "$(date -Iseconds)" \
-        --arg error "Query failed with exit code $exit_code" \
-        '{
-            consultant: $consultant,
-            model: $model,
-            persona: $persona,
-            response: {
-                summary: "ERROR: Consultation failed",
-                detailed: $error,
-                approach: "error",
-                pros: [],
-                cons: [],
-                caveats: []
-            },
-            confidence: {
-                score: 0,
-                reasoning: "Consultation failed",
-                uncertainty_factors: ["Execution error"]
-            },
-            metadata: {
-                latency_ms: $latency,
-                model_version: $model,
-                timestamp: $timestamp,
-                error: $error
-            }
-        }' > "$OUTPUT_FILE"
-
-    rm -f "$TEMP_OUTPUT"
-    cat "$OUTPUT_FILE"
-fi
-
+cat "$OUTPUT_FILE"
 exit $exit_code

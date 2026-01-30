@@ -1,4 +1,4 @@
-# Smart Routing - AI Consultants v2.0
+# Smart Routing - AI Consultants v2.8
 
 The Smart Routing system automatically selects the most suitable consultants based on the question category.
 
@@ -19,18 +19,18 @@ MIN_AFFINITY=7
 
 Consultant-category affinity scores (scale 1-10):
 
-| Category | Gemini | Codex | Mistral | Kilo | Notes |
-|----------|--------|-------|---------|------|-------|
-| **CODE_REVIEW** | 7 | **10** | 8 | 9 | Codex specialized in code review |
-| **BUG_DEBUG** | 7 | **10** | 9 | 8 | Codex excels at debugging |
-| **ARCHITECTURE** | **10** | 6 | 8 | 9 | Gemini "The Architect" |
-| **ALGORITHM** | 9 | 8 | 7 | 8 | All competent |
-| **SECURITY** | 9 | 9 | **10** | 8 | Mistral "Devil's Advocate" |
-| **QUICK_SYNTAX** | **10** | 8 | 5 | 6 | Gemini for speed |
-| **DATABASE** | 8 | 9 | 7 | 7 | Codex pragmatic |
-| **API_DESIGN** | **10** | 9 | 7 | 8 | Gemini architect |
-| **TESTING** | 7 | **10** | 9 | 7 | Codex + Mistral |
-| **GENERAL** | 8 | 8 | 8 | 8 | Balanced |
+| Category | Gemini | Codex | Mistral | Kilo | Cursor | Aider | Amp | Claude | Qwen3 | GLM | Grok | DeepSeek | Ollama |
+|----------|--------|-------|---------|------|--------|-------|-----|--------|-------|-----|------|----------|--------|
+| **CODE_REVIEW** | 7 | **10** | 8 | 9 | 8 | 9 | 7 | 8 | 7 | 7 | 6 | 8 | 6 |
+| **BUG_DEBUG** | 7 | **10** | 9 | 8 | 8 | 9 | 7 | 7 | 7 | 6 | 6 | 8 | 6 |
+| **ARCHITECTURE** | **10** | 6 | 8 | 9 | 7 | 6 | **10** | 9 | 7 | 7 | 7 | 6 | 5 |
+| **ALGORITHM** | 9 | 8 | 7 | 8 | 7 | 7 | 7 | 8 | 8 | 8 | 7 | **10** | 6 |
+| **SECURITY** | 9 | 9 | **10** | 8 | 8 | 7 | 8 | 9 | 7 | 7 | 8 | 7 | 5 |
+| **QUICK_SYNTAX** | **10** | 8 | 5 | 6 | 7 | 7 | 5 | 7 | 7 | 6 | 5 | 7 | 6 |
+| **DATABASE** | 8 | 9 | 7 | 7 | 7 | 7 | 7 | 7 | 8 | 7 | 6 | 8 | 5 |
+| **API_DESIGN** | **10** | 9 | 7 | 8 | 8 | 6 | 9 | 8 | 7 | 7 | 7 | 6 | 5 |
+| **TESTING** | 7 | **10** | 9 | 7 | 8 | 9 | 7 | 7 | 7 | 7 | 6 | 7 | 5 |
+| **GENERAL** | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 9 | 8 | 7 | 8 | 8 | 7 |
 
 **Legend:**
 - **10**: Perfect match
@@ -44,20 +44,33 @@ The system automatically determines how many consultants to involve:
 
 | Mode | Consultants | Categories | Rationale |
 |------|-------------|------------|-----------|
-| **full** | 4 | SECURITY, GENERAL | All for complete perspectives |
-| **selective** | 3 | CODE_REVIEW, BUG_DEBUG, ARCHITECTURE | Top 3 for the category |
+| **full** | All enabled | SECURITY, GENERAL | All for complete perspectives |
+| **selective** | Top 5 by affinity | CODE_REVIEW, BUG_DEBUG, ARCHITECTURE, ALGORITHM, DATABASE, API_DESIGN, TESTING | Best matches for the category |
 | **single** | 1 | QUICK_SYNTAX | Only the best for quick answers |
 
 ### Selection Logic
 
 ```
-SECURITY      → full (4)      # Too important to exclude anyone
+SECURITY      → full (all)     # Too important to exclude anyone
 QUICK_SYNTAX  → single (1)    # A quick answer is sufficient
-CODE_REVIEW   → selective (3) # Top 3 by affinity
-BUG_DEBUG     → selective (3)
-ARCHITECTURE  → selective (3)
-*             → full (4)      # Default: all
+CODE_REVIEW   → selective (5) # Top 5 by affinity
+BUG_DEBUG     → selective (5)
+ARCHITECTURE  → selective (5)
+*             → full (all)    # Default: all enabled
 ```
+
+## Cost-Aware Routing (v2.3+)
+
+When `ENABLE_COST_AWARE_ROUTING=true`, the system routes queries to cheaper models based on complexity:
+
+```bash
+ENABLE_COST_AWARE_ROUTING=true
+COMPLEXITY_THRESHOLD_SIMPLE=3    # Score 1-3 = use economy models
+COMPLEXITY_THRESHOLD_MEDIUM=6    # Score 4-6 = use standard models
+                                 # Score 7-10 = use premium models
+```
+
+See [COST_RATES.md](COST_RATES.md) for model pricing by tier.
 
 ## Timeout per Category
 
@@ -175,7 +188,7 @@ ENABLE_SMART_ROUTING=true \
 
 # Output:
 # [INFO] Category: SECURITY
-# [INFO] Routing mode: full (4 consultants)
+# [INFO] Routing mode: full (all enabled consultants)
 # [INFO] Timeout: 240s
 ```
 
@@ -190,7 +203,7 @@ source scripts/lib/routing.sh
 get_affinity "SECURITY" "Mistral"  # → 10
 
 # Select consultants
-select_consultants "SECURITY" 7    # → Mistral, Gemini, Codex, Kilo
+select_consultants "SECURITY" 7    # → All enabled consultants
 
 # Check recommendation
 is_recommended "SECURITY" "Kilo" 7 && echo "Recommended"
@@ -200,4 +213,7 @@ get_category_timeout "ARCHITECTURE"  # → 240
 
 # Get routing mode
 get_routing_mode "QUICK_SYNTAX"      # → single
+
+# Cost-aware selection (v2.3)
+select_consultants_cost_aware "QUICK_SYNTAX" 7  # → Economy model selection
 ```
