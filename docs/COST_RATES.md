@@ -18,9 +18,9 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| gemini-3.0-pro | Premium | $0.00125 | Gemini |
-| gemini-3.0-flash | Standard | $0.000075 | Gemini |
-| gemini-2.0-flash-lite | Economy | $0.0001 | Gemini |
+| gemini-3-pro-preview | Premium | $0.00125 | Gemini |
+| gemini-3-flash-preview | Standard | $0.000075 | Gemini |
+| gemini-2.0-flash | Economy | $0.0001 | Gemini |
 | gpt-5.2-codex | Premium | $0.01 | Codex |
 | gpt-5.2 | Standard | $0.005 | Codex |
 | gpt-4o-mini | Economy | $0.00015 | Codex |
@@ -48,9 +48,9 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| gemini-3.0-pro | Premium | $0.005 | Gemini |
-| gemini-3.0-flash | Standard | $0.0003 | Gemini |
-| gemini-2.0-flash-lite | Economy | $0.0004 | Gemini |
+| gemini-3-pro-preview | Premium | $0.005 | Gemini |
+| gemini-3-flash-preview | Standard | $0.0003 | Gemini |
+| gemini-2.0-flash | Economy | $0.0004 | Gemini |
 | gpt-5.2-codex | Premium | $0.03 | Codex |
 | gpt-5.2 | Standard | $0.015 | Codex |
 | gpt-4o-mini | Economy | $0.0006 | Codex |

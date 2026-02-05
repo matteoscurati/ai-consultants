@@ -4,7 +4,7 @@
 # Usage: ./query_gemini.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   GEMINI_MODEL - Model to use (default: gemini-3.0-pro)
+#   GEMINI_MODEL - Model to use (default: gemini-3-pro-preview)
 #   GEMINI_TIMEOUT - Timeout in seconds (default: 180)
 #   GEMINI_USE_API - Use API mode instead of CLI (default: false)
 #   GEMINI_API_KEY - API key for API mode
@@ -74,7 +74,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${GEMINI_MODEL:-gemini-3.0-pro}"
+MODEL_USED="${GEMINI_MODEL:-gemini-3-pro-preview}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---

@@ -4,7 +4,7 @@
   "models": {
     "_comment_premium": "Premium tier models - January 2026",
     "claude-opus-4-5-20251124": {"input": 5.00, "output": 25.00},
-    "gemini-3.0-pro": {"input": 1.25, "output": 5.00},
+    "gemini-3-pro-preview": {"input": 1.25, "output": 5.00},
     "gpt-5.2-codex": {"input": 3.00, "output": 12.00},
     "mistral-large-3": {"input": 2.00, "output": 6.00},
     "deepseek-v3.2-speciale": {"input": 0.55, "output": 2.19},
@@ -14,7 +14,7 @@
 
     "_comment_standard": "Standard tier models",
     "claude-sonnet-4-5-20251124": {"input": 3.00, "output": 15.00},
-    "gemini-3.0-flash": {"input": 0.075, "output": 0.30},
+    "gemini-3-flash-preview": {"input": 0.075, "output": 0.30},
     "gpt-5.2": {"input": 2.50, "output": 10.00},
     "mistral-medium-latest": {"input": 0.0027, "output": 0.0081},
     "deepseek-v3.2": {"input": 0.27, "output": 1.10},
@@ -23,7 +23,7 @@
 
     "_comment_economy": "Economy tier models",
     "claude-3-5-haiku-20241022": {"input": 0.001, "output": 0.005},
-    "gemini-2.0-flash-lite": {"input": 0.000075, "output": 0.0003},
+    "gemini-2.0-flash": {"input": 0.0001, "output": 0.0004},
     "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
     "devstral-small-2": {"input": 0.001, "output": 0.003},
     "deepseek-chat": {"input": 0.001, "output": 0.002},
@@ -32,9 +32,6 @@
     "qwen3-32b": {"input": 0.40, "output": 1.60},
 
     "_comment_legacy": "Legacy models for backwards compatibility",
-    "gemini-2.5-pro": {"input": 0.00125, "output": 0.005},
-    "gemini-2.5-flash": {"input": 0.000075, "output": 0.0003},
-    "gemini-2.0-flash": {"input": 0.0001, "output": 0.0004},
     "gpt-4": {"input": 0.03, "output": 0.06},
     "gpt-4-turbo": {"input": 0.01, "output": 0.03},
     "gpt-4o": {"input": 0.005, "output": 0.015},
@@ -60,7 +57,7 @@
   "consultant_fallbacks": {
     "_comment": "Premium defaults - Verified January 2026",
     "claude": "claude-opus-4-5-20251124",
-    "gemini": "gemini-3.0-pro",
+    "gemini": "gemini-3-pro-preview",
     "codex": "gpt-5.2-codex",
     "mistral": "mistral-large-3",
     "deepseek": "deepseek-v3.2-speciale",
@@ -76,7 +73,7 @@
     "_comment": "Model tiers for apply_model_tier() function",
     "premium": {
       "claude": "claude-opus-4-5-20251124",
-      "gemini": "gemini-3.0-pro",
+      "gemini": "gemini-3-pro-preview",
       "codex": "gpt-5.2-codex",
       "mistral": "mistral-large-3",
       "deepseek": "deepseek-v3.2-speciale",
@@ -90,7 +87,7 @@
     },
     "standard": {
       "claude": "claude-sonnet-4-5-20251124",
-      "gemini": "gemini-3.0-flash",
+      "gemini": "gemini-3-flash-preview",
       "codex": "gpt-5.2",
       "mistral": "mistral-medium-latest",
       "deepseek": "deepseek-v3.2",
@@ -105,7 +102,7 @@
     },
     "economy": {
       "claude": "claude-3-5-haiku-20241022",
-      "gemini": "gemini-2.0-flash-lite",
+      "gemini": "gemini-2.0-flash",
       "codex": "gpt-4o-mini",
       "mistral": "devstral-small-2",
       "deepseek": "deepseek-chat",

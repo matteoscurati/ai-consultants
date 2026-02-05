@@ -47,7 +47,7 @@ MISTRAL_API_URL="${MISTRAL_API_URL:-https://api.mistral.ai/v1/chat/completions}"
 # GEMINI CONFIGURATION - The Architect
 # =============================================================================
 
-GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.0-pro}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-3-pro-preview}"
 GEMINI_TIMEOUT_SECONDS="${GEMINI_TIMEOUT:-180}"
 GEMINI_CMD="${GEMINI_CMD:-gemini}"
 
@@ -508,7 +508,7 @@ get_model_for_tier() {
         premium|max|best)
             case "$consultant" in
                 claude)   echo "opus" ;;
-                gemini)   echo "gemini-3.0-pro" ;;
+                gemini)   echo "gemini-3-pro-preview" ;;
                 codex)    echo "gpt-5.2-codex" ;;
                 mistral)  echo "mistral-large-3" ;;
                 cursor)   echo "opus-4.5-thinking" ;;
@@ -527,7 +527,7 @@ get_model_for_tier() {
         standard|medium|balanced)
             case "$consultant" in
                 claude)   echo "sonnet" ;;
-                gemini)   echo "gemini-3.0-flash" ;;
+                gemini)   echo "gemini-3-flash-preview" ;;
                 codex)    echo "gpt-5.2" ;;
                 mistral)  echo "mistral-medium-latest" ;;
                 cursor)   echo "sonnet-4.5" ;;
@@ -546,10 +546,10 @@ get_model_for_tier() {
         economy|fast|quick)
             case "$consultant" in
                 claude)   echo "haiku" ;;
-                gemini)   echo "gemini-2.0-flash-lite" ;;
+                gemini)   echo "gemini-2.0-flash" ;;
                 codex)    echo "gpt-4o-mini" ;;
                 mistral)  echo "devstral-small-2" ;;
-                cursor)   echo "gemini-3-flash" ;;
+                cursor)   echo "gemini-2.0-flash" ;;
                 deepseek) echo "deepseek-chat" ;;
                 glm)      echo "glm-4-flash" ;;
                 grok)     echo "grok-3-mini" ;;
@@ -729,4 +729,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.9.0"
+AI_CONSULTANTS_VERSION="2.9.1"

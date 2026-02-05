@@ -1,8 +1,8 @@
-# AI Consultants v2.9.0
+# AI Consultants v2.9.1
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.9.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.9.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -458,7 +458,7 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 | Consultant | Premium | Standard | Economy |
 |------------|---------|----------|---------|
 | Claude | claude-opus-4-5 | claude-sonnet-4-5 | claude-3-5-haiku |
-| Gemini | gemini-3.0-pro | gemini-3.0-flash | gemini-2.0-flash-lite |
+| Gemini | gemini-3-pro-preview | gemini-3-flash-preview | gemini-2.0-flash |
 | Codex | gpt-5.2-codex | gpt-5.2 | gpt-4o-mini |
 | Mistral | mistral-large-3 | mistral-medium | devstral-small-2 |
 | DeepSeek | deepseek-v3.2-speciale | deepseek-v3.2 | deepseek-chat |
@@ -685,7 +685,7 @@ Each consultation generates:
 - **New presets**: `max_quality`, `medium`, `fast` for quick tier selection
 - **Premium defaults**: All consultants now use premium models by default (January 2026)
 - **`apply_model_tier()` function**: Programmatically switch all models to a tier
-- **Updated models**: claude-opus-4-5, gemini-3.0-pro, gpt-5.2-codex, mistral-large-3, etc.
+- **Updated models**: claude-opus-4-5, gemini-3-pro-preview, gpt-5.2-codex, mistral-large-3, etc.
 
 ### v2.4.0
 
