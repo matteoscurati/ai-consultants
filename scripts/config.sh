@@ -146,6 +146,16 @@ AMP_CMD="${AMP_CMD:-amp}"
 # API key: Set AMP_API_KEY environment variable for authentication
 
 # =============================================================================
+# KIMI CONFIGURATION - The Eastern Sage (v2.9)
+# =============================================================================
+
+KIMI_MODEL="${KIMI_MODEL:-kimi-code/kimi-for-coding}"
+KIMI_TIMEOUT_SECONDS="${KIMI_TIMEOUT:-180}"
+KIMI_CMD="${KIMI_CMD:-kimi}"
+# CLI installation: pip install kimi-cli
+# Authentication: kimi login
+
+# =============================================================================
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
 # =============================================================================
 
@@ -181,10 +191,10 @@ OLLAMA_MODELS="${OLLAMA_MODELS:-}"
 # Use this array when iterating over consultants programmatically.
 
 # All available consultants (ordered by typical usage)
-ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "Ollama")
+ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "Ollama")
 
 # CLI-based consultants (use CLI tools, some support CLI/API switching)
-CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Claude" "Qwen3" "Ollama")
+CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "Ollama")
 
 # API-only consultants (use HTTP API directly, no CLI available)
 API_CONSULTANTS=("GLM" "Grok" "DeepSeek")
@@ -202,6 +212,7 @@ ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 ENABLE_AIDER="${ENABLE_AIDER:-false}"
 ENABLE_AMP="${ENABLE_AMP:-false}"        # Amp Code (v2.8)
+ENABLE_KIMI="${ENABLE_KIMI:-false}"      # Kimi Code (v2.9)
 ENABLE_CLAUDE="${ENABLE_CLAUDE:-false}"  # Auto-disabled when invoked by Claude Code
 
 # API-based consultants (disabled by default - require API keys)
@@ -506,7 +517,9 @@ get_model_for_tier() {
                 grok)     echo "grok-4-1-fast-reasoning" ;;
                 qwen3)    echo "qwen3-max" ;;
                 aider)    echo "gpt-5.2-codex" ;;
+                amp)      echo "amp" ;;
                 ollama)   echo "qwen2.5-coder:32b" ;;
+                kimi)     echo "kimi-code/kimi-for-coding" ;;
                 kilo)     echo "" ;;  # Uses internal provider routing
                 *)        echo "" ;;
             esac
@@ -523,7 +536,9 @@ get_model_for_tier() {
                 grok)     echo "grok-3" ;;
                 qwen3)    echo "qwen3-235b-a22b" ;;
                 aider)    echo "gpt-5.2" ;;
+                amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.3" ;;
+                kimi)     echo "kimi-code/kimi-for-coding" ;;
                 kilo)     echo "" ;;
                 *)        echo "" ;;
             esac
@@ -540,7 +555,9 @@ get_model_for_tier() {
                 grok)     echo "grok-3-mini" ;;
                 qwen3)    echo "qwen3-32b" ;;
                 aider)    echo "gpt-4o-mini" ;;
+                amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.2" ;;
+                kimi)     echo "kimi-code/kimi-for-coding" ;;
                 kilo)     echo "" ;;
                 *)        echo "" ;;
             esac
@@ -603,7 +620,7 @@ apply_model_tier() {
 _disable_all_consultants() {
     export ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false
     export ENABLE_KILO=false ENABLE_CURSOR=false ENABLE_AIDER=false
-    export ENABLE_AMP=false ENABLE_CLAUDE=false
+    export ENABLE_AMP=false ENABLE_KIMI=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
     export ENABLE_DEEPSEEK=false ENABLE_OLLAMA=false
     export ENABLE_DEBATE=false ENABLE_REFLECTION=false
@@ -712,4 +729,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.8.1"
+AI_CONSULTANTS_VERSION="2.9.0"

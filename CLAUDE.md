@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-AI Consultants is a multi-model AI deliberation system that queries up to 12 AI consultants (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama) to obtain diverse perspectives on coding problems.
+AI Consultants is a multi-model AI deliberation system that queries up to 14 AI consultants (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama) to obtain diverse perspectives on coding problems.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.8.1
+**Version**: 2.9.0
 
 ## Structure
 
@@ -254,6 +254,31 @@ curl -fsSL https://ampcode.com/install.sh | bash
 
 **Persona:** The Systems Thinker - Focuses on holistic system design, component interactions, and emergent behaviors.
 
+## v2.9 Features
+
+### Kimi CLI Support
+Kimi (MoonshotAI) is now supported as a CLI-based consultant with "The Eastern Sage" persona.
+
+```bash
+# Enable Kimi consultant
+export ENABLE_KIMI=true
+./scripts/consult_all.sh "question"
+```
+
+**CLI Installation:**
+```bash
+pip install kimi-cli
+kimi login  # OAuth-based authentication
+```
+
+**Environment Variables:**
+- `ENABLE_KIMI` - Enable Kimi consultant (default: false)
+- `KIMI_CMD` - CLI command (default: kimi)
+- `KIMI_TIMEOUT` - Timeout in seconds (default: 180)
+- `KIMI_MODEL` - Model identifier (default: kimi-code/kimi-for-coding)
+
+**Persona:** The Eastern Sage - Focuses on holistic understanding, balance of perspectives, and wisdom from diverse viewpoints.
+
 ## v2.7 Features
 
 ### Qwen CLI Support (qwen-code)
@@ -404,10 +429,11 @@ All consultants now use premium models by default:
 | GLM | glm-4.7 |
 | Grok | grok-4-1-fast-reasoning |
 | Qwen3 | qwen3-max |
+| Kimi | kimi-code/kimi-for-coding |
 | Aider | gpt-5.2-codex |
 | Ollama | qwen2.5-coder:32b |
 
-Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, etc.
+Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
 
 ## v2.4 Features
 
@@ -609,6 +635,9 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `BUDGET_ACTION` | warn | Action on budget exceeded: warn/stop (v2.4) |
 | `QWEN3_USE_API` | true | Use DashScope API instead of qwen CLI (v2.7) |
 | `QWEN3_CMD` | qwen | Qwen CLI command (v2.7) |
+| `ENABLE_KIMI` | false | Enable Kimi consultant (v2.9) |
+| `KIMI_CMD` | kimi | Kimi CLI command (v2.9) |
+| `KIMI_MODEL` | kimi-code/kimi-for-coding | Kimi model (v2.9) |
 
 ## External Dependencies
 
@@ -619,6 +648,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `agent` CLI - Cursor
 - `aider` CLI - Aider
 - `amp` CLI - Amp Code (v2.8)
+- `kimi` CLI - Kimi Code (v2.9)
 - `claude` CLI - Claude (v2.2, also used for synthesis)
 - `qwen` CLI - Qwen via qwen-code (v2.7, optional)
 - `ollama` CLI - Local models (v2.2)
@@ -664,6 +694,13 @@ For detailed information, see:
 
 ## Changelog
 
+### v2.9.0
+- Kimi CLI support via kimi-cli (`pip install kimi-cli`, `kimi login`)
+- New consultant: Kimi with "The Eastern Sage" persona (ID: 20)
+- New environment variables: `ENABLE_KIMI`, `KIMI_CMD`, `KIMI_TIMEOUT`, `KIMI_MODEL`
+- Updated doctor.sh diagnostics for Kimi CLI
+- Now supports 14 consultants total
+
 ### v2.8.1
 - CRITICAL: Fixed `((count++))` abort under `set -e` in consult_all.sh and routing.sh
 - Fixed missing integer validation for jq confidence values in escalation
@@ -679,7 +716,6 @@ For detailed information, see:
 - New consultant: Amp with "The Systems Thinker" persona (ID: 19)
 - New environment variables: `ENABLE_AMP`, `AMP_CMD`, `AMP_TIMEOUT`
 - Updated doctor.sh diagnostics for Amp CLI
-- Now supports 13 consultants total
 
 ### v2.7.0
 - Qwen CLI support via qwen-code (`npm install -g @qwen-code/qwen-code@latest`)

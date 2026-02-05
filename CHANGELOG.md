@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-02-05
+
+### Added
+- **Kimi CLI Consultant**: New "The Eastern Sage" consultant via Kimi CLI (MoonshotAI)
+  - New script: `scripts/query_kimi.sh`
+  - Persona ID 20: Focus on holistic understanding, balance of perspectives, wisdom from diverse viewpoints
+  - CLI command: `kimi --quiet --input-format text` for non-interactive execution
+  - Installation: `pip install kimi-cli` then `kimi login` for OAuth authentication
+  - Configuration: `ENABLE_KIMI`, `KIMI_MODEL`, `KIMI_TIMEOUT`, `KIMI_CMD`
+  - Default model: `kimi-code/kimi-for-coding`
+
+### Changed
+- Updated `scripts/config.sh` with Kimi configuration
+- Updated `scripts/lib/personas.sh` with PERSONA_KIMI (ID 20)
+- Updated `scripts/lib/common.sh` with KIMI in known CLI agents and self-exclusion
+- Updated `scripts/lib/routing.sh` with Kimi affinity scores (also added missing Amp/Claude)
+- Updated `scripts/doctor.sh` with Kimi CLI checks
+- Reordered `_consultant_map` in consult_all.sh to match `ALL_CONSULTANTS` order
+- Consultant count: 13 → 14
+
 ## [2.8.1] - 2026-01-30
 
 ### Fixed

@@ -244,7 +244,7 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP CLAUDE QWEN3"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP KIMI CLAUDE QWEN3"
 KNOWN_API_AGENTS="GLM GROK DEEPSEEK"
 KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
 
@@ -392,6 +392,7 @@ get_self_consultant_name() {
         mistral|vibe|mistral_vibe)      echo "MISTRAL" ;;
         kilo|kilocode|kilo_code)        echo "KILO" ;;
         amp|amp_code|ampcode)           echo "AMP" ;;
+        kimi|kimi_code|kimicode)        echo "KIMI" ;;
         qwen|qwen3|qwen_code|qwencode)  echo "QWEN3" ;;
         cursor|aider)                   echo "$(to_upper "$invoking")" ;;
         *)                              echo "" ;;
@@ -488,7 +489,7 @@ validate_consultant_name() {
     upper=$(to_upper "$name")
 
     # Check against known agents
-    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP CLAUDE QWEN3 GLM GROK DEEPSEEK OLLAMA"
+    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK OLLAMA"
     for agent in $valid_agents; do
         if [[ "$upper" == "$agent" ]]; then
             return 0
@@ -958,7 +959,7 @@ is_consultant_enabled() {
     # Get default based on consultant type
     local default="true"
     case "$name_upper" in
-        AIDER|AMP|CLAUDE|QWEN3|GLM|GROK|DEEPSEEK|OLLAMA)
+        AIDER|AMP|KIMI|CLAUDE|QWEN3|GLM|GROK|DEEPSEEK|OLLAMA)
             default="false"
             ;;
     esac

@@ -211,6 +211,7 @@ check_cli_consultants() {
     check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR"
     check_cli_consultant "Aider" "$AIDER_CMD" "pip install aider-chat" "AIDER"
     check_cli_consultant "Amp" "$AMP_CMD" "curl -fsSL https://ampcode.com/install.sh | bash" "AMP"
+    check_cli_consultant "Kimi" "$KIMI_CMD" "pip install kimi-cli" "KIMI"
     check_cli_consultant "Claude" "$CLAUDE_CMD" "See https://docs.anthropic.com/claude-code" "CLAUDE"
     check_cli_consultant "Qwen" "$QWEN3_CMD" "npm install -g @qwen-code/qwen-code@latest" "QWEN3"
 }
@@ -342,7 +343,7 @@ check_configuration() {
 
     # Count enabled consultants using a compact loop
     local enabled_count=0
-    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KILO ENABLE_CURSOR ENABLE_AIDER ENABLE_AMP ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_OLLAMA"
+    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KILO ENABLE_CURSOR ENABLE_AIDER ENABLE_AMP ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_OLLAMA"
     for flag in $consultant_flags; do
         [[ "${!flag:-false}" == "true" ]] && ((enabled_count++))
     done

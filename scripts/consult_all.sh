@@ -294,7 +294,8 @@ else
     log_self_exclusion_status
 
     # All enabled consultants - use a compact loop
-    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek OLLAMA:Ollama AMP:Amp"
+    # Order matches ALL_CONSULTANTS in config.sh for consistency
+    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider AMP:Amp KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek OLLAMA:Ollama"
     for _entry in $_consultant_map; do
         _flag="${_entry%%:*}"
         _name="${_entry#*:}"

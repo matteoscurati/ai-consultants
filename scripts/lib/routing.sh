@@ -28,6 +28,9 @@ get_affinity() {
                 Kilo)     echo 9 ;;
                 Cursor)   echo 9 ;;
                 Aider)    echo 9 ;;
+                Amp)      echo 7 ;;
+                Kimi)     echo 7 ;;
+                Claude)   echo 8 ;;
                 Qwen3)    echo 8 ;;
                 GLM)      echo 8 ;;
                 Grok)     echo 7 ;;
@@ -43,6 +46,9 @@ get_affinity() {
                 Kilo)     echo 8 ;;
                 Cursor)   echo 9 ;;
                 Aider)    echo 9 ;;
+                Amp)      echo 8 ;;
+                Kimi)     echo 6 ;;
+                Claude)   echo 7 ;;
                 Qwen3)    echo 8 ;;
                 GLM)      echo 8 ;;
                 Grok)     echo 7 ;;
@@ -58,6 +64,9 @@ get_affinity() {
                 Kilo)     echo 9 ;;
                 Cursor)   echo 8 ;;
                 Aider)    echo 6 ;;
+                Amp)      echo 10 ;;
+                Kimi)     echo 9 ;;
+                Claude)   echo 9 ;;
                 Qwen3)    echo 7 ;;
                 GLM)      echo 7 ;;
                 Grok)     echo 9 ;;
@@ -73,6 +82,9 @@ get_affinity() {
                 Kilo)     echo 8 ;;
                 Cursor)   echo 7 ;;
                 Aider)    echo 7 ;;
+                Amp)      echo 7 ;;
+                Kimi)     echo 8 ;;
+                Claude)   echo 7 ;;
                 Qwen3)    echo 9 ;;
                 GLM)      echo 7 ;;
                 Grok)     echo 8 ;;
@@ -88,6 +100,9 @@ get_affinity() {
                 Kilo)     echo 8 ;;
                 Cursor)   echo 8 ;;
                 Aider)    echo 7 ;;
+                Amp)      echo 8 ;;
+                Kimi)     echo 7 ;;
+                Claude)   echo 8 ;;
                 Qwen3)    echo 7 ;;
                 GLM)      echo 8 ;;
                 Grok)     echo 8 ;;
@@ -103,6 +118,9 @@ get_affinity() {
                 Kilo)     echo 6 ;;
                 Cursor)   echo 7 ;;
                 Aider)    echo 8 ;;
+                Amp)      echo 5 ;;
+                Kimi)     echo 5 ;;
+                Claude)   echo 6 ;;
                 Qwen3)    echo 7 ;;
                 GLM)      echo 6 ;;
                 Grok)     echo 5 ;;
@@ -118,6 +136,9 @@ get_affinity() {
                 Kilo)     echo 7 ;;
                 Cursor)   echo 8 ;;
                 Aider)    echo 7 ;;
+                Amp)      echo 7 ;;
+                Kimi)     echo 7 ;;
+                Claude)   echo 7 ;;
                 Qwen3)    echo 9 ;;
                 GLM)      echo 7 ;;
                 Grok)     echo 6 ;;
@@ -133,6 +154,9 @@ get_affinity() {
                 Kilo)     echo 8 ;;
                 Cursor)   echo 9 ;;
                 Aider)    echo 7 ;;
+                Amp)      echo 9 ;;
+                Kimi)     echo 8 ;;
+                Claude)   echo 8 ;;
                 Qwen3)    echo 7 ;;
                 GLM)      echo 8 ;;
                 Grok)     echo 8 ;;
@@ -148,6 +172,9 @@ get_affinity() {
                 Kilo)     echo 7 ;;
                 Cursor)   echo 9 ;;
                 Aider)    echo 9 ;;
+                Amp)      echo 8 ;;
+                Kimi)     echo 6 ;;
+                Claude)   echo 7 ;;
                 Qwen3)    echo 8 ;;
                 GLM)      echo 10 ;;
                 Grok)     echo 7 ;;
@@ -158,7 +185,7 @@ get_affinity() {
         *)
             # GENERAL and unknown categories: all known consultants get score 8
             case "$consultant" in
-                Gemini|Codex|Mistral|Kilo|Cursor|Aider|Qwen3|GLM|Grok|DeepSeek) echo 8 ;;
+                Gemini|Codex|Mistral|Kilo|Cursor|Aider|Amp|Kimi|Claude|Qwen3|GLM|Grok|DeepSeek) echo 8 ;;
                 *) echo 5 ;;
             esac
             ;;
@@ -173,8 +200,8 @@ select_consultants() {
     local min_affinity="${2:-7}"
     local max_consultants="${3:-8}"
 
-    # Include all consultants (CLI-based and API-based)
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Qwen3" "GLM" "Grok" "DeepSeek")
+    # Include all consultants (order matches ALL_CONSULTANTS in config.sh)
+    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek")
     local selected=()
     local scores=()
 
