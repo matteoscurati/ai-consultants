@@ -1,9 +1,9 @@
 ---
 name: ai-consultants
-description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Qwen, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions".
+description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Kimi, Qwen, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions".
 ---
 
-# AI Consultants v2.8.1 - AI Expert Panel
+# AI Consultants v2.9.0 - AI Expert Panel
 
 Simultaneously consult multiple AIs as "consultants" for coding questions. Each consultant has a **configurable persona** that influences their response style.
 
@@ -14,15 +14,16 @@ Simultaneously consult multiple AIs as "consultants" for coding questions. Each 
 /ai-consultants:consult "Your question here"
 ```
 
-## What's New in v2.8
+## What's New in v2.9
 
-- **Amp CLI Consultant**: New "The Systems Thinker" persona for system design
+- **Kimi CLI Consultant**: New "The Eastern Sage" persona for holistic understanding (v2.9)
+- **Amp CLI Consultant**: "The Systems Thinker" persona for system design (v2.8)
 - **Qwen CLI Support**: CLI/API mode switching for Qwen3 (v2.7)
 - **CLI/API Mode Switching**: Gemini, Codex, Claude, Mistral, Qwen3 can use CLI or API (v2.6)
 - **Model Quality Tiers**: premium, standard, economy with `apply_model_tier()` (v2.5)
 - **Budget Enforcement**: Configurable cost limits with `ENABLE_BUDGET_LIMIT` (v2.4)
 - **Premium Model Defaults**: All consultants now use flagship models by default
-- **13 Consultants**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama
+- **14 Consultants**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama
 
 ## Slash Commands
 
@@ -70,6 +71,7 @@ Set your preferences using slash commands:
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
 | **Aider** | `aider` | The Pair Programmer | Collaborative coding |
 | **Amp** | `amp` | The Systems Thinker | System design, interactions |
+| **Kimi** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis |
 | **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
 | **Ollama** | `ollama` | The Local Expert | Privacy-first, zero cost |
@@ -101,6 +103,7 @@ pip install mistral-vibe               # Mistral
 npm install -g @kilocode/cli           # Kilo
 npm install -g @qwen-code/qwen-code@latest  # Qwen
 curl -fsSL https://ampcode.com/install.sh | bash  # Amp
+pip install kimi-cli && kimi login     # Kimi
 brew install jq                        # Required
 
 # For local inference (optional)
@@ -210,7 +213,7 @@ Round 1 -> Cross-Critique -> Round 2 -> Final Synthesis
 ## Configuration
 
 ```bash
-# Defaults (v2.8)
+# Defaults (v2.9)
 DEFAULT_PRESET=balanced      # Preset when --preset not given
 DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
 
@@ -227,9 +230,11 @@ CLAUDE_USE_API=false         # Use Anthropic API instead of CLI
 MISTRAL_USE_API=false        # Use Mistral API instead of CLI
 QWEN3_USE_API=true           # Use DashScope API (default) or CLI
 
-# New consultants (v2.7-2.8)
+# New consultants (v2.7-2.9)
 ENABLE_AMP=false             # Amp CLI - The Systems Thinker
 AMP_MODEL=amp
+ENABLE_KIMI=false            # Kimi CLI - The Eastern Sage
+KIMI_MODEL=kimi-code/kimi-for-coding
 ENABLE_QWEN3=false           # Qwen CLI/API - The Analyst
 QWEN3_MODEL=qwen3-max
 
