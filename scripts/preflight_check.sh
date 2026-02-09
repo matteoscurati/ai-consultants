@@ -421,8 +421,32 @@ run_preflight() {
 # RUN
 # =============================================================================
 
+# --- Run Unit Tests (optional) ---
+run_unit_tests() {
+    if [[ -f "$SCRIPT_DIR/test_functions.sh" ]]; then
+        if [[ "$JSON_OUTPUT" != "true" ]]; then
+            echo "Running unit tests..."
+            echo ""
+        fi
+        
+        if "$SCRIPT_DIR/test_functions.sh"; then
+            if [[ "$JSON_OUTPUT" != "true" ]]; then
+                echo "  [OK] Unit tests: PASSED"
+                echo ""
+            fi
+        else
+            if [[ "$JSON_OUTPUT" != "true" ]]; then
+                echo "  [WARN] Unit tests: FAILED"
+                echo ""
+            fi
+            ((WARNINGS++))
+        fi
+    fi
+}
+
 if [[ "$SUGGEST_CONFIG" == "true" ]]; then
     suggest_configuration
 else
     run_preflight
+    run_unit_tests
 fi
