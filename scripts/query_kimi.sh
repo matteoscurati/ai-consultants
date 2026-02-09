@@ -39,7 +39,7 @@ START_TIME=$(get_timestamp_ms)
 TEMP_OUTPUT=$(mktemp)
 
 # Check CLI prerequisite
-check_command "$KIMI_CMD" "Kimi CLI" "pip install kimi-cli" || exit 1
+check_command "$KIMI_CMD" "Kimi CLI" "curl -L code.kimi.com/install.sh | bash" || exit 1
 
 # Kimi CLI uses --quiet (equivalent to --print --output-format text --final-message-only)
 # and --input-format text for piped stdin

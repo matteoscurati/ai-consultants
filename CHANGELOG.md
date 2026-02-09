@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New script: `scripts/query_kimi.sh`
   - Persona ID 20: Focus on holistic understanding, balance of perspectives, wisdom from diverse viewpoints
   - CLI command: `kimi --quiet --input-format text` for non-interactive execution
-  - Installation: `pip install kimi-cli` then `kimi login` for OAuth authentication
+  - Installation: `curl -L code.kimi.com/install.sh | bash`
   - Configuration: `ENABLE_KIMI`, `KIMI_MODEL`, `KIMI_TIMEOUT`, `KIMI_CMD`
   - Default model: `kimi-code/kimi-for-coding`
 

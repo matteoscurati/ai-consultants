@@ -27,7 +27,7 @@ GEMINI_USE_API="${GEMINI_USE_API:-false}"
 CODEX_USE_API="${CODEX_USE_API:-false}"
 CLAUDE_USE_API="${CLAUDE_USE_API:-false}"
 MISTRAL_USE_API="${MISTRAL_USE_API:-false}"
-QWEN3_USE_API="${QWEN3_USE_API:-true}"  # Default true to preserve v2.6 API behavior
+QWEN3_USE_API="${QWEN3_USE_API:-false}"  # Default false to use qwen CLI
 
 # API endpoints for CLI-switchable agents
 GEMINI_API_URL="${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models}"
@@ -152,8 +152,7 @@ AMP_CMD="${AMP_CMD:-amp}"
 KIMI_MODEL="${KIMI_MODEL:-kimi-code/kimi-for-coding}"
 KIMI_TIMEOUT_SECONDS="${KIMI_TIMEOUT:-180}"
 KIMI_CMD="${KIMI_CMD:-kimi}"
-# CLI installation: pip install kimi-cli
-# Authentication: kimi login
+# CLI installation: curl -L code.kimi.com/install.sh | bash
 
 # =============================================================================
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
@@ -212,11 +211,11 @@ ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 ENABLE_AIDER="${ENABLE_AIDER:-false}"
 ENABLE_AMP="${ENABLE_AMP:-false}"        # Amp Code (v2.8)
-ENABLE_KIMI="${ENABLE_KIMI:-false}"      # Kimi Code (v2.9)
+ENABLE_KIMI="${ENABLE_KIMI:-true}"       # Kimi Code (v2.9)
 ENABLE_CLAUDE="${ENABLE_CLAUDE:-false}"  # Auto-disabled when invoked by Claude Code
 
 # API-based consultants (disabled by default - require API keys)
-ENABLE_QWEN3="${ENABLE_QWEN3:-false}"
+ENABLE_QWEN3="${ENABLE_QWEN3:-true}"
 ENABLE_GLM="${ENABLE_GLM:-false}"
 ENABLE_GROK="${ENABLE_GROK:-false}"
 ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"

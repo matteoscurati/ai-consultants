@@ -103,7 +103,7 @@ pip install mistral-vibe               # Mistral
 npm install -g @kilocode/cli           # Kilo
 npm install -g @qwen-code/qwen-code@latest  # Qwen
 curl -fsSL https://ampcode.com/install.sh | bash  # Amp
-pip install kimi-cli && kimi login     # Kimi
+curl -L code.kimi.com/install.sh | bash  # Kimi
 brew install jq                        # Required
 
 # For local inference (optional)

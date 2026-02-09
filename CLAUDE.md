@@ -267,8 +267,7 @@ export ENABLE_KIMI=true
 
 **CLI Installation:**
 ```bash
-pip install kimi-cli
-kimi login  # OAuth-based authentication
+curl -L code.kimi.com/install.sh | bash
 ```
 
 **Environment Variables:**
@@ -699,7 +698,7 @@ For detailed information, see:
 - Premium: `gemini-3-pro-preview`, Standard: `gemini-3-flash-preview`, Economy: `gemini-2.0-flash`
 
 ### v2.9.0
-- Kimi CLI support via kimi-cli (`pip install kimi-cli`, `kimi login`)
+- Kimi CLI support via kimi-cli (`curl -L code.kimi.com/install.sh | bash`)
 - New consultant: Kimi with "The Eastern Sage" persona (ID: 20)
 - New environment variables: `ENABLE_KIMI`, `KIMI_CMD`, `KIMI_TIMEOUT`, `KIMI_MODEL`
 - Updated doctor.sh diagnostics for Kimi CLI

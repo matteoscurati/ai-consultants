@@ -211,7 +211,7 @@ check_cli_consultants() {
     check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR"
     check_cli_consultant "Aider" "$AIDER_CMD" "pip install aider-chat" "AIDER"
     check_cli_consultant "Amp" "$AMP_CMD" "curl -fsSL https://ampcode.com/install.sh | bash" "AMP"
-    check_cli_consultant "Kimi" "$KIMI_CMD" "pip install kimi-cli" "KIMI"
+    check_cli_consultant "Kimi" "$KIMI_CMD" "curl -L code.kimi.com/install.sh | bash" "KIMI"
     check_cli_consultant "Claude" "$CLAUDE_CMD" "See https://docs.anthropic.com/claude-code" "CLAUDE"
     check_cli_consultant "Qwen" "$QWEN3_CMD" "npm install -g @qwen-code/qwen-code@latest" "QWEN3"
 }
