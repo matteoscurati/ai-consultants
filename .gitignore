@@ -15,6 +15,10 @@
 # Cost tracking
 *_costs.json
 
+# Node
+package-lock.json
+node_modules/
+
 # OS files
 .DS_Store
 Thumbs.db
