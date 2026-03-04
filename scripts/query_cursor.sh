@@ -44,16 +44,17 @@ TEMP_OUTPUT=$(mktemp)
 trap 'rm -f "$TEMP_OUTPUT"' EXIT
 
 # Build command args with optional model
-CMD_ARGS=("$CURSOR_CMD" "-p" "-" "--output-format" "text")
+# -p = print mode, -f = force-allow / trust workspace (prevents interactive prompt)
+CMD_ARGS=("$CURSOR_CMD" "-p" "-f" "--output-format" "text")
 if [[ -n "${CURSOR_MODEL:-}" ]]; then
     CMD_ARGS+=("--model" "$CURSOR_MODEL")
 fi
 
-echo "$FULL_QUERY" | run_query \
+run_query \
     "Cursor" \
     "$TEMP_OUTPUT" \
     "$CURSOR_TIMEOUT_SECONDS" \
-    "${CMD_ARGS[@]}"
+    "${CMD_ARGS[@]}" "$FULL_QUERY" < /dev/null
 
 exit_code=$?
 

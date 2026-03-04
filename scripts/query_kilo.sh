@@ -44,12 +44,12 @@ TEMP_OUTPUT=$(mktemp)
 TEMP_RAW=$(mktemp)
 trap 'rm -f "$TEMP_OUTPUT" "$TEMP_RAW"' EXIT
 
-# Build command args with optional model and -- separator for safety
-KILO_ARGS=("$KILO_CMD" "--auto" "--json" "--timeout" "$((KILO_TIMEOUT_SECONDS - 10))")
-if [[ -n "${KILO_MODEL:-}" ]]; then
+# Build command args: run subcommand + --auto + --dir /tmp (prevent SKILL.md loading)
+KILO_ARGS=("$KILO_CMD" "run" "--auto" "--dir" "/tmp")
+if [[ -n "${KILO_MODEL:-}" && "${KILO_MODEL}" != "auto" ]]; then
     KILO_ARGS+=("--model" "$KILO_MODEL")
 fi
-KILO_ARGS+=("--" "$FULL_QUERY")
+KILO_ARGS+=("$FULL_QUERY")
 
 # Use run_with_timeout for cross-platform support (Linux/macOS/POSIX)
 log_info "Consulting Kilo Code (timeout: ${KILO_TIMEOUT_SECONDS}s)..."
@@ -60,14 +60,10 @@ else
     exit_code=$?
 fi
 
-# --- Extract completion_result content from Kilo's JSON stream ---
+# --- Strip ANSI escape codes from Kilo's text output ---
 if [[ -f "$TEMP_RAW" && -s "$TEMP_RAW" ]]; then
-    # Kilo outputs multiple JSON lines with ANSI codes; extract the final answer
-    CONTENT=$(LC_ALL=C cat -v "$TEMP_RAW" \
-        | { grep 'completion_result' || true; } \
-        | { grep '"partial":false' || true; } \
-        | head -1 \
-        | LC_ALL=C sed 's/.*"content":"\([^"]*\)".*/\1/') || true
+    # Kilo outputs plain text with ANSI codes; strip them for clean output
+    CONTENT=$(LC_ALL=C sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' "$TEMP_RAW" | sed '/^$/d') || true
 
     if [[ -n "${CONTENT:-}" ]]; then
         echo "$CONTENT" > "$TEMP_OUTPUT"
