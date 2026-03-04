@@ -492,6 +492,7 @@ get_economic_model() {
         glm)      echo "glm-3-turbo" ;;
         grok)     echo "grok-beta" ;;       # No economy variant
         deepseek) echo "deepseek-coder" ;;  # No economy variant
+        minimax)  echo "MiniMax-M2.5-highspeed" ;;
         *)        echo "" ;;
     esac
 }

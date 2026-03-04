@@ -10,8 +10,7 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 ## Quick Start
 
 ```
-/ai-consultants:config-wizard    # Initial setup
-/ai-consultants:consult          # Ask a question
+/ai-consultants:consult "Your question here"
 ```
 
 ## How It Works
@@ -20,44 +19,15 @@ AI Consultants is a multi-model AI deliberation system that queries multiple AI 
 2. Multiple AI consultants respond in parallel with their unique perspectives
 3. Responses are synthesized into a weighted recommendation with consensus summary
 
-## Available Commands
-
-AI Consultants provides 12 slash commands:
-
-### Consultation Commands
+## Slash Commands
 
 | Command | Description |
 |---------|-------------|
-| `/ai-consultants:consult` | Ask AI consultants a coding question |
-| `/ai-consultants:ask-experts` | Quick query (alias for consult) |
+| `/ai-consultants:consult` | Main consultation - ask AI consultants a coding question |
 | `/ai-consultants:debate` | Run consultation with multi-round debate |
 | `/ai-consultants:help` | Show this help |
 
-### Configuration Commands
-
-| Command | Description |
-|---------|-------------|
-| `/ai-consultants:config-wizard` | Full setup wizard (CLI detection, API keys, personas) |
-| `/ai-consultants:config-check` | Verify CLI agents are installed |
-| `/ai-consultants:config-status` | View current configuration |
-| `/ai-consultants:config-preset` | Set default preset (minimal, balanced, high-stakes, local) |
-| `/ai-consultants:config-strategy` | Set default synthesis strategy (majority, risk_averse, etc.) |
-| `/ai-consultants:config-features` | Toggle features (Debate, Synthesis, Peer Review, etc.) |
-| `/ai-consultants:config-personas` | Change consultant personas |
-| `/ai-consultants:config-api` | Configure API-based consultants (Qwen3, GLM, Grok, DeepSeek) |
-
-## Configuration Workflow
-
-Set up your preferences using slash commands:
-
-```
-/ai-consultants:config-preset       # Choose: minimal, balanced, high-stakes, local
-/ai-consultants:config-strategy     # Choose: majority, risk_averse, security_first
-/ai-consultants:config-features     # Toggle: debate, synthesis, peer review
-/ai-consultants:config-status       # View your current settings
-```
-
-All settings are saved to `~/.claude/skills/ai-consultants/.env`.
+Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
 
 ## CLI Consultants
 
@@ -69,18 +39,22 @@ All settings are saved to `~/.claude/skills/ai-consultants/.env`.
 | Kilo | `kilocode` | The Innovator | Creative approaches |
 | Cursor | `agent` | The Integrator | Full-stack perspective |
 | Aider | `aider` | The Pair Programmer | Collaborative coding |
+| Amp | `amp` | The Systems Thinker | System design, interactions |
+| Kimi | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
+| Claude | `claude` | The Synthesizer | Big picture, synthesis |
+| Qwen | `qwen` | The Analyst | Data-driven analysis |
 | Ollama | `ollama` | The Local Expert | Privacy-first, zero cost |
 
 ## API Consultants
 
 | Consultant | Model | Default Persona | Focus |
 |------------|-------|-----------------|-------|
-| Qwen3 | qwen-max | The Analyst | Data-driven analysis |
-| GLM | glm-4 | The Methodologist | Structured approaches |
-| Grok | grok-beta | The Provocateur | Challenge conventions |
-| DeepSeek | deepseek-coder | The Code Specialist | Code generation, algorithms |
+| GLM | glm-5 | The Methodologist | Structured approaches |
+| Grok | grok-4-1-fast-reasoning | The Provocateur | Challenge conventions |
+| DeepSeek | deepseek-v3.2-speciale | The Code Specialist | Code generation, algorithms |
+| MiniMax | MiniMax-M2.5 | The Pragmatic Optimizer | Performance, efficiency |
 
-## Presets (v2.2)
+## Presets
 
 | Preset | Consultants | Use Case |
 |--------|-------------|----------|
@@ -90,7 +64,7 @@ All settings are saved to `~/.claude/skills/ai-consultants/.env`.
 | `high-stakes` | All + debate | Critical decisions |
 | `local` | Ollama only | Full privacy |
 
-## Strategies (v2.2)
+## Strategies
 
 | Strategy | Description |
 |----------|-------------|
@@ -124,16 +98,16 @@ All settings are saved to `~/.claude/skills/ai-consultants/.env`.
 - At least 2 CLI agents installed (Gemini, Codex, Mistral, Kilo, Cursor, Aider, or Ollama)
 - `jq` for JSON processing
 - Optional: `claude` CLI for synthesis
-- Optional: API keys for API-based consultants (Qwen3, GLM, Grok, DeepSeek)
+- Optional: API keys for API-based consultants (GLM, Grok, DeepSeek, MiniMax)
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
 | "Unknown skill" | Run install script or restart Claude Code |
-| "Exit code 1" | Run `/ai-consultants:config-check` to diagnose |
-| No consultants | Run `/ai-consultants:config-wizard` |
-| API errors | Check `/ai-consultants:config-status` |
+| "Exit code 1" | Run `./scripts/doctor.sh` to diagnose |
+| No consultants | Install at least 2 CLI agents |
+| API errors | Check API keys in `.env` |
 | Configuration not saving | Check file permissions on `~/.claude/skills/` |
 
 ## More Info

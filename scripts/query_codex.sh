@@ -4,7 +4,7 @@
 # Usage: ./query_codex.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   CODEX_MODEL - Model to use (default: gpt-5.2-codex)
+#   CODEX_MODEL - Model to use (default: gpt-5.3-codex)
 #   CODEX_TIMEOUT - Timeout in seconds (default: 180)
 #   CODEX_USE_API - Use API mode instead of CLI (default: false)
 #   OPENAI_API_KEY - API key for API mode
@@ -81,7 +81,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${CODEX_MODEL:-gpt-5.2-codex}"
+MODEL_USED="${CODEX_MODEL:-gpt-5.3-codex}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---

@@ -332,6 +332,7 @@ check_api_consultants() {
     check_api_consultant "GLM" "GLM_API_KEY" "GLM_API_URL" "ENABLE_GLM"
     check_api_consultant "Grok" "GROK_API_KEY" "GROK_API_URL" "ENABLE_GROK"
     check_api_consultant "DeepSeek" "DEEPSEEK_API_KEY" "DEEPSEEK_API_URL" "ENABLE_DEEPSEEK"
+    check_api_consultant "MiniMax" "MINIMAX_API_KEY" "MINIMAX_API_URL" "ENABLE_MINIMAX"
 }
 
 # =============================================================================
@@ -343,7 +344,7 @@ check_configuration() {
 
     # Count enabled consultants using a compact loop
     local enabled_count=0
-    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KILO ENABLE_CURSOR ENABLE_AIDER ENABLE_AMP ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_OLLAMA"
+    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KILO ENABLE_CURSOR ENABLE_AIDER ENABLE_AMP ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX ENABLE_OLLAMA"
     for flag in $consultant_flags; do
         [[ "${!flag:-false}" == "true" ]] && ((enabled_count++))
     done

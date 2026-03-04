@@ -1,4 +1,4 @@
-# Setup Guide - AI Consultants v2.8
+# Setup Guide - AI Consultants v2.10
 
 This guide walks you through installing and configuring AI Consultants for various AI coding agents.
 
@@ -34,29 +34,15 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 This installs to `~/.claude/skills/ai-consultants/` and makes slash commands available in Claude Code.
 
-### Step 2: Run the Setup Wizard
+### Step 2: Verify Installation
 
-Open Claude Code and type:
-
-```
-/ai-consultants:config-wizard
-```
-
-The wizard will:
-1. Detect which CLIs are installed
-2. Test authentication for each
-3. Help configure missing consultants
-4. Generate your `.env` file
-
-### Step 3: Verify Installation
-
-```
-/ai-consultants:config-check
+```bash
+./scripts/doctor.sh --fix
 ```
 
 You should see at least 2 consultants marked as available.
 
-### Step 4: Your First Consultation
+### Step 3: Your First Consultation
 
 ```
 /ai-consultants:consult "What's the best way to structure a REST API?"
@@ -68,47 +54,15 @@ That's it! You're ready to go.
 
 ## Claude Code Slash Commands
 
-AI Consultants provides 12 slash commands for seamless integration:
-
-### Main Commands
+AI Consultants provides 3 slash commands:
 
 | Command | Description |
 |---------|-------------|
-| `/ai-consultants:consult` | Ask AI consultants a coding question |
-| `/ai-consultants:ask-experts` | Quick query (alias for consult) |
+| `/ai-consultants:consult` | Main consultation - ask AI consultants a coding question |
 | `/ai-consultants:debate` | Run consultation with multi-round debate |
 | `/ai-consultants:help` | Show all commands and usage |
 
-### Configuration Commands
-
-| Command | Description |
-|---------|-------------|
-| `/ai-consultants:config-wizard` | Full interactive setup |
-| `/ai-consultants:config-check` | Verify CLIs are installed and authenticated |
-| `/ai-consultants:config-status` | View current configuration |
-| `/ai-consultants:config-preset` | Set default preset (minimal, balanced, high-stakes, local) |
-| `/ai-consultants:config-strategy` | Set default synthesis strategy |
-| `/ai-consultants:config-features` | Toggle features (debate, synthesis, peer review) |
-| `/ai-consultants:config-personas` | Change consultant personas |
-| `/ai-consultants:config-api` | Configure API-based consultants |
-
-### Configuration Workflow
-
-Use slash commands to configure AI Consultants without editing files:
-
-```
-# Set your preferred preset
-/ai-consultants:config-preset
-
-# Set synthesis strategy
-/ai-consultants:config-strategy
-
-# Enable/disable features
-/ai-consultants:config-features
-
-# View your configuration
-/ai-consultants:config-status
-```
+Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
 
 All settings are saved to `~/.claude/skills/ai-consultants/.env`.
 
@@ -362,16 +316,14 @@ npm install -g @qwen-code/qwen-code@latest
 # Verify installation
 qwen --version
 
-# Authentication (API mode, default)
+# Or use API mode
+export QWEN3_USE_API=true
 export QWEN3_API_KEY="your-dashscope-key"
-
-# Or use CLI mode (requires qwen-code)
-export QWEN3_USE_API=false
 ```
 
 Get API key: [Alibaba Cloud DashScope](https://dashscope.console.aliyun.com/)
 
-**CLI/API Mode**: Qwen3 defaults to API mode (`QWEN3_USE_API=true`). Set to `false` to use the qwen-code CLI.
+**CLI/API Mode**: Qwen3 defaults to CLI mode (`QWEN3_USE_API=false`). Set to `true` to use the DashScope API.
 
 ### Amp CLI (The Systems Thinker) - v2.8
 
@@ -442,11 +394,6 @@ ollama pull qwen2.5-coder
 
 ### Configuration
 
-**Claude Code:**
-```
-/ai-consultants:config-features     # Enable ENABLE_OLLAMA
-```
-
 **Environment variables:**
 ```bash
 # Enable Ollama consultant
@@ -463,12 +410,6 @@ export OLLAMA_TIMEOUT=300
 ```
 
 ### Usage
-
-**Claude Code:**
-```
-/ai-consultants:config-preset       # Select "local" preset
-/ai-consultants:consult "Your private question"
-```
 
 **Bash:**
 ```bash
@@ -578,7 +519,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 export MISTRAL_USE_API=true
 export MISTRAL_API_KEY="your-mistral-key"
 
-export QWEN3_USE_API=true   # Default for Qwen3
+export QWEN3_USE_API=true   # Enable API mode for Qwen3
 export QWEN3_API_KEY="your-dashscope-key"
 ```
 
@@ -626,11 +567,6 @@ Presets let you quickly configure how many consultants to use.
 
 ### Set Default Preset
 
-**Claude Code:**
-```
-/ai-consultants:config-preset
-```
-
 **Bash:**
 ```bash
 # Add to .env
@@ -663,11 +599,6 @@ Strategies control how consultant responses are combined.
 | `compare_only` | No recommendation, just comparison |
 
 ### Set Default Strategy
-
-**Claude Code:**
-```
-/ai-consultants:config-strategy
-```
 
 **Bash:**
 ```bash
@@ -729,7 +660,7 @@ GEMINI_USE_API=false
 CODEX_USE_API=false
 CLAUDE_USE_API=false
 MISTRAL_USE_API=false
-QWEN3_USE_API=true     # Default: API mode
+QWEN3_USE_API=false    # Default: CLI mode
 
 # Defaults (v2.8)
 DEFAULT_PRESET=balanced
@@ -781,13 +712,6 @@ OLLAMA_MODELS="llama3.2,codellama"
 ---
 
 ## Verification
-
-### Claude Code (Recommended)
-
-```
-/ai-consultants:config-check        # Quick check
-/ai-consultants:config-status       # Full status
-```
 
 ### Doctor Command
 
@@ -885,7 +809,7 @@ Either:
 |-------|----------|
 | "Unknown skill" | Run install script again |
 | Commands not showing | Restart Claude Code |
-| "Exit code 1" | Run `/ai-consultants:config-check` |
+| "Exit code 1" | Run `./scripts/doctor.sh` |
 | Configuration not saving | Check file permissions on `~/.claude/skills/` |
 
 ---

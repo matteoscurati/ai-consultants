@@ -1,4 +1,4 @@
-# Cost Rates - AI Consultants v2.8
+# Cost Rates - AI Consultants v2.10.0
 
 This page documents the per-token rates used by the cost tracking system.
 
@@ -21,27 +21,30 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | gemini-3-pro-preview | Premium | $0.00125 | Gemini |
 | gemini-3-flash-preview | Standard | $0.000075 | Gemini |
 | gemini-2.0-flash | Economy | $0.0001 | Gemini |
-| gpt-5.2-codex | Premium | $0.01 | Codex |
-| gpt-5.2 | Standard | $0.005 | Codex |
+| gpt-5.3-codex | Premium | $0.01 | Codex |
+| gpt-5.3 | Standard | $0.005 | Codex |
 | gpt-4o-mini | Economy | $0.00015 | Codex |
-| claude-opus-4-5 | Premium | $0.015 | Claude |
-| claude-sonnet-4-5 | Standard | $0.003 | Claude |
-| claude-3-5-haiku | Economy | $0.00025 | Claude |
+| opus-4.6 | Premium | $0.015 | Claude |
+| sonnet-4.6 | Standard | $0.003 | Claude |
+| haiku-4.5 | Economy | $0.00025 | Claude |
 | mistral-large-3 | Premium | $0.004 | Mistral |
 | mistral-medium-latest | Standard | $0.0027 | Mistral |
 | devstral-small-2 | Economy | $0.001 | Mistral |
+| composer-1.5 | Premium/Standard | $0.005 | Cursor |
 | deepseek-v3.2-speciale | Premium | $0.002 | DeepSeek |
 | deepseek-v3.2 | Standard | $0.0014 | DeepSeek |
 | deepseek-chat | Economy | $0.001 | DeepSeek |
-| glm-4.7 | Premium | $0.002 | GLM |
+| glm-5 | Premium/Standard | $0.002 | GLM |
 | glm-4-flash | Economy | $0.0005 | GLM |
 | grok-4-1-fast-reasoning | Premium | $0.005 | Grok |
 | grok-3 | Standard | $0.003 | Grok |
 | grok-3-mini | Economy | $0.001 | Grok |
-| qwen3-max | Premium | $0.002 | Qwen3 |
-| qwen3-235b-a22b | Standard | $0.0014 | Qwen3 |
+| qwen3.5-plus | Premium/Standard | $0.002 | Qwen3 |
 | qwen3-32b | Economy | $0.0005 | Qwen3 |
-| kilo | All | $0.002 | Kilo (internal routing) |
+| MiniMax-M2.5 | Premium | $0.002 | MiniMax |
+| MiniMax-M2.1 | Standard | $0.0015 | MiniMax |
+| MiniMax-M2.5-highspeed | Economy | $0.001 | MiniMax |
+| auto | All | $0.002 | Kilo (internal routing) |
 | default | - | $0.005 | Fallback |
 
 ### Output Tokens
@@ -51,27 +54,30 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | gemini-3-pro-preview | Premium | $0.005 | Gemini |
 | gemini-3-flash-preview | Standard | $0.0003 | Gemini |
 | gemini-2.0-flash | Economy | $0.0004 | Gemini |
-| gpt-5.2-codex | Premium | $0.03 | Codex |
-| gpt-5.2 | Standard | $0.015 | Codex |
+| gpt-5.3-codex | Premium | $0.03 | Codex |
+| gpt-5.3 | Standard | $0.015 | Codex |
 | gpt-4o-mini | Economy | $0.0006 | Codex |
-| claude-opus-4-5 | Premium | $0.075 | Claude |
-| claude-sonnet-4-5 | Standard | $0.015 | Claude |
-| claude-3-5-haiku | Economy | $0.00125 | Claude |
+| opus-4.6 | Premium | $0.075 | Claude |
+| sonnet-4.6 | Standard | $0.015 | Claude |
+| haiku-4.5 | Economy | $0.00125 | Claude |
 | mistral-large-3 | Premium | $0.012 | Mistral |
 | mistral-medium-latest | Standard | $0.0081 | Mistral |
 | devstral-small-2 | Economy | $0.003 | Mistral |
+| composer-1.5 | Premium/Standard | $0.015 | Cursor |
 | deepseek-v3.2-speciale | Premium | $0.006 | DeepSeek |
 | deepseek-v3.2 | Standard | $0.004 | DeepSeek |
 | deepseek-chat | Economy | $0.003 | DeepSeek |
-| glm-4.7 | Premium | $0.006 | GLM |
+| glm-5 | Premium/Standard | $0.006 | GLM |
 | glm-4-flash | Economy | $0.0015 | GLM |
 | grok-4-1-fast-reasoning | Premium | $0.015 | Grok |
 | grok-3 | Standard | $0.009 | Grok |
 | grok-3-mini | Economy | $0.003 | Grok |
-| qwen3-max | Premium | $0.006 | Qwen3 |
-| qwen3-235b-a22b | Standard | $0.004 | Qwen3 |
+| qwen3.5-plus | Premium/Standard | $0.006 | Qwen3 |
 | qwen3-32b | Economy | $0.0015 | Qwen3 |
-| kilo | All | $0.006 | Kilo |
+| MiniMax-M2.5 | Premium | $0.006 | MiniMax |
+| MiniMax-M2.1 | Standard | $0.004 | MiniMax |
+| MiniMax-M2.5-highspeed | Economy | $0.003 | MiniMax |
+| auto | All | $0.006 | Kilo |
 | default | - | $0.015 | Fallback |
 
 ## Cost Estimation per Session

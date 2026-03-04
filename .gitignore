@@ -16,8 +16,8 @@
 *_costs.json
 
 # Node
-package-lock.json
 node_modules/
+*.tgz
 
 # OS files
 .DS_Store

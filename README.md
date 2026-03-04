@@ -1,8 +1,8 @@
-# AI Consultants v2.9.1
+# AI Consultants v2.10.0
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.9.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.10.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -37,7 +37,7 @@
 
 Making important technical decisions? Get **multiple expert perspectives** instantly:
 
-- **10+ AI consultants** with unique personas (Architect, Pragmatist, Devil's Advocate, etc.)
+- **15 AI consultants** with unique personas (Architect, Pragmatist, Devil's Advocate, etc.)
 - **Automatic synthesis** combines all responses into a weighted recommendation
 - **Confidence scoring** tells you how certain each consultant is
 - **Multi-agent debate** lets consultants critique each other
@@ -50,12 +50,27 @@ Making important technical decisions? Get **multiple expert perspectives** insta
 
 Get started in 30 seconds:
 
+### Option A: npx (recommended)
+
+```bash
+# Run directly - no install needed
+npx ai-consultants "How should I structure my authentication system?"
+
+# With a preset
+npx ai-consultants --preset balanced "Redis or Memcached?"
+
+# Run diagnostics
+npx ai-consultants doctor --fix
+
+# Install slash commands for Claude Code
+npx ai-consultants install
+```
+
+### Option B: curl | bash (Claude Code skill)
+
 ```bash
 # Install the skill
 curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
-
-# Run the setup wizard (in Claude Code)
-/ai-consultants:config-wizard
 
 # Ask your first question
 /ai-consultants:consult "How should I structure my authentication system?"
@@ -64,10 +79,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 ### Update & Uninstall
 
 ```bash
-# Update to latest version
+# npx always runs latest (or pin a version)
+npx ai-consultants@latest "question"
+
+# curl | bash update
 ~/.claude/skills/ai-consultants/scripts/install.sh --update
 
-# Uninstall completely
+# Uninstall (curl | bash only)
 ~/.claude/skills/ai-consultants/scripts/install.sh --uninstall
 ```
 
@@ -196,25 +214,18 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 | Command | Description |
 |---------|-------------|
-| `/ai-consultants:consult` | Ask AI consultants a coding question |
-| `/ai-consultants:ask-experts` | Quick query (alias for consult) |
+| `/ai-consultants:consult` | Main consultation - ask AI consultants a coding question |
 | `/ai-consultants:debate` | Run consultation with multi-round debate |
-| `/ai-consultants:config-wizard` | Full interactive setup |
-| `/ai-consultants:config-check` | Verify CLIs are installed |
-| `/ai-consultants:config-status` | View current configuration |
-| `/ai-consultants:config-preset` | Set default preset (minimal, balanced, high-stakes) |
-| `/ai-consultants:config-strategy` | Set default synthesis strategy |
-| `/ai-consultants:config-features` | Toggle features (debate, synthesis, etc.) |
-| `/ai-consultants:config-personas` | Change consultant personas |
-| `/ai-consultants:config-api` | Configure API consultants (Qwen3, GLM, Grok, DeepSeek) |
 | `/ai-consultants:help` | Show all commands and usage |
+
+Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
 
 **Self-Exclusion:** Claude consultant is automatically excluded when invoked from Claude Code.
 
 **Verify:**
 
-```
-/ai-consultants:config-check
+```bash
+./scripts/doctor.sh
 ```
 
 ---
@@ -407,10 +418,11 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 
 | Consultant | Default Model | Persona | Focus |
 |------------|---------------|---------|-------|
-| **Qwen3** | qwen3-max | The Analyst | Data-driven analysis |
-| **GLM** | glm-4.7 | The Methodologist | Structured approaches |
+| **Qwen3** | qwen3.5-plus | The Analyst | Data-driven analysis |
+| **GLM** | glm-5 | The Methodologist | Structured approaches |
 | **Grok** | grok-4-1-fast-reasoning | The Provocateur | Challenge conventions |
 | **DeepSeek** | deepseek-v3.2-speciale | The Code Specialist | Algorithms, code generation |
+| **MiniMax** | MiniMax-M2.5 | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
 ### Local Consultants
 
@@ -457,14 +469,17 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 | Consultant | Premium | Standard | Economy |
 |------------|---------|----------|---------|
-| Claude | claude-opus-4-5 | claude-sonnet-4-5 | claude-3-5-haiku |
+| Claude | opus-4.6 | sonnet-4.6 | haiku-4.5 |
 | Gemini | gemini-3-pro-preview | gemini-3-flash-preview | gemini-2.0-flash |
-| Codex | gpt-5.2-codex | gpt-5.2 | gpt-4o-mini |
-| Mistral | mistral-large-3 | mistral-medium | devstral-small-2 |
+| Codex | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
+| Mistral | mistral-large-3 | mistral-medium-latest | devstral-small-2 |
+| Cursor | composer-1.5 | composer-1.5 | gemini-2.0-flash |
 | DeepSeek | deepseek-v3.2-speciale | deepseek-v3.2 | deepseek-chat |
-| GLM | glm-4.7 | glm-4.7 | glm-4-flash |
+| GLM | glm-5 | glm-5 | glm-4-flash |
 | Grok | grok-4-1-fast-reasoning | grok-3 | grok-3-mini |
-| Qwen3 | qwen3-max | qwen3-235b | qwen3-32b |
+| Qwen3 | qwen3.5-plus | qwen3.5-plus | qwen3-32b |
+| Aider | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
+| MiniMax | MiniMax-M2.5 | MiniMax-M2.1 | MiniMax-M2.5-highspeed |
 | Ollama | qwen2.5-coder:32b | llama3.3 | llama3.2 |
 
 ### Usage
@@ -507,11 +522,6 @@ Choose how many consultants to use:
 | `security` | Security-focused + debate | Default | Security reviews |
 | `cost-capped` | Budget-conscious | Default | Minimal API costs |
 
-**Claude Code:**
-```
-/ai-consultants:config-preset
-```
-
 **Bash:**
 ```bash
 ./scripts/consult_all.sh --preset balanced "Question"
@@ -528,11 +538,6 @@ Control how responses are combined:
 | `security_first` | Prioritize security considerations |
 | `cost_capped` | Prefer simpler, cheaper solutions |
 | `compare_only` | No recommendation, just comparison |
-
-**Claude Code:**
-```
-/ai-consultants:config-strategy
-```
 
 **Bash:**
 ```bash
@@ -655,6 +660,13 @@ Each consultation generates:
 
 ## Changelog
 
+### v2.10.0
+
+- **MiniMax M2.5 support**: New API-based consultant with "The Pragmatic Optimizer" persona
+- **15 consultants total**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Ollama
+- **npx distribution**: `npx ai-consultants "question"` - run directly without install
+- **npm packaging**: `package.json` with zero dependencies, `.npmignore` for clean publishing
+
 ### v2.8.1
 
 - **Bug fixes**: Fixed `((count++))` abort under `set -e`, missing Amp in consultant map, hardcoded `claude` in synthesize.sh
@@ -671,7 +683,7 @@ Each consultation generates:
 
 - **Qwen CLI support**: CLI/API mode switching for Qwen3 via qwen-code
 - **5 switchable agents**: Gemini, Codex, Claude, Mistral, and now Qwen3 support CLI/API mode
-- **Backward compatible**: `QWEN3_USE_API` defaults to `true` to preserve v2.6 behavior
+- **CLI default**: `QWEN3_USE_API` defaults to `false` (CLI mode via qwen-code)
 
 ### v2.6.0
 
@@ -685,13 +697,13 @@ Each consultation generates:
 - **New presets**: `max_quality`, `medium`, `fast` for quick tier selection
 - **Premium defaults**: All consultants now use premium models by default (January 2026)
 - **`apply_model_tier()` function**: Programmatically switch all models to a tier
-- **Updated models**: claude-opus-4-5, gemini-3-pro-preview, gpt-5.2-codex, mistral-large-3, etc.
+- **Updated models**: opus-4.6, gemini-3-pro-preview, gpt-5.3-codex, mistral-large-3, etc.
 
 ### v2.4.0
 
 - **Budget enforcement**: Optional budget limits with configurable actions (warn/stop)
 - **Budget checks**: 4 enforcement points (before/after consultation, debate, synthesis)
-- **`/ai-consultants:config-budget`**: New slash command for budget configuration
+- **Budget configuration**: Configurable via natural language or environment variables
 
 ### v2.3.0
 

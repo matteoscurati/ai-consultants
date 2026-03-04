@@ -198,7 +198,7 @@ build_openai_request() {
 # Usage: build_anthropic_request <prompt> <model> [max_tokens]
 build_anthropic_request() {
     local prompt="$1"
-    local model="${2:-claude-sonnet-4-5-20251124}"
+    local model="${2:-sonnet-4.6}"
     local max_tokens="${3:-4096}"
 
     jq -n \

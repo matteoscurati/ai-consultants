@@ -245,7 +245,7 @@ to_title() {
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
 KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP KIMI CLAUDE QWEN3"
-KNOWN_API_AGENTS="GLM GROK DEEPSEEK"
+KNOWN_API_AGENTS="GLM GROK DEEPSEEK MINIMAX"
 KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
 
 # Check if an agent name is a known predefined agent
@@ -321,6 +321,7 @@ get_api_key_var() {
         GLM)        echo "GLM_API_KEY" ;;
         GROK)       echo "GROK_API_KEY" ;;
         DEEPSEEK)   echo "DEEPSEEK_API_KEY" ;;
+        MINIMAX)    echo "MINIMAX_API_KEY" ;;
         *)          echo "" ;;
     esac
 }
@@ -341,6 +342,7 @@ get_api_url() {
         GLM)        echo "${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}" ;;
         GROK)       echo "${GROK_API_URL:-https://api.x.ai/v1/chat/completions}" ;;
         DEEPSEEK)   echo "${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}" ;;
+        MINIMAX)    echo "${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}" ;;
         *)          echo "" ;;
     esac
 }
@@ -355,7 +357,7 @@ get_api_format() {
     case "$agent_upper" in
         GEMINI)     echo "google_ai" ;;
         CLAUDE)     echo "anthropic" ;;
-        CODEX|MISTRAL|GLM|GROK|DEEPSEEK)  echo "openai" ;;
+        CODEX|MISTRAL|GLM|GROK|DEEPSEEK|MINIMAX)  echo "openai" ;;
         QWEN3)      echo "qwen" ;;
         *)          echo "openai" ;;
     esac
@@ -489,7 +491,7 @@ validate_consultant_name() {
     upper=$(to_upper "$name")
 
     # Check against known agents
-    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK OLLAMA"
+    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX OLLAMA"
     for agent in $valid_agents; do
         if [[ "$upper" == "$agent" ]]; then
             return 0
@@ -959,7 +961,7 @@ is_consultant_enabled() {
     # Get default based on consultant type
     local default="true"
     case "$name_upper" in
-        AIDER|AMP|KIMI|CLAUDE|QWEN3|GLM|GROK|DEEPSEEK|OLLAMA)
+        AIDER|AMP|KIMI|CLAUDE|QWEN3|GLM|GROK|DEEPSEEK|MINIMAX|OLLAMA)
             default="false"
             ;;
     esac

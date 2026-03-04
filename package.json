@@ -1,0 +1,46 @@
+{
+  "name": "ai-consultants",
+  "version": "2.10.0",
+  "description": "Multi-model AI deliberation system - query up to 15 AI consultants for coding problems",
+  "bin": {
+    "ai-consultants": "bin/ai-consultants"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "!scripts/test_functions.sh",
+    "templates/",
+    ".claude/commands/",
+    "SKILL.md",
+    "CLAUDE.md",
+    "docs/"
+  ],
+  "keywords": [
+    "ai",
+    "consultants",
+    "multi-model",
+    "claude",
+    "gemini",
+    "codex",
+    "cli",
+    "deliberation",
+    "coding"
+  ],
+  "author": "Matteo Scurati",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matteoscurati/ai-consultants.git"
+  },
+  "homepage": "https://github.com/matteoscurati/ai-consultants#readme",
+  "bugs": {
+    "url": "https://github.com/matteoscurati/ai-consultants/issues"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "engines": {
+    "node": ">=14"
+  }
+}

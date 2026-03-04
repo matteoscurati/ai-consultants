@@ -35,6 +35,7 @@ get_affinity() {
                 GLM)      echo 8 ;;
                 Grok)     echo 7 ;;
                 DeepSeek) echo 10 ;;
+                MiniMax)  echo 8 ;;
                 *)        echo 5 ;;
             esac
             ;;
@@ -53,6 +54,7 @@ get_affinity() {
                 GLM)      echo 8 ;;
                 Grok)     echo 7 ;;
                 DeepSeek) echo 9 ;;
+                MiniMax)  echo 8 ;;
                 *)        echo 5 ;;
             esac
             ;;
@@ -71,6 +73,7 @@ get_affinity() {
                 GLM)      echo 7 ;;
                 Grok)     echo 9 ;;
                 DeepSeek) echo 7 ;;
+                MiniMax)  echo 7 ;;
                 *)        echo 5 ;;
             esac
             ;;
@@ -89,6 +92,7 @@ get_affinity() {
                 GLM)      echo 7 ;;
                 Grok)     echo 8 ;;
                 DeepSeek) echo 10 ;;
+                MiniMax)  echo 8 ;;
                 *)        echo 5 ;;
             esac
             ;;
@@ -107,6 +111,7 @@ get_affinity() {
                 GLM)      echo 8 ;;
                 Grok)     echo 8 ;;
                 DeepSeek) echo 8 ;;
+                MiniMax)  echo 7 ;;
                 *)        echo 5 ;;
             esac
             ;;
@@ -125,6 +130,7 @@ get_affinity() {
                 GLM)      echo 6 ;;
                 Grok)     echo 5 ;;
                 DeepSeek) echo 9 ;;
+                MiniMax)  echo 8 ;;
                 *)        echo 5 ;;
             esac
             ;;
@@ -143,6 +149,7 @@ get_affinity() {
                 GLM)      echo 7 ;;
                 Grok)     echo 6 ;;
                 DeepSeek) echo 9 ;;
+                MiniMax)  echo 8 ;;
                 *)        echo 5 ;;
             esac
             ;;
@@ -161,6 +168,7 @@ get_affinity() {
                 GLM)      echo 8 ;;
                 Grok)     echo 8 ;;
                 DeepSeek) echo 8 ;;
+                MiniMax)  echo 8 ;;
                 *)        echo 5 ;;
             esac
             ;;
@@ -179,13 +187,14 @@ get_affinity() {
                 GLM)      echo 10 ;;
                 Grok)     echo 7 ;;
                 DeepSeek) echo 8 ;;
+                MiniMax)  echo 7 ;;
                 *)        echo 5 ;;
             esac
             ;;
         *)
             # GENERAL and unknown categories: all known consultants get score 8
             case "$consultant" in
-                Gemini|Codex|Mistral|Kilo|Cursor|Aider|Amp|Kimi|Claude|Qwen3|GLM|Grok|DeepSeek) echo 8 ;;
+                Gemini|Codex|Mistral|Kilo|Cursor|Aider|Amp|Kimi|Claude|Qwen3|GLM|Grok|DeepSeek|MiniMax) echo 8 ;;
                 *) echo 5 ;;
             esac
             ;;
@@ -201,7 +210,7 @@ select_consultants() {
     local max_consultants="${3:-8}"
 
     # Include all consultants (order matches ALL_CONSULTANTS in config.sh)
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek")
+    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
     local selected=()
     local scores=()
 

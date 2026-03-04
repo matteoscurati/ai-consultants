@@ -295,7 +295,7 @@ else
 
     # All enabled consultants - use a compact loop
     # Order matches ALL_CONSULTANTS in config.sh for consistency
-    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider AMP:Amp KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek OLLAMA:Ollama"
+    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider AMP:Amp KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek MINIMAX:MiniMax OLLAMA:Ollama"
     for _entry in $_consultant_map; do
         _flag="${_entry%%:*}"
         _name="${_entry#*:}"

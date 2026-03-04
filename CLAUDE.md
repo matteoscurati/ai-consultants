@@ -2,16 +2,38 @@
 
 ## Project Overview
 
-AI Consultants is a multi-model AI deliberation system that queries up to 14 AI consultants (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama) to obtain diverse perspectives on coding problems.
+AI Consultants is a multi-model AI deliberation system that queries up to 15 AI consultants (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Ollama) to obtain diverse perspectives on coding problems.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.9.1
+**Version**: 2.10.0
+
+## Distribution
+
+Two distribution methods are supported:
+
+1. **npx** (recommended): `npx ai-consultants "question"` - uses npm as distribution mechanism only (zero dependencies)
+2. **curl | bash**: `curl -fsSL .../install.sh | bash` - git clone into `~/.claude/skills/`
+
+### npm Architecture
+
+`bin/ai-consultants` is a bash wrapper that npm registers as the CLI entry point. npm creates a symlink in `node_modules/.bin/` pointing to this file. The wrapper:
+
+1. Resolves its own path through symlinks (portable `readlink` loop for macOS/Linux)
+2. Computes `PROJECT_ROOT` and `SCRIPTS_DIR` from the resolved path
+3. Fixes `chmod +x` on first run (npm can strip execute permissions)
+4. Routes subcommands (`doctor`, `install`, `version`, `help`) or delegates to `consult_all.sh` via `exec`
+
+**Key insight**: Because the wrapper resolves symlinks before calling scripts, `BASH_SOURCE[0]` in every script points to the real file. This means **zero modifications** to the 28 existing scripts.
 
 ## Structure
 
 ```
 ai-consultants/
+├── bin/
+│   └── ai-consultants          # npm/npx entry point (bash wrapper)
+├── package.json                # npm distribution metadata (zero dependencies)
+├── .npmignore                  # Excludes dev artifacts from npm package
 ├── scripts/
 │   ├── consult_all.sh          # Main orchestrator - entry point
 │   ├── config.sh               # Centralized configuration
@@ -299,7 +321,7 @@ export QWEN3_API_KEY="your-dashscope-key"
 npm install -g @qwen-code/qwen-code@latest
 ```
 
-**Note:** `QWEN3_USE_API` defaults to `true` to preserve backward compatibility with v2.6 API behavior.
+**Note:** `QWEN3_USE_API` defaults to `false` to use the qwen CLI by default.
 
 ## v2.6 Features
 
@@ -326,7 +348,7 @@ export MISTRAL_USE_API=true
 export MISTRAL_API_KEY="your-mistral-key"
 ./scripts/consult_all.sh "question"
 
-export QWEN3_USE_API=true  # Default for backward compat
+export QWEN3_USE_API=true  # Enable API mode (CLI is default)
 export QWEN3_API_KEY="your-dashscope-key"
 ./scripts/consult_all.sh "question"
 ```
@@ -340,7 +362,7 @@ New environment variables in `config.sh`:
 | `CODEX_USE_API` | false | Use OpenAI API instead of codex CLI |
 | `CLAUDE_USE_API` | false | Use Anthropic API instead of claude CLI |
 | `MISTRAL_USE_API` | false | Use Mistral API instead of vibe CLI |
-| `QWEN3_USE_API` | true | Use DashScope API instead of qwen CLI (v2.7) |
+| `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
 | `GEMINI_API_URL` | https://generativelanguage.googleapis.com/v1beta/models | Google AI endpoint |
 | `CODEX_API_URL` | https://api.openai.com/v1/chat/completions | OpenAI endpoint |
 | `CLAUDE_API_URL` | https://api.anthropic.com/v1/messages | Anthropic endpoint |
@@ -383,9 +405,9 @@ Three tiers of models are available for each consultant, configurable via `apply
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-opus-4-5, gemini-3-pro-preview, gpt-5.2-codex |
-| **standard** | Good quality at reasonable cost | claude-sonnet-4-5, gemini-3-flash-preview, gpt-5.2 |
-| **economy** | Optimized for speed and low cost | claude-3-5-haiku, gemini-2.0-flash, gpt-4o-mini |
+| **premium** | Latest flagship models | opus-4.6, gemini-3-pro-preview, gpt-5.3-codex |
+| **standard** | Good quality at reasonable cost | sonnet-4.6, gemini-3-flash-preview, gpt-5.3 |
+| **economy** | Optimized for speed and low cost | haiku-4.5, gemini-2.0-flash, gpt-4o-mini |
 
 **Default models are now premium tier** for maximum quality.
 
@@ -398,7 +420,7 @@ apply_model_tier "economy"   # Set all consultants to economy models
 
 # Get model for a specific consultant and tier (v2.8.1)
 get_model_for_tier "gemini" "premium"   # → gemini-3-pro-preview
-get_model_for_tier "claude" "economy"   # → haiku
+get_model_for_tier "claude" "economy"   # → haiku-4.5
 ```
 
 ### Quality Tier Presets
@@ -415,21 +437,24 @@ Three new presets leverage the model tiers:
 ./scripts/consult_all.sh --preset fast "quick syntax question"
 ```
 
-### Premium Model Defaults (January 2026)
+### Premium Model Defaults (March 2026)
 All consultants now use premium models by default:
 
 | Consultant | Default Model |
 |------------|---------------|
-| Claude | claude-opus-4-5-20251124 |
+| Claude | opus-4.6 |
 | Gemini | gemini-3-pro-preview |
-| Codex | gpt-5.2-codex |
+| Codex | gpt-5.3-codex |
 | Mistral | mistral-large-3 |
+| Cursor | composer-1.5 |
 | DeepSeek | deepseek-v3.2-speciale |
-| GLM | glm-4.7 |
+| GLM | glm-5 |
 | Grok | grok-4-1-fast-reasoning |
-| Qwen3 | qwen3-max |
+| Qwen3 | qwen3.5-plus |
 | Kimi | kimi-code/kimi-for-coding |
-| Aider | gpt-5.2-codex |
+| Aider | gpt-5.3-codex |
+| MiniMax | MiniMax-M2.5 |
+| Kilo | auto |
 | Ollama | qwen2.5-coder:32b |
 
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
@@ -463,7 +488,7 @@ Functions in `lib/costs.sh`:
 - `format_budget_status()` - Format budget status for display
 - `estimate_phase_cost()` - Estimate cost for a specific phase
 
-Configuration via `/ai-consultants:config-budget` slash command.
+Configuration via environment variables or natural language.
 
 ## v2.3 Features
 
@@ -619,9 +644,9 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `PANIC_CONFIDENCE_THRESHOLD` | 5 | Panic threshold (v2.2) |
 | `ENABLE_OLLAMA` | false | Local model support (v2.2) |
 | `OLLAMA_MODEL` | qwen2.5-coder:32b | Ollama model (v2.5 - premium default) |
-| `CLAUDE_MODEL` | claude-opus-4-5-20251124 | Claude model (v2.5) |
+| `CLAUDE_MODEL` | opus-4.6 | Claude model (v2.5) |
 | `GEMINI_MODEL` | gemini-3-pro-preview | Gemini model (v2.5) |
-| `CODEX_MODEL` | gpt-5.2-codex | Codex model (v2.5) |
+| `CODEX_MODEL` | gpt-5.3-codex | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
 | `SYNTHESIS_STRATEGY` | majority | Synthesis strategy (v2.2) |
 | `ENABLE_SEMANTIC_CACHE` | true | Semantic response caching (v2.3) |
@@ -632,11 +657,14 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_COMPACT_REPORT` | true | Compact report format (v2.3) |
 | `ENABLE_BUDGET_LIMIT` | false | Budget enforcement (v2.4, opt-in) |
 | `BUDGET_ACTION` | warn | Action on budget exceeded: warn/stop (v2.4) |
-| `QWEN3_USE_API` | true | Use DashScope API instead of qwen CLI (v2.7) |
+| `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
 | `QWEN3_CMD` | qwen | Qwen CLI command (v2.7) |
 | `ENABLE_KIMI` | false | Enable Kimi consultant (v2.9) |
 | `KIMI_CMD` | kimi | Kimi CLI command (v2.9) |
 | `KIMI_MODEL` | kimi-code/kimi-for-coding | Kimi model (v2.9) |
+| `ENABLE_MINIMAX` | false | Enable MiniMax consultant (v2.10) |
+| `MINIMAX_API_KEY` | - | MiniMax API key (v2.10) |
+| `MINIMAX_MODEL` | MiniMax-M2.5 | MiniMax model (v2.10) |
 
 ## External Dependencies
 
@@ -692,6 +720,15 @@ For detailed information, see:
 - Run `./scripts/doctor.sh` to verify configuration
 
 ## Changelog
+
+### v2.10.0
+- MiniMax M2.5 API support via OpenAI-compatible endpoint
+- New consultant: MiniMax with "The Pragmatic Optimizer" persona (ID: 21)
+- New environment variables: `ENABLE_MINIMAX`, `MINIMAX_API_KEY`, `MINIMAX_MODEL`, `MINIMAX_API_URL`
+- Model tiers: premium (MiniMax-M2.5), standard (MiniMax-M2.1), economy (MiniMax-M2.5-highspeed)
+- npx distribution: `npx ai-consultants "question"` (zero dependencies)
+- New `bin/ai-consultants` wrapper with symlink resolution and subcommand routing
+- Now supports 15 consultants total
 
 ### v2.9.1
 - Fixed Gemini model names to use real API names

@@ -1,0 +1,41 @@
+# Environment files
+.env
+.env.*
+.env.backup*
+.env.example
+
+# Git
+.git/
+.gitignore
+
+# Development artifacts
+test_output/
+scripts/test_functions.sh
+*.log
+*.tmp
+*.tgz
+
+# Sessions and costs
+/sessions/
+*.session
+*_costs.json
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Agent-specific config
+.codex/
+.gemini/
+
+# Contributing / CI
+CONTRIBUTING.md
+AGENTS.md
+.github/

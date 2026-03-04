@@ -55,8 +55,8 @@ GEMINI_CMD="${GEMINI_CMD:-gemini}"
 # CODEX CONFIGURATION - The Pragmatist
 # =============================================================================
 
-# Model: "gpt-5.2-codex" (default), "gpt-5.2", "gpt-4o-mini", etc.
-CODEX_MODEL="${CODEX_MODEL:-gpt-5.2-codex}"
+# Model: "gpt-5.3-codex" (default), "gpt-5.3", "gpt-4o-mini", etc.
+CODEX_MODEL="${CODEX_MODEL:-gpt-5.3-codex}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
@@ -72,7 +72,7 @@ MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
 # KILO CONFIGURATION - The Innovator
 # =============================================================================
 
-KILO_MODEL="${KILO_MODEL:-}"
+KILO_MODEL="${KILO_MODEL:-auto}"
 KILO_TIMEOUT_SECONDS="${KILO_TIMEOUT:-180}"
 KILO_WORKSPACE="${KILO_WORKSPACE:-$(pwd)}"
 KILO_CMD="${KILO_CMD:-kilocode}"
@@ -81,7 +81,7 @@ KILO_CMD="${KILO_CMD:-kilocode}"
 # CURSOR CONFIGURATION - The Integrator
 # =============================================================================
 
-CURSOR_MODEL="${CURSOR_MODEL:-}"
+CURSOR_MODEL="${CURSOR_MODEL:-composer-1.5}"
 CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
 CURSOR_CMD="${CURSOR_CMD:-agent}"
 
@@ -89,7 +89,7 @@ CURSOR_CMD="${CURSOR_CMD:-agent}"
 # AIDER CONFIGURATION - The Pair Programmer
 # =============================================================================
 
-AIDER_MODEL="${AIDER_MODEL:-gpt-5.2-codex}"
+AIDER_MODEL="${AIDER_MODEL:-gpt-5.3-codex}"
 AIDER_TIMEOUT_SECONDS="${AIDER_TIMEOUT:-180}"
 AIDER_CMD="${AIDER_CMD:-aider}"
 
@@ -97,7 +97,7 @@ AIDER_CMD="${AIDER_CMD:-aider}"
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
 # =============================================================================
 
-QWEN3_MODEL="${QWEN3_MODEL:-qwen3-max}"
+QWEN3_MODEL="${QWEN3_MODEL:-qwen3.5-plus}"
 QWEN3_TIMEOUT_SECONDS="${QWEN3_TIMEOUT:-180}"
 QWEN3_CMD="${QWEN3_CMD:-qwen}"
 QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
@@ -109,7 +109,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 # GLM CONFIGURATION - The Code Specialist (API-based)
 # =============================================================================
 
-GLM_MODEL="${GLM_MODEL:-glm-4.7}"
+GLM_MODEL="${GLM_MODEL:-glm-5}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
 GLM_API_URL="${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
@@ -136,6 +136,16 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # API key: Set DEEPSEEK_API_KEY environment variable
 
 # =============================================================================
+# MINIMAX CONFIGURATION - The Pragmatic Optimizer (API-based, v2.10)
+# =============================================================================
+
+MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M2.5}"
+MINIMAX_TIMEOUT_SECONDS="${MINIMAX_TIMEOUT:-180}"
+MINIMAX_API_URL="${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}"
+MINIMAX_FORMAT="${MINIMAX_FORMAT:-openai}"
+# API key: Set MINIMAX_API_KEY environment variable
+
+# =============================================================================
 # AMP CONFIGURATION - The Systems Thinker (v2.8)
 # =============================================================================
 
@@ -158,7 +168,7 @@ KIMI_CMD="${KIMI_CMD:-kimi}"
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
 # =============================================================================
 
-CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"
+CLAUDE_MODEL="${CLAUDE_MODEL:-opus-4.6}"
 CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 
@@ -190,13 +200,13 @@ OLLAMA_MODELS="${OLLAMA_MODELS:-}"
 # Use this array when iterating over consultants programmatically.
 
 # All available consultants (ordered by typical usage)
-ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "Ollama")
+ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax" "Ollama")
 
 # CLI-based consultants (use CLI tools, some support CLI/API switching)
 CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "Ollama")
 
 # API-only consultants (use HTTP API directly, no CLI available)
-API_CONSULTANTS=("GLM" "Grok" "DeepSeek")
+API_CONSULTANTS=("GLM" "Grok" "DeepSeek" "MiniMax")
 
 # =============================================================================
 # ENABLED CONSULTANTS
@@ -219,6 +229,7 @@ ENABLE_QWEN3="${ENABLE_QWEN3:-true}"
 ENABLE_GLM="${ENABLE_GLM:-false}"
 ENABLE_GROK="${ENABLE_GROK:-false}"
 ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
+ENABLE_MINIMAX="${ENABLE_MINIMAX:-false}"
 
 # Local model support via Ollama (disabled by default)
 ENABLE_OLLAMA="${ENABLE_OLLAMA:-false}"
@@ -506,45 +517,47 @@ get_model_for_tier() {
     case "$tier" in
         premium|max|best)
             case "$consultant" in
-                claude)   echo "opus" ;;
+                claude)   echo "opus-4.6" ;;
                 gemini)   echo "gemini-3-pro-preview" ;;
-                codex)    echo "gpt-5.2-codex" ;;
+                codex)    echo "gpt-5.3-codex" ;;
                 mistral)  echo "mistral-large-3" ;;
-                cursor)   echo "opus-4.5-thinking" ;;
+                cursor)   echo "composer-1.5" ;;
                 deepseek) echo "deepseek-v3.2-speciale" ;;
-                glm)      echo "glm-4.7" ;;
+                glm)      echo "glm-5" ;;
                 grok)     echo "grok-4-1-fast-reasoning" ;;
-                qwen3)    echo "qwen3-max" ;;
-                aider)    echo "gpt-5.2-codex" ;;
+                qwen3)    echo "qwen3.5-plus" ;;
+                aider)    echo "gpt-5.3-codex" ;;
                 amp)      echo "amp" ;;
                 ollama)   echo "qwen2.5-coder:32b" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
-                kilo)     echo "" ;;  # Uses internal provider routing
+                minimax)  echo "MiniMax-M2.5" ;;
+                kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac
             ;;
         standard|medium|balanced)
             case "$consultant" in
-                claude)   echo "sonnet" ;;
+                claude)   echo "sonnet-4.6" ;;
                 gemini)   echo "gemini-3-flash-preview" ;;
-                codex)    echo "gpt-5.2" ;;
+                codex)    echo "gpt-5.3" ;;
                 mistral)  echo "mistral-medium-latest" ;;
-                cursor)   echo "sonnet-4.5" ;;
+                cursor)   echo "composer-1.5" ;;  # Same as premium (single model)
                 deepseek) echo "deepseek-v3.2" ;;
-                glm)      echo "glm-4.7" ;;  # Same as premium (no mid-tier GLM)
+                glm)      echo "glm-5" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-3" ;;
-                qwen3)    echo "qwen3-235b-a22b" ;;
-                aider)    echo "gpt-5.2" ;;
+                qwen3)    echo "qwen3.5-plus" ;;  # Same as premium (single tier available)
+                aider)    echo "gpt-5.3" ;;
                 amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.3" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
-                kilo)     echo "" ;;
+                minimax)  echo "MiniMax-M2.1" ;;
+                kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac
             ;;
         economy|fast|quick)
             case "$consultant" in
-                claude)   echo "haiku" ;;
+                claude)   echo "haiku-4.5" ;;
                 gemini)   echo "gemini-2.0-flash" ;;
                 codex)    echo "gpt-4o-mini" ;;
                 mistral)  echo "devstral-small-2" ;;
@@ -557,7 +570,8 @@ get_model_for_tier() {
                 amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.2" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
-                kilo)     echo "" ;;
+                minimax)  echo "MiniMax-M2.5-highspeed" ;;
+                kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -584,7 +598,7 @@ apply_model_tier() {
             ;;
     esac
 
-    local consultants="claude gemini codex mistral cursor deepseek glm grok qwen3 aider ollama"
+    local consultants="claude gemini codex mistral cursor deepseek glm grok qwen3 minimax aider amp kimi ollama"
     for c in $consultants; do
         local model
         model=$(get_model_for_tier "$c" "$tier")
@@ -621,7 +635,7 @@ _disable_all_consultants() {
     export ENABLE_KILO=false ENABLE_CURSOR=false ENABLE_AIDER=false
     export ENABLE_AMP=false ENABLE_KIMI=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
-    export ENABLE_DEEPSEEK=false ENABLE_OLLAMA=false
+    export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false ENABLE_OLLAMA=false
     export ENABLE_DEBATE=false ENABLE_REFLECTION=false
 }
 
@@ -728,4 +742,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.9.1"
+AI_CONSULTANTS_VERSION="2.10.0"

@@ -1,16 +1,15 @@
 ---
 name: ai-consultants
-description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Kimi, Qwen, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions".
+description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Kimi, Qwen, MiniMax, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions".
 ---
 
-# AI Consultants v2.9.1 - AI Expert Panel
+# AI Consultants v2.10.0 - AI Expert Panel
 
 Simultaneously consult multiple AIs as "consultants" for coding questions. Each consultant has a **configurable persona** that influences their response style.
 
 ## Quick Start
 
 ```
-/ai-consultants:config-wizard       # Initial setup
 /ai-consultants:consult "Your question here"
 ```
 
@@ -23,42 +22,19 @@ Simultaneously consult multiple AIs as "consultants" for coding questions. Each 
 - **Model Quality Tiers**: premium, standard, economy with `apply_model_tier()` (v2.5)
 - **Budget Enforcement**: Configurable cost limits with `ENABLE_BUDGET_LIMIT` (v2.4)
 - **Premium Model Defaults**: All consultants now use flagship models by default
-- **14 Consultants**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama
+- **15 Consultants**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Ollama
 
 ## Slash Commands
 
-### Consultation Commands
+### Slash Commands
 
 | Command | Description |
 |---------|-------------|
 | `/ai-consultants:consult` | Main consultation - ask AI consultants a coding question |
-| `/ai-consultants:ask-experts` | Quick query alias for consult |
 | `/ai-consultants:debate` | Run consultation with multi-round debate |
 | `/ai-consultants:help` | Show all commands and usage |
 
-### Configuration Commands
-
-| Command | Description |
-|---------|-------------|
-| `/ai-consultants:config-wizard` | Full interactive setup (CLI detection, API keys, personas) |
-| `/ai-consultants:config-check` | Verify CLI agents are installed and authenticated |
-| `/ai-consultants:config-status` | View current configuration |
-| `/ai-consultants:config-preset` | Set default preset (minimal, balanced, high-stakes, local) |
-| `/ai-consultants:config-strategy` | Set default synthesis strategy |
-| `/ai-consultants:config-features` | Toggle features (Debate, Synthesis, Peer Review, etc.) |
-| `/ai-consultants:config-personas` | Change consultant personas |
-| `/ai-consultants:config-api` | Configure API-based consultants (Qwen3, GLM, Grok, DeepSeek) |
-
-## Configuration Workflow
-
-Set your preferences using slash commands:
-
-```
-/ai-consultants:config-preset       # Choose default preset
-/ai-consultants:config-strategy     # Choose synthesis strategy
-/ai-consultants:config-features     # Enable/disable features
-/ai-consultants:config-status       # View current settings
-```
+Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
 
 ## Consultants and Personas
 
@@ -76,7 +52,7 @@ Set your preferences using slash commands:
 | **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
 | **Ollama** | `ollama` | The Local Expert | Privacy-first, zero cost |
 
-**API-only consultants**: GLM (The Methodologist), Grok (The Provocateur), DeepSeek (The Code Specialist)
+**API-only consultants**: GLM (The Methodologist), Grok (The Provocateur), DeepSeek (The Code Specialist), MiniMax (The Pragmatic Optimizer)
 
 **CLI/API Mode**: Gemini, Codex, Claude, Mistral, and Qwen can switch between CLI and API mode via `*_USE_API` environment variables.
 
@@ -90,6 +66,11 @@ Set your preferences using slash commands:
 ### Quick Install
 
 ```bash
+# Option A: npx (recommended, no install needed)
+npx ai-consultants doctor --fix
+npx ai-consultants install  # Install slash commands for Claude Code
+
+# Option B: curl | bash
 curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
 ~/.claude/skills/ai-consultants/scripts/doctor.sh --fix
 ```
@@ -228,7 +209,7 @@ GEMINI_USE_API=false         # Use Google AI API instead of CLI
 CODEX_USE_API=false          # Use OpenAI API instead of CLI
 CLAUDE_USE_API=false         # Use Anthropic API instead of CLI
 MISTRAL_USE_API=false        # Use Mistral API instead of CLI
-QWEN3_USE_API=true           # Use DashScope API (default) or CLI
+QWEN3_USE_API=false          # Use qwen CLI (default) or DashScope API
 
 # New consultants (v2.7-2.9)
 ENABLE_AMP=false             # Amp CLI - The Systems Thinker
@@ -236,7 +217,7 @@ AMP_MODEL=amp
 ENABLE_KIMI=false            # Kimi CLI - The Eastern Sage
 KIMI_MODEL=kimi-code/kimi-for-coding
 ENABLE_QWEN3=false           # Qwen CLI/API - The Analyst
-QWEN3_MODEL=qwen3-max
+QWEN3_MODEL=qwen3.5-plus
 
 # Ollama (local models)
 ENABLE_OLLAMA=true
@@ -296,9 +277,9 @@ Diagnose and fix issues:
 | Issue | Solution |
 |-------|----------|
 | "Unknown skill" | Run install script or check `~/.claude/commands/` |
-| "Exit code 1" | Run `/ai-consultants:config-check` to diagnose |
-| No consultants | Run `/ai-consultants:config-wizard` |
-| API errors | Check `/ai-consultants:config-status` |
+| "Exit code 1" | Run `./scripts/doctor.sh` to diagnose |
+| No consultants | Install at least 2 CLI agents |
+| API errors | Check API keys in `.env` |
 | CLI not found | Run `./scripts/doctor.sh --fix` |
 
 ## Extended Documentation

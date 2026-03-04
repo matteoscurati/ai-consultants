@@ -4,7 +4,7 @@
 # Usage: ./query_claude.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   CLAUDE_MODEL - Model to use (default: claude-opus-4-5-20251124)
+#   CLAUDE_MODEL - Model to use (default: opus-4.6)
 #   CLAUDE_TIMEOUT - Timeout in seconds (default: 240)
 #   CLAUDE_USE_API - Use API mode instead of CLI (default: false)
 #   ANTHROPIC_API_KEY - API key for API mode
@@ -25,7 +25,7 @@ OUTPUT_FILE="${3:-/tmp/claude_response.json}"
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Claude"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
-MODEL_USED="${CLAUDE_MODEL:-opus}"
+MODEL_USED="${CLAUDE_MODEL:-opus-4.6}"
 
 # --- Build query ---
 FULL_QUERY=$(build_full_query "$QUERY" "$CONTEXT_FILE")

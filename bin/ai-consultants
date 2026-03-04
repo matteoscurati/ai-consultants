@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# ai-consultants - npm/npx entry point
+# Resolves symlinks (created by npm) and delegates to the real scripts.
+set -euo pipefail
+
+# --- Resolve symlinks to find the real project root ---
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  # Resolve relative symlink
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+BIN_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+PROJECT_ROOT="$(cd -P "$BIN_DIR/.." && pwd)"
+SCRIPTS_DIR="$PROJECT_ROOT/scripts"
+
+# --- Ensure execute permissions (npm can strip them) ---
+ensure_permissions() {
+  local needs_fix=false
+  for f in "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/lib/*.sh; do
+    [ -f "$f" ] && [ ! -x "$f" ] && needs_fix=true && break
+  done
+  if [ "$needs_fix" = true ]; then
+    chmod +x "$SCRIPTS_DIR"/*.sh 2>/dev/null || true
+    chmod +x "$SCRIPTS_DIR"/lib/*.sh 2>/dev/null || true
+  fi
+}
+ensure_permissions
+
+# --- Version ---
+VERSION="2.10.0"
+
+# --- Subcommand routing ---
+case "${1:-}" in
+  version|--version|-v)
+    echo "ai-consultants v$VERSION"
+    exit 0
+    ;;
+  help|--help|-h)
+    cat <<EOF
+ai-consultants v$VERSION - Multi-model AI deliberation system
+
+Usage:
+  ai-consultants "question" [files...]        Consult AI experts
+  ai-consultants --preset <name> "question"   Use a configuration preset
+  ai-consultants --strategy <name> "question" Use a synthesis strategy
+  ai-consultants doctor [--fix] [--json]      Run diagnostics
+  ai-consultants install                      Install slash commands to ~/.claude/commands/
+  ai-consultants version                      Show version
+  ai-consultants help                         Show this help
+
+Presets:   minimal, balanced, thorough, high-stakes, local, security, cost-capped,
+           max_quality, medium, fast
+
+Strategies: majority, risk_averse, security_first, cost_capped, compare_only
+
+Examples:
+  npx ai-consultants "How to optimize this SQL query?"
+  npx ai-consultants --preset balanced "Redis or Memcached?"
+  npx ai-consultants doctor --fix
+
+Documentation: https://github.com/matteoscurati/ai-consultants
+EOF
+    exit 0
+    ;;
+  doctor)
+    shift
+    exec "$SCRIPTS_DIR/doctor.sh" "$@"
+    ;;
+  install)
+    COMMANDS_SRC="$PROJECT_ROOT/.claude/commands"
+    COMMANDS_DST="$HOME/.claude/commands"
+    if [ ! -d "$COMMANDS_SRC" ]; then
+      echo "Error: slash commands directory not found at $COMMANDS_SRC" >&2
+      exit 1
+    fi
+    mkdir -p "$COMMANDS_DST"
+    copied=0
+    for f in "$COMMANDS_SRC"/ai-consultants:*.md; do
+      [ -f "$f" ] || continue
+      cp "$f" "$COMMANDS_DST/"
+      copied=$((copied + 1))
+    done
+    if [ "$copied" -eq 0 ]; then
+      echo "Warning: no slash command files found in $COMMANDS_SRC" >&2
+      exit 1
+    fi
+    echo "Installed $copied slash commands to $COMMANDS_DST"
+    exit 0
+    ;;
+  *)
+    # Pass everything through to consult_all.sh
+    exec "$SCRIPTS_DIR/consult_all.sh" "$@"
+    ;;
+esac

@@ -50,7 +50,7 @@ fi
 print_header() {
     echo ""
     echo -e "${BLUE}+---------------------------------------------------------------+${NC}"
-    echo -e "${BLUE}|           AI Consultants v2.2 - Installation                  |${NC}"
+    echo -e "${BLUE}|           AI Consultants v2.10 - Installation                 |${NC}"
     echo -e "${BLUE}+---------------------------------------------------------------+${NC}"
     echo ""
 }
@@ -292,12 +292,9 @@ echo ""
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-log_info "Option A: Configure via Claude Code (recommended)"
+log_info "Option A: Use via Claude Code (recommended)"
 echo ""
-echo "  1. Run the setup wizard:"
-echo "     /ai-consultants:config-wizard"
-echo ""
-echo "  2. Start consulting:"
+echo "  Start consulting:"
 echo "     /ai-consultants:consult \"Your question here\""
 echo ""
 
