@@ -44,6 +44,14 @@ MISTRAL_API_URL="${MISTRAL_API_URL:-https://api.mistral.ai/v1/chat/completions}"
 # QWEN3_API_KEY - For Qwen3 API mode (existing)
 
 # =============================================================================
+# PARALLEL LAUNCH STAGGER (v2.10.1)
+# =============================================================================
+# Random delay (0 to N seconds) before launching each consultant in parallel.
+# Prevents rate-limit bursts (e.g. Gemini 429 MODEL_CAPACITY_EXHAUSTED).
+# Set to 0 to disable staggering.
+LAUNCH_STAGGER_MAX_SECONDS="${LAUNCH_STAGGER_MAX_SECONDS:-2}"
+
+# =============================================================================
 # GEMINI CONFIGURATION - The Architect
 # =============================================================================
 

@@ -399,6 +399,7 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
                 fi
                 log_debug "Cost-aware: $consultant using model $local_model"
                 (
+                    apply_launch_stagger
                     export "$model_var=$local_model"
                     "$query_script" "" "$CONTEXT_FILE" "$local_output_file"
                 ) > /dev/null 2>&1 &
@@ -408,10 +409,11 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
             fi
         fi
         # Standard launch (inherits current environment models)
-        "$query_script" "" "$CONTEXT_FILE" "$local_output_file" > /dev/null 2>&1 &
+        ( apply_launch_stagger; "$query_script" "" "$CONTEXT_FILE" "$local_output_file" ) > /dev/null 2>&1 &
     else
         # Fallback: custom API agent via generic API query
         (
+            apply_launch_stagger
             source "$SCRIPT_DIR/lib/api_query.sh"
             run_api_consultant "$consultant" "" "$CONTEXT_FILE" "$local_output_file"
         ) > /dev/null 2>&1 &

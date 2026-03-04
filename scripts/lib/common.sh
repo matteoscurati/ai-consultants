@@ -54,6 +54,21 @@ log_error() { _log "ERROR" "$C_ERROR" "$1"; }
 # CROSS-PLATFORM TIMEOUT
 # =============================================================================
 
+# Random stagger delay to avoid rate-limit bursts on parallel launch.
+# Usage: apply_launch_stagger
+# Sleeps for a random duration between 0 and LAUNCH_STAGGER_MAX_SECONDS.
+# No-op if LAUNCH_STAGGER_MAX_SECONDS is 0 or unset.
+apply_launch_stagger() {
+    local max="${LAUNCH_STAGGER_MAX_SECONDS:-0}"
+    if [[ "$max" -gt 0 ]] 2>/dev/null; then
+        local delay_ms=$(( RANDOM % (max * 1000) ))
+        local delay_s
+        delay_s=$(awk "BEGIN {printf \"%.2f\", $delay_ms / 1000}")
+        log_debug "Stagger delay: ${delay_s}s"
+        sleep "$delay_s"
+    fi
+}
+
 # Timeout function compatible with macOS and Linux
 # Usage: run_with_timeout <seconds> <command> [args...]
 run_with_timeout() {
