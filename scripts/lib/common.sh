@@ -919,7 +919,7 @@ build_error_response() {
 # Usage: process_consultant_response <consultant> <model> <persona> <temp_output> <output_file> <exit_code> <latency_ms> [native_json_field]
 # Parameters:
 #   consultant       - Consultant name (e.g., "Gemini")
-#   model            - Model used (e.g., "gemini-3-pro-preview")
+#   model            - Model used (e.g., "gemini-3.1-pro-preview")
 #   persona          - Persona name (e.g., "The Architect")
 #   temp_output      - Path to temporary output file from CLI/API
 #   output_file      - Path to final output file

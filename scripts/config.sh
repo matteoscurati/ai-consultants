@@ -55,7 +55,7 @@ LAUNCH_STAGGER_MAX_SECONDS="${LAUNCH_STAGGER_MAX_SECONDS:-2}"
 # GEMINI CONFIGURATION - The Architect
 # =============================================================================
 
-GEMINI_MODEL="${GEMINI_MODEL:-gemini-3-pro-preview}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.1-pro-preview}"
 GEMINI_TIMEOUT_SECONDS="${GEMINI_TIMEOUT:-180}"
 GEMINI_CMD="${GEMINI_CMD:-gemini}"
 
@@ -137,7 +137,7 @@ GROK_FORMAT="${GROK_FORMAT:-openai}"
 # DEEPSEEK CONFIGURATION - The Methodologist (API-based)
 # =============================================================================
 
-DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v3.2-speciale}"
+DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-reasoner}"
 DEEPSEEK_TIMEOUT_SECONDS="${DEEPSEEK_TIMEOUT:-180}"
 DEEPSEEK_API_URL="${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}"
 DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
@@ -526,11 +526,11 @@ get_model_for_tier() {
         premium|max|best)
             case "$consultant" in
                 claude)   echo "opus-4.6" ;;
-                gemini)   echo "gemini-3-pro-preview" ;;
+                gemini)   echo "gemini-3.1-pro-preview" ;;
                 codex)    echo "gpt-5.3-codex" ;;
                 mistral)  echo "mistral-large-3" ;;
                 cursor)   echo "composer-1.5" ;;
-                deepseek) echo "deepseek-v3.2-speciale" ;;
+                deepseek) echo "deepseek-reasoner" ;;
                 glm)      echo "glm-5" ;;
                 grok)     echo "grok-4-1-fast-reasoning" ;;
                 qwen3)    echo "qwen3.5-plus" ;;

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Gemini model names**: Updated to real API model names
-  - Premium: `gemini-3-pro-preview` (was fictional `gemini-3.0-pro`)
+  - Premium: `gemini-3.1-pro-preview` (was fictional `gemini-3.0-pro`)
   - Standard: `gemini-3-flash-preview` (was fictional `gemini-3.0-flash`)
   - Economy: `gemini-2.0-flash` (was fictional `gemini-2.0-flash-lite`)
 
@@ -129,10 +129,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Premium Model Defaults** (January 2026):
   - Claude: `claude-opus-4-5-20251124`
-  - Gemini: `gemini-3-pro-preview`
+  - Gemini: `gemini-3.1-pro-preview`
   - Codex: `gpt-5.2-codex`
   - Mistral: `mistral-large-3`
-  - DeepSeek: `deepseek-v3.2-speciale`
+  - DeepSeek: `deepseek-reasoner`
   - GLM: `glm-4.7`
   - Grok: `grok-4-1-fast-reasoning`
   - Qwen3: `qwen3-max`

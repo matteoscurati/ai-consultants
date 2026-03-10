@@ -405,7 +405,7 @@ Three tiers of models are available for each consultant, configurable via `apply
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | opus-4.6, gemini-3-pro-preview, gpt-5.3-codex |
+| **premium** | Latest flagship models | opus-4.6, gemini-3.1-pro-preview, gpt-5.3-codex |
 | **standard** | Good quality at reasonable cost | sonnet-4.6, gemini-3-flash-preview, gpt-5.3 |
 | **economy** | Optimized for speed and low cost | haiku-4.5, gemini-2.0-flash, gpt-4o-mini |
 
@@ -419,7 +419,7 @@ apply_model_tier "standard"  # Set all consultants to standard models
 apply_model_tier "economy"   # Set all consultants to economy models
 
 # Get model for a specific consultant and tier (v2.8.1)
-get_model_for_tier "gemini" "premium"   # → gemini-3-pro-preview
+get_model_for_tier "gemini" "premium"   # → gemini-3.1-pro-preview
 get_model_for_tier "claude" "economy"   # → haiku-4.5
 ```
 
@@ -443,11 +443,11 @@ All consultants now use premium models by default:
 | Consultant | Default Model |
 |------------|---------------|
 | Claude | opus-4.6 |
-| Gemini | gemini-3-pro-preview |
+| Gemini | gemini-3.1-pro-preview |
 | Codex | gpt-5.3-codex |
 | Mistral | mistral-large-3 |
 | Cursor | composer-1.5 |
-| DeepSeek | deepseek-v3.2-speciale |
+| DeepSeek | deepseek-reasoner |
 | GLM | glm-5 |
 | Grok | grok-4-1-fast-reasoning |
 | Qwen3 | qwen3.5-plus |
@@ -645,7 +645,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_OLLAMA` | false | Local model support (v2.2) |
 | `OLLAMA_MODEL` | qwen2.5-coder:32b | Ollama model (v2.5 - premium default) |
 | `CLAUDE_MODEL` | opus-4.6 | Claude model (v2.5) |
-| `GEMINI_MODEL` | gemini-3-pro-preview | Gemini model (v2.5) |
+| `GEMINI_MODEL` | gemini-3.1-pro-preview | Gemini model (v2.5) |
 | `CODEX_MODEL` | gpt-5.3-codex | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
 | `SYNTHESIS_STRATEGY` | majority | Synthesis strategy (v2.2) |
@@ -732,7 +732,7 @@ For detailed information, see:
 
 ### v2.9.1
 - Fixed Gemini model names to use real API names
-- Premium: `gemini-3-pro-preview`, Standard: `gemini-3-flash-preview`, Economy: `gemini-2.0-flash`
+- Premium: `gemini-3.1-pro-preview`, Standard: `gemini-3-flash-preview`, Economy: `gemini-2.0-flash`
 
 ### v2.9.0
 - Kimi CLI support via kimi-cli (`curl -L code.kimi.com/install.sh | bash`)

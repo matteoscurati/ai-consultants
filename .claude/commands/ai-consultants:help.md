@@ -51,7 +51,7 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 |------------|-------|-----------------|-------|
 | GLM | glm-5 | The Methodologist | Structured approaches |
 | Grok | grok-4-1-fast-reasoning | The Provocateur | Challenge conventions |
-| DeepSeek | deepseek-v3.2-speciale | The Code Specialist | Code generation, algorithms |
+| DeepSeek | deepseek-reasoner | The Code Specialist | Code generation, algorithms |
 | MiniMax | MiniMax-M2.5 | The Pragmatic Optimizer | Performance, efficiency |
 
 ## Presets

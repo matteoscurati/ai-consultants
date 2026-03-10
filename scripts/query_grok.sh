@@ -5,7 +5,7 @@
 #
 # Environment variables:
 #   GROK_API_KEY    - API key for xAI (required)
-#   GROK_MODEL      - Model to use (default: grok-beta)
+#   GROK_MODEL      - Model to use (default: grok-4-1-fast-reasoning)
 #   GROK_TIMEOUT    - Timeout in seconds (default: 180)
 #   ENABLE_PERSONA  - Enable "The Provocateur" persona (default: true)
 

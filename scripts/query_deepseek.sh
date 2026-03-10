@@ -5,7 +5,7 @@
 #
 # Environment variables:
 #   DEEPSEEK_API_KEY   - API key for DeepSeek (required)
-#   DEEPSEEK_MODEL     - Model to use (default: deepseek-coder)
+#   DEEPSEEK_MODEL     - Model to use (default: deepseek-reasoner)
 #   DEEPSEEK_TIMEOUT   - Timeout in seconds (default: 180)
 #   ENABLE_PERSONA     - Enable "The Code Specialist" persona (default: true)
 

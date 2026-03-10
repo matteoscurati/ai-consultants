@@ -421,7 +421,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Qwen3** | qwen3.5-plus | The Analyst | Data-driven analysis |
 | **GLM** | glm-5 | The Methodologist | Structured approaches |
 | **Grok** | grok-4-1-fast-reasoning | The Provocateur | Challenge conventions |
-| **DeepSeek** | deepseek-v3.2-speciale | The Code Specialist | Algorithms, code generation |
+| **DeepSeek** | deepseek-reasoner | The Code Specialist | Algorithms, code generation |
 | **MiniMax** | MiniMax-M2.5 | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
 ### Local Consultants
@@ -470,11 +470,11 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 | Consultant | Premium | Standard | Economy |
 |------------|---------|----------|---------|
 | Claude | opus-4.6 | sonnet-4.6 | haiku-4.5 |
-| Gemini | gemini-3-pro-preview | gemini-3-flash-preview | gemini-2.0-flash |
+| Gemini | gemini-3.1-pro-preview | gemini-3-flash-preview | gemini-2.0-flash |
 | Codex | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
 | Mistral | mistral-large-3 | mistral-medium-latest | devstral-small-2 |
 | Cursor | composer-1.5 | composer-1.5 | gemini-2.0-flash |
-| DeepSeek | deepseek-v3.2-speciale | deepseek-v3.2 | deepseek-chat |
+| DeepSeek | deepseek-reasoner | deepseek-v3.2 | deepseek-chat |
 | GLM | glm-5 | glm-5 | glm-4-flash |
 | Grok | grok-4-1-fast-reasoning | grok-3 | grok-3-mini |
 | Qwen3 | qwen3.5-plus | qwen3.5-plus | qwen3-32b |
@@ -697,7 +697,7 @@ Each consultation generates:
 - **New presets**: `max_quality`, `medium`, `fast` for quick tier selection
 - **Premium defaults**: All consultants now use premium models by default (January 2026)
 - **`apply_model_tier()` function**: Programmatically switch all models to a tier
-- **Updated models**: opus-4.6, gemini-3-pro-preview, gpt-5.3-codex, mistral-large-3, etc.
+- **Updated models**: opus-4.6, gemini-3.1-pro-preview, gpt-5.3-codex, mistral-large-3, etc.
 
 ### v2.4.0
 
