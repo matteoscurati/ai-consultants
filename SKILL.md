@@ -1,6 +1,11 @@
 ---
 name: ai-consultants
-description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Kimi, Qwen, MiniMax, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions".
+description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Kimi, Qwen, MiniMax, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
+license: MIT
+compatibility: Requires bash, jq, and at least 2 AI CLI tools (gemini, codex, vibe, etc.). macOS and Linux.
+metadata:
+  author: matteoscurati
+  version: 2.10.0
 ---
 
 # AI Consultants v2.10.0 - AI Expert Panel
@@ -13,20 +18,7 @@ Simultaneously consult multiple AIs as "consultants" for coding questions. Each 
 /ai-consultants:consult "Your question here"
 ```
 
-## What's New in v2.9
-
-- **Kimi CLI Consultant**: New "The Eastern Sage" persona for holistic understanding (v2.9)
-- **Amp CLI Consultant**: "The Systems Thinker" persona for system design (v2.8)
-- **Qwen CLI Support**: CLI/API mode switching for Qwen3 (v2.7)
-- **CLI/API Mode Switching**: Gemini, Codex, Claude, Mistral, Qwen3 can use CLI or API (v2.6)
-- **Model Quality Tiers**: premium, standard, economy with `apply_model_tier()` (v2.5)
-- **Budget Enforcement**: Configurable cost limits with `ENABLE_BUDGET_LIMIT` (v2.4)
-- **Premium Model Defaults**: All consultants now use flagship models by default
-- **15 Consultants**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Ollama
-
 ## Slash Commands
-
-### Slash Commands
 
 | Command | Description |
 |---------|-------------|
@@ -75,22 +67,7 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 ~/.claude/skills/ai-consultants/scripts/doctor.sh --fix
 ```
 
-### CLI Installation
-
-```bash
-npm install -g @google/gemini-cli      # Gemini
-npm install -g @openai/codex           # Codex
-pip install mistral-vibe               # Mistral
-npm install -g @kilocode/cli           # Kilo
-npm install -g @qwen-code/qwen-code@latest  # Qwen
-curl -fsSL https://ampcode.com/install.sh | bash  # Amp
-curl -L code.kimi.com/install.sh | bash  # Kimi
-brew install jq                        # Required
-
-# For local inference (optional)
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2
-```
+For detailed CLI installation instructions, see [Setup Guide](docs/SETUP.md).
 
 ## Configuration Presets
 
@@ -151,33 +128,7 @@ cd ~/.claude/skills/ai-consultants
 
 ## Workflow
 
-```
-Query -> Classify -> Parallel Queries -> Voting -> Synthesis -> Report
-                          |                |           |
-                     Gemini (8)      Consensus    Recommendation
-                     Codex (7)       Analysis     Comparison
-                     Mistral (6)                  Risk Assessment
-```
-
-With debate:
-```
-Round 1 -> Cross-Critique -> Round 2 -> Final Synthesis
-```
-
-## Usage Triggers
-
-### Automatic
-
-- Doubts about implementation approach
-- Validating complex solutions
-- Exploring architectural alternatives
-
-### Explicit
-
-- "Ask the consultants..."
-- "What do the other models think?"
-- "Compare solutions"
-- "I want a second opinion"
+Query is classified, then sent to consultants in parallel. Responses are scored, voted on, and synthesized into a recommendation. With debate enabled, consultants cross-critique before final synthesis.
 
 ## Features
 
@@ -193,41 +144,20 @@ Round 1 -> Cross-Critique -> Round 2 -> Final Synthesis
 
 ## Configuration
 
-```bash
-# Defaults (v2.9)
-DEFAULT_PRESET=balanced      # Preset when --preset not given
-DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
+All settings use environment variables. Key toggles:
 
-# Core features
+```bash
 ENABLE_DEBATE=true           # Multi-agent debate
 ENABLE_SYNTHESIS=true        # Automatic synthesis
-ENABLE_PEER_REVIEW=false     # Anonymous peer review
 ENABLE_PANIC_MODE=auto       # Auto-rigor for uncertainty
-
-# CLI/API Mode Switching (v2.6+)
-GEMINI_USE_API=false         # Use Google AI API instead of CLI
-CODEX_USE_API=false          # Use OpenAI API instead of CLI
-CLAUDE_USE_API=false         # Use Anthropic API instead of CLI
-MISTRAL_USE_API=false        # Use Mistral API instead of CLI
-QWEN3_USE_API=false          # Use qwen CLI (default) or DashScope API
-
-# New consultants (v2.7-2.9)
-ENABLE_AMP=false             # Amp CLI - The Systems Thinker
-AMP_MODEL=amp
-ENABLE_KIMI=false            # Kimi CLI - The Eastern Sage
-KIMI_MODEL=kimi-code/kimi-for-coding
-ENABLE_QWEN3=false           # Qwen CLI/API - The Analyst
-QWEN3_MODEL=qwen3.5-plus
-
-# Ollama (local models)
-ENABLE_OLLAMA=true
-OLLAMA_MODEL=qwen2.5-coder:32b
-
-# Budget management (v2.4)
-ENABLE_BUDGET_LIMIT=false
-MAX_SESSION_COST=1.00
-BUDGET_ACTION=warn           # warn or stop
+ENABLE_BUDGET_LIMIT=false    # Budget enforcement (v2.4)
 ```
+
+Enable opt-in consultants: `ENABLE_AMP`, `ENABLE_KIMI`, `ENABLE_QWEN3`, `ENABLE_CLAUDE`, `ENABLE_OLLAMA`, `ENABLE_MINIMAX`.
+
+CLI/API switching: `GEMINI_USE_API`, `CODEX_USE_API`, `CLAUDE_USE_API`, `MISTRAL_USE_API`, `QWEN3_USE_API`.
+
+See [Full Configuration Reference](references/configuration.md) for all variables, model overrides, tiers, timeouts, and optimization settings.
 
 ## Output
 
@@ -284,6 +214,7 @@ Diagnose and fix issues:
 
 ## Extended Documentation
 
+- [Full Configuration Reference](references/configuration.md) - All environment variables, models, tiers, timeouts
 - [Setup Guide](docs/SETUP.md) - Installation, authentication, Claude Code setup
 - [Cost Rates](docs/COST_RATES.md) - Model pricing
 - [Smart Routing](docs/SMART_ROUTING.md) - Category routing

@@ -1,13 +1,18 @@
 # AI Consultant Synthesis Prompt
 
-You are an expert meta-analyst. Your task is to analyze the responses from 4 AI consultants and produce a structured synthesis.
+You are an expert meta-analyst. Your task is to analyze the responses from AI consultants and produce a structured synthesis.
 
 ## Consultants and their Roles
 
-1. **Gemini (The Architect)**: Focus on design, scalability, enterprise patterns
-2. **Codex (The Pragmatist)**: Focus on simplicity, practical solutions, quick wins
-3. **Mistral (The Devil's Advocate)**: Focus on problems, edge cases, vulnerabilities
-4. **Kilo (The Innovator)**: Focus on creativity, unconventional approaches
+Each consultant has a persona that shapes their perspective. Common roles include:
+- **The Architect**: Design patterns, scalability, enterprise patterns
+- **The Pragmatist**: Simplicity, practical solutions, quick wins
+- **The Devil's Advocate**: Edge cases, vulnerabilities, risk analysis
+- **The Innovator**: Creativity, unconventional approaches
+- **The Integrator**: Full-stack perspective, holistic view
+- **The Systems Thinker**: System design, component interactions
+- **The Eastern Sage**: Balanced perspectives, holistic understanding
+- **The Analyst**: Data-driven, metrics-focused
 
 ## Original Question
 
@@ -34,10 +39,7 @@ Carefully analyze all responses and produce a report in JSON format:
       {
         "topic": "Topic of disagreement",
         "positions": {
-          "Gemini": "position",
-          "Codex": "position",
-          "Mistral": "position",
-          "Kilo": "position"
+          "<consultant_name>": "<position for each consultant that addressed this topic>"
         }
       }
     ]
@@ -47,40 +49,28 @@ Carefully analyze all responses and produce a report in JSON format:
     "summary": "Summary of the recommendation in 2-3 sentences",
     "detailed": "Detailed explanation",
     "confidence_weighted_score": 8.2,
-    "supporting_consultants": ["Gemini", "Codex"],
-    "dissenting_consultants": ["Mistral"],
-    "neutral_consultants": ["Kilo"]
+    "supporting_consultants": ["<consultants supporting the recommendation>"],
+    "dissenting_consultants": ["<consultants who disagree>"],
+    "neutral_consultants": ["<consultants with no strong position>"]
   },
   "comparison_table": {
-    "headers": ["Aspect", "Gemini", "Codex", "Mistral", "Kilo"],
+    "headers": ["Aspect", "<consultant_name>", "..."],
     "rows": [
       {
         "aspect": "Approach",
-        "Gemini": "...",
-        "Codex": "...",
-        "Mistral": "...",
-        "Kilo": "..."
+        "<consultant_name>": "<value for each consultant that responded>"
       },
       {
         "aspect": "Complexity",
-        "Gemini": "...",
-        "Codex": "...",
-        "Mistral": "...",
-        "Kilo": "..."
+        "<consultant_name>": "<value>"
       },
       {
         "aspect": "Scalability",
-        "Gemini": "...",
-        "Codex": "...",
-        "Mistral": "...",
-        "Kilo": "..."
+        "<consultant_name>": "<value>"
       },
       {
         "aspect": "Risks",
-        "Gemini": "...",
-        "Codex": "...",
-        "Mistral": "...",
-        "Kilo": "..."
+        "<consultant_name>": "<value>"
       }
     ]
   },
@@ -91,7 +81,7 @@ Carefully analyze all responses and produce a report in JSON format:
         "description": "Identified risk",
         "severity": "low|medium|high",
         "mitigation": "How to mitigate it",
-        "identified_by": ["Mistral"]
+        "identified_by": ["<consultant(s) who identified this risk>"]
       }
     ]
   },
@@ -110,9 +100,9 @@ Carefully analyze all responses and produce a report in JSON format:
 
 ## Rules for Calculating Consensus Score
 
-- **100%**: All 4 completely agree
-- **75-99%**: 3+ agree, 1 has a different opinion
-- **50-74%**: 2 vs 2, or partial agreement
+- **100%**: All consultants completely agree
+- **75-99%**: Most agree, few have different opinions
+- **50-74%**: Split opinions or partial agreement
 - **25-49%**: Strong disagreement, incompatible approaches
 - **0-24%**: No points of convergence
 

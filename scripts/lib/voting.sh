@@ -30,45 +30,124 @@ calculate_weighted_average() {
     fi
 }
 
-# Calculate consensus score based on approach similarity
+# Strip common suffixes for basic stemming (portable, no external tools)
+# "sessions" → "session", "caching" → "cach", "authentication" → "authenticat"
+# Usage: stem=$(_stem_word "sessions")
+_stem_word() {
+    local w="$1"
+    # Longest suffixes first; only strip -ing generically (not consonant+ing
+    # variants like *ting/*ring which cause "testing"→"tes", "string"→"st")
+    case "$w" in
+        *ation)  echo "${w%ation}" ;;
+        *tion)   echo "${w%tion}" ;;
+        *sion)   echo "${w%sion}" ;;
+        *ment)   echo "${w%ment}" ;;
+        *ness)   echo "${w%ness}" ;;
+        *ing)    echo "${w%ing}" ;;
+        *ies)    echo "${w%ies}y" ;;
+        *ses)    echo "${w%es}" ;;
+        *es)     echo "${w%es}" ;;
+        *s)      echo "${w%s}" ;;
+        *ed)     echo "${w%ed}" ;;
+        *ly)     echo "${w%ly}" ;;
+        *)       echo "$w" ;;
+    esac
+}
+
+# Extract keywords from an approach string (portable, Bash 3.2 compatible)
+# Lowercases, removes stop words, applies basic stemming, outputs sorted unique keywords
+# Usage: keywords=$(_extract_keywords "JWT-based authentication")
+_extract_keywords() {
+    echo "$1" | tr -cs '[:alnum:]' '\n' | tr '[:upper:]' '[:lower:]' | \
+        while IFS= read -r word; do
+            case "$word" in
+                the|a|an|of|for|to|in|on|with|and|or|is|are|was|were|be|been|being|based|using|use|"") ;;
+                *)
+                    # Apply basic stemming to improve matching
+                    if [[ ${#word} -gt 3 ]]; then
+                        _stem_word "$word"
+                    else
+                        echo "$word"
+                    fi
+                    ;;
+            esac
+        done | sort -u | tr '\n' ' '
+}
+
+# Calculate Jaccard similarity between two keyword strings (integer 0-100)
+# Inputs are already sorted+unique from _extract_keywords, so no re-sorting needed.
+# Uses process substitution instead of temp files to avoid O(n^2) filesystem ops.
+# Usage: sim=$(_jaccard_similarity "jwt auth tokens" "jwt token authentication")
+_jaccard_similarity() {
+    local set_a="$1"
+    local set_b="$2"
+
+    local intersection union_count
+    intersection=$(comm -12 <(echo "$set_a" | tr ' ' '\n' | grep -v '^$') \
+                            <(echo "$set_b" | tr ' ' '\n' | grep -v '^$') | wc -l | tr -d ' ')
+    union_count=$(echo "$set_a $set_b" | tr ' ' '\n' | sort -u | grep -v '^$' | wc -l | tr -d ' ')
+
+    if [[ $union_count -gt 0 ]]; then
+        echo $((intersection * 100 / union_count))
+    else
+        echo 0
+    fi
+}
+
+# Calculate consensus score based on keyword overlap between approaches
+# Uses Jaccard similarity instead of exact string matching so that
+# "JWT tokens", "JWT-based auth", and "JSON Web Tokens" are recognized as similar.
 # Usage: calculate_consensus_score <json_responses_dir>
 calculate_consensus_score() {
     local responses_dir="$1"
     local approaches=()
+    local keyword_sets=()
 
-    # Clear any previous map state
-    map_clear "CONSENSUS_COUNTS"
-
-    # Collect all approaches
+    # Collect all approaches and extract keywords, skipping "unknown" approaches
     for f in "$responses_dir"/*.json; do
         if [[ -f "$f" && -s "$f" ]]; then
-            local approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            local approach
+            approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
+            # Skip unknown/empty approaches — they add noise without signal
+            local approach_lower
+            approach_lower=$(echo "$approach" | tr '[:upper:]' '[:lower:]')
+            case "$approach_lower" in
+                unknown|""|n/a|none|"not available") continue ;;
+            esac
             approaches+=("$approach")
+            keyword_sets+=("$(_extract_keywords "$approach")")
         fi
     done
 
     local total=${#approaches[@]}
-    if [[ $total -eq 0 ]]; then
-        echo 0
+    if [[ $total -le 1 ]]; then
+        [[ $total -eq 1 ]] && echo 100 || echo 0
         return
     fi
 
-    # Count unique approaches and the frequency of the most common
-    local most_common_count=0
+    # Calculate pairwise Jaccard similarity
+    local similar_pairs=0
+    local total_pairs=0
+    local threshold=20  # Jaccard >= 0.20 means approaches are similar (lowered from 30 to account for verbose names)
 
-    for a in "${approaches[@]}"; do
-        local current_count
-        current_count=$(map_get "CONSENSUS_COUNTS" "$a")
-        current_count=$((${current_count:-0} + 1))
-        map_set "CONSENSUS_COUNTS" "$a" "$current_count"
-        if [[ $current_count -gt $most_common_count ]]; then
-            most_common_count=$current_count
-        fi
+    local i j
+    for ((i=0; i<total; i++)); do
+        for ((j=i+1; j<total; j++)); do
+            total_pairs=$((total_pairs + 1))
+            local sim
+            sim=$(_jaccard_similarity "${keyword_sets[$i]}" "${keyword_sets[$j]}")
+            if [[ $sim -ge $threshold ]]; then
+                similar_pairs=$((similar_pairs + 1))
+            fi
+        done
     done
 
-    # Score = percentage that shares the most common approach
-    local score=$((most_common_count * 100 / total))
-    echo $score
+    # Score = percentage of pairs that are similar
+    if [[ $total_pairs -gt 0 ]]; then
+        echo $((similar_pairs * 100 / total_pairs))
+    else
+        echo 100
+    fi
 }
 
 # Determine the consensus level from a score

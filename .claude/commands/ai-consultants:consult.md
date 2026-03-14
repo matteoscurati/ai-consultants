@@ -1,5 +1,5 @@
 ---
-description: Consult AI experts (Gemini, Codex, Mistral, Kilo, Cursor) for coding questions
+description: Consult AI experts (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen, GLM, Grok, DeepSeek, MiniMax, Ollama) for coding questions. Use when weighing trade-offs, comparing approaches, or wanting multiple expert perspectives on non-trivial decisions.
 argument-hint: <question> [file1] [file2] ...
 allowed-tools: Bash Read Glob Grep
 ---

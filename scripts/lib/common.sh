@@ -996,3 +996,93 @@ get_enabled_consultants() {
     done
     echo "${enabled[@]}"
 }
+
+# =============================================================================
+# SYNTHESIS CLI RESOLUTION (v2.10.1)
+# =============================================================================
+
+# Map a canonical consultant name (from get_self_consultant_name) to its CLI command name.
+# Usage: cli=$(_consultant_to_cli "CLAUDE")
+_consultant_to_cli() {
+    case "$1" in
+        CLAUDE)  echo "claude" ;;
+        GEMINI)  echo "gemini" ;;
+        CODEX)   echo "codex" ;;
+        MISTRAL) echo "mistral" ;;
+        KILO)    echo "kilo" ;;
+        AMP)     echo "amp" ;;
+        KIMI)    echo "kimi" ;;
+        QWEN3)   echo "qwen" ;;
+        CURSOR)  echo "cursor" ;;
+        AIDER)   echo "aider" ;;
+        *)       echo "" ;;
+    esac
+}
+
+# Resolve which CLI to use for synthesis.
+# Avoids using the invoking agent's CLI (self-consultation prevention).
+# Walks a fallback chain: configured SYNTHESIS_CMD → gemini → codex → claude → ollama
+#
+# Usage: SYNTH_CLI=$(resolve_synthesis_cli)
+# Returns: CLI type name (gemini, codex, claude, ollama) or empty string on failure
+resolve_synthesis_cli() {
+    # Reuse get_self_consultant_name for complete alias coverage
+    local avoid_cmd
+    avoid_cmd=$(_consultant_to_cli "$(get_self_consultant_name)")
+
+    # 1. Check if SYNTHESIS_CMD is configured and is not the invoking agent
+    local configured="${SYNTHESIS_CMD:-}"
+    if [[ -n "$configured" && "$configured" != "$avoid_cmd" ]]; then
+        if command -v "$configured" &>/dev/null; then
+            echo "$configured"
+            return 0
+        fi
+    fi
+
+    # 2. Walk fallback chain: pick first available CLI that isn't the invoking agent
+    local candidate cmd
+    for candidate in gemini codex claude ollama; do
+        [[ "$candidate" == "$avoid_cmd" ]] && continue
+        case "$candidate" in
+            gemini) cmd="${GEMINI_CMD:-gemini}" ;;
+            codex)  cmd="${CODEX_CMD:-codex}" ;;
+            claude) cmd="${CLAUDE_CMD:-claude}" ;;
+            ollama) cmd="ollama" ;;
+        esac
+        if command -v "$cmd" &>/dev/null; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    echo ""
+    return 1
+}
+
+# Build synthesis command arguments for a resolved CLI type.
+# Sets the global SYNTHESIS_ARGS array directly (no eval needed).
+# Usage: build_synthesis_args <cli_type>
+build_synthesis_args() {
+    local cli_type="$1"
+
+    case "$cli_type" in
+        claude)
+            SYNTHESIS_ARGS=("${CLAUDE_CMD:-claude}" "--print")
+            local model="${SYNTHESIS_MODEL:-${CLAUDE_MODEL:-}}"
+            [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
+            ;;
+        gemini)
+            SYNTHESIS_ARGS=("${GEMINI_CMD:-gemini}")
+            ;;
+        codex)
+            SYNTHESIS_ARGS=("${CODEX_CMD:-codex}" "--quiet" "--full-auto")
+            ;;
+        ollama)
+            SYNTHESIS_ARGS=("ollama" "run" "${OLLAMA_MODEL:-llama3.2}")
+            ;;
+        *)
+            log_warn "Unknown synthesis CLI type: $cli_type"
+            return 1
+            ;;
+    esac
+}

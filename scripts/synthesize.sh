@@ -282,21 +282,18 @@ RULES:
 "
 
 # --- Execute synthesis ---
-log_info "Running synthesis with Claude..."
-
 TEMP_OUTPUT=$(mktemp)
 
-# Try first with claude CLI
-if command -v claude &> /dev/null; then
-    SYNTHESIS_MODEL="${SYNTHESIS_MODEL:-${CLAUDE_MODEL:-}}"
-    SYNTHESIS_ARGS=("${CLAUDE_CMD:-claude}" "--print")
-    if [[ -n "$SYNTHESIS_MODEL" ]]; then
-        SYNTHESIS_ARGS+=("--model" "$SYNTHESIS_MODEL")
-    fi
+# Resolve which CLI to use (avoids invoking agent, walks fallback chain)
+SYNTH_CLI=$(resolve_synthesis_cli 2>/dev/null || echo "")
+
+if [[ -n "$SYNTH_CLI" ]]; then
+    log_info "Running synthesis with $SYNTH_CLI..."
+    build_synthesis_args "$SYNTH_CLI"
     echo "$SYNTHESIS_PROMPT" | "${SYNTHESIS_ARGS[@]}" > "$TEMP_OUTPUT" 2>/dev/null
     exit_code=$?
 else
-    log_warn "Claude CLI not found, using local fallback"
+    log_warn "No synthesis CLI available, using local fallback"
     # Fallback: generate basic synthesis without LLM
     generate_fallback_synthesis "$RESPONSES_DIR" > "$TEMP_OUTPUT"
     exit_code=0

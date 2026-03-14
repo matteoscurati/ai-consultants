@@ -67,8 +67,8 @@ _discover_custom_api_agents() {
 
 # --- Show usage help ---
 show_help() {
+    echo "AI Consultants v${AI_CONSULTANTS_VERSION:-2.10.0} - Multi-Model AI Consultation"
     cat << 'EOF'
-AI Consultants v2.2 - Multi-Model AI Consultation
 
 Usage: ./consult_all.sh [options] "Your question" [file1] [file2] ...
 
@@ -78,6 +78,9 @@ Options:
                          balanced     - 4 models, good coverage
                          thorough     - 5 models, comprehensive
                          high-stakes  - All models + debate
+                         max_quality  - All + premium models + debate + reflection
+                         medium       - 4 models + standard models + light debate
+                         fast         - 2 models + economy models, no debate
                          local        - Ollama only, full privacy
                          security     - Security-focused + debate
                          cost-capped  - Budget-conscious options
@@ -792,14 +795,22 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         echo "$recommendation"
         echo ""
 
-        # Comparison table
+        # Comparison table (dynamic: reads actual consultant names from synthesis JSON)
         echo "### Consultant Comparison"
         echo ""
-        echo "| Aspect | Gemini | Codex | Mistral | Kilo | Cursor |"
-        echo "|---------|--------|-------|---------|------|--------|"
 
-        jq -r '.comparison_table[]? | "| \(.aspect) | \(.Gemini // "N/A") | \(.Codex // "N/A") | \(.Mistral // "N/A") | \(.Kilo // "N/A") | \(.Cursor // "N/A") |"' \
-            "$SYNTHESIS_FILE" 2>/dev/null || echo "| ... | ... | ... | ... | ... | ... |"
+        jq -r '
+            (.comparison_table[0] // {} | keys | map(select(. != "aspect"))) as $cs |
+            if ($cs | length) > 0 then
+                (["Aspect"] + $cs | map("| \(.) ") | join("")) + "|",
+                (["-"] + ($cs | map("-")) | map("|---") | join("")) + "|",
+                (.comparison_table[]? | . as $row |
+                    ([.aspect] + [$cs[] as $c | ($row[$c] // "N/A")] |
+                     map("| \(.) ") | join("")) + "|")
+            else
+                "| (comparison data unavailable) |"
+            end
+        ' "$SYNTHESIS_FILE" 2>/dev/null || echo "| (comparison data unavailable) |"
 
         echo ""
 
