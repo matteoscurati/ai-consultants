@@ -7,8 +7,8 @@
   "properties": {
     "consultant": {
       "type": "string",
-      "description": "Name of the consultant (Gemini, Codex, Mistral, Kilo)",
-      "enum": ["Gemini", "Codex", "Mistral", "Kilo"]
+      "description": "Name of the consultant (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Ollama)",
+      "enum": ["Gemini", "Codex", "Mistral", "Kilo", "Cursor", "Aider", "Amp", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax", "Ollama"]
     },
     "model": {
       "type": "string",
@@ -17,7 +17,7 @@
     "persona": {
       "type": "string",
       "description": "Assigned persona role",
-      "enum": ["The Architect", "The Pragmatist", "The Devil's Advocate", "The Innovator"]
+      "enum": ["The Architect", "The Pragmatist", "The Devil's Advocate", "The Innovator", "The Integrator", "The Pair Programmer", "The Systems Thinker", "The Eastern Sage", "The Synthesizer", "The Analyst", "The Methodologist", "The Provocateur", "The Code Specialist", "The Pragmatic Optimizer", "The Local Expert"]
     },
     "response": {
       "type": "object",

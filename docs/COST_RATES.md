@@ -44,6 +44,7 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | MiniMax-M2.5 | Premium | $0.002 | MiniMax |
 | MiniMax-M2.1 | Standard | $0.0015 | MiniMax |
 | MiniMax-M2.5-highspeed | Economy | $0.001 | MiniMax |
+| kimi-code/kimi-for-coding | Premium/Standard | $0.002 | Kimi |
 | auto | All | $0.002 | Kilo (internal routing) |
 | default | - | $0.005 | Fallback |
 
@@ -77,6 +78,7 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | MiniMax-M2.5 | Premium | $0.006 | MiniMax |
 | MiniMax-M2.1 | Standard | $0.004 | MiniMax |
 | MiniMax-M2.5-highspeed | Economy | $0.003 | MiniMax |
+| kimi-code/kimi-for-coding | Premium/Standard | $0.006 | Kimi |
 | auto | All | $0.006 | Kilo |
 | default | - | $0.015 | Fallback |
 

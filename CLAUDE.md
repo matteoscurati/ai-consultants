@@ -60,6 +60,9 @@ ai-consultants/
 │       ├── api_query.sh        # API mode query execution (v2.6)
 │       ├── progress.sh         # Progress bars
 │       └── reflection.sh       # Self-reflection + judge step
+├── references/
+│   ├── configuration.md      # Full configuration reference
+│   └── details.md            # Presets, strategies, best practices
 └── templates/
     └── synthesis_prompt.md     # Synthesis prompt
 ```
@@ -557,13 +560,13 @@ Skips debate if confidence spread is low (all consultants agree).
 
 ```bash
 ENABLE_DEBATE_OPTIMIZATION=false  # Default: false (opt-in per quality review)
-DEBATE_CONFIDENCE_SPREAD_THRESHOLD=2  # Min spread to trigger debate
+DEBATE_CONFIDENCE_SPREAD_THRESHOLD=3  # Min spread to trigger debate
 DEBATE_USE_SUMMARIES=true         # Use summaries in debate rounds
 ```
 
 **Category Exceptions**: SECURITY and ARCHITECTURE always trigger debate regardless of confidence spread.
 
-Functions in `lib/debate_round.sh`:
+Functions in `debate_round.sh`:
 - `is_mandatory_debate_category()` - Returns true for SECURITY/ARCHITECTURE
 - `should_skip_debate()` - Returns true if debate can be skipped
 - `extract_compact_summary()` - Token-optimized summary for debates
@@ -721,6 +724,12 @@ For detailed information, see:
 
 ## Changelog
 
+### v2.10.1
+- Slash command quality improvements: file context handling, result presentation templates, error recovery guidance
+- debate_round.sh hardening: Amp/Kimi/MiniMax case entries, `((count++)) || true` fixes, `*` default case, stderr to `.err` files, ROUND_NUMBER validation
+- Token efficiency: SKILL.md trimmed (-17%), help.md slimmed (-77%), content moved to `references/details.md`
+- Self-exclusion consistency in slash command descriptions
+
 ### v2.10.0
 - MiniMax M2.5 API support via OpenAI-compatible endpoint
 - New consultant: MiniMax with "The Pragmatic Optimizer" persona (ID: 21)
@@ -761,7 +770,7 @@ For detailed information, see:
 - Qwen CLI support via qwen-code (`npm install -g @qwen-code/qwen-code@latest`)
 - CLI/API mode switching for Qwen3 (now 5 agents support switching)
 - New environment variables: `QWEN3_USE_API`, `QWEN3_CMD`
-- `QWEN3_USE_API` defaults to `true` to preserve v2.6 API behavior
+- `QWEN3_USE_API` defaults to `false` to use the qwen CLI by default
 - Updated `validate_api_mode()` to support Qwen3
 - Moved Qwen3 from API-only to CLI/API switchable consultant
 - Updated doctor.sh diagnostics for Qwen3 CLI/API mode

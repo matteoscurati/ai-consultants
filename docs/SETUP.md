@@ -342,6 +342,23 @@ Get API key: [Amp Code](https://ampcode.com)
 
 **Usage**: Amp CLI uses `-x` flag for non-interactive execution (required for script integration).
 
+### Kimi CLI (The Eastern Sage) - v2.9
+
+```bash
+curl -L code.kimi.com/install.sh | bash
+```
+
+Verify: `kimi --version`
+
+### MiniMax (API-only) - v2.10
+
+MiniMax requires an API key — no CLI installation needed.
+
+```bash
+export MINIMAX_API_KEY="your-key"
+export ENABLE_MINIMAX=true
+```
+
 ---
 
 ## Ollama (Local Models) - v2.2
@@ -399,8 +416,8 @@ ollama pull qwen2.5-coder
 # Enable Ollama consultant
 export ENABLE_OLLAMA=true
 
-# Choose model (default: llama3.2)
-export OLLAMA_MODEL=llama3.2
+# Choose model (default: qwen2.5-coder:32b)
+export OLLAMA_MODEL=qwen2.5-coder:32b
 
 # Server URL (default: localhost)
 export OLLAMA_HOST=http://localhost:11434
@@ -469,7 +486,8 @@ When AI Consultants is invoked from a specific AI agent, that agent is automatic
 | Cursor | Cursor | Claude, Gemini, Codex, Mistral, Kilo, Amp, Qwen, etc. |
 | Amp CLI | Amp | Claude, Gemini, Codex, Mistral, Kilo, Cursor, Qwen, etc. |
 | Qwen CLI | Qwen3 | Claude, Gemini, Codex, Mistral, Kilo, Cursor, Amp, etc. |
-| Bash (direct) | None | All enabled consultants (up to 13) |
+| Kimi CLI | Kimi | All except Kimi |
+| Bash (direct) | None | All enabled consultants (up to 15) |
 
 ### Automatic Detection
 
@@ -629,7 +647,7 @@ cp .env.example .env
 Edit `.env`:
 
 ```bash
-# Enable/disable consultants (13 available)
+# Enable/disable consultants (15 available)
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_CLAUDE=false    # Auto-excluded when invoked from Claude Code
@@ -642,6 +660,9 @@ ENABLE_QWEN3=false     # v2.7: The Analyst (CLI/API)
 ENABLE_GLM=false
 ENABLE_GROK=false
 ENABLE_DEEPSEEK=false
+ENABLE_KIMI=true
+ENABLE_MINIMAX=true
+MINIMAX_API_KEY=your-key
 ENABLE_OLLAMA=true
 
 # Self-exclusion (v2.2)

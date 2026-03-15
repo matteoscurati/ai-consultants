@@ -1,4 +1,4 @@
-# Smart Routing - AI Consultants v2.8
+# Smart Routing - AI Consultants v2.10
 
 The Smart Routing system automatically selects the most suitable consultants based on the question category.
 
@@ -19,18 +19,18 @@ MIN_AFFINITY=7
 
 Consultant-category affinity scores (scale 1-10):
 
-| Category | Gemini | Codex | Mistral | Kilo | Cursor | Aider | Amp | Claude | Qwen3 | GLM | Grok | DeepSeek | Ollama |
-|----------|--------|-------|---------|------|--------|-------|-----|--------|-------|-----|------|----------|--------|
-| **CODE_REVIEW** | 7 | **10** | 8 | 9 | 8 | 9 | 7 | 8 | 7 | 7 | 6 | 8 | 6 |
-| **BUG_DEBUG** | 7 | **10** | 9 | 8 | 8 | 9 | 7 | 7 | 7 | 6 | 6 | 8 | 6 |
-| **ARCHITECTURE** | **10** | 6 | 8 | 9 | 7 | 6 | **10** | 9 | 7 | 7 | 7 | 6 | 5 |
-| **ALGORITHM** | 9 | 8 | 7 | 8 | 7 | 7 | 7 | 8 | 8 | 8 | 7 | **10** | 6 |
-| **SECURITY** | 9 | 9 | **10** | 8 | 8 | 7 | 8 | 9 | 7 | 7 | 8 | 7 | 5 |
-| **QUICK_SYNTAX** | **10** | 8 | 5 | 6 | 7 | 7 | 5 | 7 | 7 | 6 | 5 | 7 | 6 |
-| **DATABASE** | 8 | 9 | 7 | 7 | 7 | 7 | 7 | 7 | 8 | 7 | 6 | 8 | 5 |
-| **API_DESIGN** | **10** | 9 | 7 | 8 | 8 | 6 | 9 | 8 | 7 | 7 | 7 | 6 | 5 |
-| **TESTING** | 7 | **10** | 9 | 7 | 8 | 9 | 7 | 7 | 7 | 7 | 6 | 7 | 5 |
-| **GENERAL** | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 9 | 8 | 7 | 8 | 8 | 7 |
+| Category | Gemini | Codex | Mistral | Kilo | Cursor | Aider | Amp | Kimi | Claude | Qwen3 | GLM | Grok | DeepSeek | MiniMax | Ollama |
+|----------|--------|-------|---------|------|--------|-------|-----|------|--------|-------|-----|------|----------|---------|--------|
+| **CODE_REVIEW** | 7 | **10** | 8 | 9 | 8 | 9 | 7 | 7 | 8 | 7 | 7 | 6 | 8 | 6 | 6 |
+| **BUG_DEBUG** | 7 | **10** | 9 | 8 | 8 | 9 | 7 | 6 | 7 | 7 | 6 | 6 | 8 | 5 | 6 |
+| **ARCHITECTURE** | **10** | 6 | 8 | 9 | 7 | 6 | **10** | 8 | 9 | 7 | 7 | 7 | 6 | 6 | 5 |
+| **ALGORITHM** | 9 | 8 | 7 | 8 | 7 | 7 | 7 | 6 | 8 | 8 | 8 | 7 | **10** | 6 | 6 |
+| **SECURITY** | 9 | 9 | **10** | 8 | 8 | 7 | 8 | 5 | 9 | 7 | 7 | 8 | 7 | 5 | 5 |
+| **QUICK_SYNTAX** | **10** | 8 | 5 | 6 | 7 | 7 | 5 | 5 | 7 | 7 | 6 | 5 | 7 | 5 | 6 |
+| **DATABASE** | 8 | 9 | 7 | 7 | 7 | 7 | 7 | 6 | 7 | 8 | 7 | 6 | 8 | 5 | 5 |
+| **API_DESIGN** | **10** | 9 | 7 | 8 | 8 | 6 | 9 | 6 | 8 | 7 | 7 | 7 | 6 | 6 | 5 |
+| **TESTING** | 7 | **10** | 9 | 7 | 8 | 9 | 7 | 5 | 7 | 7 | 7 | 6 | 7 | 6 | 5 |
+| **GENERAL** | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 7 | 9 | 8 | 7 | 8 | 8 | 6 | 7 |
 
 **Legend:**
 - **10**: Perfect match

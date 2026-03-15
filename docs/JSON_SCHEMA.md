@@ -1,4 +1,4 @@
-# JSON Schema - AI Consultants v2.8
+# JSON Schema - AI Consultants v2.10
 
 This document describes the JSON schema used for consultant responses.
 
@@ -207,16 +207,16 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
 ### consultant
 
 ```
-"Gemini" | "Codex" | "Mistral" | "Kilo" | "Cursor" | "Aider" | "Amp" | "Claude" | "Qwen3" | "GLM" | "Grok" | "DeepSeek" | "Ollama"
+"Gemini" | "Codex" | "Mistral" | "Kilo" | "Cursor" | "Aider" | "Amp" | "Kimi" | "Claude" | "Qwen3" | "GLM" | "Grok" | "DeepSeek" | "MiniMax" | "Ollama"
 ```
 
 ### persona
 
 ```
 "The Architect" | "The Pragmatist" | "The Devil's Advocate" | "The Innovator" |
-"The Integrator" | "The Pair Programmer" | "The Systems Thinker" | "The Synthesizer" |
-"The Analyst" | "The Methodologist" | "The Provocateur" | "The Code Specialist" |
-"The Local Expert"
+"The Integrator" | "The Pair Programmer" | "The Systems Thinker" | "The Eastern Sage" |
+"The Synthesizer" | "The Analyst" | "The Methodologist" | "The Provocateur" |
+"The Code Specialist" | "The Pragmatic Optimizer" | "The Local Expert"
 ```
 
 ### critiques[].severity

@@ -69,62 +69,15 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 For detailed CLI installation instructions, see [Setup Guide](docs/SETUP.md).
 
-## Configuration Presets
-
-| Preset | Consultants | Use Case |
-|--------|-------------|----------|
-| `minimal` | 2 (Gemini + Codex) | Quick questions |
-| `balanced` | 4 (+Mistral +Kilo) | Standard use |
-| `thorough` | 5 (+Cursor) | Comprehensive |
-| `high-stakes` | All + debate | Critical decisions |
-| `local` | Ollama only | Full privacy |
-| `security` | Security-focused | +Debate |
-| `cost-capped` | Budget-friendly | Low cost |
-
-## Synthesis Strategies
-
-| Strategy | Description |
-|----------|-------------|
-| `majority` | Most common answer wins (default) |
-| `risk_averse` | Weight conservative responses |
-| `security_first` | Prioritize security |
-| `cost_capped` | Prefer cheaper solutions |
-| `compare_only` | No recommendation |
-
 ## Usage Examples
-
-### Basic Consultation
 
 ```
 /ai-consultants:consult "How to optimize this SQL query?"
-```
-
-### With File Context
-
-```
 /ai-consultants:consult "Review this authentication flow" src/auth.ts
-```
-
-### With Debate
-
-```
 /ai-consultants:debate "Microservices or monolith for our new service?"
 ```
 
-### Bash Usage
-
-```bash
-cd ~/.claude/skills/ai-consultants
-
-# With preset
-./scripts/consult_all.sh --preset balanced "Best approach for caching?"
-
-# With strategy
-./scripts/consult_all.sh --strategy risk_averse "Security question"
-
-# With local model
-./scripts/consult_all.sh --preset local "Private question"
-```
+Presets: `minimal`, `balanced`, `thorough`, `high-stakes`, `local`, `security`, `cost-capped`. Strategies: `majority`, `risk_averse`, `security_first`, `cost_capped`, `compare_only`. See [Reference Details](references/details.md) for full tables, bash usage, and best practices.
 
 ## Workflow
 
@@ -189,40 +142,15 @@ Diagnose and fix issues:
 | Mistral disagrees | Investigate risks |
 | Panic mode triggered | Add debate rounds |
 
-## Best Practices
-
-### Security
-
-- **Never** include credentials in queries
-- Use `--preset local` for sensitive code
-
-### Effective Queries
-
-- Be specific about the question
-- Include constraints (performance, etc.)
-- Use debate for controversial decisions
-
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| "Unknown skill" | Run install script or check `~/.claude/commands/` |
-| "Exit code 1" | Run `./scripts/doctor.sh` to diagnose |
-| No consultants | Install at least 2 CLI agents |
-| API errors | Check API keys in `.env` |
-| CLI not found | Run `./scripts/doctor.sh --fix` |
+Run `./scripts/doctor.sh` to diagnose issues, or `./scripts/doctor.sh --fix` to auto-fix.
 
 ## Extended Documentation
 
-- [Full Configuration Reference](references/configuration.md) - All environment variables, models, tiers, timeouts
-- [Setup Guide](docs/SETUP.md) - Installation, authentication, Claude Code setup
+- [Reference Details](references/details.md) - Presets, strategies, best practices, limitations
+- [Full Configuration](references/configuration.md) - All environment variables, models, tiers, timeouts
+- [Setup Guide](docs/SETUP.md) - Installation, authentication
 - [Cost Rates](docs/COST_RATES.md) - Model pricing
 - [Smart Routing](docs/SMART_ROUTING.md) - Category routing
 - [JSON Schema](docs/JSON_SCHEMA.md) - Output format
-
-## Known Limitations
-
-- Minimum 2 consultants required
-- Smart Routing off by default
-- Synthesis requires Claude CLI (fallback available)
-- Estimated costs (heuristic token counting)

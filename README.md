@@ -412,6 +412,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
 | **Aider** | `aider` | The Pair Programmer | Collaborative coding |
 | **Amp** | `amp` | The Systems Thinker | System design, interactions, emergent behavior |
+| **Kimi** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis, connecting ideas |
 
 ### API-Based Consultants
@@ -443,6 +444,7 @@ curl https://cursor.com/install -fsS | bash  # Cursor
 
 # Optional CLI-based consultants
 curl -fsSL https://ampcode.com/install.sh | bash  # Amp
+curl -L code.kimi.com/install.sh | bash            # Kimi
 npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
 
 # For local inference (optional)
@@ -654,6 +656,7 @@ Each consultation generates:
 - [Cost Rates](docs/COST_RATES.md) - Model pricing and budgets
 - [Smart Routing](docs/SMART_ROUTING.md) - Category-based routing
 - [JSON Schema](docs/JSON_SCHEMA.md) - Output format specification
+- [Reference Details](references/details.md) - Presets, strategies, best practices
 - [Contributing](CONTRIBUTING.md) - How to contribute
 
 ---
@@ -695,7 +698,7 @@ Each consultation generates:
 
 - **Model quality tiers**: Premium, standard, and economy tiers for all consultants
 - **New presets**: `max_quality`, `medium`, `fast` for quick tier selection
-- **Premium defaults**: All consultants now use premium models by default (January 2026)
+- **Premium defaults**: All consultants now use premium models by default (March 2026)
 - **`apply_model_tier()` function**: Programmatically switch all models to a tier
 - **Updated models**: opus-4.6, gemini-3.1-pro-preview, gpt-5.3-codex, mistral-large-3, etc.
 
