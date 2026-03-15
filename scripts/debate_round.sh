@@ -15,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/personas.sh"
-source "$SCRIPT_DIR/config.sh" 2>/dev/null || true
+source "$SCRIPT_DIR/config.sh" 2>/dev/null || log_warn "config.sh not loaded (using defaults)"
 
 # =============================================================================
 # DEBATE OPTIMIZATION (v2.3)
@@ -63,7 +63,7 @@ should_skip_debate() {
             if [[ "$confidence" =~ ^[0-9]+$ ]]; then
                 [[ $confidence -lt $min_confidence ]] && min_confidence=$confidence
                 [[ $confidence -gt $max_confidence ]] && max_confidence=$confidence
-                ((count++))
+                ((count++)) || true
             fi
         fi
     done
@@ -106,6 +106,11 @@ ROUND_NUMBER="${2:-2}"
 OUTPUT_DIR="${3:-}"
 QUESTION_CATEGORY="${4:-GENERAL}"  # v2.3: Category for mandatory debate check
 
+if [[ ! "$ROUND_NUMBER" =~ ^[0-9]+$ ]] || [[ "$ROUND_NUMBER" -lt 1 ]]; then
+    log_error "Invalid round number: $ROUND_NUMBER (must be a positive integer)"
+    exit 1
+fi
+
 if [[ -z "$RESPONSES_DIR" || ! -d "$RESPONSES_DIR" ]]; then
     log_error "Usage: $0 <responses_dir> <round_number> [output_dir] [category]"
     exit 1
@@ -142,6 +147,13 @@ build_debate_prompt() {
     local responses_dir="$3"
 
     local my_response=$(cat "$my_response_file" 2>/dev/null)
+
+    # Validate response JSON before using in debate prompt
+    if [[ -z "$my_response" ]] || ! echo "$my_response" | jq -e '.' > /dev/null; then
+        log_warn "Invalid or empty previous response for $consultant, using fallback"
+        my_response='{"response":{"summary":"No summary","approach":"unknown"},"confidence":{"score":5}}'
+    fi
+
     local other_summaries=""
 
     # Collect summaries from other consultants (using compact summaries when optimized)
@@ -161,10 +173,10 @@ $(extract_compact_summary "$f")
 # Round $ROUND_NUMBER - Cross-Critique
 
 ## Your Previous Response (Round $((ROUND_NUMBER - 1)))
-$(echo "$my_response" | jq -r '.response.summary // "No summary"')
+$(echo "$my_response" | jq -r '.response.summary // "No summary"' 2>/dev/null)
 
-Approach: $(echo "$my_response" | jq -r '.response.approach // "unknown"')
-Confidence: $(echo "$my_response" | jq -r '.confidence.score // 5')/10
+Approach: $(echo "$my_response" | jq -r '.response.approach // "unknown"' 2>/dev/null)
+Confidence: $(echo "$my_response" | jq -r '.confidence.score // 5' 2>/dev/null)/10
 
 ## Other Consultants' Responses
 $other_summaries
@@ -226,6 +238,7 @@ run_debate_round() {
 
     local pids=()
     local output_files=()
+    local consultant_names=()
 
     log_info "Starting debate round $ROUND_NUMBER for ${#consultants[@]} consultants..."
 
@@ -254,40 +267,53 @@ run_debate_round() {
             # Route to appropriate query script based on consultant
             case "$consultant" in
                 Gemini)
-                    echo "$debate_prompt" | "$SCRIPT_DIR/query_gemini.sh" "" "" "$output_file" > /dev/null 2>&1
+                    echo "$debate_prompt" | "$SCRIPT_DIR/query_gemini.sh" "" "" "$output_file" > /dev/null
                     ;;
                 Codex)
-                    "$SCRIPT_DIR/query_codex.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_codex.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Mistral)
-                    "$SCRIPT_DIR/query_mistral.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_mistral.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Kilo)
-                    "$SCRIPT_DIR/query_kilo.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_kilo.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Cursor)
-                    "$SCRIPT_DIR/query_cursor.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_cursor.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Aider)
-                    "$SCRIPT_DIR/query_aider.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_aider.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Claude)
-                    "$SCRIPT_DIR/query_claude.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_claude.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Qwen3)
-                    "$SCRIPT_DIR/query_qwen3.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_qwen3.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 GLM)
-                    "$SCRIPT_DIR/query_glm.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_glm.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Grok)
-                    "$SCRIPT_DIR/query_grok.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_grok.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 DeepSeek)
-                    "$SCRIPT_DIR/query_deepseek.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_deepseek.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Ollama)
-                    "$SCRIPT_DIR/query_ollama.sh" "$debate_prompt" "" "$output_file" > /dev/null 2>&1
+                    "$SCRIPT_DIR/query_ollama.sh" "$debate_prompt" "" "$output_file" > /dev/null
+                    ;;
+                Amp)
+                    "$SCRIPT_DIR/query_amp.sh" "$debate_prompt" "" "$output_file" > /dev/null
+                    ;;
+                Kimi)
+                    "$SCRIPT_DIR/query_kimi.sh" "$debate_prompt" "" "$output_file" > /dev/null
+                    ;;
+                MiniMax)
+                    "$SCRIPT_DIR/query_minimax.sh" "$debate_prompt" "" "$output_file" > /dev/null
+                    ;;
+                *)
+                    log_error "Unknown consultant in debate round: $consultant (no query script mapped)"
+                    exit 1
                     ;;
             esac
 
@@ -298,22 +324,39 @@ run_debate_round() {
             # Add debate metadata to result
             if [[ -f "$output_file" && -s "$output_file" ]]; then
                 local temp_file=$(mktemp)
-                jq --argjson round "$ROUND_NUMBER" \
-                   --argjson latency "$latency" \
-                   '. + {debate_round: $round, debate_latency_ms: $latency}' \
-                   "$output_file" > "$temp_file" && mv "$temp_file" "$output_file"
+                if jq --argjson round "$ROUND_NUMBER" \
+                      --argjson latency "$latency" \
+                      '. + {debate_round: $round, debate_latency_ms: $latency}' \
+                      "$output_file" > "$temp_file"; then
+                    mv "$temp_file" "$output_file"
+                else
+                    log_warn "Failed to add debate metadata for $consultant"
+                    rm -f "$temp_file"
+                fi
             fi
-        ) &
+        ) 2>"$OUTPUT_DIR/${consultant_lower}.err" &
 
         pids+=($!)
+        consultant_names+=("$consultant")
     done
 
     # Wait for all jobs
     local success_count=0
     for i in "${!pids[@]}"; do
+        local cname="${consultant_names[$i]}"
+        local cname_lower
+        cname_lower=$(to_lower "$cname")
+        local err_file="$OUTPUT_DIR/${cname_lower}.err"
         if wait "${pids[$i]}" 2>/dev/null; then
-            ((success_count++))
+            ((success_count++)) || true
+        else
+            log_warn "Debate round $ROUND_NUMBER: $cname failed"
+            if [[ -s "$err_file" ]]; then
+                log_debug "  Error details: $(head -c 200 "$err_file")"
+            fi
         fi
+        # Clean up empty error logs
+        [[ -f "$err_file" && ! -s "$err_file" ]] && rm -f "$err_file"
     done
 
     log_success "Debate round $ROUND_NUMBER completed: $success_count/${#pids[@]} responses"
@@ -332,11 +375,11 @@ generate_round_summary() {
 
     for f in "$OUTPUT_DIR"/*.json; do
         if [[ -f "$f" && "$f" != *"summary"* ]]; then
-            ((consultants_responded++))
+            ((consultants_responded++)) || true
 
             local changed=$(jq -r '.debate.position_changed // false' "$f" 2>/dev/null)
             if [[ "$changed" == "true" ]]; then
-                ((position_changes++))
+                ((position_changes++)) || true
             fi
 
             local critiques=$(jq -r '.debate.critiques | length // 0' "$f" 2>/dev/null)
