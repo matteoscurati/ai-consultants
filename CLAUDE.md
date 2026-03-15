@@ -63,6 +63,12 @@ ai-consultants/
 ├── references/
 │   ├── configuration.md      # Full configuration reference
 │   └── details.md            # Presets, strategies, best practices
+├── docs/
+│   ├── releases/             # Release notes (one per version)
+│   ├── SETUP.md              # Installation guide
+│   ├── COST_RATES.md         # Model pricing
+│   ├── SMART_ROUTING.md      # Affinity matrix
+│   └── JSON_SCHEMA.md        # Output schema
 └── templates/
     └── synthesis_prompt.md     # Synthesis prompt
 ```
@@ -721,6 +727,74 @@ For detailed information, see:
 - Consultants can be disabled individually (`ENABLE_GEMINI=false`, etc.)
 - Use `.env.example` as template for environment configuration
 - Run `./scripts/doctor.sh` to verify configuration
+
+## Release Process
+
+Every version bump **must** include a release note in `docs/releases/v<VERSION>.md`. Use the template below.
+
+### Steps
+
+1. Update version in all files: `package.json`, `SKILL.md` (frontmatter + title), `README.md` (title + badge), `CLAUDE.md` (`**Version**`), `docs/cost_rates.json`, `docs/COST_RATES.md` (title)
+2. Add changelog entry in CLAUDE.md under `## Changelog`
+3. Create `docs/releases/v<VERSION>.md` using the template below
+4. Commit, push, and optionally create a GitHub release pointing to the release note
+
+### Release Note Template
+
+```markdown
+# Release v<VERSION>
+
+**Date:** <YYYY-MM-DD>
+**Type:** <Major | Minor | Patch> — <one-line summary>
+**Previous:** v<PREVIOUS_VERSION>
+
+## Highlights
+
+- <3-5 bullet points with the most impactful changes>
+
+## What's New
+
+### <Feature/Area 1>
+
+<Description of what changed and why. Include tables for multi-item changes.>
+
+### <Feature/Area 2>
+
+<Description.>
+
+## Breaking Changes
+
+<List breaking changes, or "None" if backwards-compatible.>
+
+## Upgrade Guide
+
+\`\`\`bash
+# If installed via git clone
+cd ~/.claude/skills/ai-consultants && git pull
+
+# If installed via curl | bash
+curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+\`\`\`
+
+<Note any configuration changes required, or "No configuration changes required.">
+
+## Commits
+
+- \`<hash>\` <commit message>
+
+## Contributors
+
+- <list>
+```
+
+### Guidelines
+
+- **Audience**: Developers who use the skill. Write for someone who hasn't seen the commits.
+- **Highlights first**: Lead with impact, not implementation. "Debate rounds no longer crash on Linux" > "Added `|| true` to `((count++))` in debate_round.sh".
+- **Breaking changes prominent**: If any exist, they go in a dedicated section — never buried in a bullet list.
+- **Quantify when possible**: Token savings percentages, issue counts, file counts.
+- **Upgrade guide always present**: Even if the answer is "just pull", make it explicit.
+- **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
 
