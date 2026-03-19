@@ -83,7 +83,7 @@ QWEN3_MODEL=qwen3.5-plus
 GLM_MODEL=glm-5
 GROK_MODEL=grok-4-1-fast-reasoning
 DEEPSEEK_MODEL=deepseek-reasoner
-MINIMAX_MODEL=MiniMax-M2.5
+MINIMAX_MODEL=MiniMax-M2.7
 OLLAMA_MODEL=qwen2.5-coder:32b
 ```
 

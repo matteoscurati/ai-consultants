@@ -5,7 +5,7 @@
 #
 # Environment variables:
 #   MINIMAX_API_KEY    - API key for MiniMax (required)
-#   MINIMAX_MODEL      - Model to use (default: MiniMax-M2.5)
+#   MINIMAX_MODEL      - Model to use (default: MiniMax-M2.7)
 #   MINIMAX_TIMEOUT    - Timeout in seconds (default: 180)
 #   ENABLE_PERSONA     - Enable "The Pragmatic Optimizer" persona (default: true)
 

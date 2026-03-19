@@ -1,4 +1,4 @@
-# Cost Rates - AI Consultants v2.10.1
+# Cost Rates - AI Consultants v2.10.2
 
 This page documents the per-token rates used by the cost tracking system.
 
@@ -41,9 +41,8 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | grok-3-mini | Economy | $0.001 | Grok |
 | qwen3.5-plus | Premium/Standard | $0.002 | Qwen3 |
 | qwen3-32b | Economy | $0.0005 | Qwen3 |
-| MiniMax-M2.5 | Premium | $0.002 | MiniMax |
-| MiniMax-M2.1 | Standard | $0.0015 | MiniMax |
-| MiniMax-M2.5-highspeed | Economy | $0.001 | MiniMax |
+| MiniMax-M2.7 | Premium/Standard | $0.002 | MiniMax |
+| MiniMax-M2.5 | Economy | $0.0015 | MiniMax |
 | kimi-code/kimi-for-coding | Premium/Standard | $0.002 | Kimi |
 | auto | All | $0.002 | Kilo (internal routing) |
 | default | - | $0.005 | Fallback |
@@ -75,9 +74,8 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | grok-3-mini | Economy | $0.003 | Grok |
 | qwen3.5-plus | Premium/Standard | $0.006 | Qwen3 |
 | qwen3-32b | Economy | $0.0015 | Qwen3 |
-| MiniMax-M2.5 | Premium | $0.006 | MiniMax |
-| MiniMax-M2.1 | Standard | $0.004 | MiniMax |
-| MiniMax-M2.5-highspeed | Economy | $0.003 | MiniMax |
+| MiniMax-M2.7 | Premium/Standard | $0.006 | MiniMax |
+| MiniMax-M2.5 | Economy | $0.004 | MiniMax |
 | kimi-code/kimi-for-coding | Premium/Standard | $0.006 | Kimi |
 | auto | All | $0.006 | Kilo |
 | default | - | $0.015 | Fallback |

@@ -147,7 +147,7 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # MINIMAX CONFIGURATION - The Pragmatic Optimizer (API-based, v2.10)
 # =============================================================================
 
-MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M2.5}"
+MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M2.7}"
 MINIMAX_TIMEOUT_SECONDS="${MINIMAX_TIMEOUT:-180}"
 MINIMAX_API_URL="${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}"
 MINIMAX_FORMAT="${MINIMAX_FORMAT:-openai}"
@@ -538,7 +538,7 @@ get_model_for_tier() {
                 amp)      echo "amp" ;;
                 ollama)   echo "qwen2.5-coder:32b" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
-                minimax)  echo "MiniMax-M2.5" ;;
+                minimax)  echo "MiniMax-M2.7" ;;
                 kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac
@@ -558,7 +558,7 @@ get_model_for_tier() {
                 amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.3" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
-                minimax)  echo "MiniMax-M2.1" ;;
+                minimax)  echo "MiniMax-M2.7" ;;
                 kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac
@@ -578,7 +578,7 @@ get_model_for_tier() {
                 amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.2" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
-                minimax)  echo "MiniMax-M2.5-highspeed" ;;
+                minimax)  echo "MiniMax-M2.5" ;;
                 kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac

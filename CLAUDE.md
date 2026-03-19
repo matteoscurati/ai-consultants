@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.10.1
+**Version**: 2.10.2
 
 ## Distribution
 
@@ -462,7 +462,7 @@ All consultants now use premium models by default:
 | Qwen3 | qwen3.5-plus |
 | Kimi | kimi-code/kimi-for-coding |
 | Aider | gpt-5.3-codex |
-| MiniMax | MiniMax-M2.5 |
+| MiniMax | MiniMax-M2.7 |
 | Kilo | auto |
 | Ollama | qwen2.5-coder:32b |
 
@@ -673,7 +673,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `KIMI_MODEL` | kimi-code/kimi-for-coding | Kimi model (v2.9) |
 | `ENABLE_MINIMAX` | false | Enable MiniMax consultant (v2.10) |
 | `MINIMAX_API_KEY` | - | MiniMax API key (v2.10) |
-| `MINIMAX_MODEL` | MiniMax-M2.5 | MiniMax model (v2.10) |
+| `MINIMAX_MODEL` | MiniMax-M2.7 | MiniMax model (v2.10) |
 
 ## External Dependencies
 
@@ -797,6 +797,11 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.10.2
+- MiniMax M2.7 upgrade: premium/standard now use MiniMax-M2.7, economy uses MiniMax-M2.5
+- Model tiers: premium (MiniMax-M2.7), standard (MiniMax-M2.7), economy (MiniMax-M2.5)
+- MiniMax-M2.7-highspeed available in model catalog for manual override
 
 ### v2.10.1
 - Slash command quality improvements: file context handling, result presentation templates, error recovery guidance

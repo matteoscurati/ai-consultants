@@ -1,8 +1,8 @@
-# AI Consultants v2.10.1
+# AI Consultants v2.10.2
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.10.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.10.2-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -423,7 +423,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **GLM** | glm-5 | The Methodologist | Structured approaches |
 | **Grok** | grok-4-1-fast-reasoning | The Provocateur | Challenge conventions |
 | **DeepSeek** | deepseek-reasoner | The Code Specialist | Algorithms, code generation |
-| **MiniMax** | MiniMax-M2.5 | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
+| **MiniMax** | MiniMax-M2.7 | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
 ### Local Consultants
 
@@ -481,7 +481,7 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 | Grok | grok-4-1-fast-reasoning | grok-3 | grok-3-mini |
 | Qwen3 | qwen3.5-plus | qwen3.5-plus | qwen3-32b |
 | Aider | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
-| MiniMax | MiniMax-M2.5 | MiniMax-M2.1 | MiniMax-M2.5-highspeed |
+| MiniMax | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
 | Ollama | qwen2.5-coder:32b | llama3.3 | llama3.2 |
 
 ### Usage

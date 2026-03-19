@@ -493,7 +493,7 @@ get_economic_model() {
         grok)     echo "grok-3-mini" ;;
         deepseek) echo "deepseek-chat" ;;
 
-        minimax)  echo "MiniMax-M2.5-highspeed" ;;
+        minimax)  echo "MiniMax-M2.5" ;;
         *)        echo "" ;;
     esac
 }
