@@ -119,7 +119,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 
 GLM_MODEL="${GLM_MODEL:-glm-5}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
-GLM_API_URL="${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}"
+GLM_API_URL="${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
 # API key: Set GLM_API_KEY environment variable
 
@@ -127,7 +127,7 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 # GROK CONFIGURATION - The Provocateur (API-based)
 # =============================================================================
 
-GROK_MODEL="${GROK_MODEL:-grok-4-1-fast-reasoning}"
+GROK_MODEL="${GROK_MODEL:-grok-4.20-0309-reasoning}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
@@ -532,7 +532,7 @@ get_model_for_tier() {
                 cursor)   echo "composer-1.5" ;;
                 deepseek) echo "deepseek-reasoner" ;;
                 glm)      echo "glm-5" ;;
-                grok)     echo "grok-4-1-fast-reasoning" ;;
+                grok)     echo "grok-4.20-0309-reasoning" ;;
                 qwen3)    echo "qwen3.5-plus" ;;
                 aider)    echo "gpt-5.3-codex" ;;
                 amp)      echo "amp" ;;

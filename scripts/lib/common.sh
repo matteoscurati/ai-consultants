@@ -354,7 +354,7 @@ get_api_url() {
         CLAUDE)     echo "${CLAUDE_API_URL:-https://api.anthropic.com/v1/messages}" ;;
         MISTRAL)    echo "${MISTRAL_API_URL:-https://api.mistral.ai/v1/chat/completions}" ;;
         QWEN3)      echo "${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}" ;;
-        GLM)        echo "${GLM_API_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}" ;;
+        GLM)        echo "${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}" ;;
         GROK)       echo "${GROK_API_URL:-https://api.x.ai/v1/chat/completions}" ;;
         DEEPSEEK)   echo "${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}" ;;
         MINIMAX)    echo "${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}" ;;

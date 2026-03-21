@@ -134,7 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mistral: `mistral-large-3`
   - DeepSeek: `deepseek-reasoner`
   - GLM: `glm-4.7`
-  - Grok: `grok-4-1-fast-reasoning`
+  - Grok: `grok-4.20-0309-reasoning`
   - Qwen3: `qwen3-max`
   - Aider: `gpt-5.2-codex`
   - Ollama: `qwen2.5-coder:32b`

@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.10.2
+**Version**: 2.10.3
 
 ## Distribution
 
@@ -458,7 +458,7 @@ All consultants now use premium models by default:
 | Cursor | composer-1.5 |
 | DeepSeek | deepseek-reasoner |
 | GLM | glm-5 |
-| Grok | grok-4-1-fast-reasoning |
+| Grok | grok-4.20-0309-reasoning |
 | Qwen3 | qwen3.5-plus |
 | Kimi | kimi-code/kimi-for-coding |
 | Aider | gpt-5.3-codex |
@@ -798,10 +798,17 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 ## Changelog
 
+### v2.10.3
+- Grok premium model upgraded to `grok-4.20-0309-reasoning` (replaces `grok-4-1-fast-reasoning`)
+- GLM API endpoint migrated from `open.bigmodel.cn` to `api.z.ai/api/coding/paas/v4`
+- Removed non-functional MiniMax highspeed models (`MiniMax-M2.7-highspeed`, `MiniMax-M2.5-highspeed`)
+- Removed legacy `grok-beta` from cost catalog
+- Fixed GLM URL fallback in `common.sh` and `configure.sh` (were still using old endpoint)
+- Fixed duplicate `minimax-m2.5` entry with conflicting rates in `cost_rates.json`
+
 ### v2.10.2
 - MiniMax M2.7 upgrade: premium/standard now use MiniMax-M2.7, economy uses MiniMax-M2.5
 - Model tiers: premium (MiniMax-M2.7), standard (MiniMax-M2.7), economy (MiniMax-M2.5)
-- MiniMax-M2.7-highspeed available in model catalog for manual override
 
 ### v2.10.1
 - Slash command quality improvements: file context handling, result presentation templates, error recovery guidance
@@ -813,7 +820,7 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - MiniMax M2.5 API support via OpenAI-compatible endpoint
 - New consultant: MiniMax with "The Pragmatic Optimizer" persona (ID: 21)
 - New environment variables: `ENABLE_MINIMAX`, `MINIMAX_API_KEY`, `MINIMAX_MODEL`, `MINIMAX_API_URL`
-- Model tiers: premium (MiniMax-M2.5), standard (MiniMax-M2.1), economy (MiniMax-M2.5-highspeed)
+- Model tiers: premium (MiniMax-M2.5), standard (MiniMax-M2.1), economy (MiniMax-M2.5)
 - npx distribution: `npx ai-consultants "question"` (zero dependencies)
 - New `bin/ai-consultants` wrapper with symlink resolution and subcommand routing
 - Now supports 15 consultants total

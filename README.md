@@ -1,8 +1,8 @@
-# AI Consultants v2.10.2
+# AI Consultants v2.10.3
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.10.2-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.10.3-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -421,7 +421,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 |------------|---------------|---------|-------|
 | **Qwen3** | qwen3.5-plus | The Analyst | Data-driven analysis |
 | **GLM** | glm-5 | The Methodologist | Structured approaches |
-| **Grok** | grok-4-1-fast-reasoning | The Provocateur | Challenge conventions |
+| **Grok** | grok-4.20-0309-reasoning | The Provocateur | Challenge conventions |
 | **DeepSeek** | deepseek-reasoner | The Code Specialist | Algorithms, code generation |
 | **MiniMax** | MiniMax-M2.7 | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
@@ -478,7 +478,7 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 | Cursor | composer-1.5 | composer-1.5 | gemini-2.0-flash |
 | DeepSeek | deepseek-reasoner | deepseek-v3.2 | deepseek-chat |
 | GLM | glm-5 | glm-5 | glm-4-flash |
-| Grok | grok-4-1-fast-reasoning | grok-3 | grok-3-mini |
+| Grok | grok-4.20-0309-reasoning | grok-3 | grok-3-mini |
 | Qwen3 | qwen3.5-plus | qwen3.5-plus | qwen3-32b |
 | Aider | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
 | MiniMax | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |

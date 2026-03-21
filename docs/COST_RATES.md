@@ -1,4 +1,4 @@
-# Cost Rates - AI Consultants v2.10.2
+# Cost Rates - AI Consultants v2.10.3
 
 This page documents the per-token rates used by the cost tracking system.
 
@@ -36,7 +36,7 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | deepseek-chat | Economy | $0.001 | DeepSeek |
 | glm-5 | Premium/Standard | $0.002 | GLM |
 | glm-4-flash | Economy | $0.0005 | GLM |
-| grok-4-1-fast-reasoning | Premium | $0.005 | Grok |
+| grok-4.20-0309-reasoning | Premium | $0.005 | Grok |
 | grok-3 | Standard | $0.003 | Grok |
 | grok-3-mini | Economy | $0.001 | Grok |
 | qwen3.5-plus | Premium/Standard | $0.002 | Qwen3 |
@@ -69,7 +69,7 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | deepseek-chat | Economy | $0.003 | DeepSeek |
 | glm-5 | Premium/Standard | $0.006 | GLM |
 | glm-4-flash | Economy | $0.0015 | GLM |
-| grok-4-1-fast-reasoning | Premium | $0.015 | Grok |
+| grok-4.20-0309-reasoning | Premium | $0.015 | Grok |
 | grok-3 | Standard | $0.009 | Grok |
 | grok-3-mini | Economy | $0.003 | Grok |
 | qwen3.5-plus | Premium/Standard | $0.006 | Qwen3 |

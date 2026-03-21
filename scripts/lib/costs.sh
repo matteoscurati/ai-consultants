@@ -149,7 +149,7 @@ get_input_cost_per_1k() {
         glm-4)            echo "0.003" ;;
         glm-3-turbo)      echo "0.001" ;;
         # Grok models (xAI)
-        grok-4-1-fast-reasoning)        echo "0.005" ;;
+        grok-4.20-0309-reasoning)        echo "0.005" ;;
         grok-2)           echo "0.01" ;;
         # Default
         *)                echo "0.005" ;;
@@ -196,7 +196,7 @@ get_output_cost_per_1k() {
         glm-4)            echo "0.009" ;;
         glm-3-turbo)      echo "0.003" ;;
         # Grok models (xAI)
-        grok-4-1-fast-reasoning)        echo "0.015" ;;
+        grok-4.20-0309-reasoning)        echo "0.015" ;;
         grok-2)           echo "0.03" ;;
         # Default
         *)                echo "0.015" ;;

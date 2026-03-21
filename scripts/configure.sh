@@ -47,8 +47,8 @@ CLI_AGENT_PERSONAS=("The Architect" "The Pragmatist" "The Devil's Advocate" "The
 # API Agents: name|key_var|api_url|model|persona
 API_AGENT_NAMES=("Qwen3" "GLM" "Grok" "DeepSeek")
 API_AGENT_KEY_VARS=("QWEN3_API_KEY" "GLM_API_KEY" "GROK_API_KEY" "DEEPSEEK_API_KEY")
-API_AGENT_URLS=("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation" "https://open.bigmodel.cn/api/paas/v4/chat/completions" "https://api.x.ai/v1/chat/completions" "https://api.deepseek.com/v1/chat/completions")
-API_AGENT_MODELS=("qwen-max" "glm-4" "grok-4-1-fast-reasoning" "deepseek-reasoner")
+API_AGENT_URLS=("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation" "https://api.z.ai/api/coding/paas/v4/chat/completions" "https://api.x.ai/v1/chat/completions" "https://api.deepseek.com/v1/chat/completions")
+API_AGENT_MODELS=("qwen-max" "glm-4" "grok-4.20-0309-reasoning" "deepseek-reasoner")
 API_AGENT_PERSONAS=("The Analyst" "The Methodologist" "The Provocateur" "The Code Specialist")
 
 # State arrays (parallel to CLI_AGENT_NAMES)
@@ -771,7 +771,7 @@ QWEN3_TIMEOUT=180
 GLM_MODEL=glm-4
 GLM_TIMEOUT=180
 
-GROK_MODEL=grok-4-1-fast-reasoning
+GROK_MODEL=grok-4.20-0309-reasoning
 GROK_TIMEOUT=180
 
 DEEPSEEK_MODEL=deepseek-reasoner
