@@ -728,6 +728,10 @@ For detailed information, see:
 - Use `.env.example` as template for environment configuration
 - Run `./scripts/doctor.sh` to verify configuration
 
+## Git Conventions
+
+Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `perf:`, `ci:`. Scope is optional (e.g., `feat(routing): add fallback escalation`).
+
 ## Release Process
 
 Every version bump **must** include a release note in `docs/releases/v<VERSION>.md`. Use the template below.
