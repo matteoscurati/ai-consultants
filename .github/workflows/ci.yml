@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Bash syntax check
+        run: |
+          status=0
+          for f in scripts/*.sh scripts/lib/*.sh; do
+            if ! bash -n "$f"; then
+              echo "FAIL: $f"
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: ShellCheck lint
+        run: |
+          shellcheck -x -e SC1091 scripts/*.sh scripts/lib/*.sh
+
+      - name: Run test suite
+        run: |
+          chmod +x scripts/test_suite.sh
+          bash scripts/test_suite.sh
+
+      - name: Preflight health check
+        run: |
+          chmod +x scripts/preflight_check.sh
+          ./scripts/preflight_check.sh --quick
