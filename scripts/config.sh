@@ -117,7 +117,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 # GLM CONFIGURATION - The Code Specialist (API-based)
 # =============================================================================
 
-GLM_MODEL="${GLM_MODEL:-glm-5}"
+GLM_MODEL="${GLM_MODEL:-glm-5.1}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
 GLM_API_URL="${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
@@ -531,7 +531,7 @@ get_model_for_tier() {
                 mistral)  echo "mistral-large-3" ;;
                 cursor)   echo "composer-1.5" ;;
                 deepseek) echo "deepseek-reasoner" ;;
-                glm)      echo "glm-5" ;;
+                glm)      echo "glm-5.1" ;;
                 grok)     echo "grok-4.20-0309-reasoning" ;;
                 qwen3)    echo "qwen3.5-plus" ;;
                 aider)    echo "gpt-5.3-codex" ;;
@@ -551,7 +551,7 @@ get_model_for_tier() {
                 mistral)  echo "mistral-medium-latest" ;;
                 cursor)   echo "composer-1.5" ;;  # Same as premium (single model)
                 deepseek) echo "deepseek-v3.2" ;;
-                glm)      echo "glm-5" ;;  # Same as premium (no mid-tier GLM)
+                glm)      echo "glm-5.1" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-3" ;;
                 qwen3)    echo "qwen3.5-plus" ;;  # Same as premium (single tier available)
                 aider)    echo "gpt-5.3" ;;

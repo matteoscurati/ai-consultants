@@ -44,17 +44,22 @@ TEMP_OUTPUT=$(mktemp)
 TEMP_RAW=$(mktemp)
 trap 'rm -f "$TEMP_OUTPUT" "$TEMP_RAW"' EXIT
 
-# Build command args: run subcommand + --auto + --dir /tmp (prevent SKILL.md loading)
-KILO_ARGS=("$KILO_CMD" "run" "--auto" "--dir" "/tmp")
-if [[ -n "${KILO_MODEL:-}" && "${KILO_MODEL}" != "auto" ]]; then
-    KILO_ARGS+=("--model" "$KILO_MODEL")
-fi
-KILO_ARGS+=("$FULL_QUERY")
-
-# Use run_with_timeout for cross-platform support (Linux/macOS/POSIX)
 log_info "Consulting Kilo Code (timeout: ${KILO_TIMEOUT_SECONDS}s)..."
 
-if run_with_timeout "$KILO_TIMEOUT_SECONDS" "${KILO_ARGS[@]}" > "$TEMP_RAW" 2>&1; then
+# Kilocode hangs when the query is passed as a CLI argument with stdout redirected.
+# Passing the query via stdin avoids this issue.
+# Also: unset API keys from other consultants — kilocode auto-detects providers
+# from env vars (e.g. MINIMAX_API_KEY) and may pick a non-functional model.
+KILO_STDIN_ARGS=("env"
+    "-u" "MINIMAX_API_KEY" "-u" "GLM_API_KEY" "-u" "GROK_API_KEY"
+    "-u" "DEEPSEEK_API_KEY" "-u" "OPENAI_API_KEY" "-u" "ANTHROPIC_API_KEY"
+    "-u" "GEMINI_API_KEY" "-u" "MISTRAL_API_KEY" "-u" "QWEN3_API_KEY"
+    "$KILO_CMD" "run" "--auto" "--dir" "/tmp")
+if [[ -n "${KILO_MODEL:-}" && "${KILO_MODEL}" != "auto" ]]; then
+    KILO_STDIN_ARGS+=("--model" "$KILO_MODEL")
+fi
+
+if echo "$FULL_QUERY" | run_with_timeout "$KILO_TIMEOUT_SECONDS" "${KILO_STDIN_ARGS[@]}" > "$TEMP_RAW" 2>&1; then
     exit_code=0
 else
     exit_code=$?
@@ -62,8 +67,9 @@ fi
 
 # --- Strip ANSI escape codes from Kilo's text output ---
 if [[ -f "$TEMP_RAW" && -s "$TEMP_RAW" ]]; then
-    # Kilo outputs plain text with ANSI codes; strip them for clean output
-    CONTENT=$(LC_ALL=C sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' "$TEMP_RAW" | sed '/^$/d') || true
+    # Strip ANSI codes, carriage returns, empty lines, kilo's model header, and markdown fences
+    CONTENT=$(LC_ALL=C sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/\r//g' -e '/^$/d' \
+        -e '/^> code · /d' -e '/^```$/d' "$TEMP_RAW") || true
 
     if [[ -n "${CONTENT:-}" ]]; then
         exit_code=0

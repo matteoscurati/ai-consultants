@@ -457,7 +457,7 @@ All consultants now use premium models by default:
 | Mistral | mistral-large-3 |
 | Cursor | composer-1.5 |
 | DeepSeek | deepseek-reasoner |
-| GLM | glm-5 |
+| GLM | glm-5.1 |
 | Grok | grok-4.20-0309-reasoning |
 | Qwen3 | qwen3.5-plus |
 | Kimi | kimi-code/kimi-for-coding |
