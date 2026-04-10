@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.10.3
+**Version**: 2.10.4
 
 ## Distribution
 
@@ -801,6 +801,14 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.10.4
+- GLM premium/standard model upgraded from `glm-5` to `glm-5.1`
+- Fixed Kilo CLI hanging indefinitely in non-TTY mode (query via stdin instead of CLI argument)
+- Fixed Kilo CLI picking wrong provider when other consultants' API keys were in the environment
+- Collapsed 5-stage ANSI stripping pipeline into single sed invocation in `query_kilo.sh`
+- Fixed overly aggressive markdown fence filter in `query_kilo.sh` (only strips standalone ``` lines now)
+- Updated `.env.example` GLM signup URL to `open.z.ai`
 
 ### v2.10.3
 - Grok premium model upgraded to `grok-4.20-0309-reasoning` (replaces `grok-4-1-fast-reasoning`)
