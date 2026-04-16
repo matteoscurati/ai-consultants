@@ -419,7 +419,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 
 | Consultant | Default Model | Persona | Focus |
 |------------|---------------|---------|-------|
-| **Qwen3** | qwen3.5-plus | The Analyst | Data-driven analysis |
+| **Qwen3** | qwen3.6-plus | The Analyst | Data-driven analysis |
 | **GLM** | glm-5.1 | The Methodologist | Structured approaches |
 | **Grok** | grok-4.20-0309-reasoning | The Provocateur | Challenge conventions |
 | **DeepSeek** | deepseek-reasoner | The Code Specialist | Algorithms, code generation |
@@ -479,7 +479,7 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 | DeepSeek | deepseek-reasoner | deepseek-v3.2 | deepseek-chat |
 | GLM | glm-5.1 | glm-5.1 | glm-4-flash |
 | Grok | grok-4.20-0309-reasoning | grok-3 | grok-3-mini |
-| Qwen3 | qwen3.5-plus | qwen3.5-plus | qwen3-32b |
+| Qwen3 | qwen3.6-plus | qwen3.6-35b-a3b | qwen3-32b |
 | Aider | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
 | MiniMax | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
 | Ollama | qwen2.5-coder:32b | llama3.3 | llama3.2 |

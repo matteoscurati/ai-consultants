@@ -105,7 +105,7 @@ AIDER_CMD="${AIDER_CMD:-aider}"
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
 # =============================================================================
 
-QWEN3_MODEL="${QWEN3_MODEL:-qwen3.5-plus}"
+QWEN3_MODEL="${QWEN3_MODEL:-qwen3.6-plus}"
 QWEN3_TIMEOUT_SECONDS="${QWEN3_TIMEOUT:-180}"
 QWEN3_CMD="${QWEN3_CMD:-qwen}"
 QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
@@ -533,7 +533,7 @@ get_model_for_tier() {
                 deepseek) echo "deepseek-reasoner" ;;
                 glm)      echo "glm-5.1" ;;
                 grok)     echo "grok-4.20-0309-reasoning" ;;
-                qwen3)    echo "qwen3.5-plus" ;;
+                qwen3)    echo "qwen3.6-plus" ;;
                 aider)    echo "gpt-5.3-codex" ;;
                 amp)      echo "amp" ;;
                 ollama)   echo "qwen2.5-coder:32b" ;;
@@ -553,7 +553,7 @@ get_model_for_tier() {
                 deepseek) echo "deepseek-v3.2" ;;
                 glm)      echo "glm-5.1" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-3" ;;
-                qwen3)    echo "qwen3.5-plus" ;;  # Same as premium (single tier available)
+                qwen3)    echo "qwen3.6-35b-a3b" ;;  # Open-weight MoE (35B total, 3B active)
                 aider)    echo "gpt-5.3" ;;
                 amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.3" ;;

@@ -4,7 +4,7 @@
 # Usage: ./query_qwen3.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   QWEN3_MODEL     - Model to use (default: qwen3.5-plus)
+#   QWEN3_MODEL     - Model to use (default: qwen3.6-plus)
 #   QWEN3_TIMEOUT   - Timeout in seconds (default: 180)
 #   QWEN3_USE_API   - Use API mode instead of CLI (default: false)
 #   QWEN3_API_KEY   - API key for DashScope API (required for API mode)
@@ -82,7 +82,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${QWEN3_MODEL:-qwen3.5-plus}"
+MODEL_USED="${QWEN3_MODEL:-qwen3.6-plus}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---

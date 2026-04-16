@@ -39,7 +39,8 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | grok-4.20-0309-reasoning | Premium | $0.005 | Grok |
 | grok-3 | Standard | $0.003 | Grok |
 | grok-3-mini | Economy | $0.001 | Grok |
-| qwen3.5-plus | Premium/Standard | $0.002 | Qwen3 |
+| qwen3.6-plus | Premium | $0.000325 | Qwen3 |
+| qwen3.6-35b-a3b | Standard | $0.000163 | Qwen3 |
 | qwen3-32b | Economy | $0.0005 | Qwen3 |
 | MiniMax-M2.7 | Premium/Standard | $0.002 | MiniMax |
 | MiniMax-M2.5 | Economy | $0.0015 | MiniMax |
@@ -72,7 +73,8 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | grok-4.20-0309-reasoning | Premium | $0.015 | Grok |
 | grok-3 | Standard | $0.009 | Grok |
 | grok-3-mini | Economy | $0.003 | Grok |
-| qwen3.5-plus | Premium/Standard | $0.006 | Qwen3 |
+| qwen3.6-plus | Premium | $0.00195 | Qwen3 |
+| qwen3.6-35b-a3b | Standard | $0.0009 | Qwen3 |
 | qwen3-32b | Economy | $0.0015 | Qwen3 |
 | MiniMax-M2.7 | Premium/Standard | $0.006 | MiniMax |
 | MiniMax-M2.5 | Economy | $0.004 | MiniMax |

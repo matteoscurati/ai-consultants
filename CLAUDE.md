@@ -459,7 +459,7 @@ All consultants now use premium models by default:
 | DeepSeek | deepseek-reasoner |
 | GLM | glm-5.1 |
 | Grok | grok-4.20-0309-reasoning |
-| Qwen3 | qwen3.5-plus |
+| Qwen3 | qwen3.6-plus |
 | Kimi | kimi-code/kimi-for-coding |
 | Aider | gpt-5.3-codex |
 | MiniMax | MiniMax-M2.7 |

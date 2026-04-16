@@ -476,26 +476,15 @@ get_model_tier() {
 }
 
 # Get economic model for a consultant
+# Delegates to get_model_for_tier() in config.sh (single source of truth)
 # Usage: get_economic_model <consultant>
 get_economic_model() {
     local consultant="$1"
-    consultant=$(echo "$consultant" | tr '[:upper:]' '[:lower:]')
-
-    case "$consultant" in
-        gemini)   echo "gemini-2.5-flash" ;;
-        codex)    echo "gpt-4o-mini" ;;
-        mistral)  echo "mistral-small" ;;
-        kilo)     echo "kilo" ;;           # No economy variant
-        cursor)   echo "cursor" ;;          # No economy variant
-        claude)   echo "claude-3-haiku" ;;
-        qwen3)    echo "qwen-turbo" ;;
-        glm)      echo "glm-3-turbo" ;;
-        grok)     echo "grok-3-mini" ;;
-        deepseek) echo "deepseek-chat" ;;
-
-        minimax)  echo "MiniMax-M2.5" ;;
-        *)        echo "" ;;
-    esac
+    if type get_model_for_tier &>/dev/null; then
+        get_model_for_tier "$consultant" "economy"
+    else
+        echo ""
+    fi
 }
 
 # Calculate query complexity score (1-10)
