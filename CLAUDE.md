@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.10.4
+**Version**: 2.10.5
 
 ## Distribution
 
@@ -801,6 +801,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.10.5
+- Qwen3 premium model upgraded from `qwen3.5-plus` to `qwen3.6-plus` ($0.325/$1.95 per M tokens)
+- Qwen3 standard tier now uses open-weight `qwen3.6-35b-a3b` (MoE, 35B total / 3B active)
+- Refactored `get_economic_model()` to delegate to `get_model_for_tier()`, eliminating stale hardcoded mappings
+- Moved `qwen3.5-plus` to legacy section in cost catalog
+- Fixed `AI_CONSULTANTS_VERSION` in `config.sh` (was stuck at `2.10.0`)
 
 ### v2.10.4
 - GLM premium/standard model upgraded from `glm-5` to `glm-5.1`
