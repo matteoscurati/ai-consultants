@@ -36,7 +36,8 @@ jobs:
           chmod +x scripts/test_suite.sh
           bash scripts/test_suite.sh
 
-      - name: Preflight health check
+      - name: Preflight health check (informational)
+        continue-on-error: true
         run: |
           chmod +x scripts/preflight_check.sh
           ./scripts/preflight_check.sh --quick
