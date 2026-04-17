@@ -1086,9 +1086,9 @@ test_model_tiers() {
 test_economic_models() {
     suite "costs.sh: get_economic_model"
 
-    assert_equals "gemini-2.5-flash" "$(get_economic_model "gemini")" "gemini economy is gemini-2.5-flash"
+    assert_equals "gemini-2.0-flash" "$(get_economic_model "gemini")" "gemini economy is gemini-2.0-flash"
     assert_equals "gpt-4o-mini"      "$(get_economic_model "codex")"  "codex economy is gpt-4o-mini"
-    assert_equals "claude-3-haiku"   "$(get_economic_model "claude")" "claude economy is claude-3-haiku"
+    assert_equals "haiku-4.5"        "$(get_economic_model "claude")" "claude economy is haiku-4.5"
     assert_equals "MiniMax-M2.5"     "$(get_economic_model "minimax")" "minimax economy is MiniMax-M2.5"
     assert_equals ""                 "$(get_economic_model "unknown")" "unknown consultant returns empty"
 }
