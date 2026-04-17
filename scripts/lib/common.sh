@@ -124,12 +124,12 @@ run_with_timeout() {
 # =============================================================================
 
 check_command() {
-    local cmd=$1
+    local cmd_name=$1
     local name=$2
     local install_hint=$3
 
-    if ! command -v "$cmd" &> /dev/null; then
-        log_error "$name not found (command: $cmd)"
+    if ! command -v "$cmd_name" &> /dev/null; then
+        log_error "$name not found (command: $cmd_name)"
         if [[ -n "$install_hint" ]]; then
             log_info "Install with: $install_hint"
         fi
@@ -612,7 +612,7 @@ map_set() {
     local keys_var="_MAP_${map_name}__KEYS__"
     local current_keys
     eval "current_keys=\"\${$keys_var:-}\""
-    if [[ ! " $current_keys " =~ " $safe_key " ]]; then
+    if [[ " $current_keys " != *" $safe_key "* ]]; then
         if [[ -z "$current_keys" ]]; then
             eval "$keys_var=\"\$safe_key\""
         else

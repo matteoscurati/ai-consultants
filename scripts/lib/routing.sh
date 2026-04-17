@@ -257,13 +257,15 @@ get_selected_consultants_json() {
     local category="$1"
     local min_affinity="${2:-7}"
 
-    local consultants=$(select_consultants "$category" "$min_affinity")
+    local consultants
+    consultants=$(select_consultants "$category" "$min_affinity")
     local json="["
     local first=true
 
     while IFS= read -r c; do
         if [[ -n "$c" ]]; then
-            local score=$(get_affinity "$category" "$c")
+            local score
+            score=$(get_affinity "$category" "$c")
             if [[ "$first" == "true" ]]; then
                 first=false
             else

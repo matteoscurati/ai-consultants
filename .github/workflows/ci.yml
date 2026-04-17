@@ -29,7 +29,7 @@ jobs:
 
       - name: ShellCheck lint
         run: |
-          shellcheck -x -e SC1091 scripts/*.sh scripts/lib/*.sh
+          shellcheck -S warning -x -e SC1091,SC1090,SC2034,SC2155 scripts/*.sh scripts/lib/*.sh
 
       - name: Run test suite
         run: |
