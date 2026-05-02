@@ -63,8 +63,8 @@ GEMINI_CMD="${GEMINI_CMD:-gemini}"
 # CODEX CONFIGURATION - The Pragmatist
 # =============================================================================
 
-# Model: "gpt-5.3-codex" (default), "gpt-5.3", "gpt-4o-mini", etc.
-CODEX_MODEL="${CODEX_MODEL:-gpt-5.3-codex}"
+# Model: "gpt-5.5" (default), "gpt-5.3", "gpt-4o-mini", etc.
+CODEX_MODEL="${CODEX_MODEL:-gpt-5.5}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
@@ -89,7 +89,7 @@ KILO_CMD="${KILO_CMD:-kilocode}"
 # CURSOR CONFIGURATION - The Integrator
 # =============================================================================
 
-CURSOR_MODEL="${CURSOR_MODEL:-composer-1.5}"
+CURSOR_MODEL="${CURSOR_MODEL:-composer-2}"
 CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
 CURSOR_CMD="${CURSOR_CMD:-agent}"
 
@@ -97,7 +97,7 @@ CURSOR_CMD="${CURSOR_CMD:-agent}"
 # AIDER CONFIGURATION - The Pair Programmer
 # =============================================================================
 
-AIDER_MODEL="${AIDER_MODEL:-gpt-5.3-codex}"
+AIDER_MODEL="${AIDER_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
 AIDER_TIMEOUT_SECONDS="${AIDER_TIMEOUT:-180}"
 AIDER_CMD="${AIDER_CMD:-aider}"
 
@@ -137,7 +137,7 @@ GROK_FORMAT="${GROK_FORMAT:-openai}"
 # DEEPSEEK CONFIGURATION - The Methodologist (API-based)
 # =============================================================================
 
-DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-reasoner}"
+DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v4-pro}"
 DEEPSEEK_TIMEOUT_SECONDS="${DEEPSEEK_TIMEOUT:-180}"
 DEEPSEEK_API_URL="${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}"
 DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
@@ -176,7 +176,7 @@ KIMI_CMD="${KIMI_CMD:-kimi}"
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
 # =============================================================================
 
-CLAUDE_MODEL="${CLAUDE_MODEL:-opus-4.6}"
+CLAUDE_MODEL="${CLAUDE_MODEL:-claude-opus-4-7}"
 CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 
@@ -525,16 +525,16 @@ get_model_for_tier() {
     case "$tier" in
         premium|max|best)
             case "$consultant" in
-                claude)   echo "opus-4.6" ;;
+                claude)   echo "claude-opus-4-7" ;;
                 gemini)   echo "gemini-3.1-pro-preview" ;;
-                codex)    echo "gpt-5.3-codex" ;;
+                codex)    echo "gpt-5.5" ;;
                 mistral)  echo "mistral-large-3" ;;
-                cursor)   echo "composer-1.5" ;;
-                deepseek) echo "deepseek-reasoner" ;;
+                cursor)   echo "composer-2" ;;
+                deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.1" ;;
                 grok)     echo "grok-4.20-0309-reasoning" ;;
                 qwen3)    echo "qwen3.6-plus" ;;
-                aider)    echo "gpt-5.3-codex" ;;
+                aider)    echo "nvidia/nemotron-3-super-120b-a12b:free" ;;
                 amp)      echo "amp" ;;
                 ollama)   echo "qwen2.5-coder:32b" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
@@ -545,7 +545,7 @@ get_model_for_tier() {
             ;;
         standard|medium|balanced)
             case "$consultant" in
-                claude)   echo "sonnet-4.6" ;;
+                claude)   echo "claude-sonnet-4-6" ;;
                 gemini)   echo "gemini-3-flash-preview" ;;
                 codex)    echo "gpt-5.3" ;;
                 mistral)  echo "mistral-medium-latest" ;;
@@ -565,7 +565,7 @@ get_model_for_tier() {
             ;;
         economy|fast|quick)
             case "$consultant" in
-                claude)   echo "haiku-4.5" ;;
+                claude)   echo "claude-haiku-4-5" ;;
                 gemini)   echo "gemini-2.0-flash" ;;
                 codex)    echo "gpt-4o-mini" ;;
                 mistral)  echo "devstral-small-2" ;;
