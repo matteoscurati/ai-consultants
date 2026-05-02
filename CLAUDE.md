@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.10.6
+**Version**: 2.10.7
 
 ## Distribution
 
@@ -458,7 +458,7 @@ All consultants now use premium models by default:
 | Cursor | composer-2 |
 | DeepSeek | deepseek-v4-pro |
 | GLM | glm-5.1 |
-| Grok | grok-4.20-0309-reasoning |
+| Grok | grok-4.3 |
 | Qwen3 | qwen3.6-plus |
 | Kimi | kimi-code/kimi-for-coding |
 | Aider | nvidia/nemotron-3-super-120b-a12b:free |
@@ -801,6 +801,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.10.7
+- Grok premium upgraded from `grok-4.20-0309-reasoning` to `grok-4.3` (released 2026-04-30)
+- ~75% cheaper input ($1.25/M vs $5.00/M) and ~83% cheaper output ($2.50/M vs $15.00/M)
+- 1M-token context window
+- Moved `grok-4.20-0309-reasoning` to legacy section in cost catalog
+- Standard (`grok-3`) and economy (`grok-3-mini`) tiers unchanged
 
 ### v2.10.6
 - Codex premium upgraded from `gpt-5.3-codex` to `gpt-5.5`
