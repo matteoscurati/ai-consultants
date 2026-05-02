@@ -127,7 +127,7 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 # GROK CONFIGURATION - The Provocateur (API-based)
 # =============================================================================
 
-GROK_MODEL="${GROK_MODEL:-grok-4.20-0309-reasoning}"
+GROK_MODEL="${GROK_MODEL:-grok-4.3}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
@@ -532,7 +532,7 @@ get_model_for_tier() {
                 cursor)   echo "composer-2" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.1" ;;
-                grok)     echo "grok-4.20-0309-reasoning" ;;
+                grok)     echo "grok-4.3" ;;
                 qwen3)    echo "qwen3.6-plus" ;;
                 aider)    echo "nvidia/nemotron-3-super-120b-a12b:free" ;;
                 amp)      echo "amp" ;;
