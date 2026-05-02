@@ -95,13 +95,15 @@ if [[ $exit_code -eq 0 && -n "${CONTENT:-}" ]]; then
             "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS"
     else
         # Extract structured fields from markdown/text output
-        # Summary: first meaningful line(s), up to 200 chars
-        local_summary=$(echo "$CONTENT" | head -5 | tr '\n' ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | head -c 200)
+        # Note: truncation via parameter expansion (not `head -c`) to avoid SIGPIPE
+        # aborting the script under `set -euo pipefail`.
+        local_summary=$(echo "$CONTENT" | head -5 | tr '\n' ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        local_summary="${local_summary:0:200}"
 
-        # Approach: look for headings or key phrases
         local_approach=$(echo "$CONTENT" | grep -iE '^#+\s|^approach:|^recommendation:|^solution:' | head -1 | \
-            sed 's/^[#[:space:]]*//;s/^[Aa]pproach:[[:space:]]*//' | head -c 100)
-        [[ -z "$local_approach" ]] && local_approach=$(echo "$local_summary" | head -c 60)
+            sed 's/^[#[:space:]]*//;s/^[Aa]pproach:[[:space:]]*//' || true)
+        local_approach="${local_approach:0:100}"
+        [[ -z "$local_approach" ]] && local_approach="${local_summary:0:60}"
 
         # Confidence: estimate from language strength
         local_confidence=6
