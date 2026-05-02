@@ -1,6 +1,6 @@
 {
-  "version": "2.10.5",
-  "updated": "2026-03-04",
+  "version": "2.10.6",
+  "updated": "2026-05-02",
   "models": {
     "_comment_premium": "Premium tier models - March 2026",
     "opus-4.6": {"input": 5.00, "output": 25.00},

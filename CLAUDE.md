@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.10.5
+**Version**: 2.10.6
 
 ## Distribution
 
@@ -414,9 +414,9 @@ Three tiers of models are available for each consultant, configurable via `apply
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | opus-4.6, gemini-3.1-pro-preview, gpt-5.3-codex |
-| **standard** | Good quality at reasonable cost | sonnet-4.6, gemini-3-flash-preview, gpt-5.3 |
-| **economy** | Optimized for speed and low cost | haiku-4.5, gemini-2.0-flash, gpt-4o-mini |
+| **premium** | Latest flagship models | claude-opus-4-7, gemini-3.1-pro-preview, gpt-5.5 |
+| **standard** | Good quality at reasonable cost | claude-sonnet-4-6, gemini-3-flash-preview, gpt-5.3 |
+| **economy** | Optimized for speed and low cost | claude-haiku-4-5, gemini-2.0-flash, gpt-4o-mini |
 
 **Default models are now premium tier** for maximum quality.
 
@@ -429,7 +429,7 @@ apply_model_tier "economy"   # Set all consultants to economy models
 
 # Get model for a specific consultant and tier (v2.8.1)
 get_model_for_tier "gemini" "premium"   # → gemini-3.1-pro-preview
-get_model_for_tier "claude" "economy"   # → haiku-4.5
+get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 ```
 
 ### Quality Tier Presets
@@ -451,17 +451,17 @@ All consultants now use premium models by default:
 
 | Consultant | Default Model |
 |------------|---------------|
-| Claude | opus-4.6 |
+| Claude | claude-opus-4-7 |
 | Gemini | gemini-3.1-pro-preview |
-| Codex | gpt-5.3-codex |
+| Codex | gpt-5.5 |
 | Mistral | mistral-large-3 |
-| Cursor | composer-1.5 |
-| DeepSeek | deepseek-reasoner |
+| Cursor | composer-2 |
+| DeepSeek | deepseek-v4-pro |
 | GLM | glm-5.1 |
 | Grok | grok-4.20-0309-reasoning |
 | Qwen3 | qwen3.6-plus |
 | Kimi | kimi-code/kimi-for-coding |
-| Aider | gpt-5.3-codex |
+| Aider | nvidia/nemotron-3-super-120b-a12b:free |
 | MiniMax | MiniMax-M2.7 |
 | Kilo | auto |
 | Ollama | qwen2.5-coder:32b |
@@ -653,9 +653,9 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `PANIC_CONFIDENCE_THRESHOLD` | 5 | Panic threshold (v2.2) |
 | `ENABLE_OLLAMA` | false | Local model support (v2.2) |
 | `OLLAMA_MODEL` | qwen2.5-coder:32b | Ollama model (v2.5 - premium default) |
-| `CLAUDE_MODEL` | opus-4.6 | Claude model (v2.5) |
+| `CLAUDE_MODEL` | claude-opus-4-7 | Claude model (v2.5) |
 | `GEMINI_MODEL` | gemini-3.1-pro-preview | Gemini model (v2.5) |
-| `CODEX_MODEL` | gpt-5.3-codex | Codex model (v2.5) |
+| `CODEX_MODEL` | gpt-5.5 | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
 | `SYNTHESIS_STRATEGY` | majority | Synthesis strategy (v2.2) |
 | `ENABLE_SEMANTIC_CACHE` | true | Semantic response caching (v2.3) |
@@ -801,6 +801,14 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.10.6
+- Codex premium upgraded from `gpt-5.3-codex` to `gpt-5.5`
+- Cursor premium upgraded from `composer-1.5` to `composer-2`
+- Aider switched provider: `gpt-5.3-codex` → `nvidia/nemotron-3-super-120b-a12b:free` (free tier)
+- DeepSeek premium upgraded from `deepseek-reasoner` to `deepseek-v4-pro`
+- Claude IDs migrated from short aliases to canonical model IDs across all tiers: `opus-4.6` → `claude-opus-4-7`, `sonnet-4.6` → `claude-sonnet-4-6`, `haiku-4.5` → `claude-haiku-4-5`
+- Fixed Kilo SIGPIPE abort under `set -euo pipefail` (replaced `head -c` with parameter expansion)
 
 ### v2.10.5
 - Qwen3 premium model upgraded from `qwen3.5-plus` to `qwen3.6-plus` ($0.325/$1.95 per M tokens)
