@@ -1088,7 +1088,7 @@ test_economic_models() {
 
     assert_equals "gemini-2.0-flash" "$(get_economic_model "gemini")" "gemini economy is gemini-2.0-flash"
     assert_equals "gpt-4o-mini"      "$(get_economic_model "codex")"  "codex economy is gpt-4o-mini"
-    assert_equals "haiku-4.5"        "$(get_economic_model "claude")" "claude economy is haiku-4.5"
+    assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
     assert_equals "MiniMax-M2.5"     "$(get_economic_model "minimax")" "minimax economy is MiniMax-M2.5"
     assert_equals ""                 "$(get_economic_model "unknown")" "unknown consultant returns empty"
 }
@@ -1424,9 +1424,9 @@ test_escalation() {
 test_model_for_tier() {
     suite "config.sh: get_model_for_tier"
 
-    assert_equals "opus-4.6"              "$(get_model_for_tier "claude" "premium")"  "claude premium is opus-4.6"
-    assert_equals "sonnet-4.6"            "$(get_model_for_tier "claude" "standard")" "claude standard is sonnet-4.6"
-    assert_equals "haiku-4.5"             "$(get_model_for_tier "claude" "economy")"  "claude economy is haiku-4.5"
+    assert_equals "claude-opus-4-7"       "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-4-7"
+    assert_equals "claude-sonnet-4-6"     "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-4-6"
+    assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium")" "gemini premium is gemini-3.1-pro-preview"
     assert_equals "gemini-2.0-flash"       "$(get_model_for_tier "gemini" "economy")" "gemini economy is gemini-2.0-flash"
     assert_equals "MiniMax-M2.7"           "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M2.7"
