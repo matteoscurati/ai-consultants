@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.10.7
+**Version**: 2.10.8
 
 ## Distribution
 
@@ -801,6 +801,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.10.8
+- Fixed `docs/cost_rates.json` drift introduced by v2.10.6: `consultant_fallbacks` (used at runtime by `lib/costs.sh`) and `model_tiers` were still pointing at the old IDs (`opus-4.6`, `gpt-5.3-codex`, `composer-1.5`, `deepseek-reasoner`, `sonnet-4.6`, `haiku-4.5`)
+- Added price entries for the v2.10.6 model IDs: `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`, `gpt-5.5`, `composer-2`, `deepseek-v4-pro`, `nvidia/nemotron-3-super-120b-a12b:free`
+- Moved superseded IDs to the legacy section so cost calculation still works for historical responses or pinned overrides
+- Synced `COST_RATES.md` tables to match
+- Pricing for `nvidia/nemotron-3-super-120b-a12b:free` set to $0/$0 (OpenRouter free tier)
 
 ### v2.10.7
 - Grok premium upgraded from `grok-4.20-0309-reasoning` to `grok-4.3` (released 2026-04-30)

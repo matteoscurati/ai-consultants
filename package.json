@@ -1,6 +1,6 @@
 {
   "name": "ai-consultants",
-  "version": "2.10.7",
+  "version": "2.10.8",
   "description": "Multi-model AI deliberation system - query up to 15 AI consultants for coding problems",
   "bin": {
     "ai-consultants": "bin/ai-consultants"

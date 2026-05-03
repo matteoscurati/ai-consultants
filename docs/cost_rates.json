@@ -1,6 +1,6 @@
 {
-  "version": "2.10.7",
-  "updated": "2026-05-02",
+  "version": "2.10.8",
+  "updated": "2026-05-03",
   "models": {
     "_comment_premium": "Premium tier models - May 2026",
     "claude-opus-4-7": {"input": 5.00, "output": 25.00},
