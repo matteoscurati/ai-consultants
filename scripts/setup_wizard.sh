@@ -90,7 +90,7 @@ test_cli_auth() {
     # Test with timeout
     if timeout 15 $cmd $test_args &>/dev/null 2>&1; then
         map_set "CLI_AUTH_STATUS" "$name" "authenticated"
-        ((AVAILABLE_COUNT++))
+        ((AVAILABLE_COUNT++)) || true
         return 0
     else
         map_set "CLI_AUTH_STATUS" "$name" "failed"

@@ -155,7 +155,7 @@ update_display() {
     local num_lines=6  # Header + 4 consultants + footer
 
     # Move cursor up
-    printf "\033[${num_lines}A"
+    printf '\033[%sA' "$num_lines"
 
     # Clear lines and re-render
     for ((i=0; i<num_lines; i++)); do
@@ -164,7 +164,7 @@ update_display() {
     done
 
     # Move back up
-    printf "\033[${num_lines}A"
+    printf '\033[%sA' "$num_lines"
 
     # Render
     render_all_progress

@@ -8,6 +8,7 @@
 
 # Guard against double-sourcing
 if [[ -n "${_API_QUERY_SH_SOURCED:-}" ]]; then
+    # shellcheck disable=SC2317  # exit 0 is the script-mode fallback for sourced double-load guard
     return 0 2>/dev/null || exit 0
 fi
 _API_QUERY_SH_SOURCED=1

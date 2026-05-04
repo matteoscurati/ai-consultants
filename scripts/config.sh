@@ -1,6 +1,46 @@
 #!/bin/bash
 # config.sh - Centralized configuration for AI Consultants
-# Modify this file to customize skill behavior
+# Modify this file to customize skill behavior.
+#
+# Precedence (highest wins):
+#   1. CLI flags (--preset, --strategy, etc.)
+#   2. Existing env vars (`export FOO=bar` before invocation)
+#   3. User config (~/.config/ai-consultants/{config.sh,.env}) — see v2.12
+#   4. The ${VAR:-default} fallbacks in this file
+#   5. Hardcoded defaults inside individual scripts
+
+# =============================================================================
+# USER CONFIG (v2.12+)
+# =============================================================================
+# Load persistent user-level config from ~/.config/ai-consultants/ before
+# applying any defaults below. The user config sets variables only when they
+# are not already in the environment, so CLI flags / shell exports still win.
+# Also exports get_xdg_dir() — load-bearing for v2.13 XDG path defaults below.
+_CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$_CONFIG_DIR/lib/user_config.sh" ]]; then
+    # shellcheck source=lib/user_config.sh
+    source "$_CONFIG_DIR/lib/user_config.sh"
+    load_user_config
+fi
+
+# v2.13: get_xdg_dir() is required for the XDG path defaults below. If the
+# helper is missing (corrupt install, bad refactor) we'd silently regress to
+# /tmp paths — exactly the failure mode v2.13 set out to fix. Fail loudly.
+if ! declare -f get_xdg_dir >/dev/null 2>&1; then
+    echo "FATAL: lib/user_config.sh is missing or did not export get_xdg_dir()." >&2
+    echo "       v2.13+ XDG path defaults require it. Reinstall the skill." >&2
+    # shellcheck disable=SC2317  # exit 1 is the script-mode fallback when sourced
+    return 1 2>/dev/null || exit 1
+fi
+
+# Resolve XDG roots ONCE at first config load and export them so child
+# subshells (every query_*.sh launched in parallel by consult_all.sh) inherit
+# the values and skip the 3 subshells per kind. Without this, a 14-consultant
+# consultation paid ~200-400ms in repeated subshell forks.
+: "${_AI_CONSULTANTS_XDG_CACHE:=$(get_xdg_dir cache)}"
+: "${_AI_CONSULTANTS_XDG_STATE:=$(get_xdg_dir state)}"
+: "${_AI_CONSULTANTS_XDG_DATA:=$(get_xdg_dir data)}"
+export _AI_CONSULTANTS_XDG_CACHE _AI_CONSULTANTS_XDG_STATE _AI_CONSULTANTS_XDG_DATA
 
 # =============================================================================
 # GENERAL SETTINGS
@@ -12,8 +52,12 @@ MAX_RETRIES="${MAX_RETRIES:-2}"
 # Pause in seconds between retry attempts
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
 
-# Base output directory for consultations
-DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-/tmp/ai_consultations}"
+# Base output directory for consultations.
+# v2.13.0: defaults to $XDG_CACHE_HOME/ai-consultants/consultations (typically
+# ~/.cache/ai-consultants/consultations). Pre-v2.13 default was /tmp/ai_consultations
+# which lost data on reboot and was world-readable on multi-tenant boxes.
+# To restore the old behavior: export DEFAULT_OUTPUT_DIR_BASE=/tmp/ai_consultations
+DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-${_AI_CONSULTANTS_XDG_CACHE}/consultations}"
 
 # =============================================================================
 # CLI/API MODE SWITCHING (v2.6+)
@@ -365,8 +409,9 @@ MAX_SESSION_COST="${MAX_SESSION_COST:-1.00}"
 # Warning threshold in USD
 WARN_AT_COST="${WARN_AT_COST:-0.50}"
 
-# File for cumulative tracking
-COST_TRACKING_FILE="${COST_TRACKING_FILE:-/tmp/ai_consultants_costs.json}"
+# File for cumulative tracking. v2.13: defaults to $XDG_DATA_HOME/ai-consultants/
+# (persistent across reboots; this is user data, not cache).
+COST_TRACKING_FILE="${COST_TRACKING_FILE:-${_AI_CONSULTANTS_XDG_DATA}/costs.json}"
 
 # --- Budget Enforcement (v2.4) ---
 # Enable budget limit enforcement (opt-in, default OFF)
@@ -380,8 +425,9 @@ BUDGET_ACTION="${BUDGET_ACTION:-warn}"
 # SESSION MANAGEMENT (v2.0)
 # =============================================================================
 
-# Directory for session files
-SESSION_DIR="${SESSION_DIR:-/tmp/ai_consultants_sessions}"
+# Directory for session files. v2.13: defaults to $XDG_STATE_HOME/ai-consultants/
+# (persistent across reboots; sessions enable follow-up queries).
+SESSION_DIR="${SESSION_DIR:-${_AI_CONSULTANTS_XDG_STATE}/sessions}"
 
 # Days after which to clean old sessions
 SESSION_CLEANUP_DAYS="${SESSION_CLEANUP_DAYS:-7}"
@@ -444,10 +490,16 @@ SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
 # =============================================================================
 
 # --- Semantic Caching ---
-# Cache responses based on query + context hash
+# Cache responses based on query + context hash.
+# v2.13: defaults to $XDG_CACHE_HOME/ai-consultants/cache (regenerable data).
 ENABLE_SEMANTIC_CACHE="${ENABLE_SEMANTIC_CACHE:-true}"
 CACHE_TTL_HOURS="${CACHE_TTL_HOURS:-24}"
-CACHE_DIR="${CACHE_DIR:-/tmp/ai_consultants_cache}"
+CACHE_DIR="${CACHE_DIR:-${_AI_CONSULTANTS_XDG_CACHE}/cache}"
+
+# --- Transient Workspaces (v2.13) ---
+# Both regenerable, default to XDG_CACHE_HOME alongside semantic cache.
+RATE_LIMIT_DIR="${RATE_LIMIT_DIR:-${_AI_CONSULTANTS_XDG_CACHE}/ratelimit}"
+CHUNK_TEMP_DIR="${CHUNK_TEMP_DIR:-${_AI_CONSULTANTS_XDG_CACHE}/chunks}"
 
 # --- Response Length Limits ---
 # Limit output tokens by question category
@@ -470,9 +522,12 @@ ENABLE_SELECTIVE_CONTEXT="${ENABLE_SELECTIVE_CONTEXT:-false}"
 MAX_FILES_PER_CONSULTANT="${MAX_FILES_PER_CONSULTANT:-5}"
 
 # --- Debate Optimization ---
-# Optimize debate rounds for token efficiency
-# NOTE: Default is FALSE (opt-in) per quality review - can miss critical disagreements
-ENABLE_DEBATE_OPTIMIZATION="${ENABLE_DEBATE_OPTIMIZATION:-false}"
+# Optimize debate rounds for token efficiency: skip debate when consensus is
+# already high (confidence spread below DEBATE_CONFIDENCE_SPREAD_THRESHOLD).
+# Promoted to default TRUE in v2.13.0 after sustained good results — saves
+# ~30-50% tokens on consensus questions. SECURITY and ARCHITECTURE categories
+# are exempt (mandatory debate). Set to false to force debate for every run.
+ENABLE_DEBATE_OPTIMIZATION="${ENABLE_DEBATE_OPTIMIZATION:-true}"
 # Only activate debate if confidence spread exceeds threshold
 # Lowered to 2 per quality review (original: 3)
 DEBATE_CONFIDENCE_SPREAD_THRESHOLD="${DEBATE_CONFIDENCE_SPREAD_THRESHOLD:-2}"
@@ -750,4 +805,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.10.8"
+AI_CONSULTANTS_VERSION="2.13.1"

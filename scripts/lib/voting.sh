@@ -85,7 +85,7 @@ _jaccard_similarity() {
     local intersection union_count
     intersection=$(comm -12 <(echo "$set_a" | tr ' ' '\n' | grep -v '^$') \
                             <(echo "$set_b" | tr ' ' '\n' | grep -v '^$') | wc -l | tr -d ' ')
-    union_count=$(echo "$set_a $set_b" | tr ' ' '\n' | sort -u | grep -v '^$' | wc -l | tr -d ' ')
+    union_count=$(echo "$set_a $set_b" | tr ' ' '\n' | sort -u | grep -cv '^$' | tr -d ' ')
 
     if [[ $union_count -gt 0 ]]; then
         echo $((intersection * 100 / union_count))

@@ -1,6 +1,6 @@
 {
   "name": "ai-consultants",
-  "version": "2.10.8",
+  "version": "2.13.1",
   "description": "Multi-model AI deliberation system - query up to 15 AI consultants for coding problems",
   "bin": {
     "ai-consultants": "bin/ai-consultants"
@@ -36,6 +36,9 @@
   "homepage": "https://github.com/matteoscurati/ai-consultants#readme",
   "bugs": {
     "url": "https://github.com/matteoscurati/ai-consultants/issues"
+  },
+  "scripts": {
+    "test": "bash scripts/test_all.sh"
   },
   "os": [
     "darwin",

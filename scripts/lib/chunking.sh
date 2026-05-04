@@ -28,7 +28,7 @@ CHUNK_OVERLAP_LINES="${CHUNK_OVERLAP_LINES:-5}"
 CHUNK_PRIORITY_KEYWORDS="${CHUNK_PRIORITY_KEYWORDS:-main,export,public,api,handler,controller}"
 
 # Temporary directory for chunk storage
-CHUNK_TEMP_DIR="${CHUNK_TEMP_DIR:-/tmp/ai_consultants_chunks}"
+CHUNK_TEMP_DIR="${CHUNK_TEMP_DIR:-${_AI_CONSULTANTS_XDG_CACHE:-/tmp/ai_consultants}/chunks}"
 
 # Initialize chunk storage directory with secure permissions
 if [[ ! -d "$CHUNK_TEMP_DIR" ]]; then
@@ -351,7 +351,8 @@ _find_unit_end() {
         # Get base indentation of the definition line
         local def_line
         def_line=$(sed -n "${start_line}p" "$file")
-        base_indent=$(echo "$def_line" | sed 's/[^[:space:]].*//')
+        # Extract leading whitespace only (everything up to the first non-space char)
+        base_indent="${def_line%%[^[:space:]]*}"
     fi
 
     while [[ $current_line -le $total_lines ]]; do
@@ -373,7 +374,7 @@ _find_unit_end() {
 
             # Get current line's indentation
             local current_indent
-            current_indent=$(echo "$line" | sed 's/[^[:space:]].*//')
+            current_indent="${line%%[^[:space:]]*}"
 
             # If we've returned to base indentation (or less), we're done
             if [[ ${#current_indent} -le ${#base_indent} ]]; then

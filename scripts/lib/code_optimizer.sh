@@ -378,7 +378,7 @@ _extract_bash() {
         local _line_num="${line%%:*}"
         local _func_line="${line#*:}"
         local _func_name
-        _func_name=$(echo "$_func_line" | sed 's/().*//')
+        _func_name="${_func_line%%(*}"
 
         # Look for function comment (line before)
         local _prev_line=$((_line_num - 1))
@@ -478,7 +478,7 @@ _extract_go() {
     grep -E -- "^func " "$file_path" 2>/dev/null | while IFS= read -r line; do
         # Extract just the signature (up to opening brace)
         local signature
-        signature=$(echo "$line" | sed 's/ {$//')
+        signature="${line% \{}"
         echo "$signature"
     done
     echo ""

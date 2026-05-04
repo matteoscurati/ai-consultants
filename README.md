@@ -1,8 +1,8 @@
-# AI Consultants v2.10.8
+# AI Consultants v2.13.1
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.10.8-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.13.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -548,39 +548,35 @@ Control how responses are combined:
 
 ### Environment Variables
 
+**Most users only need:**
+
 ```bash
-# Core features
-ENABLE_DEBATE=true           # Multi-agent debate
-ENABLE_SYNTHESIS=true        # Automatic synthesis
-ENABLE_SMART_ROUTING=true    # Intelligent consultant selection
-ENABLE_PANIC_MODE=auto       # Automatic rigor for uncertainty
-
-# Defaults
-DEFAULT_PRESET=balanced      # Preset when --preset not given
-DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
-
-# Ollama (local models)
-ENABLE_OLLAMA=true           # Enable Ollama consultant
-OLLAMA_MODEL=qwen2.5-coder:32b  # Model to use (premium default)
-OLLAMA_HOST=http://localhost:11434
-
-# Cost management
-MAX_SESSION_COST=1.00        # Budget limit in USD
-WARN_AT_COST=0.50            # Warning threshold
-
-# Panic mode
-PANIC_CONFIDENCE_THRESHOLD=5 # Trigger threshold
-PANIC_EXTRA_DEBATE_ROUNDS=1  # Additional rounds in panic mode
+ai-consultants init           # creates ~/.config/ai-consultants/{config.sh,.env}
+$EDITOR ~/.config/ai-consultants/.env
 ```
+
+For ad-hoc overrides without persisting, the most common knobs:
+
+```bash
+DEFAULT_PRESET=balanced      # minimal | balanced | thorough | high-stakes | fast | local | security
+DEFAULT_STRATEGY=majority    # majority | risk_averse | security_first | cost_capped | compare_only
+ENABLE_DEBATE=true           # Multi-agent debate (auto-skipped when consensus is high since v2.13)
+ENABLE_OLLAMA=true           # Enable local Ollama consultant
+MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=true to enforce)
+```
+
+Full reference (~150 vars): [`references/configuration.md`](references/configuration.md). For category-aware preset suggestions: `ai-consultants doctor --suggest-preset --question "..."`.
 
 ### Doctor Command
 
-Diagnose and fix configuration issues:
+Diagnose, suggest, and fix:
 
 ```bash
-./scripts/doctor.sh              # Full diagnostic
-./scripts/doctor.sh --fix        # Auto-fix common issues
-./scripts/doctor.sh --json       # JSON output for automation
+ai-consultants doctor                                          # 22 health checks
+ai-consultants doctor --fix                                    # Auto-fix common issues
+ai-consultants doctor --json                                   # JSON for automation
+ai-consultants doctor --suggest-config                         # Print recommended ENABLE_* based on detected CLIs
+ai-consultants doctor --suggest-preset --question "..."        # Recommend preset + strategy for a question
 ```
 
 ---

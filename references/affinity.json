@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "_comment": "Affinity scores per (category, consultant). 10 = perfect match, 1 = poor match. Lookup order: (1) consultant NOT in known_consultants -> default_score (5). (2) category present in 'categories' -> categories[category][consultant] (with cell-missing fallback to default_score=5). (3) category absent -> general_score (8). NOTE the asymmetry: a known consultant in an unknown category gets 8, but in a known category with no cell gets 5. Rationale: a missing cell in a known category is a configuration gap (caught by doctor.sh) and should de-rank the consultant; an unknown category is just unmapped routing and treats all known consultants equally. To override at runtime: AFFINITY_FILE=/path/to/custom.json.",
+  "default_score": 5,
+  "general_score": 8,
+  "known_consultants": [
+    "Gemini", "Codex", "Mistral", "Kilo", "Cursor", "Aider",
+    "Amp", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"
+  ],
+  "categories": {
+    "CODE_REVIEW": {
+      "Gemini": 7, "Codex": 10, "Mistral": 8, "Kilo": 9, "Cursor": 9, "Aider": 9,
+      "Amp": 7, "Kimi": 7, "Claude": 8, "Qwen3": 8, "GLM": 8, "Grok": 7,
+      "DeepSeek": 10, "MiniMax": 8
+    },
+    "BUG_DEBUG": {
+      "Gemini": 7, "Codex": 10, "Mistral": 9, "Kilo": 8, "Cursor": 9, "Aider": 9,
+      "Amp": 8, "Kimi": 6, "Claude": 7, "Qwen3": 8, "GLM": 8, "Grok": 7,
+      "DeepSeek": 9, "MiniMax": 8
+    },
+    "ARCHITECTURE": {
+      "Gemini": 10, "Codex": 6, "Mistral": 8, "Kilo": 9, "Cursor": 8, "Aider": 6,
+      "Amp": 10, "Kimi": 9, "Claude": 9, "Qwen3": 7, "GLM": 7, "Grok": 9,
+      "DeepSeek": 7, "MiniMax": 7
+    },
+    "ALGORITHM": {
+      "Gemini": 9, "Codex": 8, "Mistral": 7, "Kilo": 8, "Cursor": 7, "Aider": 7,
+      "Amp": 7, "Kimi": 8, "Claude": 7, "Qwen3": 9, "GLM": 7, "Grok": 8,
+      "DeepSeek": 10, "MiniMax": 8
+    },
+    "SECURITY": {
+      "Gemini": 9, "Codex": 9, "Mistral": 10, "Kilo": 8, "Cursor": 8, "Aider": 7,
+      "Amp": 8, "Kimi": 7, "Claude": 8, "Qwen3": 7, "GLM": 8, "Grok": 8,
+      "DeepSeek": 8, "MiniMax": 7
+    },
+    "QUICK_SYNTAX": {
+      "Gemini": 10, "Codex": 8, "Mistral": 5, "Kilo": 6, "Cursor": 7, "Aider": 8,
+      "Amp": 5, "Kimi": 5, "Claude": 6, "Qwen3": 7, "GLM": 6, "Grok": 5,
+      "DeepSeek": 9, "MiniMax": 8
+    },
+    "DATABASE": {
+      "Gemini": 8, "Codex": 9, "Mistral": 7, "Kilo": 7, "Cursor": 8, "Aider": 7,
+      "Amp": 7, "Kimi": 7, "Claude": 7, "Qwen3": 9, "GLM": 7, "Grok": 6,
+      "DeepSeek": 9, "MiniMax": 8
+    },
+    "API_DESIGN": {
+      "Gemini": 10, "Codex": 9, "Mistral": 7, "Kilo": 8, "Cursor": 9, "Aider": 7,
+      "Amp": 9, "Kimi": 8, "Claude": 8, "Qwen3": 7, "GLM": 8, "Grok": 8,
+      "DeepSeek": 8, "MiniMax": 8
+    },
+    "TESTING": {
+      "Gemini": 7, "Codex": 10, "Mistral": 9, "Kilo": 7, "Cursor": 9, "Aider": 9,
+      "Amp": 8, "Kimi": 6, "Claude": 7, "Qwen3": 8, "GLM": 10, "Grok": 7,
+      "DeepSeek": 8, "MiniMax": 7
+    }
+  }
+}

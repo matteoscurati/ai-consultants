@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.10.8
+**Version**: 2.13.1
 
 ## Distribution
 
@@ -47,7 +47,7 @@ ai-consultants/
 │   ├── debate_round.sh         # Multi-Agent Debate
 │   ├── classify_question.sh    # Question classifier
 │   ├── followup.sh             # Follow-up queries
-│   ├── preflight_check.sh      # Health check
+│   ├── preflight_check.sh      # DEPRECATED v2.10.9 (thin wrapper -> doctor.sh)
 │   └── lib/
 │       ├── common.sh           # Shared utilities (logging, panic mode)
 │       ├── personas.sh         # Consultant persona definitions
@@ -801,6 +801,81 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.13.1
+- **Perf**: XDG roots resolved once at first `config.sh` source and **exported** as `_AI_CONSULTANTS_XDG_{CACHE,STATE,DATA}` — child query subshells inherit the values and skip ~6 subshells/child × 14 children = ~84 forks per consultation (~200-400ms saving on macOS).
+- **Perf**: `apply_launch_stagger()` switched from `awk "BEGIN{printf}"` to pure-bash `printf '%d.%03d'` — 14 forks eliminated per consultation (~50-70ms aggregate).
+- **Perf/DRY**: `_count_available_consultants` entries pre-uppercased (`"GEMINI|ENABLE_GEMINI|gemini"`) — 15 `to_upper` subshells eliminated per `--suggest-preset` invocation. Also fixes the latent self-exclusion case-mismatch the round-2 review caught.
+- **Latent bug fix**: 5 `lib/*.sh` files (`cache.sh`, `session.sh`, `api.sh`, `chunking.sh`, `costs.sh`) had hardcoded `/tmp/...` defaults that drifted from the v2.13 XDG migration. Their fallbacks now reference `${_AI_CONSULTANTS_XDG_*}` so they stay aligned even if sourced standalone (e.g. from a future test). `lib/session.sh::cleanup_old_sessions` no longer hardcodes `/tmp/ai_consultations` either — uses `$DEFAULT_OUTPUT_DIR_BASE`.
+- **DRY**: extracted `scripts/lib/test_helpers.sh` (~80 LOC) — `assert_eq`, `assert_match`, `run_test`, `test_summary`, `_reset_state` hook. Eliminates the ~90 LOC of triplication across `test_user_config.sh`, `test_doctor.sh`, `test_bin.sh`. Future test suites just `source lib/test_helpers.sh`.
+- **CI**: `scripts/test_all.sh` (master runner introduced post-v2.13.0) now also includes `test_suite.sh` — adds 258 library assertions to `npm test`, closing the "tests on disk but not gating CI" gap. Total: 6 suites, ~493 assertions.
+- **Style**: 37 → 0 shellcheck warnings under the project exclusions (`-e SC2034,SC2086,SC1091,SC2155,SC2154`). Touches: `configure.sh` (26 SC2004 + 1 SC2129), `lib/routing.sh` (4 SC2004/2321), `lib/code_optimizer.sh` (2 SC2001 sed → param expansion), `lib/chunking.sh` (2 SC2001), `lib/voting.sh` (1 SC2126), `lib/common.sh` (1 SC2005, 1 SC2317 annotated), `lib/api_query.sh` (1 SC2317 annotated), `lib/symbol_map.sh` (2 SC1090 annotated), `config.sh` (1 SC2317 annotated), `test_set_e_safety.sh` (1 SC2001 annotated).
+- **Code quality**: `consult_all.sh` `_MODEL` var resolution switched from inline `tr` to `to_upper()` helper for consistency. Stale `name_upper` variable in `_count_available_consultants` renamed to `name`. `find_user_config_file` redundant `|| echo ""` simplified to `|| true`.
+- All 6 test suites pass (493 assertions). Zero behavioral change for end users; XDG cache export is the only new env-var contract.
+
+### v2.13.0
+- New `doctor --suggest-preset --question "..."` recommends a preset + strategy combo for a question, based on category classification (`classify_question.sh`) and the count of available consultants (gated by `ENABLE_*` flags and self-exclusion). Outputs a one-line `ai-consultants` command + reasoning, or structured JSON via `--json` for tooling/automation.
+- Classifier failures now surface explicitly as `Warning: classification of your question failed` (with the underlying error). Pre-fix the failure was masked by `2>/dev/null` and silently degraded to `GENERAL`.
+- `--suggest-preset` short-circuits to "install more CLIs" hint when fewer than 2 consultants are usable — previously could recommend e.g. `minimal` preset with 0 consultants.
+- `_count_available_consultants()` now respects `ENABLE_*` flags and subtracts the invoking agent (self-exclusion). Pre-fix the count included disabled consultants, leading `_recommend_combo` boundaries to fire on a phantom panel size.
+- `ENABLE_DEBATE_OPTIMIZATION` promoted from opt-in to default `true` based on operator experience over 4 stable releases — debate is auto-skipped when confidence spread < `DEBATE_CONFIDENCE_SPREAD_THRESHOLD` (default 2). SECURITY and ARCHITECTURE remain mandatory-debate. No empirical benchmark in-tree yet; tracked for v2.14.
+- XDG Base Directory compliance for transient and persistent paths (per freedesktop.org spec):
+  - `DEFAULT_OUTPUT_DIR_BASE`: `/tmp/ai_consultations` → `$XDG_CACHE_HOME/ai-consultants/consultations` (typically `~/.cache/...`)
+  - `CACHE_DIR`: `/tmp/ai_consultants_cache` → `$XDG_CACHE_HOME/ai-consultants/cache`
+  - `RATE_LIMIT_DIR`, `CHUNK_TEMP_DIR`: `/tmp/ai_consultants_*` → `$XDG_CACHE_HOME/ai-consultants/{ratelimit,chunks}`
+  - `SESSION_DIR`: `/tmp/ai_consultants_sessions` → `$XDG_STATE_HOME/ai-consultants/sessions` (`~/.local/state/...`)
+  - `COST_TRACKING_FILE`: `/tmp/ai_consultants_costs.json` → `$XDG_DATA_HOME/ai-consultants/costs.json` (`~/.local/share/...`)
+  - All env vars still respected; restore old behavior with `export DEFAULT_OUTPUT_DIR_BASE=/tmp/ai_consultations` etc.
+- New `lib/user_config.sh::get_xdg_dir()` helper — single source of truth for XDG resolution; falls back to `$HOME/.{cache,local/state,local/share}` then `/tmp/ai-consultants-{kind}` for distroless containers.
+- README slimmed: env-var section now points to `references/configuration.md` for the full ~150-var list and recommends `ai-consultants init` as the primary onboarding path.
+- `RATE_LIMIT_DIR` and `CHUNK_TEMP_DIR` lifted to `config.sh` for consistency (were lib-only defaults).
+- `config.sh` now hard-fails with `FATAL: ... get_xdg_dir()` if `lib/user_config.sh` is missing — pre-fix the v2.13 XDG defaults silently regressed to `/tmp/ai_consultants/...` when the helper was absent (corrupt install, refactor regression).
+- New `scripts/test_doctor.sh` — 25 assertions in 12 tests: `--suggest-preset` across categories (SECURITY, QUICK_SYNTAX, ARCHITECTURE, ALGORITHM, GENERAL), no-question default, long-question truncation, short-circuit behavior, **+ review fixes**: `--json` output schema, count<2 install hint, classifier failure warning, `config.sh` FATAL on missing helper, count respects ENABLE_* flags.
+- `scripts/test_user_config.sh` extended to 38 assertions in 18 tests — added: `get_xdg_dir` cache/state/data resolution, fallback to `~/.{cache,local/state,local/share}`, distroless `/tmp/ai-consultants-*` fallback, invalid kind handling, `config.sh` XDG path defaults, explicit env var override precedence, `ENABLE_DEBATE_OPTIMIZATION=true` default assertion.
+- Round-2 review fix: `_count_available_consultants` self-exclusion was dead code due to UPPERCASE vs MixedCase mismatch — counter compared `Claude` to `get_self_consultant_name`'s `CLAUDE`. Now uppercases the entry name via `to_upper`; `INVOKING_AGENT` correctly drops 1 from the count. Regression test added.
+- Round-2 fix: `--suggest-preset --json` pre-flights `jq` with a clear error message instead of aborting under `set -e` with `command not found` (the main `check_dependencies` jq probe doesn't run when `--suggest-preset` short-circuits).
+- Round-2 fix: `--json` schema gains `schema_version: 1` and `recommended_command` fields — tooling no longer has to reconstruct the invocation client-side and has a signal for future schema evolution.
+- Round-2 fix: `_count_available_consultants` no longer hardcodes a "default-true" list that drifted from `config.sh` (claimed Aider default-true; actually false). Removed; relies solely on `config.sh` defaults via `${!flag:-false}`.
+- New `scripts/test_all.sh` master runner aggregates all 5 standalone test suites; `npm test` wired in `package.json`. Closes the "tests on disk but not gating CI" gap from v2.11/v2.12 review carryovers.
+- `scripts/test_doctor.sh` extended to 31 assertions: + self-exclusion regression, + jq preflight, + schema_version/recommended_command shape.
+
+### v2.12.0
+- New persistent user-config dir at `~/.config/ai-consultants/` (XDG-compliant; honors `AI_CONSULTANTS_CONFIG_DIR` and `XDG_CONFIG_HOME`)
+- New `lib/user_config.sh` with `load_user_config()` — sourced from `config.sh` at the very top, before any defaults are applied
+- `load_user_config` is **idempotent** via a process-wide guard `_AI_CONSULTANTS_USER_CONFIG_LOADED` — `config.sh` is sourced 15-30 times per consultation transitively, and without the guard non-idempotent user config (PATH appends, counters, log appends) would compound silently
+- `.env` (KEY=value) and `config.sh` (full bash) both supported; existing env vars always win over user config (precedence: CLI > env > user config > defaults > hardcoded)
+- `.env` parser **strips trailing CR** so Windows CR-LF line endings don't silently corrupt values (`ENABLE_DEBATE=true\r` would otherwise break every `[[ "$X" == "true" ]]` comparison downstream)
+- New `ai-consultants init [--force]` subcommand scaffolds the user config dir with `.env` (copied from `.env.example`, chmod 600) and `config.sh` (minimal sourceable template); refuses to scaffold into a symlinked dir (root + hostile symlink protection); pre-flights write permission with a friendly error pointing to `AI_CONSULTANTS_CONFIG_DIR`
+- `bin/ai-consultants` no longer hardcodes the version (was stuck at 2.10.0 since v2.10.0 release); reads `AI_CONSULTANTS_VERSION` from `scripts/config.sh` and **validates it as semver** — falls back to `vunknown` instead of `vAI_CONSULTANTS_VERSION=2.12.0` when the parse fails
+- `get_user_config_dir` returns empty + exit 1 when both `HOME` and `XDG_CONFIG_HOME` are unset (e.g. distroless container) instead of computing the broken path `/.config/ai-consultants`; callers (`doctor.sh`, `bin/init`) handle this with a clear error
+- Single source of truth for user-dir resolution: `lib/user_config.sh::get_user_config_dir()`; `routing.sh`, `doctor.sh`, and `bin/ai-consultants` now all source it instead of duplicating the precedence ladder (was DRY-violated 4x)
+- `lib/routing.sh::_load_affinity_data` extended with search path: `AFFINITY_FILE` env > `~/.config/ai-consultants/affinity.json` > bundled default — drops a custom matrix in the user dir without setting any env var
+- `doctor.sh` adds `check_user_config()` reporting dir presence, files loaded, and warns on `.env` lax permissions — total checks now 22
+- New regression test `scripts/test_user_config.sh` — 20 assertions in 11 tests: .env loading + quote stripping, env precedence, edge cases (comments/blanks/`export`/quoted/indented), invalid keys, config.sh ordering, XDG fallback, missing-files silence (now also asserts no stderr output), AI_CONSULTANTS_CONFIG_DIR priority, **CR-LF stripping**, **idempotency guard**, **HOME-unset fallback**
+- New `scripts/test_bin.sh` — 10 assertions in 8 tests covering `bin/ai-consultants version` (matches config.sh, semver-shaped, fallback to "unknown" on malformed config) and `init` (chmod 600 enforcement, both files created, idempotent without --force, --force overwrites, refuses symlinked dir)
+- `scripts/test_routing_parity.sh` extended to 146 assertions (added user-dir branch of `_resolve_affinity_path`)
+
+### v2.11.0
+- Externalized routing affinity matrix from nested `case` statements in `lib/routing.sh` to `references/affinity.json` (~190 lines of bash → 60 lines of JSON)
+- Custom matrix at runtime via `AFFINITY_FILE=/path/to/custom.json` (e.g. tweak scores per project, disable consultants by category)
+- `get_affinity()` now performs JSON lookup with two-level cache: file content cached on first read, per-(category, consultant) result cached after first lookup
+- Cache uses leading-space delimiter to prevent substring collisions (e.g. `DEBUG|X=` would have falsely matched a cached `BUG_DEBUG|X=10` — caught in review pass before release)
+- `doctor.sh` adds 3 new checks for affinity: file presence, JSON schema validity, coverage (every consultant in every category) — total checks now 21
+- Golden parity test in `scripts/test_routing_parity.sh`: 144 assertions covering all 9 categories × 14 consultants + edge cases (unknown consultant, unknown category, AFFINITY_FILE override, cache auto-invalidation, cache substring-collision regression)
+- `docs/SMART_ROUTING.md` rewritten: removed stale per-consultant table (was out of sync with code since v2.8/v2.9/v2.10 added Amp, Kimi, MiniMax), now points to JSON as source of truth and documents schema + override
+- `references/affinity.json` `_comment` documents the asymmetric 3-tier fallback (unknown consultant → 5, unknown category → 8, missing cell → 5) and the rationale
+- Bug class regression test in `scripts/test_set_e_safety.sh`: static lint covers `((var++))` AND `((var--))` AND `let var++` family, plus dynamic check on bash 4+ for the abort pattern fixed in v2.8.1, v2.10.1, v2.10.9
+- `consult_all.sh` ENABLE_PREFLIGHT path no longer swallows doctor output — the diagnostic is now captured to a tmpfile and dumped on failure (previously `>/dev/null 2>&1` repeated the original preflight silent-failure bug)
+- Cleaned `((attempt++)) || true || true` artifacts in `lib/api.sh` (introduced by the v2.10.9 mechanical sweep on lines that were already protected)
+
+### v2.10.9
+- Fixed silent failure of `preflight_check.sh` under `set -euo pipefail`: helper functions like `check_cli_installed` returned non-zero on missing CLIs, and call sites lacked `|| true` — the script aborted after "Checking CLI installations..." with no diagnostic output
+- Deprecated `preflight_check.sh` in favor of `doctor.sh` (stale v2.0 script covering only 6/15 consultants and missing CLI/API mode checks); `preflight_check.sh` is now a thin wrapper that prints a deprecation warning and execs `doctor.sh "$@"`
+- Ported `--suggest-config` from preflight to `doctor.sh`, expanded coverage from 6 to 15 consultants (now also detects API-only consultants via API key presence)
+- Added `--quick` flag to `doctor.sh` (accepted as no-op for backward compat with preflight)
+- Updated `consult_all.sh` ENABLE_PREFLIGHT path to invoke `doctor.sh` directly
+- Defensive sweep: protected 15 latent `((var++))` increments across `peer_review.sh`, `setup_wizard.sh`, `test_functions.sh`, `lib/api.sh`, `lib/common.sh`, `lib/reflection.sh`, and `doctor.sh` with `|| true` (matches v2.8.1/v2.10.1 codebase convention; latent because bash 3.2 doesn't abort but bash 4+ does)
+- Fixed real shellcheck warnings: SC2059 unsafe printf format string in `lib/progress.sh`, SC2012 `ls | wc -l` race in `install.sh` (replaced with `find`), SC2329 false positive in `query_ollama.sh` cleanup trap (annotated), SC2016 intentional sed pattern in `peer_review.sh` (annotated)
 
 ### v2.10.8
 - Fixed `docs/cost_rates.json` drift introduced by v2.10.6: `consultant_fallbacks` (used at runtime by `lib/costs.sh`) and `model_tiers` were still pointing at the old IDs (`opus-4.6`, `gpt-5.3-codex`, `composer-1.5`, `deepseek-reasoner`, `sonnet-4.6`, `haiku-4.5`)

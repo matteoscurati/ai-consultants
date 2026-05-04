@@ -234,13 +234,13 @@ detect_cli_agents() {
         local persona="${CLI_AGENT_PERSONAS[$i]}"
 
         if command -v "$cmd" &> /dev/null; then
-            CLI_DETECTED[$i]="installed"
+            CLI_DETECTED[i]="installed"
             local version
             version=$("$cmd" --version 2>/dev/null | head -1 || echo "detected")
             echo "  [FOUND] $name ($persona) - $cmd"
             ((found++)) || true
         else
-            CLI_DETECTED[$i]="missing"
+            CLI_DETECTED[i]="missing"
             echo "  [-----] $name ($persona) - not found"
         fi
     done
@@ -261,7 +261,7 @@ select_cli_agents() {
         # Auto-enable all detected CLI agents
         for i in "${!CLI_AGENT_NAMES[@]}"; do
             if [[ "${CLI_DETECTED[$i]}" == "installed" ]]; then
-                CLI_ENABLED[$i]="true"
+                CLI_ENABLED[i]="true"
                 log_info "Auto-enabled: ${CLI_AGENT_NAMES[$i]}"
             fi
         done
@@ -287,7 +287,7 @@ select_cli_agents() {
 
     # Pre-select all detected agents
     for i in "${detected_indices[@]}"; do
-        CLI_ENABLED[$i]="true"
+        CLI_ENABLED[i]="true"
     done
 
     local done_selecting=false
@@ -316,20 +316,20 @@ select_cli_agents() {
                 if [[ $choice -le ${#detected_indices[@]} ]]; then
                     local idx="${detected_indices[$((choice-1))]}"
                     if [[ "${CLI_ENABLED[$idx]}" == "true" ]]; then
-                        CLI_ENABLED[$idx]="false"
+                        CLI_ENABLED[idx]="false"
                     else
-                        CLI_ENABLED[$idx]="true"
+                        CLI_ENABLED[idx]="true"
                     fi
                 fi
                 ;;
             a|A)
                 for i in "${detected_indices[@]}"; do
-                    CLI_ENABLED[$i]="true"
+                    CLI_ENABLED[i]="true"
                 done
                 ;;
             n|N)
                 for i in "${detected_indices[@]}"; do
-                    CLI_ENABLED[$i]="false"
+                    CLI_ENABLED[i]="false"
                 done
                 ;;
             c|C)
@@ -436,8 +436,8 @@ configure_api_agents() {
             local key_var="${API_AGENT_KEY_VARS[$i]}"
             local existing_key="${!key_var:-}"
             if [[ -n "$existing_key" ]]; then
-                API_ENABLED[$i]="true"
-                API_KEYS_VALUES[$i]="$existing_key"
+                API_ENABLED[i]="true"
+                API_KEYS_VALUES[i]="$existing_key"
                 log_info "Auto-enabled: ${API_AGENT_NAMES[$i]} (API key found)"
             fi
         done
@@ -504,8 +504,8 @@ _configure_predefined_api_agents() {
                 local masked="${existing_key:0:8}...${existing_key: -4}"
                 echo "  Existing key found: $masked"
                 if confirm "  Use existing key?" "y"; then
-                    API_ENABLED[$i]="true"
-                    API_KEYS_VALUES[$i]="$existing_key"
+                    API_ENABLED[i]="true"
+                    API_KEYS_VALUES[i]="$existing_key"
                     continue
                 fi
             fi
@@ -515,8 +515,8 @@ _configure_predefined_api_agents() {
             local api_key="$REPLY"
 
             if [[ -n "$api_key" ]]; then
-                API_ENABLED[$i]="true"
-                API_KEYS_VALUES[$i]="$api_key"
+                API_ENABLED[i]="true"
+                API_KEYS_VALUES[i]="$api_key"
                 log_success "$name enabled"
             else
                 log_warn "$name skipped (no API key)"
@@ -672,9 +672,11 @@ HEADER
         for i in "${!CUSTOM_NAMES[@]}"; do
             local var_upper
             var_upper=$(to_upper "${CUSTOM_NAMES[$i]}")
-            echo "# Custom CLI agent: ${CUSTOM_NAMES[$i]} (${CUSTOM_PERSONAS[$i]})" >> "$OUTPUT_FILE"
-            echo "${var_upper}_CMD=${CUSTOM_CMDS[$i]}" >> "$OUTPUT_FILE"
-            echo "ENABLE_${var_upper}=true" >> "$OUTPUT_FILE"
+            {
+                echo "# Custom CLI agent: ${CUSTOM_NAMES[$i]} (${CUSTOM_PERSONAS[$i]})"
+                echo "${var_upper}_CMD=${CUSTOM_CMDS[$i]}"
+                echo "ENABLE_${var_upper}=true"
+            } >> "$OUTPUT_FILE"
         done
     fi
 
@@ -983,20 +985,20 @@ _select_persona_for_agent() {
             # For custom text, we store it differently - use ID 0 to indicate custom
             case "$agent_type" in
                 cli)
-                    CLI_PERSONA_IDS[$agent_idx]="0"
-                    CLI_AGENT_PERSONAS[$agent_idx]="$custom_text"
+                    CLI_PERSONA_IDS[agent_idx]="0"
+                    CLI_AGENT_PERSONAS[agent_idx]="$custom_text"
                     ;;
                 api)
-                    API_PERSONA_IDS[$agent_idx]="0"
-                    API_AGENT_PERSONAS[$agent_idx]="$custom_text"
+                    API_PERSONA_IDS[agent_idx]="0"
+                    API_AGENT_PERSONAS[agent_idx]="$custom_text"
                     ;;
                 custom_cli)
-                    CUSTOM_PERSONA_IDS[$agent_idx]="0"
-                    CUSTOM_PERSONAS[$agent_idx]="$custom_text"
+                    CUSTOM_PERSONA_IDS[agent_idx]="0"
+                    CUSTOM_PERSONAS[agent_idx]="$custom_text"
                     ;;
                 custom_api)
-                    CUSTOM_API_PERSONA_IDS[$agent_idx]="0"
-                    CUSTOM_API_PERSONAS[$agent_idx]="$custom_text"
+                    CUSTOM_API_PERSONA_IDS[agent_idx]="0"
+                    CUSTOM_API_PERSONAS[agent_idx]="$custom_text"
                     ;;
             esac
             log_success "$agent_name: Custom persona set"
@@ -1007,20 +1009,20 @@ _select_persona_for_agent() {
     # Validate persona ID selection
     if [[ "$persona_choice" =~ ^[0-9]+$ ]] && [[ $persona_choice -ge 1 ]] && [[ $persona_choice -le 15 ]]; then
         case "$agent_type" in
-            cli) CLI_PERSONA_IDS[$agent_idx]="$persona_choice" ;;
-            api) API_PERSONA_IDS[$agent_idx]="$persona_choice" ;;
+            cli) CLI_PERSONA_IDS[agent_idx]="$persona_choice" ;;
+            api) API_PERSONA_IDS[agent_idx]="$persona_choice" ;;
             custom_cli)
                 # Ensure array is large enough
                 while [[ ${#CUSTOM_PERSONA_IDS[@]} -le $agent_idx ]]; do
                     CUSTOM_PERSONA_IDS+=("1")
                 done
-                CUSTOM_PERSONA_IDS[$agent_idx]="$persona_choice"
+                CUSTOM_PERSONA_IDS[agent_idx]="$persona_choice"
                 ;;
             custom_api)
                 while [[ ${#CUSTOM_API_PERSONA_IDS[@]} -le $agent_idx ]]; do
                     CUSTOM_API_PERSONA_IDS+=("1")
                 done
-                CUSTOM_API_PERSONA_IDS[$agent_idx]="$persona_choice"
+                CUSTOM_API_PERSONA_IDS[agent_idx]="$persona_choice"
                 ;;
         esac
         local new_name
@@ -1085,7 +1087,7 @@ main() {
     echo "Next steps:"
     echo "  1. Review and edit $OUTPUT_FILE if needed"
     echo "  2. Run: source $OUTPUT_FILE"
-    echo "  3. Test: ./scripts/preflight_check.sh"
+    echo "  3. Test: ./scripts/doctor.sh"
     echo "  4. Start: ./scripts/consult_all.sh \"Your question\""
     echo ""
 }

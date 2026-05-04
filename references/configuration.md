@@ -1,6 +1,37 @@
 # AI Consultants - Full Configuration Reference
 
-All configuration is done via environment variables. Set them in your shell, `.env` file, or inline before the command.
+Configuration sources, in order of precedence (highest wins):
+
+1. **CLI flags** — `--preset`, `--strategy`, etc.
+2. **Existing env vars** — `export FOO=bar` before invoking
+3. **User config dir** (v2.12+) — `~/.config/ai-consultants/{config.sh,.env}`
+4. **`config.sh` defaults** — the `${VAR:-default}` fallbacks
+5. **Hardcoded defaults** in individual scripts
+
+## User Config Dir (v2.12+)
+
+Persistent overrides live in `~/.config/ai-consultants/`. The directory and starter files are scaffolded by:
+
+```bash
+ai-consultants init           # creates the dir + .env + config.sh
+ai-consultants init --force   # overwrites existing files
+```
+
+Search order for the directory:
+
+| Priority | Source |
+|----------|--------|
+| 1 | `$AI_CONSULTANTS_CONFIG_DIR` |
+| 2 | `$XDG_CONFIG_HOME/ai-consultants` |
+| 3 | `$HOME/.config/ai-consultants` |
+
+Files loaded from that dir (in order, both optional):
+
+- **`.env`** — KEY=value lines, parsed and exported. Existing env vars are NOT overridden. `export` prefix and `# comments` supported. Recommended chmod 600 (contains API keys).
+- **`config.sh`** — full bash, sourced after `.env`. Use `${VAR:-default}` to defer to env.
+- **`affinity.json`** — picked up by `lib/routing.sh` if present (overrides bundled matrix; superseded by `AFFINITY_FILE`).
+
+`./scripts/doctor.sh` reports which user config files are loaded under "Checking User Config (v2.12)".
 
 ## Defaults
 

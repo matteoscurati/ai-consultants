@@ -10,7 +10,7 @@ set -euo pipefail
 # CONFIGURATION
 # =============================================================================
 
-CACHE_DIR="${CACHE_DIR:-/tmp/ai_consultants_cache}"
+CACHE_DIR="${CACHE_DIR:-${_AI_CONSULTANTS_XDG_CACHE:-/tmp/ai_consultants}/cache}"
 CACHE_TTL_HOURS="${CACHE_TTL_HOURS:-24}"
 
 # =============================================================================

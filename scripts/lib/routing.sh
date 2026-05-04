@@ -6,8 +6,68 @@
 # =============================================================================
 # AFFINITY MATRIX
 # =============================================================================
-# Using case statements for bash 3.2 compatibility (no associative arrays)
-# Affinity scores: 10 = perfect match, 1 = poor match
+# The affinity matrix is loaded from references/affinity.json at first use
+# and cached for the life of the shell. To override at runtime, set:
+#   AFFINITY_FILE=/path/to/custom.json
+# Affinity scores: 10 = perfect match, 1 = poor match.
+# Prior to v2.11.0 this lived as nested case statements in this file; see
+# docs/SMART_ROUTING.md for the schema and customization guide.
+
+_ROUTING_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Single source of truth for user-config dir resolution: lib/user_config.sh.
+# Sourced defensively here so routing.sh works when imported standalone
+# (e.g. test_routing_parity.sh). Sourcing only defines functions — no side
+# effect — so repeat sources are harmless.
+if ! declare -f get_user_config_dir >/dev/null 2>&1; then
+    # shellcheck source=user_config.sh
+    source "$_ROUTING_LIB_DIR/user_config.sh"
+fi
+
+_AFFINITY_LOADED_FILE=""
+_AFFINITY_DATA=""
+# Per-key result cache: each entry is " CATEGORY|CONSULTANT=score" (leading
+# space delimiter). The cache string is initialized to a single space so that
+# the first key is bracketed by spaces too, preventing prefix collisions
+# (e.g. lookup of "DEBUG|Codex=" against cached "BUG_DEBUG|Codex=10" — the
+# space in front of every key kills the false-positive substring match).
+# Bash 3.2 has no associative arrays, so this string-based scheme is the
+# portable workaround. At ~135 entries x ~25 chars = ~3KB, memory is a
+# non-issue.
+_AFFINITY_RESULT_CACHE=" "
+
+# Resolve the affinity file path using the same search precedence as user
+# config (v2.12+): explicit AFFINITY_FILE > user config dir > bundled default.
+_resolve_affinity_path() {
+    if [[ -n "${AFFINITY_FILE:-}" ]]; then
+        echo "$AFFINITY_FILE"
+        return 0
+    fi
+    local user_dir
+    user_dir=$(get_user_config_dir)
+    if [[ -n "$user_dir" && -f "$user_dir/affinity.json" ]]; then
+        echo "$user_dir/affinity.json"
+        return 0
+    fi
+    echo "$_ROUTING_LIB_DIR/../../references/affinity.json"
+}
+
+# Load (and cache) the affinity JSON. Resets the result cache if the resolved
+# path changes (e.g. AFFINITY_FILE was set, or a file was added in the user
+# config dir).
+_load_affinity_data() {
+    local file
+    file=$(_resolve_affinity_path)
+    if [[ "$_AFFINITY_LOADED_FILE" != "$file" ]]; then
+        if [[ -r "$file" ]]; then
+            _AFFINITY_DATA=$(cat "$file")
+        else
+            _AFFINITY_DATA=""
+        fi
+        _AFFINITY_LOADED_FILE="$file"
+        _AFFINITY_RESULT_CACHE=" "
+    fi
+}
 
 # =============================================================================
 # SELECTION FUNCTIONS
@@ -15,190 +75,45 @@
 
 # Get affinity for a category-consultant combination
 # Usage: get_affinity <category> <consultant>
+# First call per (category, consultant) invokes jq; subsequent calls hit the
+# in-memory cache. ~14 calls per consultation, so ~13 cached after warm-up.
 get_affinity() {
     local category="$1"
     local consultant="$2"
 
-    case "$category" in
-        CODE_REVIEW)
-            case "$consultant" in
-                Gemini)   echo 7 ;;
-                Codex)    echo 10 ;;
-                Mistral)  echo 8 ;;
-                Kilo)     echo 9 ;;
-                Cursor)   echo 9 ;;
-                Aider)    echo 9 ;;
-                Amp)      echo 7 ;;
-                Kimi)     echo 7 ;;
-                Claude)   echo 8 ;;
-                Qwen3)    echo 8 ;;
-                GLM)      echo 8 ;;
-                Grok)     echo 7 ;;
-                DeepSeek) echo 10 ;;
-                MiniMax)  echo 8 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        BUG_DEBUG)
-            case "$consultant" in
-                Gemini)   echo 7 ;;
-                Codex)    echo 10 ;;
-                Mistral)  echo 9 ;;
-                Kilo)     echo 8 ;;
-                Cursor)   echo 9 ;;
-                Aider)    echo 9 ;;
-                Amp)      echo 8 ;;
-                Kimi)     echo 6 ;;
-                Claude)   echo 7 ;;
-                Qwen3)    echo 8 ;;
-                GLM)      echo 8 ;;
-                Grok)     echo 7 ;;
-                DeepSeek) echo 9 ;;
-                MiniMax)  echo 8 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        ARCHITECTURE)
-            case "$consultant" in
-                Gemini)   echo 10 ;;
-                Codex)    echo 6 ;;
-                Mistral)  echo 8 ;;
-                Kilo)     echo 9 ;;
-                Cursor)   echo 8 ;;
-                Aider)    echo 6 ;;
-                Amp)      echo 10 ;;
-                Kimi)     echo 9 ;;
-                Claude)   echo 9 ;;
-                Qwen3)    echo 7 ;;
-                GLM)      echo 7 ;;
-                Grok)     echo 9 ;;
-                DeepSeek) echo 7 ;;
-                MiniMax)  echo 7 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        ALGORITHM)
-            case "$consultant" in
-                Gemini)   echo 9 ;;
-                Codex)    echo 8 ;;
-                Mistral)  echo 7 ;;
-                Kilo)     echo 8 ;;
-                Cursor)   echo 7 ;;
-                Aider)    echo 7 ;;
-                Amp)      echo 7 ;;
-                Kimi)     echo 8 ;;
-                Claude)   echo 7 ;;
-                Qwen3)    echo 9 ;;
-                GLM)      echo 7 ;;
-                Grok)     echo 8 ;;
-                DeepSeek) echo 10 ;;
-                MiniMax)  echo 8 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        SECURITY)
-            case "$consultant" in
-                Gemini)   echo 9 ;;
-                Codex)    echo 9 ;;
-                Mistral)  echo 10 ;;
-                Kilo)     echo 8 ;;
-                Cursor)   echo 8 ;;
-                Aider)    echo 7 ;;
-                Amp)      echo 8 ;;
-                Kimi)     echo 7 ;;
-                Claude)   echo 8 ;;
-                Qwen3)    echo 7 ;;
-                GLM)      echo 8 ;;
-                Grok)     echo 8 ;;
-                DeepSeek) echo 8 ;;
-                MiniMax)  echo 7 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        QUICK_SYNTAX)
-            case "$consultant" in
-                Gemini)   echo 10 ;;
-                Codex)    echo 8 ;;
-                Mistral)  echo 5 ;;
-                Kilo)     echo 6 ;;
-                Cursor)   echo 7 ;;
-                Aider)    echo 8 ;;
-                Amp)      echo 5 ;;
-                Kimi)     echo 5 ;;
-                Claude)   echo 6 ;;
-                Qwen3)    echo 7 ;;
-                GLM)      echo 6 ;;
-                Grok)     echo 5 ;;
-                DeepSeek) echo 9 ;;
-                MiniMax)  echo 8 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        DATABASE)
-            case "$consultant" in
-                Gemini)   echo 8 ;;
-                Codex)    echo 9 ;;
-                Mistral)  echo 7 ;;
-                Kilo)     echo 7 ;;
-                Cursor)   echo 8 ;;
-                Aider)    echo 7 ;;
-                Amp)      echo 7 ;;
-                Kimi)     echo 7 ;;
-                Claude)   echo 7 ;;
-                Qwen3)    echo 9 ;;
-                GLM)      echo 7 ;;
-                Grok)     echo 6 ;;
-                DeepSeek) echo 9 ;;
-                MiniMax)  echo 8 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        API_DESIGN)
-            case "$consultant" in
-                Gemini)   echo 10 ;;
-                Codex)    echo 9 ;;
-                Mistral)  echo 7 ;;
-                Kilo)     echo 8 ;;
-                Cursor)   echo 9 ;;
-                Aider)    echo 7 ;;
-                Amp)      echo 9 ;;
-                Kimi)     echo 8 ;;
-                Claude)   echo 8 ;;
-                Qwen3)    echo 7 ;;
-                GLM)      echo 8 ;;
-                Grok)     echo 8 ;;
-                DeepSeek) echo 8 ;;
-                MiniMax)  echo 8 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        TESTING)
-            case "$consultant" in
-                Gemini)   echo 7 ;;
-                Codex)    echo 10 ;;
-                Mistral)  echo 9 ;;
-                Kilo)     echo 7 ;;
-                Cursor)   echo 9 ;;
-                Aider)    echo 9 ;;
-                Amp)      echo 8 ;;
-                Kimi)     echo 6 ;;
-                Claude)   echo 7 ;;
-                Qwen3)    echo 8 ;;
-                GLM)      echo 10 ;;
-                Grok)     echo 7 ;;
-                DeepSeek) echo 8 ;;
-                MiniMax)  echo 7 ;;
-                *)        echo 5 ;;
-            esac
-            ;;
-        *)
-            # GENERAL and unknown categories: all known consultants get score 8
-            case "$consultant" in
-                Gemini|Codex|Mistral|Kilo|Cursor|Aider|Amp|Kimi|Claude|Qwen3|GLM|Grok|DeepSeek|MiniMax) echo 8 ;;
-                *) echo 5 ;;
-            esac
+    _load_affinity_data
+
+    # Fast path: cache hit (key is bracketed by leading/trailing space to
+    # prevent substring collisions — see _AFFINITY_RESULT_CACHE comment).
+    local key=" ${category}|${consultant}="
+    case "$_AFFINITY_RESULT_CACHE" in
+        *"${key}"*)
+            local cached="${_AFFINITY_RESULT_CACHE#*"${key}"}"
+            echo "${cached%% *}"
+            return 0
             ;;
     esac
+
+    # If JSON missing or jq unavailable, fall back to a safe default.
+    if [[ -z "$_AFFINITY_DATA" ]] || ! command -v jq >/dev/null 2>&1; then
+        echo "${AFFINITY_DEFAULT:-5}"
+        return 0
+    fi
+
+    local score
+    score=$(jq -r --arg cat "$category" --arg c "$consultant" '
+        if (.known_consultants | index($c)) == null then
+            .default_score
+        elif (.categories[$cat] // null) == null then
+            .general_score
+        else
+            (.categories[$cat][$c] // .default_score)
+        end
+    ' <<<"$_AFFINITY_DATA" 2>/dev/null)
+
+    [[ -z "$score" || "$score" == "null" ]] && score="${AFFINITY_DEFAULT:-5}"
+    _AFFINITY_RESULT_CACHE+="${key#" "}${score} "  # strip leading space (already in cache)
+    echo "$score"
 }
 
 # Select the best consultants for a category
@@ -227,15 +142,15 @@ select_consultants() {
     local n=${#selected[@]}
     for ((i=0; i<n-1; i++)); do
         for ((j=0; j<n-i-1; j++)); do
-            if [[ ${scores[$j]} -lt ${scores[$((j+1))]} ]]; then
-                # Swap
-                local tmp="${selected[$j]}"
-                selected[$j]="${selected[$((j+1))]}"
-                selected[$((j+1))]="$tmp"
+            if [[ ${scores[j]} -lt ${scores[j+1]} ]]; then
+                # Swap (array indices are arithmetic context; no $/$(()) needed)
+                local tmp="${selected[j]}"
+                selected[j]="${selected[j+1]}"
+                selected[j+1]="$tmp"
 
-                tmp="${scores[$j]}"
-                scores[$j]="${scores[$((j+1))]}"
-                scores[$((j+1))]="$tmp"
+                tmp="${scores[j]}"
+                scores[j]="${scores[j+1]}"
+                scores[j+1]="$tmp"
             fi
         done
     done

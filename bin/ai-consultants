@@ -29,7 +29,16 @@ ensure_permissions() {
 ensure_permissions
 
 # --- Version ---
-VERSION="2.10.0"
+# Single source of truth: scripts/config.sh AI_CONSULTANTS_VERSION.
+# We grep instead of sourcing to avoid pulling in the full config (cost).
+# The sed pipeline succeeds even when its regex doesn't match (it returns
+# the input verbatim), so we explicitly validate the result is semver — else
+# the help banner would print garbage like "vAI_CONSULTANTS_VERSION=2.12.0".
+VERSION=$(grep -E '^AI_CONSULTANTS_VERSION=' "$SCRIPTS_DIR/config.sh" 2>/dev/null \
+    | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    VERSION="unknown"
+fi
 
 # --- Subcommand routing ---
 case "${1:-}" in
@@ -46,6 +55,7 @@ Usage:
   ai-consultants --preset <name> "question"   Use a configuration preset
   ai-consultants --strategy <name> "question" Use a synthesis strategy
   ai-consultants doctor [--fix] [--json]      Run diagnostics
+  ai-consultants init [--force]               Scaffold ~/.config/ai-consultants/{config.sh,.env}
   ai-consultants install                      Install slash commands to ~/.claude/commands/
   ai-consultants version                      Show version
   ai-consultants help                         Show this help
@@ -67,6 +77,94 @@ EOF
   doctor)
     shift
     exec "$SCRIPTS_DIR/doctor.sh" "$@"
+    ;;
+  init)
+    shift
+    FORCE=false
+    for arg in "$@"; do
+      [ "$arg" = "--force" ] && FORCE=true
+    done
+
+    # Reuse the canonical resolution from lib/user_config.sh.
+    # shellcheck source=../scripts/lib/user_config.sh
+    source "$SCRIPTS_DIR/lib/user_config.sh"
+    USER_DIR=$(get_user_config_dir)
+    if [ -z "$USER_DIR" ]; then
+      echo "Error: cannot resolve user config dir (HOME and XDG_CONFIG_HOME both unset)" >&2
+      echo "       export AI_CONSULTANTS_CONFIG_DIR=/path/to/your/config to override" >&2
+      exit 1
+    fi
+
+    # Refuse to write through a symlinked dir — protects against root running
+    # init when ~/.config/ai-consultants is a symlink to a sensitive path.
+    if [ -L "$USER_DIR" ]; then
+      echo "Error: $USER_DIR is a symlink. Refusing to scaffold into it." >&2
+      echo "       Remove the symlink, or point AI_CONSULTANTS_CONFIG_DIR elsewhere." >&2
+      exit 1
+    fi
+
+    # Pre-flight a write check so the user gets a friendly error instead of a
+    # mid-scaffold mkdir/cp failure.
+    parent="$(dirname "$USER_DIR")"
+    if [ ! -w "$parent" ] && [ ! -d "$USER_DIR" ]; then
+      echo "Error: cannot write to $parent" >&2
+      echo "       export AI_CONSULTANTS_CONFIG_DIR=/path/you/can/write to override" >&2
+      exit 1
+    fi
+
+    mkdir -p "$USER_DIR"
+    echo "User config dir: $USER_DIR"
+
+    # .env: copy from .env.example if present
+    DEST_ENV="$USER_DIR/.env"
+    SRC_ENV="$PROJECT_ROOT/.env.example"
+    if [ -f "$DEST_ENV" ] && [ "$FORCE" != true ]; then
+      echo "  ○ .env already exists (use --force to overwrite)"
+    elif [ -f "$SRC_ENV" ]; then
+      cp "$SRC_ENV" "$DEST_ENV"
+      chmod 600 "$DEST_ENV"
+      echo "  ✓ .env created from .env.example (chmod 600 — contains API keys)"
+    else
+      cat > "$DEST_ENV" <<'EOF'
+# AI Consultants user environment
+# KEY=value lines. Existing env vars take precedence.
+# Uncomment what you want to override.
+
+# ENABLE_DEBATE=true
+# DEFAULT_PRESET=balanced
+# DEFAULT_STRATEGY=majority
+# MAX_SESSION_COST=2.00
+# ENABLE_BUDGET_LIMIT=true
+EOF
+      chmod 600 "$DEST_ENV"
+      echo "  ✓ .env created (minimal template)"
+    fi
+
+    # config.sh: minimal sourceable bash starter
+    DEST_CFG="$USER_DIR/config.sh"
+    if [ -f "$DEST_CFG" ] && [ "$FORCE" != true ]; then
+      echo "  ○ config.sh already exists (use --force to overwrite)"
+    else
+      cat > "$DEST_CFG" <<'EOF'
+#!/bin/bash
+# ~/.config/ai-consultants/config.sh
+# Sourced after .env, before scripts/config.sh defaults are applied.
+# Use full bash logic. To defer to env vars, use ${VAR:-value}.
+#
+# Examples:
+# export DEFAULT_PRESET="${DEFAULT_PRESET:-balanced}"
+# export ENABLE_DEBATE="${ENABLE_DEBATE:-true}"
+# export AFFINITY_FILE="${AFFINITY_FILE:-$HOME/.config/ai-consultants/affinity.json}"
+EOF
+      echo "  ✓ config.sh created (minimal template)"
+    fi
+
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit $DEST_ENV to set API keys and overrides"
+    echo "  2. Run: ai-consultants doctor          # verify config is loaded"
+    echo "  3. Run: ai-consultants \"your question\"  # use the new defaults"
+    exit 0
     ;;
   install)
     COMMANDS_SRC="$PROJECT_ROOT/.claude/commands"

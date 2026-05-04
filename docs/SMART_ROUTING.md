@@ -1,4 +1,4 @@
-# Smart Routing - AI Consultants v2.10
+# Smart Routing - AI Consultants v2.11
 
 The Smart Routing system automatically selects the most suitable consultants based on the question category.
 
@@ -17,26 +17,73 @@ MIN_AFFINITY=7
 
 ## Affinity Matrix
 
-Consultant-category affinity scores (scale 1-10):
+Consultant-category affinity scores (scale 1-10) live in
+[`references/affinity.json`](../references/affinity.json) — the single source
+of truth at runtime. Prior to v2.11.0 the matrix was hard-coded as nested
+case statements in `scripts/lib/routing.sh`; it was extracted to JSON to make
+customization possible without editing bash.
 
-| Category | Gemini | Codex | Mistral | Kilo | Cursor | Aider | Amp | Kimi | Claude | Qwen3 | GLM | Grok | DeepSeek | MiniMax | Ollama |
-|----------|--------|-------|---------|------|--------|-------|-----|------|--------|-------|-----|------|----------|---------|--------|
-| **CODE_REVIEW** | 7 | **10** | 8 | 9 | 8 | 9 | 7 | 7 | 8 | 7 | 7 | 6 | 8 | 6 | 6 |
-| **BUG_DEBUG** | 7 | **10** | 9 | 8 | 8 | 9 | 7 | 6 | 7 | 7 | 6 | 6 | 8 | 5 | 6 |
-| **ARCHITECTURE** | **10** | 6 | 8 | 9 | 7 | 6 | **10** | 8 | 9 | 7 | 7 | 7 | 6 | 6 | 5 |
-| **ALGORITHM** | 9 | 8 | 7 | 8 | 7 | 7 | 7 | 6 | 8 | 8 | 8 | 7 | **10** | 6 | 6 |
-| **SECURITY** | 9 | 9 | **10** | 8 | 8 | 7 | 8 | 5 | 9 | 7 | 7 | 8 | 7 | 5 | 5 |
-| **QUICK_SYNTAX** | **10** | 8 | 5 | 6 | 7 | 7 | 5 | 5 | 7 | 7 | 6 | 5 | 7 | 5 | 6 |
-| **DATABASE** | 8 | 9 | 7 | 7 | 7 | 7 | 7 | 6 | 7 | 8 | 7 | 6 | 8 | 5 | 5 |
-| **API_DESIGN** | **10** | 9 | 7 | 8 | 8 | 6 | 9 | 6 | 8 | 7 | 7 | 7 | 6 | 6 | 5 |
-| **TESTING** | 7 | **10** | 9 | 7 | 8 | 9 | 7 | 5 | 7 | 7 | 7 | 6 | 7 | 6 | 5 |
-| **GENERAL** | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 7 | 9 | 8 | 7 | 8 | 8 | 6 | 7 |
+**Highlights from the default matrix:**
+
+| Category | Best match | Why |
+|----------|-----------|-----|
+| CODE_REVIEW | Codex (10), DeepSeek (10) | Code-specialist personas |
+| BUG_DEBUG | Codex (10) | Pragmatic debugger |
+| ARCHITECTURE | Gemini (10), Amp (10) | Big-picture design |
+| ALGORITHM | DeepSeek (10) | Algorithm specialist |
+| SECURITY | Mistral (10) | Devil's Advocate persona |
+| QUICK_SYNTAX | Gemini (10) | Fast turnaround |
+| API_DESIGN | Gemini (10) | API/system design |
+| TESTING | Codex (10), GLM (10) | Test generation |
 
 **Legend:**
 - **10**: Perfect match
 - 7-9: Good match
 - 5-6: Medium match
 - 1-4: Poor match
+
+### Schema
+
+```json
+{
+  "version": "1.0",
+  "default_score": 5,
+  "general_score": 8,
+  "known_consultants": ["Gemini", "Codex", "..."],
+  "categories": {
+    "CODE_REVIEW": { "Gemini": 7, "Codex": 10, "..." },
+    "BUG_DEBUG":   { "..." }
+  }
+}
+```
+
+Lookup logic in `get_affinity(category, consultant)`:
+
+1. If `consultant` is not in `known_consultants` → `default_score`
+2. Else if `category` is not in `categories` (e.g. `GENERAL` or unrecognized) → `general_score`
+3. Else → `categories[category][consultant]`, falling back to `default_score` if missing
+
+### Custom Matrix Override
+
+Override the matrix at runtime by pointing `AFFINITY_FILE` at a custom JSON
+file with the same schema:
+
+```bash
+AFFINITY_FILE=~/my-affinity.json ./scripts/consult_all.sh "your question"
+```
+
+This is useful for:
+- Tweaking scores for a specific project (e.g., favoring DeepSeek for
+  algorithm-heavy codebases)
+- Disabling consultants for a category by setting their score below
+  `MIN_AFFINITY`
+- Experimenting with new categories before upstreaming them
+
+`./scripts/doctor.sh` validates the JSON schema and reports coverage gaps
+(consultants missing from a category).
+
+The matrix is loaded once per shell and cached in memory — no jq overhead
+on subsequent calls.
 
 ## Routing Modes
 

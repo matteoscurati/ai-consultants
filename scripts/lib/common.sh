@@ -4,6 +4,7 @@
 
 # Guard against double-sourcing
 if [[ -n "${_COMMON_SH_SOURCED:-}" ]]; then
+    # shellcheck disable=SC2317  # exit 0 is the script-mode fallback for sourced double-load guard
     return 0 2>/dev/null || exit 0
 fi
 _COMMON_SH_SOURCED=1
@@ -62,8 +63,9 @@ apply_launch_stagger() {
     local max="${LAUNCH_STAGGER_MAX_SECONDS:-0}"
     if [[ "$max" -gt 0 ]] 2>/dev/null; then
         local delay_ms=$(( RANDOM % (max * 1000) ))
+        # Pure-bash second.millisecond formatting (avoids 14× awk forks per consultation).
         local delay_s
-        delay_s=$(awk "BEGIN {printf \"%.2f\", $delay_ms / 1000}")
+        delay_s=$(printf '%d.%03d' "$((delay_ms / 1000))" "$((delay_ms % 1000))")
         log_debug "Stagger delay: ${delay_s}s"
         sleep "$delay_s"
     fi
@@ -197,7 +199,7 @@ run_query() {
             [[ -n "$error_msg" ]] && log_debug "Details: $error_msg"
         fi
 
-        ((attempt++))
+        ((attempt++)) || true
         if (( attempt <= MAX_RETRIES )); then
             log_info "Waiting ${RETRY_DELAY_SECONDS}s before next attempt..."
             sleep "$RETRY_DELAY_SECONDS"
@@ -411,7 +413,7 @@ get_self_consultant_name() {
         amp|amp_code|ampcode)           echo "AMP" ;;
         kimi|kimi_code|kimicode)        echo "KIMI" ;;
         qwen|qwen3|qwen_code|qwencode)  echo "QWEN3" ;;
-        cursor|aider)                   echo "$(to_upper "$invoking")" ;;
+        cursor|aider)                   to_upper "$invoking" ;;
         *)                              echo "" ;;
     esac
 }
@@ -705,7 +707,7 @@ should_trigger_panic() {
             local confidence
             confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
             total_confidence=$((total_confidence + confidence))
-            ((response_count++))
+            ((response_count++)) || true
 
             # Check for uncertainty keywords in summary/detailed response
             local keywords="${PANIC_KEYWORDS:-uncertain|maybe|not sure|possibly}"
@@ -753,7 +755,7 @@ get_panic_diagnosis() {
             confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
             consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             total_confidence=$((total_confidence + confidence))
-            ((response_count++))
+            ((response_count++)) || true
 
             # Check for keywords
             local keywords="${PANIC_KEYWORDS:-uncertain|maybe|not sure|possibly}"

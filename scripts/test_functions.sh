@@ -202,9 +202,9 @@ run_tests() {
     # Run all test functions
     for test_func in $(declare -F | grep '^declare -f test_' | cut -d' ' -f3 | sort); do
         if $test_func; then
-            ((passed++))
+            ((passed++)) || true
         else
-            ((failed++))
+            ((failed++)) || true
         fi
     done
     

@@ -78,7 +78,7 @@ create_mapping() {
                 --arg file "$(basename "$f")" \
                 '. + {($anon): {consultant: $real, file: $file}}')
 
-            ((index++))
+            ((index++)) || true
         fi
     done
 
@@ -171,6 +171,7 @@ extract_json_from_response() {
 
     # Try to extract from markdown code block
     local extracted
+    # shellcheck disable=SC2016  # literal sed pattern, no shell expansion intended
     extracted=$(echo "$input" | sed -n '/```json/,/```/p' | sed '1d;$d')
     if [[ -n "$extracted" ]] && echo "$extracted" | jq -e '.' > /dev/null 2>&1; then
         echo "$extracted"
@@ -301,7 +302,7 @@ main() {
     local response_count=0
     for f in "$responses_dir"/*.json; do
         if [[ -f "$f" && -s "$f" && "$(basename "$f")" != "voting.json" && "$(basename "$f")" != "synthesis.json" ]]; then
-            ((response_count++))
+            ((response_count++)) || true
         fi
     done
 
@@ -351,7 +352,7 @@ main() {
 **Summary**: $summary
 ---
 "
-            ((index++))
+            ((index++)) || true
         fi
     done
 
@@ -402,7 +403,7 @@ main() {
 
                 if echo "$extracted" | jq -e '.reviews' > /dev/null 2>&1; then
                     log_success "  $reviewer: review completed"
-                    ((success_count++))
+                    ((success_count++)) || true
                 else
                     log_warn "  $reviewer: invalid review format"
                 fi

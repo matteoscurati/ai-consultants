@@ -9,7 +9,7 @@
 # =============================================================================
 
 # Directory for session files
-SESSION_DIR="${SESSION_DIR:-/tmp/ai_consultants_sessions}"
+SESSION_DIR="${SESSION_DIR:-${_AI_CONSULTANTS_XDG_STATE:-/tmp/ai_consultants}/sessions}"
 SESSION_FILE="${SESSION_DIR}/current_session.json"
 SESSION_HISTORY_FILE="${SESSION_DIR}/history.json"
 
@@ -281,9 +281,10 @@ clear_current_session() {
 cleanup_old_sessions() {
     local days="${1:-7}"
 
-    # Clean up old output files
+    # Clean up old output files (XDG-aware in v2.13; falls back to legacy /tmp)
     # Note: $days must be quoted to prevent injection via specially crafted days value
-    find /tmp/ai_consultations -type d -mtime +"$days" -exec rm -rf {} \; 2>/dev/null || true
+    local _output_root="${DEFAULT_OUTPUT_DIR_BASE:-/tmp/ai_consultations}"
+    find "$_output_root" -type d -mtime +"$days" -exec rm -rf {} \; 2>/dev/null || true
 
     # Remove old sessions from history
     init_history

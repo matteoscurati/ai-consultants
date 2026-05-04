@@ -344,8 +344,8 @@ estimate_consultation_cost() {
 # COST TRACKING
 # =============================================================================
 
-# File for cumulative tracking
-COST_TRACKING_FILE="${COST_TRACKING_FILE:-/tmp/ai_consultants_costs.json}"
+# File for cumulative tracking (XDG-aware fallback added in v2.13)
+COST_TRACKING_FILE="${COST_TRACKING_FILE:-${_AI_CONSULTANTS_XDG_DATA:-/tmp/ai_consultants}/costs.json}"
 
 # Record session cost
 # Usage: track_session_cost <session_id> <cost>

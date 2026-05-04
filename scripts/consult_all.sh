@@ -214,15 +214,22 @@ echo "║         AI Consultants v${AI_CONSULTANTS_VERSION} - Expert Panel      
 echo "╚══════════════════════════════════════════════════════════════╝" >&2
 echo "" >&2
 
-# --- Pre-flight Check (optional) ---
+# --- Pre-flight Check (optional, delegates to doctor.sh since v2.10.9) ---
 if [[ "$ENABLE_PREFLIGHT" == "true" ]]; then
-    log_info "Running pre-flight check..."
+    log_info "Running pre-flight check (via doctor.sh)..."
     preflight_args=()
     [[ "$PREFLIGHT_QUICK" == "true" ]] && preflight_args+=("--quick")
-    if ! "$SCRIPT_DIR/preflight_check.sh" ${preflight_args[@]+"${preflight_args[@]}"} > /dev/null 2>&1; then
-        log_error "Pre-flight check failed. Run ./preflight_check.sh for details."
+    # Capture output to a tmpfile so a failed check shows the actual problem
+    # rather than the silent "Pre-flight check failed" of pre-v2.10.10.
+    preflight_log=$(mktemp -t ai_consultants_preflight.XXXXXX.log)
+    if ! "$SCRIPT_DIR/doctor.sh" ${preflight_args[@]+"${preflight_args[@]}"} > "$preflight_log" 2>&1; then
+        log_error "Pre-flight check failed:"
+        cat "$preflight_log" >&2
+        rm -f "$preflight_log"
+        log_error "Re-run ./scripts/doctor.sh for full diagnostic."
         exit 1
     fi
+    rm -f "$preflight_log"
     log_success "Pre-flight check passed"
     echo "" >&2
 fi
@@ -395,7 +402,7 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
         if [[ "${ENABLE_COST_AWARE_ROUTING:-false}" == "true" ]] && type get_cost_aware_model &>/dev/null; then
             local_model=$(get_cost_aware_model "$consultant_lower" "${QUERY_COMPLEXITY:-5}" 2>/dev/null || echo "")
             if [[ -n "$local_model" ]]; then
-                model_var="$(echo "${consultant_lower}" | tr '[:lower:]' '[:upper:]')_MODEL"
+                model_var="$(to_upper "${consultant_lower}")_MODEL"
                 if [[ ! "$model_var" =~ ^[A-Z0-9_]+_MODEL$ ]]; then
                     log_warn "Invalid model variable name: $model_var, skipping cost-aware override"
                     continue
@@ -515,7 +522,7 @@ if is_escalation_enabled && [[ $SUCCESS_COUNT -gt 0 ]]; then
                 query_script="$SCRIPT_DIR/query_${consultant_lower}.sh"
                 if [[ -x "$query_script" ]]; then
                     escalation_file="$OUTPUT_DIR/${consultant_lower}_escalated.json"
-                    model_var="$(echo "${consultant_lower}" | tr '[:lower:]' '[:upper:]')_MODEL"
+                    model_var="$(to_upper "${consultant_lower}")_MODEL"
                     if [[ ! "$model_var" =~ ^[A-Z0-9_]+_MODEL$ ]]; then
                         log_warn "Invalid model variable name: $model_var, skipping escalation for $consultant"
                         continue

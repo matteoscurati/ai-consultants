@@ -106,9 +106,11 @@ _reset_symbol_counters() {
 # Load current counter values
 _load_symbol_counters() {
     if [[ -f "$_SYM_COUNTER_FILE" ]]; then
+        # shellcheck disable=SC1090  # path is a runtime-built counter file, not a static dep
         source "$_SYM_COUNTER_FILE"
     else
         _init_symbol_counters
+        # shellcheck disable=SC1090  # path is a runtime-built counter file, not a static dep
         source "$_SYM_COUNTER_FILE"
     fi
 }

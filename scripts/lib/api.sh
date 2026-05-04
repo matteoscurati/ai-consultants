@@ -442,7 +442,7 @@ run_api_query() {
         # Handle curl-level errors
         if [[ $curl_exit -eq 28 ]]; then
             log_warn "[$consultant_name] Timeout after ${timeout_seconds}s"
-            ((attempt++))
+            ((attempt++)) || true
             if (( attempt <= MAX_RETRIES )); then
                 local backoff=$(calculate_backoff "$attempt")
                 log_info "[$consultant_name] Waiting ${backoff}s before retry..."
@@ -455,7 +455,7 @@ run_api_query() {
             [[ -f "$error_file" ]] && error_msg=$(head -3 "$error_file" 2>/dev/null)
             # Sanitize error message to avoid leaking sensitive data
             [[ -n "$error_msg" ]] && log_debug "[$consultant_name] Error: $(sanitize_error_message "$error_msg")"
-            ((attempt++))
+            ((attempt++)) || true
             if (( attempt <= MAX_RETRIES )); then
                 sleep "$RETRY_DELAY_SECONDS"
             fi
@@ -494,14 +494,14 @@ run_api_query() {
                     backoff=$(calculate_backoff "$attempt")
                     log_warn "[$consultant_name] Rate limited (HTTP 429), backing off ${backoff}s"
                 fi
-                ((attempt++))
+                ((attempt++)) || true
                 if (( attempt <= MAX_RETRIES )); then
                     sleep "$backoff"
                 fi
                 ;;
             server)
                 log_warn "[$consultant_name] Server error (HTTP $http_code)"
-                ((attempt++))
+                ((attempt++)) || true
                 if (( attempt <= MAX_RETRIES )); then
                     local backoff=$(calculate_backoff "$attempt")
                     log_info "[$consultant_name] Waiting ${backoff}s before retry..."
@@ -520,7 +520,7 @@ run_api_query() {
                 ;;
             *)
                 log_warn "[$consultant_name] Unexpected response (HTTP $http_code)"
-                ((attempt++))
+                ((attempt++)) || true
                 if (( attempt <= MAX_RETRIES )); then
                     sleep "$RETRY_DELAY_SECONDS"
                 fi
@@ -558,7 +558,7 @@ API_MAX_BACKOFF="${API_MAX_BACKOFF:-60}"
 API_RATE_LIMIT="${API_RATE_LIMIT:-30}"
 
 # Rate limit state file (per consultant)
-RATE_LIMIT_DIR="${RATE_LIMIT_DIR:-/tmp/ai_consultants_ratelimit}"
+RATE_LIMIT_DIR="${RATE_LIMIT_DIR:-${_AI_CONSULTANTS_XDG_CACHE:-/tmp/ai_consultants}/ratelimit}"
 
 # Initialize rate limit directory
 _init_rate_limit_dir() {

@@ -20,6 +20,7 @@ set -euo pipefail
 
 # Cleanup trap for temp files
 TEMP_OUTPUT=""
+# shellcheck disable=SC2329  # invoked indirectly via trap below
 cleanup() {
     [[ -n "$TEMP_OUTPUT" && -f "$TEMP_OUTPUT" ]] && rm -f "$TEMP_OUTPUT"
 }

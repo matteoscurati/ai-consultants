@@ -8,12 +8,17 @@
 # - Validates configuration
 # - Suggests specific commands to fix issues
 #
-# Usage: ./doctor.sh [--fix] [--json] [--verbose]
+# Usage: ./doctor.sh [--fix] [--json] [--verbose] [--quick] [--suggest-config]
+#                    [--suggest-preset --question "..."]
 #
 # Options:
-#   --fix       Attempt to auto-fix common issues
-#   --json      Output in JSON format
-#   --verbose   Show detailed diagnostic information
+#   --fix              Attempt to auto-fix common issues
+#   --json             Output in JSON format
+#   --verbose          Show detailed diagnostic information
+#   --quick            Skip optional connectivity tests (accepted for compat)
+#   --suggest-config   Print recommended ENABLE_* configuration based on detected CLIs
+#   --suggest-preset   Recommend preset + strategy for a question (use --question)
+#   --question "..."   Question text used by --suggest-preset (otherwise GENERAL)
 
 set -euo pipefail
 
@@ -24,6 +29,10 @@ source "$SCRIPT_DIR/lib/common.sh"
 FIX_MODE=false
 JSON_OUTPUT=false
 VERBOSE=false
+QUICK_MODE=false
+SUGGEST_CONFIG=false
+SUGGEST_PRESET=false
+QUESTION=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -39,15 +48,36 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
+        --quick)
+            QUICK_MODE=true
+            shift
+            ;;
+        --suggest-config)
+            SUGGEST_CONFIG=true
+            shift
+            ;;
+        --suggest-preset)
+            SUGGEST_PRESET=true
+            shift
+            ;;
+        --question)
+            QUESTION="${2:-}"
+            shift 2
+            ;;
         --help|-h)
-            echo "Usage: $0 [--fix] [--json] [--verbose]"
+            echo "Usage: $0 [--fix] [--json] [--verbose] [--quick] [--suggest-config]"
+            echo "       $0 --suggest-preset [--question \"...\"]"
             echo ""
             echo "Comprehensive diagnostic for AI Consultants"
             echo ""
             echo "Options:"
-            echo "  --fix       Attempt to auto-fix common issues"
-            echo "  --json      Output in JSON format"
-            echo "  --verbose   Show detailed diagnostic information"
+            echo "  --fix              Attempt to auto-fix common issues"
+            echo "  --json             Output in JSON format"
+            echo "  --verbose          Show detailed diagnostic information"
+            echo "  --quick            Skip optional connectivity tests (accepted for compat)"
+            echo "  --suggest-config   Print recommended ENABLE_* configuration"
+            echo "  --suggest-preset   Recommend preset + strategy for a question"
+            echo "  --question \"...\"   Question text for --suggest-preset"
             exit 0
             ;;
         *)
@@ -346,7 +376,7 @@ check_configuration() {
     local enabled_count=0
     local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KILO ENABLE_CURSOR ENABLE_AIDER ENABLE_AMP ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX ENABLE_OLLAMA"
     for flag in $consultant_flags; do
-        [[ "${!flag:-false}" == "true" ]] && ((enabled_count++))
+        [[ "${!flag:-false}" == "true" ]] && { ((enabled_count++)) || true; }
     done
 
     if [[ $enabled_count -ge 2 ]]; then
@@ -402,6 +432,113 @@ check_configuration() {
 # =============================================================================
 # CHECK: Synthesis Engine
 # =============================================================================
+
+check_user_config() {
+    print_section "Checking User Config (v2.12)"
+
+    # Resolve user config dir via the canonical helper (lib/user_config.sh).
+    # Available transitively: doctor sources common.sh -> config.sh -> user_config.sh.
+    local user_dir
+    user_dir=$(get_user_config_dir)
+    if [[ -z "$user_dir" ]]; then
+        _print "  ○ User config dir: HOME and XDG_CONFIG_HOME both unset (running in container?)"
+        return 0
+    fi
+
+    if [[ ! -d "$user_dir" ]]; then
+        _print "  ○ User config dir: not present ($user_dir)"
+        _print "       Create with: ai-consultants init"
+        return 0
+    fi
+    _print "  ✓ User config dir: $user_dir"
+    check_pass
+
+    local files=()
+    [[ -f "$user_dir/.env" ]] && files+=(".env")
+    [[ -f "$user_dir/config.sh" ]] && files+=("config.sh")
+    [[ -f "$user_dir/affinity.json" ]] && files+=("affinity.json")
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        _print "  ○ User config files: none (dir exists but is empty)"
+    else
+        _print "  ✓ User config files: ${files[*]}"
+        check_pass
+    fi
+
+    # Warn if .env has lax permissions (likely contains API keys)
+    if [[ -f "$user_dir/.env" ]]; then
+        local perms
+        perms=$(stat -f '%Lp' "$user_dir/.env" 2>/dev/null || stat -c '%a' "$user_dir/.env" 2>/dev/null || echo "")
+        if [[ -n "$perms" ]] && [[ "$perms" != "600" ]] && [[ "$perms" != "400" ]]; then
+            _print "  △ .env permissions are $perms (recommended: 600)"
+            add_warning "user_config" ".env has loose permissions ($perms); contains API keys, run: chmod 600 $user_dir/.env"
+        fi
+    fi
+}
+
+check_routing() {
+    print_section "Checking Routing Affinity Matrix (v2.11)"
+
+    local affinity_file="${AFFINITY_FILE:-$SCRIPT_DIR/../references/affinity.json}"
+
+    if [[ ! -f "$affinity_file" ]]; then
+        _print "  ✗ Affinity file: missing ($affinity_file)"
+        add_issue "routing" "References file not found: $affinity_file" "Reinstall or restore from git"
+        check_fail
+        return 1
+    fi
+
+    if ! jq empty "$affinity_file" 2>/dev/null; then
+        _print "  ✗ Affinity file: invalid JSON"
+        add_issue "routing" "Invalid JSON in $affinity_file" "Validate with: jq . $affinity_file"
+        check_fail
+        return 1
+    fi
+    _print "  ✓ Affinity file: $affinity_file"
+    check_pass
+
+    # Schema sanity: required top-level keys
+    local missing_keys
+    missing_keys=$(jq -r '
+        ["default_score","general_score","known_consultants","categories"]
+        - (keys | map(select(. != "_comment" and . != "version")))
+        | join(",")
+    ' "$affinity_file" 2>/dev/null)
+    if [[ -n "$missing_keys" ]]; then
+        _print "  ✗ Affinity schema: missing keys ($missing_keys)"
+        add_issue "routing" "Affinity JSON is missing required keys: $missing_keys" "See docs/SMART_ROUTING.md"
+        check_fail
+    else
+        _print "  ✓ Affinity schema: valid (default_score, general_score, known_consultants, categories)"
+        check_pass
+    fi
+
+    # Coverage: every known consultant should appear in every category
+    local coverage_gaps
+    coverage_gaps=$(jq -r '
+        .known_consultants as $known
+        | .categories
+        | to_entries
+        | map(
+            . as $cat
+            | $known - ($cat.value | keys)
+            | select(length > 0)
+            | "\($cat.key): \(. | join(","))"
+          )
+        | join("; ")
+    ' "$affinity_file" 2>/dev/null)
+    if [[ -n "$coverage_gaps" ]]; then
+        _print "  △ Affinity coverage: gaps detected"
+        _print "       $coverage_gaps"
+        add_warning "routing" "Affinity matrix has consultants missing per category: $coverage_gaps"
+    else
+        local cat_count consultant_count
+        cat_count=$(jq -r '.categories | length' "$affinity_file")
+        consultant_count=$(jq -r '.known_consultants | length' "$affinity_file")
+        _print "  ✓ Affinity coverage: $consultant_count consultants x $cat_count categories"
+        check_pass
+    fi
+}
 
 check_synthesis() {
     print_section "Checking Synthesis Engine"
@@ -616,16 +753,328 @@ attempt_fixes() {
 }
 
 # =============================================================================
+# SUGGEST CONFIGURATION
+# =============================================================================
+# Prints a recommended ENABLE_* configuration based on which CLI consultants
+# are detected on the system. Supersedes preflight_check.sh --suggest-config.
+
+suggest_configuration() {
+    # Map of consultant flag -> CLI command (from config.sh defaults)
+    local consultant_clis=(
+        "ENABLE_GEMINI:${GEMINI_CMD:-gemini}"
+        "ENABLE_CODEX:${CODEX_CMD:-codex}"
+        "ENABLE_MISTRAL:${MISTRAL_CMD:-vibe}"
+        "ENABLE_KILO:${KILO_CMD:-kilocode}"
+        "ENABLE_CURSOR:${CURSOR_CMD:-agent}"
+        "ENABLE_AIDER:${AIDER_CMD:-aider}"
+        "ENABLE_AMP:${AMP_CMD:-amp}"
+        "ENABLE_KIMI:${KIMI_CMD:-kimi}"
+        "ENABLE_CLAUDE:${CLAUDE_CMD:-claude}"
+        "ENABLE_QWEN3:${QWEN3_CMD:-qwen}"
+        "ENABLE_OLLAMA:ollama"
+    )
+
+    local available_count=0
+    local lines=()
+    for entry in "${consultant_clis[@]}"; do
+        local flag="${entry%%:*}"
+        local cmd="${entry##*:}"
+        if command -v "$cmd" >/dev/null 2>&1; then
+            lines+=("${flag}=true")
+            ((available_count++)) || true
+        else
+            lines+=("${flag}=false")
+        fi
+    done
+
+    # API-only consultants: enable if API key is set
+    local api_consultants=(
+        "ENABLE_GLM:GLM_API_KEY"
+        "ENABLE_GROK:GROK_API_KEY"
+        "ENABLE_DEEPSEEK:DEEPSEEK_API_KEY"
+        "ENABLE_MINIMAX:MINIMAX_API_KEY"
+    )
+    for entry in "${api_consultants[@]}"; do
+        local flag="${entry%%:*}"
+        local key_var="${entry##*:}"
+        if [[ -n "${!key_var:-}" ]]; then
+            lines+=("${flag}=true")
+            ((available_count++)) || true
+        else
+            lines+=("${flag}=false")
+        fi
+    done
+
+    echo "# Recommended configuration based on detected CLIs and API keys"
+    echo "# Generated by: ./scripts/doctor.sh --suggest-config"
+    echo "# Available consultants: ${available_count}/${#consultant_clis[@]} CLI + API"
+    echo ""
+    printf '%s\n' "${lines[@]}"
+
+    if (( available_count < 2 )); then
+        echo ""
+        echo "# WARNING: Less than 2 consultants available."
+        echo "# AI Consultants requires at least 2 to deliberate."
+        echo "# Install more CLIs or run ./scripts/setup_wizard.sh"
+    fi
+}
+
+# =============================================================================
+# SUGGEST PRESET (v2.13)
+# =============================================================================
+# Recommends a preset + strategy for a question, based on:
+#   1. Question category (via classify_question.sh, defaults to GENERAL)
+#   2. Number of available consultants (CLI presence + API key presence)
+# Output is a one-liner ai-consultants command + reasoning.
+
+# Count consultants that would actually participate in a consultation:
+# - CLI is installed AND ENABLE_<NAME> == "true" (default from config.sh applies)
+# - API key is set AND ENABLE_<NAME> == "true"
+# - Subtract 1 if INVOKING_AGENT maps to one of the counted consultants
+#   (self-exclusion at consult_all.sh runtime).
+#
+# IMPORTANT: get_self_consultant_name() returns UPPERCASE ("CLAUDE", "GEMINI"),
+# so we compare against the UPPERCASE form of the entry name. v2.13.0 had a
+# case-mismatch bug here that made self-exclusion a no-op.
+_count_available_consultants() {
+    local count=0
+    local invoker_consultant=""
+    if declare -f get_self_consultant_name >/dev/null 2>&1; then
+        invoker_consultant=$(get_self_consultant_name 2>/dev/null || echo "")
+    fi
+
+    # name_upper | flag | command (uppercase pre-baked to match
+    # get_self_consultant_name's output, so no per-iteration to_upper subshell).
+    # ENABLE_<NAME> defaults are owned by config.sh — we deliberately do NOT
+    # duplicate them here to avoid the drift trap (e.g. config.sh sets
+    # ENABLE_AIDER=false, contradicting any local "default true" claim).
+    local entries=(
+        "GEMINI|ENABLE_GEMINI|${GEMINI_CMD:-gemini}"
+        "CODEX|ENABLE_CODEX|${CODEX_CMD:-codex}"
+        "MISTRAL|ENABLE_MISTRAL|${MISTRAL_CMD:-vibe}"
+        "KILO|ENABLE_KILO|${KILO_CMD:-kilocode}"
+        "CURSOR|ENABLE_CURSOR|${CURSOR_CMD:-agent}"
+        "AIDER|ENABLE_AIDER|${AIDER_CMD:-aider}"
+        "AMP|ENABLE_AMP|${AMP_CMD:-amp}"
+        "KIMI|ENABLE_KIMI|${KIMI_CMD:-kimi}"
+        "CLAUDE|ENABLE_CLAUDE|${CLAUDE_CMD:-claude}"
+        "QWEN3|ENABLE_QWEN3|${QWEN3_CMD:-qwen}"
+        "OLLAMA|ENABLE_OLLAMA|ollama"
+    )
+    for entry in "${entries[@]}"; do
+        IFS='|' read -r name flag cmd <<<"$entry"
+        local enabled="${!flag:-false}"
+        [[ "$enabled" != "true" ]] && continue
+        if command -v "$cmd" >/dev/null 2>&1; then
+            [[ "$name" == "$invoker_consultant" ]] && continue
+            ((count++)) || true
+        fi
+    done
+
+    # API-only consultants: enabled flag + API key both required
+    local api_entries=(
+        "GLM|ENABLE_GLM|GLM_API_KEY"
+        "GROK|ENABLE_GROK|GROK_API_KEY"
+        "DEEPSEEK|ENABLE_DEEPSEEK|DEEPSEEK_API_KEY"
+        "MINIMAX|ENABLE_MINIMAX|MINIMAX_API_KEY"
+    )
+    for entry in "${api_entries[@]}"; do
+        IFS='|' read -r name flag key <<<"$entry"
+        local enabled="${!flag:-false}"
+        [[ "$enabled" != "true" ]] && continue
+        if [[ -n "${!key:-}" ]]; then
+            [[ "$name" == "$invoker_consultant" ]] && continue
+            ((count++)) || true
+        fi
+    done
+    echo "$count"
+}
+
+# Returns "preset|strategy|reason" given category and consultant count.
+_recommend_combo() {
+    local category="$1"
+    local count="$2"
+
+    # Insufficient panel: regardless of category, point user at install help.
+    # Without this short-circuit, e.g. "minimal" preset with count=0 would
+    # produce an unrunnable suggestion.
+    if (( count < 2 )); then
+        echo "minimal|majority|Only ${count} consultant(s) currently usable — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
+        return 0
+    fi
+
+    case "$category" in
+        SECURITY)
+            if (( count >= 5 )); then
+                echo "balanced|security_first|SECURITY detected; ${count} consultants available; debate is mandatory for SECURITY"
+            else
+                # Only mention Mistral as priority if it's actually available
+                local mistral_note=""
+                if command -v "${MISTRAL_CMD:-vibe}" >/dev/null 2>&1 && \
+                   [[ "${ENABLE_MISTRAL:-true}" == "true" ]]; then
+                    mistral_note=" — Mistral (Devil's Advocate) prioritized"
+                fi
+                echo "minimal|security_first|SECURITY detected; only ${count} consultants${mistral_note}"
+            fi
+            ;;
+        ARCHITECTURE)
+            if (( count >= 5 )); then
+                echo "high-stakes|risk_averse|ARCHITECTURE detected; ${count} consultants — high-stakes adds debate, risk_averse weights conservative answers"
+            else
+                echo "balanced|risk_averse|ARCHITECTURE detected; ${count} consultants — debate is mandatory for ARCHITECTURE"
+            fi
+            ;;
+        QUICK_SYNTAX)
+            echo "fast|majority|QUICK_SYNTAX detected — single-best-answer is enough; fast preset uses economy models"
+            ;;
+        ALGORITHM)
+            echo "balanced|majority|ALGORITHM detected; DeepSeek (Code Specialist) tends to lead in this category"
+            ;;
+        BUG_DEBUG|CODE_REVIEW|TESTING)
+            if (( count >= 5 )); then
+                echo "thorough|majority|${category} detected; ${count} consultants — thorough preset for broader coverage"
+            else
+                echo "balanced|majority|${category} detected; ${count} consultants — balanced for steady quality"
+            fi
+            ;;
+        DATABASE|API_DESIGN)
+            echo "balanced|majority|${category} detected — balanced preset matches the routing affinity for this category"
+            ;;
+        *)
+            if (( count >= 5 )); then
+                echo "balanced|majority|GENERAL category — balanced preset with majority voting"
+            elif (( count >= 2 )); then
+                echo "minimal|majority|GENERAL category; only ${count} consultants — minimal preset"
+            else
+                echo "minimal|majority|Only ${count} consultant detected — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
+            fi
+            ;;
+    esac
+}
+
+suggest_preset() {
+    local category="GENERAL"
+    local classification_failed=0
+    local classifier_err=""
+
+    if [[ -n "$QUESTION" ]]; then
+        local errfile
+        errfile=$(mktemp -t ai_consultants_classify.XXXXXX)
+        local rc=0 raw=""
+        # Capture stdout (one-line category) and stderr (logger output) separately;
+        # surface the failure explicitly instead of silently degrading to GENERAL.
+        raw=$("$SCRIPT_DIR/classify_question.sh" "$QUESTION" 2>"$errfile") || rc=$?
+        if (( rc != 0 )) || [[ -z "$raw" ]]; then
+            classification_failed=1
+            [[ -s "$errfile" ]] && classifier_err=$(head -3 "$errfile")
+            category="GENERAL"
+        else
+            # classify_question.sh prints exactly one line; trust the contract,
+            # don't blindly tail. If the contract changes, the case below catches it.
+            category="$raw"
+            case "$category" in
+                CODE_REVIEW|BUG_DEBUG|ARCHITECTURE|ALGORITHM|SECURITY|QUICK_SYNTAX|DATABASE|API_DESIGN|TESTING|GENERAL) ;;
+                *)
+                    classification_failed=1
+                    classifier_err="classifier returned unexpected value: '$category'"
+                    category="GENERAL"
+                    ;;
+            esac
+        fi
+        rm -f "$errfile"
+    fi
+
+    local count
+    count=$(_count_available_consultants)
+
+    local combo preset strategy reason
+    combo=$(_recommend_combo "$category" "$count")
+    preset="${combo%%|*}"
+    combo="${combo#*|}"
+    strategy="${combo%%|*}"
+    reason="${combo#*|}"
+
+    if [[ "$JSON_OUTPUT" == "true" ]]; then
+        # Pre-flight jq because suggest_preset short-circuits before the main
+        # check_dependencies pipeline. Without this, missing jq aborts via
+        # set -e with a cryptic "command not found" instead of a clear error.
+        if ! command -v jq >/dev/null 2>&1; then
+            echo "ERROR: --json requires 'jq' to be installed" >&2
+            return 1
+        fi
+        # Machine-parseable form. schema_version starts at 1; bump on breaking
+        # field changes (renames/removals). Adding fields is non-breaking.
+        # recommended_command is the full user-facing invocation, so tooling
+        # doesn't have to reconstruct it from preset+strategy+question.
+        local q_json recommended_command
+        q_json=$(printf '%s' "${QUESTION:-}" | jq -Rs .)
+        if [[ -n "$QUESTION" ]]; then
+            recommended_command=$(printf 'ai-consultants --preset %s --strategy %s "%s"' \
+                "$preset" "$strategy" "$QUESTION")
+        else
+            recommended_command=$(printf 'ai-consultants --preset %s --strategy %s "your question"' \
+                "$preset" "$strategy")
+        fi
+        jq -n \
+            --argjson schema_version 1 \
+            --arg preset "$preset" \
+            --arg strategy "$strategy" \
+            --arg category "$category" \
+            --argjson count "$count" \
+            --arg reason "$reason" \
+            --arg recommended_command "$recommended_command" \
+            --argjson classification_failed "$classification_failed" \
+            --arg classifier_err "$classifier_err" \
+            --argjson question "$q_json" \
+            '{
+                schema_version: $schema_version,
+                preset: $preset,
+                strategy: $strategy,
+                category: $category,
+                consultants_available: $count,
+                reason: $reason,
+                recommended_command: $recommended_command,
+                classification_failed: ($classification_failed == 1),
+                classifier_error: (if $classifier_err == "" then null else $classifier_err end),
+                question: (if $question == "" then null else $question end)
+            }'
+        return 0
+    fi
+
+    echo "Recommended:"
+    if [[ -n "$QUESTION" ]]; then
+        local q="$QUESTION"
+        (( ${#q} > 60 )) && q="${q:0:57}..."
+        printf '  ai-consultants --preset %s --strategy %s "%s"\n' "$preset" "$strategy" "$q"
+    else
+        printf '  ai-consultants --preset %s --strategy %s "your question"\n' "$preset" "$strategy"
+    fi
+    echo ""
+    echo "Reason:"
+    echo "  $reason"
+    echo ""
+    if (( classification_failed )); then
+        echo "Warning: classification of your question failed; recommendation falls back to GENERAL."
+        [[ -n "$classifier_err" ]] && echo "  classifier said: $classifier_err"
+        echo ""
+    elif [[ -z "$QUESTION" ]]; then
+        echo "Tip: pass --question \"...\" for category-aware classification (currently defaulted to GENERAL)."
+    fi
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
 main() {
     print_header
     check_dependencies
+    check_user_config
     check_cli_consultants
     check_api_mode_switching
     check_api_consultants
     check_configuration
+    check_routing
     check_synthesis
     check_ollama
     attempt_fixes
@@ -638,5 +1087,15 @@ main() {
         exit 0
     fi
 }
+
+if [[ "$SUGGEST_CONFIG" == "true" ]]; then
+    suggest_configuration
+    exit 0
+fi
+
+if [[ "$SUGGEST_PRESET" == "true" ]]; then
+    suggest_preset
+    exit 0
+fi
 
 main

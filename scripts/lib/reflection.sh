@@ -419,8 +419,8 @@ judge_all_responses() {
 
                 local is_overconfident
                 is_overconfident=$(echo "$evaluation" | jq -r '.overconfidence_detected // false')
-                [[ "$is_overconfident" == "true" ]] && ((overconfidence_count++))
-                ((total_count++))
+                [[ "$is_overconfident" == "true" ]] && { ((overconfidence_count++)) || true; }
+                ((total_count++)) || true
             fi
         fi
     done

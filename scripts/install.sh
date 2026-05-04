@@ -261,7 +261,7 @@ if [[ "$INSTALL_COMMANDS" == "true" ]]; then
 
     if [[ -d "$INSTALL_DIR/.claude/commands" ]]; then
         cp "$INSTALL_DIR"/.claude/commands/*.md "$COMMANDS_DIR/" 2>/dev/null || true
-        cmd_count=$(ls -1 "$INSTALL_DIR/.claude/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
+        cmd_count=$(find "$INSTALL_DIR/.claude/commands" -maxdepth 1 -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
         log_success "Installed $cmd_count slash commands"
     else
         log_warn "No slash commands found to install"
