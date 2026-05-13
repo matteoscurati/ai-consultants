@@ -15,7 +15,7 @@ FIXTURES_REL="scripts/test_fixtures/context"
 
 # Always invoke build_context.sh from the project root so relative fixture
 # paths resolve and the project-tree find sees the expected layout.
-cd "$PROJECT_ROOT"
+cd "$PROJECT_ROOT" || exit 1
 
 # shellcheck source=lib/test_helpers.sh
 source "$SCRIPT_DIR/lib/test_helpers.sh"
