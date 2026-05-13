@@ -1,0 +1,11 @@
+Plain text fixture for build_context.sh smoke testing.
+
+This file has no syntactic structure to extract, so the AST mode should
+fall back to pass-through (or truncation if the file is large enough to
+trip the MAX_CONTEXT_FILE_BYTES threshold — this file is intentionally
+under the default 8000 byte limit, so it should pass through unchanged).
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
+tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+commodo consequat.

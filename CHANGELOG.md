@@ -5,6 +5,217 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
+
+## [2.14.0] - 2026-05-13
+
+### Added
+- **Context handoff: AST optimization now engages on the slash-command path** — slash commands now pass file paths as positional args instead of inlining contents, letting `build_context.sh` run the previously-dead `lib/code_optimizer.sh` + `lib/chunking.sh` + `lib/symbol_map.sh` pipeline
+- **File relevance tags**: `path/to/file@PRIMARY` (focus) vs `path/to/file@CONTEXT` (ambient). Default `PRIMARY` when omitted; unknown tags fall back to `PRIMARY` with a `log_warn`
+- **Category-aware project tree**: `build_context.sh` reads `QUESTION_CATEGORY` (already exported by `consult_all.sh`) and skips the 100-file project listing for `SECURITY`, `QUICK_SYNTAX`, `ALGORITHM`, `BUG_DEBUG`, `DATABASE`, `TESTING`
+- **`FORCE_PROJECT_TREE=true`** env var to bypass the category filter
+- **`--query-file <path>`** flag on `consult_all.sh` for queries exceeding shell `ARG_MAX` (~256KB) or containing awkward quoting; conflicts with positional question
+- **First test coverage** for `lib/code_optimizer.sh` and `lib/chunking.sh` via new `scripts/test_context_optimization.sh` (17 assertions, 14 tests)
+- **Test fixtures**: `scripts/test_fixtures/context/{sample.py,sample.sh,sample.json,sample.txt}`
+- **Documentation**: `docs/releases/v2.14.0.md` release note; `references/configuration.md` § Context Handoff section; `references/details.md` bash usage examples
+
+### Changed
+- Slash commands `.{claude,codex,gemini}/commands/ai-consultants:{consult,debate}.md` rewritten: file detection delegated to agent reasoning (replaces hardcoded extension regex that missed `Makefile`/`Dockerfile`/dotfiles and false-matched URLs)
+- `.claude/commands/ai-consultants:consult.md` adds Claude-only note: don't pass `Read` tool output (`N\t` line-number prefix) — `build_context.sh` reads files itself
+- `build_context.sh` help text documents `QUESTION_CATEGORY`, `FORCE_PROJECT_TREE`, and `@TAG` syntax
+- `consult_all.sh --help` documents `--query-file` and `@TAG` examples
+- Total test assertions: 510 across 7 suites (was 493/6)
+
+### Known issues (documented, not introduced)
+- `_supports_ast_extraction` declares 13 languages but `lib/code_optimizer.sh` has dedicated extractors for only 4 (Python, JS/TS, Bash, Go); the other 9 fall back to a `grep`-based generic extractor
+
+## [2.13.1] - 2026-05-04
+
+### Changed
+- **Perf**: XDG roots resolved once at first `config.sh` source and exported as `_AI_CONSULTANTS_XDG_{CACHE,STATE,DATA}` — eliminates ~84 forks per consultation (~200-400ms on macOS)
+- **Perf**: `apply_launch_stagger()` switched from `awk` to pure-bash `printf` — 14 forks eliminated (~50-70ms)
+- **Perf**: `_count_available_consultants` entries pre-uppercased — 15 `to_upper` subshells eliminated per `--suggest-preset`
+- **DRY**: extracted `scripts/lib/test_helpers.sh` (~80 LOC): `assert_eq`, `assert_match`, `run_test`, `test_summary`, `_reset_state`
+- **CI**: `scripts/test_all.sh` now includes `test_suite.sh` (258 library assertions). Total: 6 suites, ~493 assertions
+- **Style**: 37 → 0 shellcheck warnings under project exclusions
+
+### Fixed
+- **Latent**: 5 `lib/*.sh` files had hardcoded `/tmp/...` defaults that drifted from v2.13 XDG migration; now reference `${_AI_CONSULTANTS_XDG_*}`
+- **Latent**: `lib/session.sh::cleanup_old_sessions` no longer hardcodes `/tmp/ai_consultations` — uses `$DEFAULT_OUTPUT_DIR_BASE`
+
+## [2.13.0] - 2026-05-04
+
+### Added
+- **`doctor --suggest-preset --question "..."`** recommends a preset + strategy combo for a question, based on category classification and available consultant count
+- **`--json`** output mode for `--suggest-preset` (schema_version: 1, recommended_command field)
+- **`scripts/test_all.sh`** master runner aggregates all standalone test suites
+- **`scripts/test_doctor.sh`** with 31 assertions covering `--suggest-preset` paths
+- **`lib/user_config.sh::get_xdg_dir()`** helper as single source of truth for XDG resolution
+
+### Changed
+- **XDG Base Directory compliance** per freedesktop.org spec:
+  - `DEFAULT_OUTPUT_DIR_BASE`: `/tmp/ai_consultations` → `$XDG_CACHE_HOME/ai-consultants/consultations`
+  - `CACHE_DIR`, `RATE_LIMIT_DIR`, `CHUNK_TEMP_DIR` → `$XDG_CACHE_HOME/ai-consultants/{cache,ratelimit,chunks}`
+  - `SESSION_DIR` → `$XDG_STATE_HOME/ai-consultants/sessions`
+  - `COST_TRACKING_FILE` → `$XDG_DATA_HOME/ai-consultants/costs.json`
+- **`ENABLE_DEBATE_OPTIMIZATION`** promoted from opt-in to default `true` (debate auto-skipped when confidence spread is low; SECURITY/ARCHITECTURE remain mandatory)
+- README slimmed: env-var section now points to `references/configuration.md`
+- Classifier failures surface explicitly as `Warning: classification of your question failed` instead of silent degradation to `GENERAL`
+
+### Fixed
+- `_count_available_consultants()` self-exclusion was dead code due to UPPERCASE vs MixedCase mismatch — now uppercases entry names; `INVOKING_AGENT` correctly drops 1
+- `_count_available_consultants()` now respects `ENABLE_*` flags
+- `--suggest-preset` short-circuits with install hint when fewer than 2 consultants are usable
+- `config.sh` hard-fails with `FATAL` if `lib/user_config.sh` is missing (was silently regressing to `/tmp/...`)
+
+## [2.12.0] - 2026-05-04
+
+### Added
+- **Persistent user-config dir** at `~/.config/ai-consultants/` (XDG-compliant; honors `AI_CONSULTANTS_CONFIG_DIR` and `XDG_CONFIG_HOME`)
+- **`lib/user_config.sh::load_user_config()`** sourced from `config.sh` before any defaults; idempotent via `_AI_CONSULTANTS_USER_CONFIG_LOADED` guard
+- **`ai-consultants init [--force]`** subcommand scaffolds `.env` (chmod 600) and `config.sh` template
+- **`.env` parser** supports `KEY=value`, `export KEY=value`, comments, indented lines, quoted values
+- `lib/routing.sh::_load_affinity_data` searches `~/.config/ai-consultants/affinity.json` as well as bundled default
+- `doctor.sh::check_user_config()` reports dir presence, files loaded, and warns on lax `.env` permissions
+- `scripts/test_user_config.sh` (20 assertions, 11 tests) and `scripts/test_bin.sh` (10 assertions, 8 tests)
+
+### Fixed
+- `.env` parser **strips trailing CR** so Windows CR-LF line endings don't corrupt values
+- `bin/ai-consultants` no longer hardcodes version (was stuck at 2.10.0); reads from `config.sh` and validates as semver; falls back to `vunknown` on parse failure
+- `get_user_config_dir` returns empty + exit 1 when both `HOME` and `XDG_CONFIG_HOME` are unset (distroless containers)
+- `init` refuses to scaffold into symlinked dirs (security: prevents hostile symlink follow)
+
+## [2.11.0] - 2026-05-03
+
+### Changed
+- **Externalized routing affinity matrix** from nested `case` statements in `lib/routing.sh` to `references/affinity.json` (~190 lines bash → 60 lines JSON)
+- Custom matrix via `AFFINITY_FILE=/path/to/custom.json`
+- `get_affinity()` uses two-level cache: file content cached on first read, per-(category, consultant) result cached after first lookup
+- `docs/SMART_ROUTING.md` rewritten: removed stale per-consultant table; documents JSON schema + override
+
+### Added
+- `doctor.sh` adds 3 new checks: affinity file presence, JSON schema validity, coverage
+- `scripts/test_routing_parity.sh` golden parity test (144 assertions: 9 categories × 14 consultants + edge cases)
+- `scripts/test_set_e_safety.sh` static + dynamic lint for `((var++))` and `let var++` abort patterns
+
+### Fixed
+- Cache key uses leading-space delimiter to prevent substring collisions (e.g. `DEBUG|X=` would have falsely matched a cached `BUG_DEBUG|X=10`)
+- `consult_all.sh` ENABLE_PREFLIGHT path no longer swallows doctor output — diagnostic captured to tmpfile and dumped on failure
+- Cleaned `((attempt++)) || true || true` artifacts in `lib/api.sh`
+
+## [2.10.9] - 2026-05-03
+
+### Fixed
+- **CRITICAL**: silent failure of `preflight_check.sh` under `set -euo pipefail` — helper functions returned non-zero on missing CLIs without `|| true`, script aborted after "Checking CLI installations..." with no diagnostic
+- Defensive sweep: 15 latent `((var++))` increments across `peer_review.sh`, `setup_wizard.sh`, `lib/api.sh`, `lib/common.sh`, `lib/reflection.sh`, `doctor.sh` protected with `|| true`
+- SC2059 unsafe printf format string in `lib/progress.sh`
+- SC2012 `ls | wc -l` race in `install.sh` (replaced with `find`)
+
+### Deprecated
+- `preflight_check.sh` deprecated in favor of `doctor.sh` (stale v2.0 script covering only 6/15 consultants); now a thin wrapper that prints a warning and execs `doctor.sh`
+
+### Changed
+- Ported `--suggest-config` from `preflight_check.sh` to `doctor.sh`; coverage expanded from 6 to 15 consultants (now also detects API-only consultants via API key presence)
+- `doctor.sh` accepts `--quick` flag as no-op for backward compat
+
+## [2.10.8] - 2026-05-03
+
+### Fixed
+- `docs/cost_rates.json` drift introduced by v2.10.6: `consultant_fallbacks` (used at runtime by `lib/costs.sh`) and `model_tiers` were still pointing at old IDs (`opus-4.6`, `gpt-5.3-codex`, `composer-1.5`, `deepseek-reasoner`, `sonnet-4.6`, `haiku-4.5`)
+
+### Added
+- Price entries for v2.10.6 model IDs: `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`, `gpt-5.5`, `composer-2`, `deepseek-v4-pro`, `nvidia/nemotron-3-super-120b-a12b:free`
+- Moved superseded IDs to legacy section in cost catalog
+
+### Changed
+- Synced `COST_RATES.md` tables to match
+- Pricing for `nvidia/nemotron-3-super-120b-a12b:free` set to $0/$0 (OpenRouter free tier)
+
+## [2.10.7] - 2026-05-02
+
+### Changed
+- **Grok premium upgraded** from `grok-4.20-0309-reasoning` to `grok-4.3` (released 2026-04-30)
+- ~75% cheaper input ($1.25/M vs $5.00/M), ~83% cheaper output ($2.50/M vs $15.00/M)
+- 1M-token context window
+- Moved `grok-4.20-0309-reasoning` to legacy section
+- Standard (`grok-3`) and economy (`grok-3-mini`) tiers unchanged
+
+## [2.10.6] - 2026-05-02
+
+### Changed
+- **Codex premium** upgraded from `gpt-5.3-codex` to `gpt-5.5`
+- **Cursor premium** upgraded from `composer-1.5` to `composer-2`
+- **DeepSeek premium** upgraded from `deepseek-reasoner` to `deepseek-v4-pro`
+- **Aider** switched provider: `gpt-5.3-codex` → `nvidia/nemotron-3-super-120b-a12b:free` (free tier)
+- **Claude model IDs** migrated from short aliases to canonical: `opus-4.6` → `claude-opus-4-7`, `sonnet-4.6` → `claude-sonnet-4-6`, `haiku-4.5` → `claude-haiku-4-5`
+
+### Fixed
+- Kilo SIGPIPE abort under `set -euo pipefail` (replaced `head -c` with parameter expansion)
+
+## [2.10.5] - 2026-04-16
+
+### Changed
+- **Qwen3 premium** upgraded from `qwen3.5-plus` to `qwen3.6-plus` ($0.325/$1.95 per M tokens)
+- **Qwen3 standard** tier now uses open-weight `qwen3.6-35b-a3b` (MoE, 35B total / 3B active)
+- Refactored `get_economic_model()` to delegate to `get_model_for_tier()`, eliminating stale hardcoded mappings
+- Moved `qwen3.5-plus` to legacy section in cost catalog
+
+### Fixed
+- `AI_CONSULTANTS_VERSION` in `config.sh` (was stuck at `2.10.0`)
+
+## [2.10.4] - 2026-04-10
+
+### Changed
+- **GLM premium/standard** upgraded from `glm-5` to `glm-5.1`
+- Collapsed 5-stage ANSI stripping pipeline into single sed invocation in `query_kilo.sh`
+- Updated `.env.example` GLM signup URL to `open.z.ai`
+
+### Fixed
+- Kilo CLI hanging indefinitely in non-TTY mode (query via stdin instead of CLI argument)
+- Kilo CLI picking wrong provider when other consultants' API keys were in the environment
+- Overly aggressive markdown fence filter in `query_kilo.sh` (only strips standalone ``` lines now)
+
+## [2.10.3] - 2026-03-21
+
+### Changed
+- **Grok premium** upgraded to `grok-4.20-0309-reasoning` (replaces `grok-4-1-fast-reasoning`)
+- **GLM API endpoint** migrated from `open.bigmodel.cn` to `api.z.ai/api/coding/paas/v4`
+
+### Removed
+- Non-functional MiniMax highspeed models (`MiniMax-M2.7-highspeed`, `MiniMax-M2.5-highspeed`)
+- Legacy `grok-beta` from cost catalog
+
+### Fixed
+- GLM URL fallback in `common.sh` and `configure.sh` (were still using old endpoint)
+- Duplicate `minimax-m2.5` entry with conflicting rates in `cost_rates.json`
+
+## [2.10.2] - 2026-03-19
+
+### Changed
+- **MiniMax M2.7 upgrade**: premium/standard now use `MiniMax-M2.7`, economy uses `MiniMax-M2.5`
+
+## [2.10.1] - 2026-03-15
+
+### Changed
+- Slash command quality improvements: file context handling, result presentation templates, error recovery guidance
+- `debate_round.sh` hardening: Amp/Kimi/MiniMax case entries, `((count++)) || true` fixes, `*` default case, stderr to `.err` files, ROUND_NUMBER validation
+- Token efficiency: SKILL.md trimmed (-17%), `help.md` slimmed (-77%), content moved to `references/details.md`
+- Self-exclusion consistency in slash command descriptions
+
+## [2.10.0] - 2026-03-04
+
+### Added
+- **MiniMax M2.5 API support** via OpenAI-compatible endpoint
+- **New consultant**: MiniMax with "The Pragmatic Optimizer" persona (ID: 21)
+- **npx distribution**: `npx ai-consultants "question"` (zero dependencies)
+- New `bin/ai-consultants` wrapper with symlink resolution and subcommand routing (`doctor`, `install`, `version`, `help`)
+- New environment variables: `ENABLE_MINIMAX`, `MINIMAX_API_KEY`, `MINIMAX_MODEL`, `MINIMAX_API_URL`
+- Model tiers: premium (`MiniMax-M2.5`), standard (`MiniMax-M2.1`), economy (`MiniMax-M2.5`)
+
+### Changed
+- Consultant count: 14 → 15
+- npm package metadata updated (zero runtime dependencies preserved)
+
 ## [2.9.1] - 2026-02-05
 
 ### Fixed

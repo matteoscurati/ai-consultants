@@ -70,7 +70,9 @@ show_help() {
     echo "AI Consultants v${AI_CONSULTANTS_VERSION:-2.10.0} - Multi-Model AI Consultation"
     cat << 'EOF'
 
-Usage: ./consult_all.sh [options] "Your question" [file1] [file2] ...
+Usage: ./consult_all.sh [options] "Your question" [file1[@TAG]] [file2[@TAG]] ...
+
+  File @TAG: PRIMARY (default, focus of question) or CONTEXT (ambient reference)
 
 Options:
   --preset <name>      Use a configuration preset:
@@ -92,6 +94,9 @@ Options:
                          cost_capped    - Prefer cheaper consultant opinions
                          compare_only   - No recommendation, just comparison
 
+  --query-file <path>  Read the question from a file (use when the inline
+                       query would exceed shell limits or contain awkward
+                       quoting). Conflicts with a positional question argument.
   --list-presets       List all available presets
   --list-strategies    List all synthesis strategies
   --help, -h           Show this help message
@@ -101,6 +106,8 @@ Examples:
   ./consult_all.sh --preset minimal "Quick question about Python lists"
   ./consult_all.sh --preset high-stakes --strategy risk_averse "Critical architecture decision"
   ./consult_all.sh "Review this code" src/main.py src/utils.py
+  ./consult_all.sh "Compare auth approaches" src/auth.ts@PRIMARY src/logger.ts@CONTEXT
+  ./consult_all.sh --query-file /tmp/long_question.txt src/big.py
 
 Environment Variables:
   ENABLE_SYNTHESIS=true       Enable automatic synthesis
@@ -133,6 +140,7 @@ EOF
 PRESET=""
 SYNTHESIS_STRATEGY=""
 QUERY=""
+QUERY_FILE=""
 FILES=()
 
 while [[ $# -gt 0 ]]; do
@@ -152,6 +160,15 @@ while [[ $# -gt 0 ]]; do
                 shift 2
             else
                 log_error "--strategy requires a value"
+                exit 1
+            fi
+            ;;
+        --query-file)
+            if [[ -n "${2:-}" && -f "$2" ]]; then
+                QUERY_FILE="$2"
+                shift 2
+            else
+                log_error "--query-file requires an existing file path"
                 exit 1
             fi
             ;;
@@ -182,6 +199,16 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Resolve query source: --query-file wins over the empty positional slot but
+# conflicts with an inline positional query.
+if [[ -n "$QUERY_FILE" ]]; then
+    if [[ -n "$QUERY" ]]; then
+        log_error "--query-file conflicts with a positional query argument"
+        exit 1
+    fi
+    QUERY=$(cat "$QUERY_FILE")
+fi
 
 # --- Apply Preset (CLI flag or default) ---
 # Use CLI flag if provided, otherwise fall back to DEFAULT_PRESET

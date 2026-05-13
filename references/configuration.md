@@ -40,6 +40,63 @@ DEFAULT_PRESET=balanced      # Preset when --preset not given
 DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
 ```
 
+## Context Handoff (v2.14+)
+
+The way file context flows from the invoking agent to the consultants. Agents pass file paths as positional arguments to `consult_all.sh` rather than inlining file contents into the query string — this is what lets `build_context.sh` run the AST/chunking optimizer.
+
+### File path syntax — `path@TAG`
+
+When passing files to `consult_all.sh` (directly or via slash command), each path may carry a `@TAG` suffix:
+
+| Tag | Meaning |
+|---|---|
+| `@PRIMARY` | Focus of the question; what consultants should critique. Default if `@TAG` omitted. |
+| `@CONTEXT` | Ambient reference; read but not the target of the critique. |
+
+```bash
+./scripts/consult_all.sh "Why does auth fail under load?" \
+    src/auth.ts@PRIMARY src/cache.ts@CONTEXT src/logger.ts@CONTEXT
+```
+
+Unknown tags fall back to `PRIMARY` with a `log_warn` message. The tag appears in the rendered `### File: ... (TAG)` header so consultants can weigh files differently.
+
+### `--query-file <path>` flag
+
+Escape hatch when the question would exceed shell `ARG_MAX` (~256KB on macOS) or contains awkward quoting (JSON, Python dicts with mixed quotes). Conflicts with a positional question argument.
+
+```bash
+echo "Long multi-paragraph question..." > /tmp/q.txt
+./scripts/consult_all.sh --query-file /tmp/q.txt src/big.py@PRIMARY
+```
+
+### Category-aware project tree
+
+`build_context.sh` reads `QUESTION_CATEGORY` (already exported by `consult_all.sh` after `classify_question.sh` runs) to decide whether to include the project-tree listing.
+
+| Category | Project tree included? |
+|---|---|
+| `ARCHITECTURE`, `CODE_REVIEW`, `API_DESIGN`, `GENERAL` | Yes |
+| `SECURITY`, `QUICK_SYNTAX`, `ALGORITHM`, `BUG_DEBUG`, `DATABASE`, `TESTING` | No |
+| Unknown category | Yes (conservative default) |
+
+Override:
+
+```bash
+FORCE_PROJECT_TREE=true ./scripts/consult_all.sh "..."   # Always include
+```
+
+### Token optimization mode (v2.2+, now actually engaged)
+
+```bash
+TOKEN_OPTIMIZATION_MODE=ast      # none, basic, ast (default), full
+ENABLE_AST_EXTRACTION=true       # AST-based code skeleton
+ENABLE_SYMBOL_COMPRESSION=false  # Symbol compression (opt-in)
+ENABLE_SEMANTIC_CHUNKING=true    # Semantic chunking for large files
+MAX_CONTEXT_FILE_BYTES=8000      # Threshold before optimization kicks in
+```
+
+AST extractors are dedicated for **Python, JavaScript, TypeScript, Bash, Go**. Other declared languages (Rust, Java, C, C++, C#, Ruby, PHP, Swift) fall back to a `grep`-based generic extractor.
+
 ## Core Features
 
 ```bash

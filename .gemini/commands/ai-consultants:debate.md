@@ -21,26 +21,23 @@ Run a multi-round debate where AI consultants critique each other's responses an
 
 1. If no question provided in $ARGUMENTS, ask the user what they want to debate.
 
-2. **File context handling**: Check if $ARGUMENTS contains file paths (tokens containing `/` or extensions like `.ts`, `.js`, `.py`, `.sh`, `.json`, `.yaml`, `.yml`, `.md`, `.go`, `.rs`, `.java`, `.rb`, `.css`, `.html`, `.tsx`, `.jsx`, `.c`, `.cpp`, `.h`).
-   If file paths are found:
-   - Extract each file path token from $ARGUMENTS
-   - Read each file using the **Read** tool
-   - Build an enriched query by replacing file path tokens with their inline contents:
-     ```
-     <original question text without file paths>
+2. **File context handling**: Identify which strings in $ARGUMENTS refer to files the user wants the consultants to debate over. Use your judgment — verify existence via `Glob` or `Bash ls` when uncertain. A `Makefile`, `Dockerfile`, dotfile, or path without a common extension is still a file; an URL or regex pattern in the question text is not.
 
-     --- File: path/to/file.ts ---
-     <file contents>
-     --- End File ---
-     ```
-   - Use this enriched query in step 3 instead of raw $ARGUMENTS
+   For each file you identify:
+   - Strip the file path from the question text.
+   - Decide its relevance tag: `PRIMARY` (the focus of the debate — what the consultants should critique) or `CONTEXT` (ambient reference — read but not necessarily critiqued). Default to `PRIMARY` if every referenced file is central.
+   - Pass each path as a positional argument to `consult_all.sh` with the syntax `path/to/file@TAG` (omit `@TAG` to default to `PRIMARY`).
+
+   **Do not inline file contents into the query string.** `build_context.sh` reads files directly from the filesystem and runs the AST optimization pipeline.
 
 3. **Run the debate consultation**:
    ```bash
-   cd "${AI_CONSULTANTS_DIR:-$HOME/.gemini/skills/ai-consultants}" && INVOKING_AGENT=gemini ENABLE_DEBATE=true DEBATE_ROUNDS="${DEBATE_ROUNDS:-2}" ./scripts/consult_all.sh '<query>'
+   cd "${AI_CONSULTANTS_DIR:-$HOME/.gemini/skills/ai-consultants}" && INVOKING_AGENT=gemini ENABLE_DEBATE=true DEBATE_ROUNDS="${DEBATE_ROUNDS:-2}" ./scripts/consult_all.sh '<question>' <file1[@TAG]> <file2[@TAG]> ...
    ```
-   Replace `<query>` with the enriched query from step 2 (or $ARGUMENTS if no files were detected). Use single quotes around the query to prevent shell expansion of special characters.
-   **Capture the last line of stdout** — it contains the output directory path.
+   - `<question>` is the question text with file paths stripped. Use single quotes to prevent shell expansion.
+   - Each `<fileN>` is a file path, optionally suffixed with `@PRIMARY` or `@CONTEXT`.
+   - **If the question text exceeds ~8KB or contains awkward quoting**, write it to a tmpfile and pass `--query-file <path>` instead of the inline question.
+   - **Capture the last line of stdout** — it contains the output directory path.
 
 4. **Read the results** from the output directory captured in step 3:
    - Read `<output_dir>/report.md` using the **Read** tool

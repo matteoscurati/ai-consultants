@@ -1,0 +1,13 @@
+{
+  "service": "ai-consultants-test-fixture",
+  "version": "0.1.0",
+  "limits": {
+    "max_requests_per_minute": 60,
+    "timeout_seconds": 30
+  },
+  "features": {
+    "caching": true,
+    "compression": false,
+    "debate_mode": "auto"
+  }
+}

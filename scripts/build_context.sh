@@ -38,6 +38,13 @@ ENABLE_SEMANTIC_CHUNKING="${ENABLE_SEMANTIC_CHUNKING:-true}"
 # Maximum bytes per context file before optimization kicks in
 MAX_CONTEXT_FILE_BYTES="${MAX_CONTEXT_FILE_BYTES:-8000}"
 
+# Question category (exported by consult_all.sh after classify_question.sh).
+# Used to decide whether to include the project tree in the context.
+QUESTION_CATEGORY="${QUESTION_CATEGORY:-GENERAL}"
+
+# Force project tree inclusion regardless of category (power-user escape hatch).
+FORCE_PROJECT_TREE="${FORCE_PROJECT_TREE:-false}"
+
 # =============================================================================
 # MODULE LOADING WITH FALLBACK
 # =============================================================================
@@ -212,6 +219,41 @@ _supports_ast_extraction() {
             return 1
             ;;
     esac
+}
+
+# Decide whether the project tree section is informative for a given category.
+# Categories where the tree is noise (focused / pointed questions) return 1.
+# Unknown categories default to "include" (conservative).
+# Usage: _should_include_project_tree "SECURITY"
+_should_include_project_tree() {
+    local category="$1"
+    case "$category" in
+        ARCHITECTURE|CODE_REVIEW|API_DESIGN|GENERAL) return 0 ;;
+        SECURITY|QUICK_SYNTAX|ALGORITHM|BUG_DEBUG|DATABASE|TESTING) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+# Parse a "path@TAG" argument into path + tag (default tag: PRIMARY).
+# Sets _PARSED_PATH and _PARSED_TAG globals (avoids the cost of stdout capture).
+# Unknown tags fall back to PRIMARY with a warning.
+# Usage: _parse_tagged_path "src/auth.ts@PRIMARY"
+_parse_tagged_path() {
+    local arg="$1"
+    if [[ "$arg" == *@* ]]; then
+        _PARSED_PATH="${arg%@*}"
+        local tag="${arg##*@}"
+        case "$tag" in
+            PRIMARY|CONTEXT) _PARSED_TAG="$tag" ;;
+            *)
+                log_warn "Unknown file tag '$tag' for '$_PARSED_PATH', defaulting to PRIMARY"
+                _PARSED_TAG="PRIMARY"
+                ;;
+        esac
+    else
+        _PARSED_PATH="$arg"
+        _PARSED_TAG="PRIMARY"
+    fi
 }
 
 # Generate truncated content with header
@@ -413,7 +455,9 @@ _generate_manifest() {
 # =============================================================================
 
 if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <output_file> \"question\" [file1] [file2] ..." >&2
+    echo "Usage: $0 <output_file> \"question\" [file1[@TAG]] [file2[@TAG]] ..." >&2
+    echo "" >&2
+    echo "  @TAG: PRIMARY (default, focus of question) or CONTEXT (ambient reference)" >&2
     echo "" >&2
     echo "Environment variables:" >&2
     echo "  TOKEN_OPTIMIZATION_MODE  - none, basic, ast, full (default: ast)" >&2
@@ -421,6 +465,8 @@ if [[ $# -lt 2 ]]; then
     echo "  ENABLE_SYMBOL_COMPRESSION - true/false (default: false)" >&2
     echo "  ENABLE_SEMANTIC_CHUNKING - true/false (default: true)" >&2
     echo "  MAX_CONTEXT_FILE_BYTES   - threshold in bytes (default: 8000)" >&2
+    echo "  QUESTION_CATEGORY        - drives project-tree inclusion (default: GENERAL)" >&2
+    echo "  FORCE_PROJECT_TREE       - true/false (default: false; bypass category filter)" >&2
     exit 1
 fi
 
@@ -437,17 +483,21 @@ elif ! validate_file_path "$OUTPUT_FILE" "true"; then
     exit 1
 fi
 
-# FILES array handling (compatible with set -u)
-# Validate each file path
+# FILES array handling (compatible with set -u).
+# Each arg may carry a "@TAG" suffix (PRIMARY|CONTEXT, default PRIMARY).
+# FILES and FILE_TAGS are populated in lockstep.
 FILES=()
+FILE_TAGS=()
 while [[ $# -gt 0 ]]; do
     file_arg="$1"
     shift
+    _parse_tagged_path "$file_arg"
     # Allow relative paths and /tmp paths for context files
-    if [[ "$file_arg" == /tmp/* ]] || validate_file_path "$file_arg" "false" 2>/dev/null; then
-        FILES+=("$file_arg")
+    if [[ "$_PARSED_PATH" == /tmp/* ]] || validate_file_path "$_PARSED_PATH" "false" 2>/dev/null; then
+        FILES+=("$_PARSED_PATH")
+        FILE_TAGS+=("$_PARSED_TAG")
     else
-        log_warn "Skipping invalid file path: $file_arg"
+        log_warn "Skipping invalid file path: $_PARSED_PATH"
     fi
 done
 
@@ -473,45 +523,55 @@ _reset_stats
     echo '```'
     echo ""
 
-    # Project structure (relevant files, excluding noise)
-    echo "## Project Structure"
-    echo '```'
-    find . -maxdepth 4 -type f \( \
-        -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.tsx" \
-        -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.kt" \
-        -o -name "*.rb" -o -name "*.php" -o -name "*.swift" -o -name "*.c" \
-        -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" -o -name "*.cs" \
-        -o -name "*.sh" -o -name "*.bash" -o -name "*.zsh" \
-        -o -name "Dockerfile" -o -name "docker-compose*.yml" \
-        -o -name "Makefile" -o -name "CMakeLists.txt" \
-        -o -name "*.json" -o -name "*.toml" -o -name "*.yaml" -o -name "*.yml" \
-        -o -name "*.md" \
-    \) \
-    -not -path '*/node_modules/*' \
-    -not -path '*/.git/*' \
-    -not -path '*/dist/*' \
-    -not -path '*/build/*' \
-    -not -path '*/__pycache__/*' \
-    -not -path '*/.venv/*' \
-    -not -path '*/venv/*' \
-    -not -path '*/target/*' \
-    -not -path '*/.next/*' \
-    2>/dev/null | sort | head -100 || true
-    echo '```'
-    echo ""
+    # Project structure (relevant files, excluding noise).
+    # Skipped for pointed categories where the tree is noise (e.g. SECURITY,
+    # QUICK_SYNTAX). Override with FORCE_PROJECT_TREE=true.
+    if _should_include_project_tree "$QUESTION_CATEGORY" || [[ "$FORCE_PROJECT_TREE" == "true" ]]; then
+        echo "## Project Structure"
+        echo '```'
+        find . -maxdepth 4 -type f \( \
+            -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.tsx" \
+            -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.kt" \
+            -o -name "*.rb" -o -name "*.php" -o -name "*.swift" -o -name "*.c" \
+            -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" -o -name "*.cs" \
+            -o -name "*.sh" -o -name "*.bash" -o -name "*.zsh" \
+            -o -name "Dockerfile" -o -name "docker-compose*.yml" \
+            -o -name "Makefile" -o -name "CMakeLists.txt" \
+            -o -name "*.json" -o -name "*.toml" -o -name "*.yaml" -o -name "*.yml" \
+            -o -name "*.md" \
+        \) \
+        -not -path '*/node_modules/*' \
+        -not -path '*/.git/*' \
+        -not -path '*/dist/*' \
+        -not -path '*/build/*' \
+        -not -path '*/__pycache__/*' \
+        -not -path '*/.venv/*' \
+        -not -path '*/venv/*' \
+        -not -path '*/target/*' \
+        -not -path '*/.next/*' \
+        2>/dev/null | sort | head -100 || true
+        echo '```'
+        echo ""
+    fi
 
-    # Content of specific files
+    # Content of specific files.
+    # Each entry carries a relevance tag (PRIMARY = focus of the question,
+    # CONTEXT = ambient reference). Consultants weigh PRIMARY heavier.
     if [[ ${#FILES[@]} -gt 0 ]]; then
         echo "## Relevant Files"
         echo ""
+        echo "Each file is tagged \`(PRIMARY)\` (focus of the question) or \`(CONTEXT)\` (ambient reference)."
+        echo ""
 
-        for file_path in "${FILES[@]}"; do
+        for i in "${!FILES[@]}"; do
+            file_path="${FILES[$i]}"
+            file_tag="${FILE_TAGS[$i]:-PRIMARY}"
             if [[ -f "$file_path" ]]; then
                 # Extract extension for syntax highlighting
                 extension="${file_path##*.}"
                 lang=$(_get_lang_for_extension "$extension")
 
-                echo "### File: \`$file_path\`"
+                echo "### File: \`$file_path\` ($file_tag)"
                 echo ""
 
                 echo "\`\`\`$lang"
@@ -521,7 +581,7 @@ _reset_stats
                 echo "\`\`\`"
                 echo ""
             else
-                echo "### File: \`$file_path\`"
+                echo "### File: \`$file_path\` ($file_tag)"
                 echo ""
                 echo "*File not found*"
                 echo ""

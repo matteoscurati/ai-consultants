@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.13.1
+**Version**: 2.14.0
 
 ## Distribution
 
@@ -738,10 +738,20 @@ Every version bump **must** include a release note in `docs/releases/v<VERSION>.
 
 ### Steps
 
-1. Update version in all files: `package.json`, `SKILL.md` (frontmatter + title), `README.md` (title + badge), `CLAUDE.md` (`**Version**`), `docs/cost_rates.json`, `docs/COST_RATES.md` (title)
-2. Add changelog entry in CLAUDE.md under `## Changelog`
-3. Create `docs/releases/v<VERSION>.md` using the template below
-4. Commit, push, and optionally create a GitHub release pointing to the release note
+1. **Update version** in all files: `package.json`, `scripts/config.sh` (`AI_CONSULTANTS_VERSION`), `SKILL.md` (frontmatter + title), `README.md` (title + badge), `CLAUDE.md` (`**Version**`), `docs/cost_rates.json`, `docs/COST_RATES.md` (title)
+2. **Add `## Changelog` entry** in CLAUDE.md (developer-facing, long-form, rationale + line-level commentary)
+3. **Add `CHANGELOG.md` entry** at the top of `CHANGELOG.md` (Keep a Changelog format: `## [VERSION] - YYYY-MM-DD` with `### Added/Changed/Fixed/Removed/Deprecated/Security` subsections — user-facing, one-line bullets)
+4. **Create `docs/releases/v<VERSION>.md`** using the template below (highlights + upgrade guide — for GitHub releases / users)
+5. **Update workspace sync surfaces** if applicable: `aiconsultants.sh/index.html` (`softwareVersion` schema + badge), `../CLAUDE.md` workspace guide ("Latest at time of last sync" + Recent release line)
+6. **Run tests**: `npm test` must pass before committing
+7. **Commit, push**, and optionally create a GitHub release pointing to the release note
+
+**Why three changelog surfaces?** They serve different audiences:
+- `CLAUDE.md ## Changelog` — what the *next maintainer* needs (file/line references, rationale, latent bugs uncovered)
+- `CHANGELOG.md` — what *users on a specific version* need (concise, categorized, scannable)
+- `docs/releases/v<VERSION>.md` — what *people deciding to upgrade* need (highlights, breaking changes, upgrade guide)
+
+Drift between these is the most common release-process bug. Keep them in sync per release.
 
 ### Release Note Template
 
@@ -801,6 +811,19 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.14.0
+- **Context handoff: AST optimization pipeline now engages on the primary slash-command path**. Pre-fix, `/ai-consultants:consult` instructed the invoking agent (Claude/Codex/Gemini) to inline file contents into the query string, which meant `build_context.sh` ran with zero `FILES` and the entire `lib/code_optimizer.sh` + `lib/chunking.sh` + `lib/symbol_map.sh` stack was dead code. The three `.{claude,codex,gemini}/commands/ai-consultants:{consult,debate}.md` slash commands now instruct agents to pass file paths as positional arguments to `consult_all.sh`; `build_context.sh` does the file reading and runs the optimizer.
+- **`build_context.sh` reads exported `QUESTION_CATEGORY`** to decide whether to include the project tree section. SECURITY, QUICK_SYNTAX, ALGORITHM, BUG_DEBUG, DATABASE, TESTING categories skip it (noise for pointed questions); ARCHITECTURE, CODE_REVIEW, API_DESIGN, GENERAL include it; unknown categories default to "include" (conservative). New env var `FORCE_PROJECT_TREE=true` bypasses the heuristic. Categories source: `classify_question.sh` already exports `QUESTION_CATEGORY` in `consult_all.sh:241-242` — zero new code path, just consumes existing signal.
+- **File relevance tags**: `path/to/file@PRIMARY` (focus of the question) vs `path/to/file@CONTEXT` (ambient reference). Default `PRIMARY` when omitted. Unknown tags fall back to PRIMARY with a `log_warn`. New parallel `FILE_TAGS` array in `build_context.sh`. Rendered as `### File: \`path\` (TAG)` in the `## Relevant Files` section, with a header explaining the two values to consultants. Downstream synthesis/debate/peer_review unaffected (they don't read `context.md`).
+- **`--query-file <path>` flag in `consult_all.sh`** as escape hatch for queries exceeding shell ARG_MAX (~256KB on macOS) or containing mixed-quote payloads. Conflicts with positional question arg (parser-level error). Validates file existence at parse time.
+- **Slash-command file detection**: replaced the hardcoded extension regex + `/`-in-token heuristic with "use your judgment, verify via Glob/Bash when uncertain". Pre-fix missed `Makefile`, `Dockerfile`, dotfiles; false-positive on URLs and regex patterns in question text. The invoking agent has full conversation context so it's better placed than a regex.
+- **Claude-only note in `.claude/commands/ai-consultants:consult.md`**: explicit instruction not to use `Read` tool output (which carries `N\t` line-number prefix) since `build_context.sh` reads files itself. Codex and Gemini variants don't carry this note (their tools don't add the prefix).
+- **First test coverage for `lib/code_optimizer.sh` and `lib/chunking.sh`**: new `scripts/test_context_optimization.sh` (17 assertions, 14 tests). Covers: @TAG default/explicit/unknown, QUESTION_CATEGORY routing (SECURITY drops, ARCHITECTURE keeps, unknown includes), FORCE_PROJECT_TREE override, Python AST extraction over MAX_CONTEXT_FILE_BYTES threshold, `optimize_code_file` smoke, `chunk_file_semantically` JSON shape, --query-file parsing (valid/missing/conflict), legacy no-FILES path preservation. Picked up automatically by `test_all.sh`'s `find`-based discovery — no manual wire-up needed. Total: 7 suites, ~510 assertions.
+- **Test fixtures**: new `scripts/test_fixtures/context/` with `sample.py` (Python class + methods + main), `sample.sh` (Bash with functions), `sample.json` (config), `sample.txt` (plain text). Deterministic, no timestamps or randomness.
+- **Help text updates**: `consult_all.sh --help` documents `--query-file` and `@TAG` syntax; `build_context.sh` usage error documents `QUESTION_CATEGORY` and `FORCE_PROJECT_TREE`.
+- **Known gap surfaced**: `_supports_ast_extraction` declares 13 languages (Python, JS, TS, Go, Rust, Java, C++, C, C#, Ruby, PHP, Swift) but `lib/code_optimizer.sh` has dedicated extractors for only 4 (Python, JS/TS, Bash, Go); the other 9 fall back to `_extract_generic` (grep-based). Documented in release note; tracked for future tree-sitter-backed extraction.
+- **Backwards compat**: agents that still inline file contents into the query (pinned old slash commands) keep working — `build_context.sh` degrades to no-FILES branch, just without the optimization benefit. Direct bash users of `./scripts/consult_all.sh "q" file1 file2` get the same behavior plus the new optimization.
 
 ### v2.13.1
 - **Perf**: XDG roots resolved once at first `config.sh` source and **exported** as `_AI_CONSULTANTS_XDG_{CACHE,STATE,DATA}` — child query subshells inherit the values and skip ~6 subshells/child × 14 children = ~84 forks per consultation (~200-400ms saving on macOS).

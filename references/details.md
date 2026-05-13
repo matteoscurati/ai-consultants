@@ -37,7 +37,20 @@ cd ~/.claude/skills/ai-consultants
 
 # With local model
 ./scripts/consult_all.sh --preset local "Private question"
+
+# With file context — paths trigger AST optimization (v2.14+)
+./scripts/consult_all.sh "Review the auth flow" src/auth.ts src/session.ts
+
+# With relevance tags — PRIMARY = focus, CONTEXT = ambient reference
+./scripts/consult_all.sh "Why does auth fail under load?" \
+    src/auth.ts@PRIMARY src/cache.ts@CONTEXT
+
+# With query loaded from file (for long/awkwardly-quoted questions)
+echo "Long multi-paragraph question..." > /tmp/q.txt
+./scripts/consult_all.sh --query-file /tmp/q.txt src/big.py
 ```
+
+See `references/configuration.md` § "Context Handoff (v2.14+)" for `QUESTION_CATEGORY` and `FORCE_PROJECT_TREE` env vars.
 
 ## Best Practices
 
