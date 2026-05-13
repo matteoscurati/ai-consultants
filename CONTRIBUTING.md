@@ -46,9 +46,22 @@ cd ai-consultants
 # Verify dependencies
 ./scripts/preflight_check.sh
 
+# Install the git pre-commit hook (recommended)
+npm run install-hooks      # or: bash scripts/install-hooks.sh
+
 # Copy environment configuration (optional)
 cp .env.example .env
 ```
+
+### Pre-commit hook
+
+`npm run install-hooks` installs a git pre-commit hook (`scripts/hooks/pre-commit`) that runs `shellcheck` on staged `.sh` files under `scripts/` using the exact same invocation the CI lint job uses. This catches issues like SC2164 locally before they reach CI.
+
+Notes:
+- **Idempotent**: re-running the installer is safe; an existing different hook is backed up to `.git/hooks/pre-commit.backup.<timestamp>` (or use `FORCE=1 npm run install-hooks` to skip the backup).
+- **No-op without shellcheck**: if `shellcheck` isn't on PATH the hook prints a warning and lets the commit through. Install via `brew install shellcheck` (macOS) or `apt-get install shellcheck` (Linux).
+- **Bypass**: `git commit --no-verify` skips the hook. Use sparingly — CI will reject the same warnings.
+- **Manual lint**: `npm run lint` runs the same shellcheck invocation on the full repo.
 
 ## Code Conventions
 

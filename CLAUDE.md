@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.14.0
+**Version**: 2.14.1
 
 ## Distribution
 
@@ -732,6 +732,16 @@ For detailed information, see:
 
 Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `perf:`, `ci:`. Scope is optional (e.g., `feat(routing): add fallback escalation`).
 
+### Pre-commit hook (v2.14.1+)
+
+A git pre-commit hook runs `shellcheck` on staged `.sh` files using the exact CI invocation. Install it once per checkout:
+
+```bash
+npm run install-hooks    # copies scripts/hooks/pre-commit into .git/hooks/
+```
+
+Manual lint of the full repo: `npm run lint`. Bypass the hook: `git commit --no-verify` (use sparingly — CI will catch the same warnings).
+
 ## Release Process
 
 Every version bump **must** include a release note in `docs/releases/v<VERSION>.md`. Use the template below.
@@ -811,6 +821,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.14.1
+- **Pre-commit hook**: `scripts/hooks/pre-commit` runs `shellcheck` on staged `.sh` files under `scripts/` using the exact CI invocation (`-S warning -x -e SC1091,SC1090,SC2034,SC2155`). Mirrors `.github/workflows/ci.yml:32` so the same warnings that fail CI also fail the local commit. Filtered with the regex `^scripts/(lib/)?[^/]+\.sh$` to match the CI glob exactly (test fixtures under `scripts/test_fixtures/` are correctly excluded). Bypass: `git commit --no-verify`.
+- **`scripts/install-hooks.sh`**: idempotent installer wired to `npm run install-hooks`. Backs up any existing different hook to `.git/hooks/pre-commit.backup.<timestamp>` to avoid clobbering contributor customizations (`FORCE=1` skips backup). Silent no-op outside a git checkout, so it's safe to wire to npm `prepare` or similar lifecycle hooks if ever needed.
+- **`npm run lint`**: convenience wrapper for the full-repo shellcheck invocation. Useful pre-push when you want to validate without staging.
+- **Motivation**: v2.14.0 push to `main` failed CI due to SC2164 in `scripts/test_context_optimization.sh:18` (`cd "$PROJECT_ROOT"` lacked `|| exit`). The new script passed `bash -n` locally but `bash -n` is purely a parser check — it doesn't run any linter. The pre-commit hook closes that gap. Documented in `CONTRIBUTING.md` Development Environment Setup section and briefly in `## Git Conventions` here.
+- **No runtime behavior change**: this is contributor-only tooling. Tests still pass (7 suites, ~510 assertions).
 
 ### v2.14.0
 - **Context handoff: AST optimization pipeline now engages on the primary slash-command path**. Pre-fix, `/ai-consultants:consult` instructed the invoking agent (Claude/Codex/Gemini) to inline file contents into the query string, which meant `build_context.sh` ran with zero `FILES` and the entire `lib/code_optimizer.sh` + `lib/chunking.sh` + `lib/symbol_map.sh` stack was dead code. The three `.{claude,codex,gemini}/commands/ai-consultants:{consult,debate}.md` slash commands now instruct agents to pass file paths as positional arguments to `consult_all.sh`; `build_context.sh` does the file reading and runs the optimizer.

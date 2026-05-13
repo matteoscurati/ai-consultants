@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.14.1] - 2026-05-13
+
+### Added
+- **Pre-commit hook** (`scripts/hooks/pre-commit`) runs `shellcheck` on staged `.sh` files under `scripts/` using the exact CI invocation (`-S warning -x -e SC1091,SC1090,SC2034,SC2155`). Install once per checkout via `npm run install-hooks` (or `bash scripts/install-hooks.sh`). No-ops gracefully when `shellcheck` isn't installed or no `.sh` files are staged. Bypass with `git commit --no-verify`.
+- `scripts/install-hooks.sh` installer: idempotent, backs up any pre-existing hook to `.git/hooks/pre-commit.backup.<timestamp>` (or `FORCE=1` to skip backup). Silent no-op outside a git checkout (safe for npm tarball consumption).
+- `package.json` scripts: `npm run install-hooks` and `npm run lint` (full-repo shellcheck for ad-hoc verification).
+
+### Fixed
+- CI fail in v2.14.0 due to shellcheck SC2164 in `scripts/test_context_optimization.sh:18` (`cd "$PROJECT_ROOT"` without `|| exit`). Fixed pre-release in the same v2.14.0 cycle; the pre-commit hook prevents this class of issue locally going forward.
+
 ## [2.14.0] - 2026-05-13
 
 ### Added

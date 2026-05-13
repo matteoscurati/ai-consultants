@@ -1,0 +1,39 @@
+#!/bin/bash
+# Pre-commit hook: shellcheck for staged .sh files.
+#
+# Mirrors the lint invocation in .github/workflows/ci.yml so the same
+# warnings that would fail CI also fail the commit locally. Installed by
+# scripts/install-hooks.sh (manually, or via `npm run install-hooks`).
+#
+# Bypass: git commit --no-verify
+
+set -uo pipefail
+
+# Staged .sh files under scripts/ (matches the CI glob:
+# `scripts/*.sh scripts/lib/*.sh`). Renames/deletes are excluded; only
+# Added/Copied/Modified are linted.
+staged=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '^scripts/(lib/)?[^/]+\.sh$' || true)
+
+if [[ -z "$staged" ]]; then
+    exit 0
+fi
+
+if ! command -v shellcheck >/dev/null 2>&1; then
+    echo "warning: shellcheck not installed, skipping pre-commit lint" >&2
+    echo "  install with: brew install shellcheck   (or: apt-get install shellcheck)" >&2
+    echo "  CI will still catch issues — this is a local convenience only." >&2
+    exit 0
+fi
+
+echo "Running shellcheck on staged scripts..." >&2
+# shellcheck disable=SC2086  # we want word-splitting on the file list
+if ! shellcheck -S warning -x -e SC1091,SC1090,SC2034,SC2155 $staged; then
+    echo "" >&2
+    echo "shellcheck failed on the staged files above." >&2
+    echo "Fix the issues, then re-stage and re-commit." >&2
+    echo "Bypass with: git commit --no-verify" >&2
+    exit 1
+fi
+
+exit 0

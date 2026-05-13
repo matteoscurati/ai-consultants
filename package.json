@@ -1,6 +1,6 @@
 {
   "name": "ai-consultants",
-  "version": "2.14.0",
+  "version": "2.14.1",
   "description": "Multi-model AI deliberation system - query up to 15 AI consultants for coding problems",
   "bin": {
     "ai-consultants": "bin/ai-consultants"
@@ -38,7 +38,9 @@
     "url": "https://github.com/matteoscurati/ai-consultants/issues"
   },
   "scripts": {
-    "test": "bash scripts/test_all.sh"
+    "test": "bash scripts/test_all.sh",
+    "install-hooks": "bash scripts/install-hooks.sh",
+    "lint": "shellcheck -S warning -x -e SC1091,SC1090,SC2034,SC2155 scripts/*.sh scripts/lib/*.sh"
   },
   "os": [
     "darwin",
