@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.14.2] - 2026-05-29
+
+### Changed
+- Claude premium tier upgraded from `claude-opus-4-7` to `claude-opus-4-8` (Opus 4.8 release). The default `CLAUDE_MODEL` and the `max_quality`/`premium` tier now resolve to `claude-opus-4-8`. Standard (`claude-sonnet-4-6`) and economy (`claude-haiku-4-5`) tiers unchanged.
+- `docs/cost_rates.json`: added a `claude-opus-4-8` entry; repointed Claude premium fallback + tier to it; moved `claude-opus-4-7` to the legacy block for historical cost lookups.
+
+### Fixed
+- **Cost reporting was ~1000× too high for premium/standard models.** `lib/costs.sh` treats every rate in `cost_rates.json` as USD **per-1K tokens**, but the premium/standard blocks held **per-MTok** figures (e.g. `claude-opus-4-7: 5.00`, `gpt-5.5: 3.00`), so a ~1k-token Opus query was reported as **$30** instead of **$0.03**. Normalized the entire catalog (premium/standard/legacy/`default_rate`) to per-1K; economy entries (incl. `claude-haiku-4-5`) were already correct and unchanged. Added a `_comment_units` note + a regression test to prevent recurrence. **If you tuned `MAX_SESSION_COST` or cost-aware-routing thresholds against the old inflated numbers, revisit them.**
+- `docs/COST_RATES.md`: Claude rows synced to the corrected per-1K values and relabeled to `claude-opus-4-8` (non-Claude rows may still lag; `cost_rates.json` is the source of truth).
+- Stale short-alias defaults replaced with canonical IDs: `opus-4.6` in `scripts/query_claude.sh`, `.env.example`, `references/configuration.md`, and the README "Models by Tier" table → `claude-opus-4-8`; `sonnet-4.6` fallback in `lib/api.sh::build_anthropic_request` → `claude-sonnet-4-6`.
+
 ## [2.14.1] - 2026-05-13
 
 ### Added

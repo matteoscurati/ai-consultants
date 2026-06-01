@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.14.1
+**Version**: 2.14.2
 
 ## Distribution
 
@@ -414,7 +414,7 @@ Three tiers of models are available for each consultant, configurable via `apply
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-opus-4-7, gemini-3.1-pro-preview, gpt-5.5 |
+| **premium** | Latest flagship models | claude-opus-4-8, gemini-3.1-pro-preview, gpt-5.5 |
 | **standard** | Good quality at reasonable cost | claude-sonnet-4-6, gemini-3-flash-preview, gpt-5.3 |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, gemini-2.0-flash, gpt-4o-mini |
 
@@ -451,7 +451,7 @@ All consultants now use premium models by default:
 
 | Consultant | Default Model |
 |------------|---------------|
-| Claude | claude-opus-4-7 |
+| Claude | claude-opus-4-8 |
 | Gemini | gemini-3.1-pro-preview |
 | Codex | gpt-5.5 |
 | Mistral | mistral-large-3 |
@@ -653,7 +653,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `PANIC_CONFIDENCE_THRESHOLD` | 5 | Panic threshold (v2.2) |
 | `ENABLE_OLLAMA` | false | Local model support (v2.2) |
 | `OLLAMA_MODEL` | qwen2.5-coder:32b | Ollama model (v2.5 - premium default) |
-| `CLAUDE_MODEL` | claude-opus-4-7 | Claude model (v2.5) |
+| `CLAUDE_MODEL` | claude-opus-4-8 | Claude model (v2.5) |
 | `GEMINI_MODEL` | gemini-3.1-pro-preview | Gemini model (v2.5) |
 | `CODEX_MODEL` | gpt-5.5 | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
@@ -821,6 +821,16 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.14.2
+- **Claude premium tier upgraded `claude-opus-4-7` → `claude-opus-4-8`** (Opus 4.8 released 2026-05-29). Single source of truth is the `premium` case in `config.sh::get_model_for_tier` (`scripts/config.sh:583`) and the `CLAUDE_MODEL` default (`scripts/config.sh:223`); both now resolve to `claude-opus-4-8`. Standard (`claude-sonnet-4-6`) and economy (`claude-haiku-4-5`) tiers are unchanged — Sonnet 4.6 and Haiku 4.5 remain the latest in their classes.
+- **`docs/cost_rates.json`**: added a `claude-opus-4-8` entry; repointed `consultant_fallbacks.claude` and `model_tiers.premium.claude` to it; moved `claude-opus-4-7` into the `_comment_legacy` block so cost lookups for cached/historical responses and pinned overrides still resolve. Value entered in per-1K (see units fix below).
+- **CRITICAL — cost-catalog unit normalization (fixes ~1000× cost overstatement)**: `lib/costs.sh` computes cost as `(token_count / 1000) * rate`, i.e. every value in `cost_rates.json` MUST be USD **per-1K** tokens (the hardcoded fallback table in `costs.sh`, e.g. `claude-3-haiku → 0.00025`, confirms this contract). But the premium/standard blocks had been populated with **per-MTok** dollar figures (`claude-opus-4-7: 5.00`, `claude-sonnet-4-6: 3.00`, `gpt-5.5: 3.00`, …) — so `estimate_query_cost` reported ~1000× the true cost for almost every premium/standard model (e.g. a ~1k-in/1k-out Opus query was reported as **$30** instead of **$0.03**). The economy block (incl. `claude-haiku-4-5: 0.001`) was already correct per-1K. Normalized the **entire** catalog (premium, standard, economy, legacy, `default_rate`) to per-1K by dividing the per-MTok entries by 1000; left the already-correct per-1K entries untouched. Added a `_comment_units` field documenting the contract to prevent regression. Verified: Opus 1k+1k = $0.03, 1M+1M = $30; Haiku 1k+1k = $0.006; gpt-5.5 1M+1M = $15; gemini-pro 1M+1M = $6.25 — all match provider pricing.
+- **`docs/COST_RATES.md`**: Claude rows synced to the corrected per-1K values (`claude-opus-4-8` $0.005/$0.025, `claude-sonnet-4-6` $0.003/$0.015, `claude-haiku-4-5` $0.001/$0.005). Note: non-Claude rows in this human-facing doc may still lag the JSON and should be re-synced in a follow-up — `cost_rates.json` is the runtime source of truth, not this file.
+- **Stale-alias cleanup (pre-existing, fixed in passing)**: five spots still carried pre-v2.10.6 short aliases and now use canonical IDs — `scripts/query_claude.sh` (header comment + `MODEL_USED` fallback), `.env.example` (`CLAUDE_MODEL=opus-4.6`), `references/configuration.md`, and the README "Models by Tier" table all → `claude-opus-4-8`; plus `lib/api.sh::build_anthropic_request` default `sonnet-4.6` → `claude-sonnet-4-6`. All were latent (callers always pass an explicit model / `config.sh` always exports `CLAUDE_MODEL`), but would have surfaced if those scripts were invoked standalone or the example `.env` copied verbatim.
+- **Test**: `scripts/test_suite.sh::test_model_for_tier` premium assertion updated to expect `claude-opus-4-8`. No other test references the Claude premium ID.
+- **Correction of an earlier mis-diagnosis (for the record)**: during development this was first flagged as "Haiku is 1000× *understated*". That was wrong — under the per-1K contract `claude-haiku-4-5: 0.001` is correct ($1/$5 per MTok). The real bug was the *opposite*: premium/standard entries were 1000× *overstated*. The unit normalization above is the actual fix.
+- **Behavioral change**: cost *reporting* now drops ~1000× for premium/standard models (it was massively overstating). Orchestration, routing, and synthesis are unaffected. Note: `ENABLE_COST_AWARE_ROUTING` / budget thresholds compare against these figures, so anyone who tuned `MAX_SESSION_COST` against the old inflated numbers should revisit their threshold. Remaining out-of-scope item: a few legacy per-model rates (e.g. Mistral/DeepSeek/GLM tier orderings) reflect pre-existing catalog figures I couldn't verify against authoritative pricing — only the unit bug was fixed, not per-model price accuracy.
 
 ### v2.14.1
 - **Pre-commit hook**: `scripts/hooks/pre-commit` runs `shellcheck` on staged `.sh` files under `scripts/` using the exact CI invocation (`-S warning -x -e SC1091,SC1090,SC2034,SC2155`). Mirrors `.github/workflows/ci.yml:32` so the same warnings that fail CI also fail the local commit. Filtered with the regex `^scripts/(lib/)?[^/]+\.sh$` to match the CI glob exactly (test fixtures under `scripts/test_fixtures/` are correctly excluded). Bypass: `git commit --no-verify`.

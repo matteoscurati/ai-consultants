@@ -1,8 +1,8 @@
-# AI Consultants v2.14.1
+# AI Consultants v2.14.2
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.14.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.14.2-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -471,7 +471,7 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 | Consultant | Premium | Standard | Economy |
 |------------|---------|----------|---------|
-| Claude | opus-4.6 | sonnet-4.6 | haiku-4.5 |
+| Claude | claude-opus-4-8 | claude-sonnet-4-6 | claude-haiku-4-5 |
 | Gemini | gemini-3.1-pro-preview | gemini-3-flash-preview | gemini-2.0-flash |
 | Codex | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
 | Mistral | mistral-large-3 | mistral-medium-latest | devstral-small-2 |

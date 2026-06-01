@@ -160,7 +160,7 @@ ENABLE_DEEPSEEK=false
 ```bash
 GEMINI_MODEL=gemini-3.1-pro-preview
 CODEX_MODEL=gpt-5.3-codex
-CLAUDE_MODEL=opus-4.6
+CLAUDE_MODEL=claude-opus-4-8
 MISTRAL_MODEL=mistral-large-3
 KILO_MODEL=auto
 CURSOR_MODEL=composer-1.5

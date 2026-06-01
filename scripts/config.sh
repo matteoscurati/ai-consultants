@@ -220,7 +220,7 @@ KIMI_CMD="${KIMI_CMD:-kimi}"
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
 # =============================================================================
 
-CLAUDE_MODEL="${CLAUDE_MODEL:-claude-opus-4-7}"
+CLAUDE_MODEL="${CLAUDE_MODEL:-claude-opus-4-8}"
 CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 
@@ -580,7 +580,7 @@ get_model_for_tier() {
     case "$tier" in
         premium|max|best)
             case "$consultant" in
-                claude)   echo "claude-opus-4-7" ;;
+                claude)   echo "claude-opus-4-8" ;;
                 gemini)   echo "gemini-3.1-pro-preview" ;;
                 codex)    echo "gpt-5.5" ;;
                 mistral)  echo "mistral-large-3" ;;
@@ -805,4 +805,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.14.1"
+AI_CONSULTANTS_VERSION="2.14.2"

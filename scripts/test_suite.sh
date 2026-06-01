@@ -978,6 +978,28 @@ test_cost_estimation() {
     assert_equals "0" "$result" "zero tokens = zero cost"
 }
 
+# Regression for the v2.14.2 cost-catalog unit fix: cost_rates.json values MUST be
+# per-1K tokens (the engine does token_count/1000 * rate). Pre-fix, premium/standard
+# entries held per-MTok figures, so estimate_query_cost was ~1000x too high
+# (a ~1k-in/1k-out Opus query reported $30 instead of $0.03).
+test_cost_per1k_contract() {
+    suite "costs.sh: per-1K rate contract (v2.14.2 regression)"
+
+    local saved="${COST_RATES_FILE:-}"
+    COST_RATES_FILE="$SCRIPT_DIR/../docs/cost_rates.json"
+
+    assert_equals "0.005" "$(get_input_cost_per_1k claude-opus-4-8)"  "opus-4-8 input is per-1K (0.005)"
+    assert_equals "0.025" "$(get_output_cost_per_1k claude-opus-4-8)" "opus-4-8 output is per-1K (0.025)"
+    assert_equals "0.001" "$(get_input_cost_per_1k claude-haiku-4-5)" "haiku-4-5 input is per-1K (0.001)"
+    assert_equals "0.005" "$(get_output_cost_per_1k claude-haiku-4-5)" "haiku-4-5 output is per-1K (0.005)"
+
+    # End-to-end: per-1K rates => correct dollar costs (pre-fix opus 1k+1k was $30, not $0.03).
+    assert_equals ".030000" "$(estimate_query_cost claude-opus-4-8 1000 1000)"  "opus 1k+1k = 0.03 (regression: pre-fix was 30)"
+    assert_equals ".006000" "$(estimate_query_cost claude-haiku-4-5 1000 1000)" "haiku 1k+1k = 0.006"
+
+    if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
+}
+
 # =============================================================================
 # TESTS: costs.sh - Cost formatting
 # =============================================================================
@@ -1424,7 +1446,7 @@ test_escalation() {
 test_model_for_tier() {
     suite "config.sh: get_model_for_tier"
 
-    assert_equals "claude-opus-4-7"       "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-4-7"
+    assert_equals "claude-opus-4-8"       "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-4-8"
     assert_equals "claude-sonnet-4-6"     "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-4-6"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium")" "gemini premium is gemini-3.1-pro-preview"
@@ -1563,6 +1585,7 @@ main() {
     # costs.sh tests
     test_cost_rates
     test_cost_estimation
+    test_cost_per1k_contract
     test_cost_formatting
     test_budget_checking
     test_query_complexity
