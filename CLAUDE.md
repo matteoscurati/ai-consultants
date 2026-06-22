@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.14.2
+**Version**: 2.15.1
 
 ## Distribution
 
@@ -367,7 +367,7 @@ New environment variables in `config.sh`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GEMINI_USE_API` | false | Use Google AI API instead of gemini CLI |
+| `GEMINI_USE_API` | false | Use Google AI API instead of the agy CLI |
 | `CODEX_USE_API` | false | Use OpenAI API instead of codex CLI |
 | `CLAUDE_USE_API` | false | Use Anthropic API instead of claude CLI |
 | `MISTRAL_USE_API` | false | Use Mistral API instead of vibe CLI |
@@ -414,9 +414,9 @@ Three tiers of models are available for each consultant, configurable via `apply
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-opus-4-8, gemini-3.1-pro-preview, gpt-5.5 |
-| **standard** | Good quality at reasonable cost | claude-sonnet-4-6, gemini-3-flash-preview, gpt-5.3 |
-| **economy** | Optimized for speed and low cost | claude-haiku-4-5, gemini-2.0-flash, gpt-4o-mini |
+| **premium** | Latest flagship models | claude-opus-4-8, Gemini 3.1 Pro (High), gpt-5.5 |
+| **standard** | Good quality at reasonable cost | claude-sonnet-4-6, Gemini 3.5 Flash (High), gpt-5.3 |
+| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.5 Flash (Low), gpt-4o-mini |
 
 **Default models are now premium tier** for maximum quality.
 
@@ -428,7 +428,7 @@ apply_model_tier "standard"  # Set all consultants to standard models
 apply_model_tier "economy"   # Set all consultants to economy models
 
 # Get model for a specific consultant and tier (v2.8.1)
-get_model_for_tier "gemini" "premium"   # → gemini-3.1-pro-preview
+get_model_for_tier "gemini" "premium"   # → Gemini 3.1 Pro (High)
 get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 ```
 
@@ -452,7 +452,7 @@ All consultants now use premium models by default:
 | Consultant | Default Model |
 |------------|---------------|
 | Claude | claude-opus-4-8 |
-| Gemini | gemini-3.1-pro-preview |
+| Gemini | Gemini 3.1 Pro (High) (via agy CLI) |
 | Codex | gpt-5.5 |
 | Mistral | mistral-large-3 |
 | Cursor | composer-2 |
@@ -654,7 +654,8 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_OLLAMA` | false | Local model support (v2.2) |
 | `OLLAMA_MODEL` | qwen2.5-coder:32b | Ollama model (v2.5 - premium default) |
 | `CLAUDE_MODEL` | claude-opus-4-8 | Claude model (v2.5) |
-| `GEMINI_MODEL` | gemini-3.1-pro-preview | Gemini model (v2.5) |
+| `GEMINI_MODEL` | Gemini 3.1 Pro (High) | Gemini agy CLI model (v2.15) |
+| `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
 | `CODEX_MODEL` | gpt-5.5 | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
 | `SYNTHESIS_STRATEGY` | majority | Synthesis strategy (v2.2) |
@@ -677,7 +678,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 
 ## External Dependencies
 
-- `gemini` CLI - Google Gemini
+- `agy` CLI - Antigravity CLI (Gemini consultant; successor to the deprecated Gemini CLI, v2.15)
 - `codex` CLI - OpenAI Codex
 - `vibe` CLI - Mistral Vibe
 - `kilocode` CLI - Kilo Code
@@ -821,6 +822,33 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.15.1
+- **Markdown-fence parsing fix — Gemini's default model produced degraded (fallback) responses under v2.15.0.** The v2.15.0 migration note claimed "agy prints the model JSON directly (top-level `.response`)"; verified against agy 1.0.10, that is only true for some models (e.g. `Gemini 3.5 Flash (Low)` returns bare JSON). The **default** `Gemini 3.1 Pro (High)` wraps the envelope in a ```` ```json … ``` ```` markdown fence, so `process_consultant_response` failed the `.response.summary` jq probe and fell through to `build_fallback_response` — emitting `summary: "Unstructured response - see detailed"`, `confidence: 5`, and empty pros/cons for every Gemini reply, with the real structured envelope buried as a fenced string inside `.detailed`. Fix: new shared helper `lib/common.sh::strip_json_fence` — returns the text unchanged when it already parses as JSON (a real fence makes the text invalid JSON, so the gate reliably detects it), otherwise drops pure fence-marker lines (`/^[[:space:]]*```[[:alnum:]]*[[:space:]]*$/d`). Consultant-agnostic; the bare-JSON path (Flash, every other consultant) is untouched. Verified end-to-end against live agy: `Gemini 3.1 Pro (High)` now yields a populated `build_structured_response` (summary/approach/pros/cons/confidence=10). Regression test in `test_functions.sh::test_process_consultant_response_fence`.
+- **Fence fix applied to ALL agy output paths (caught in `/code-review max`).** The fence isn't only seen by `process_consultant_response` — two other paths consume agy output directly and were still corrupting it:
+  - **`lib/reflection.sh::run_reflection_cycle`**: `_exec_consultant` returns raw (fenced) agy output. The critique's `jq -r '.needs_refinement'` returned `""` on fenced text (so the early-stop never fired and every cycle ran), and the refined response was written back as fenced non-JSON, making downstream voting/synthesis/report `jq` reads silently fall back — discarding the refined Gemini answer. Now de-fences `critique` and `refined` via `strip_json_fence` at the consumption points.
+  - (`peer_review.sh` already had its own `extract_json_from_response` fence handler applied before aggregation — verified safe, left as-is.)
+- **Synthesis via agy was broken (caught in `/code-review max`).** `lib/common.sh::build_synthesis_args` gemini branch produced a bare `agy` invocation (`SYNTHESIS_ARGS=("${GEMINI_CMD:-agy}")`), invoked as `echo "$prompt" | agy`. Unlike codex (`--full-auto`) and claude (`--print`), agy with no `--print`/`-p` launches its **interactive** session and never reads the piped prompt, so synthesis hung/produced nothing whenever agy was the chosen synthesizer (reachable e.g. when Claude Code is the invoking agent and agy is on PATH). Fixed to `("${GEMINI_CMD:-agy}" "-p" "-")` + `--model`, mirroring `query_gemini.sh`.
+- **Comment rot (caught in `/code-review max`)**: `query_gemini.sh` comments claimed agy emits raw JSON "no envelope to unwrap"; corrected to note the default model fences its JSON and that the fence is stripped centrally.
+- **Gemini transport auto-resolution — makes the Gemini consultant work out-of-the-box for npm/npx users.** v2.15.0 left Gemini enabled by default (`ENABLE_GEMINI=true`) in CLI mode (`GEMINI_USE_API=false`), but the agy (Antigravity) CLI cannot be installed via npm (it's a `curl|bash` binary into `~/.local/bin/agy`) and is OAuth-only (no headless/API-key auth). Net effect: every fresh `npx ai-consultants` run silently dropped Gemini from the panel (`consult_all.sh` marks it FAILED and continues) — *even when the user had `GEMINI_API_KEY` exported*, because API mode was opt-in with no auto-detection. The API path (pure `curl` + key, no binary, no browser) is the npm-friendly one but was off by default.
+- **`config.sh`**: removed the hardcoded `GEMINI_USE_API="${GEMINI_USE_API:-false}"` at the mode-switching block (`scripts/config.sh:69-72`). The mode is now auto-resolved in the Gemini config section (`scripts/config.sh:113-131`), *after* `GEMINI_CMD`/`GEMINI_API_KEY` are known: when `GEMINI_USE_API` is unset, pick `true` if `GEMINI_API_KEY` is present, else `false` (agy CLI). An explicit `GEMINI_USE_API=true/false` is always honored (back-compat, via the `${GEMINI_USE_API+x}` set-vs-unset guard). Idempotent across the 15-30 `config.sh` re-sources per consultation: once resolved and `export`ed, subsequent sources see it as user-set. Only Gemini auto-resolves; the other four switchable agents (Codex, Claude, Mistral, Qwen3) keep their hardcoded `:-false` defaults since their CLIs are npm/pip-installable.
+- **`doctor.sh`**: `check_cli_consultant` now skips the CLI install check when the consultant is in API mode (`${env_var}_USE_API == true`) — previously it would flag a missing CLI as a hard `✗ NOT INSTALLED` failure regardless of mode, which after auto-resolution would false-fail for every key-only Gemini user. This also fixes the same pre-existing latent false-positive for Codex/Claude/Mistral/Qwen3 when those run in API mode. Additionally, when Gemini *is* in CLI mode and `agy` is missing, the failure now prints a `tip: set GEMINI_API_KEY to use API mode (no CLI install needed)` remediation pointing at the npm-friendly path.
+- **Tests**: `test_user_config.sh` +4 assertions (Tests 19-22): auto-API with key, auto-CLI without key, explicit `false` wins over a present key, explicit `true` honored without a key. Suite now 42 checks; all 7 suites pass.
+- **No breaking change**: agy/OAuth users without a key keep CLI mode; anyone who pinned `GEMINI_USE_API` keeps their value. The only behavioral change is that a key-only environment now reaches Gemini over the API instead of silently dropping it.
+
+### v2.15.0
+- **Gemini consultant migrated from the Gemini CLI to the Antigravity CLI (`agy`)**. Google deprecated the Gemini CLI on 2026-06-18 (transitioning all individual/Pro/Ultra users to Antigravity CLI); the `gemini` binary stops serving requests for non-enterprise accounts. The consultant stays "Gemini" / "The Architect" (ID 1) — only the transport binary, model addressing, and auth change. Verified against `agy` 1.0.10.
+- **`config.sh`**: `GEMINI_CMD` default `gemini` → `agy` (`scripts/config.sh:106`); `GEMINI_MODEL` default `gemini-3.1-pro-preview` → `Gemini 3.1 Pro (High)` (agy addresses models by display name, not API ID); new `GEMINI_API_MODEL` (default `gemini-3.1-pro-preview`) decouples the API-mode model ID from the CLI display name. `get_model_for_tier "gemini"` now returns agy display names: premium `Gemini 3.1 Pro (High)`, standard `Gemini 3.5 Flash (High)`, economy `Gemini 3.5 Flash (Low)`.
+- **`query_gemini.sh`** — three verified flag/parse changes:
+  - `-m` → `--model` (agy has no `-m` short alias).
+  - **Dropped `--output-format json`** — agy has no such flag and prints the model's response as plain text. Because the persona instruction already forces the model to emit our JSON schema, that plain text *is* the JSON envelope we need.
+  - **Dropped the `native_json_field="response"` argument** to `process_consultant_response`. The old Gemini CLI wrapped output as `{"response":"<text>","stats":{…}}` and we extracted `.response`; agy's output is the model JSON directly (top-level `.response`), so extracting `.response` would strip a level and force every structured reply into the fallback path. Confirmed end-to-end: a real `agy` call now yields a correct `build_structured_response` (consultant=Gemini, model="Gemini 3.1 Pro (High)", persona=The Architect, populated pros/cons/confidence).
+  - API-mode branch now passes `$GEMINI_API_MODEL` (not `$GEMINI_MODEL`) to `run_api_mode_query`, since the Google AI endpoint builds `…/${model}:generateContent` and needs an API ID, not a display name.
+- **CLI invocation parity**: same `-m`→`--model` change applied to the two other call sites — `peer_review.sh:150` and `lib/reflection.sh:71`.
+- **Install/auth surfaces** repointed to agy: `doctor.sh` (install hint + `${GEMINI_CMD:-gemini}`→`:-agy` in the two config-dump fallbacks), `setup_wizard.sh`, `configure.sh` (`CLI_AGENT_CMDS`/`CLI_AGENT_HINTS`), `lib/common.sh` synthesis fallbacks (`:-agy`), `.env.example`, `docs/SETUP.md`, `references/configuration.md`. Install is now `curl -fsSL https://antigravity.google/cli/install.sh | bash` (binary lands in `~/.local/bin/agy`). Auth is **OAuth-only** (`agy` with no args → browser sign-in; creds cached); `agy` does **not** honor an API-key env var for headless use — that path remains exclusive to API mode.
+- **Cost catalog**: added `Gemini 3.1 Pro (High)` / `Gemini 3.5 Flash (High)` / `Gemini 3.5 Flash (Low)` keys to `cost_rates.json` (per-1K, mirroring the matching Gemini API tier; agy itself bills via OAuth/subscription) and repointed `consultant_fallbacks.gemini` + all three `model_tiers.*.gemini` to the display names. The old `gemini-3.1-pro-preview`/`gemini-3-flash-preview`/`gemini-2.0-flash` entries are kept for API mode and historical lookups. `COST_RATES.md` synced.
+- **Tests**: `test_suite.sh` tier assertions updated (`get_model_for_tier "gemini" premium/economy` and `get_economic_model "gemini"` now expect the agy display names) — same pattern as the v2.14.2 claude-opus-4-8 bump. All 7 suites pass.
+- **Known follow-up (out of scope, flagged in the release note)**: the *host-side* integration — running ai-consultants **from** Gemini CLI as a slash-command host (`~/.gemini/skills/`, `INVOKING_AGENT=gemini`) — is affected by the same deprecation (Antigravity rebrands Extensions as "plugins", `agy plugin …`). That migration is **not** done here; this release covers only the Gemini *consultant* (the model we query). The relevant README/SETUP host sections were left intact rather than rewritten on unverified plugin mechanics.
 
 ### v2.14.2
 - **Claude premium tier upgraded `claude-opus-4-7` → `claude-opus-4-8`** (Opus 4.8 released 2026-05-29). Single source of truth is the `premium` case in `config.sh::get_model_for_tier` (`scripts/config.sh:583`) and the `CLAUDE_MODEL` default (`scripts/config.sh:223`); both now resolve to `claude-opus-4-8`. Standard (`claude-sonnet-4-6`) and economy (`claude-haiku-4-5`) tiers are unchanged — Sonnet 4.6 and Haiku 4.5 remain the latest in their classes.

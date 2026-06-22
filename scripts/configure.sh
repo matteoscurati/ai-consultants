@@ -40,8 +40,8 @@ OUTPUT_FILE="$PROJECT_ROOT/.env"
 
 # CLI Agents: name|command|install_hint|persona
 CLI_AGENT_NAMES=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider")
-CLI_AGENT_CMDS=("gemini" "codex" "vibe" "kilocode" "agent" "aider")
-CLI_AGENT_HINTS=("npm install -g @google/gemini-cli" "npm install -g @openai/codex" "pip install mistral-vibe" "npm install -g @kilocode/cli" "See: https://cursor.com/" "pip install aider-chat")
+CLI_AGENT_CMDS=("agy" "codex" "vibe" "kilocode" "agent" "aider")
+CLI_AGENT_HINTS=("curl -fsSL https://antigravity.google/cli/install.sh | bash" "npm install -g @openai/codex" "pip install mistral-vibe" "npm install -g @kilocode/cli" "See: https://cursor.com/" "pip install aider-chat")
 CLI_AGENT_PERSONAS=("The Architect" "The Pragmatist" "The Devil's Advocate" "The Innovator" "The Integrator" "The Pair Programmer")
 
 # API Agents: name|key_var|api_url|model|persona

@@ -305,6 +305,45 @@ test_debate_optimization_default_true() {
     assert_eq "true" "$val" "ENABLE_DEBATE_OPTIMIZATION default is true (v2.13 promotion)"
 }
 
+# v2.15.1 Gemini transport auto-resolution. With GEMINI_USE_API unset, config.sh
+# picks API mode when a GEMINI_API_KEY is present (the npm-friendly path) and CLI
+# mode otherwise. An explicit GEMINI_USE_API always wins (back-compat).
+test_gemini_auto_api_with_key() {
+    local val
+    val=$(unset GEMINI_USE_API; GEMINI_API_KEY=AIzaTESTKEY bash -c '
+        source scripts/config.sh
+        echo "$GEMINI_USE_API"
+    ')
+    assert_eq "true" "$val" "GEMINI_USE_API auto-resolves to true when GEMINI_API_KEY is set"
+}
+
+test_gemini_auto_cli_without_key() {
+    local val
+    val=$(unset GEMINI_USE_API GEMINI_API_KEY; bash -c '
+        source scripts/config.sh
+        echo "$GEMINI_USE_API"
+    ')
+    assert_eq "false" "$val" "GEMINI_USE_API auto-resolves to false when no GEMINI_API_KEY"
+}
+
+test_gemini_explicit_false_wins_over_key() {
+    local val
+    val=$(GEMINI_USE_API=false GEMINI_API_KEY=AIzaTESTKEY bash -c '
+        source scripts/config.sh
+        echo "$GEMINI_USE_API"
+    ')
+    assert_eq "false" "$val" "explicit GEMINI_USE_API=false wins even with a key present"
+}
+
+test_gemini_explicit_true_without_key() {
+    local val
+    val=$(unset GEMINI_API_KEY; GEMINI_USE_API=true bash -c '
+        source scripts/config.sh
+        echo "$GEMINI_USE_API"
+    ')
+    assert_eq "true" "$val" "explicit GEMINI_USE_API=true is honored without a key"
+}
+
 run_test "Test 12: get_xdg_dir honors XDG_*_HOME"        test_xdg_dir_honors_env
 run_test "Test 13: get_xdg_dir falls back to ~/.cache"   test_xdg_dir_falls_back_to_home
 run_test "Test 14: get_xdg_dir distroless /tmp fallback" test_xdg_dir_distroless_fallback
@@ -312,5 +351,9 @@ run_test "Test 15: get_xdg_dir invalid kind"             test_xdg_dir_invalid_ki
 run_test "Test 16: config.sh XDG defaults"               test_config_sh_xdg_defaults
 run_test "Test 17: explicit env wins over XDG"           test_config_sh_explicit_override_wins
 run_test "Test 18: ENABLE_DEBATE_OPTIMIZATION=true (v2.13)" test_debate_optimization_default_true
+run_test "Test 19: Gemini auto-API with key (v2.15.1)"   test_gemini_auto_api_with_key
+run_test "Test 20: Gemini auto-CLI without key (v2.15.1)" test_gemini_auto_cli_without_key
+run_test "Test 21: Gemini explicit false wins (v2.15.1)" test_gemini_explicit_false_wins_over_key
+run_test "Test 22: Gemini explicit true honored (v2.15.1)" test_gemini_explicit_true_without_key
 
 test_summary "user_config"

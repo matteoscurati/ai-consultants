@@ -1,4 +1,4 @@
-# Cost Rates - AI Consultants v2.14.2
+# Cost Rates - AI Consultants v2.15.1
 
 This page documents the per-token rates used by the cost tracking system.
 
@@ -20,9 +20,9 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| gemini-3.1-pro-preview | Premium | $0.00125 | Gemini |
-| gemini-3-flash-preview | Standard | $0.000075 | Gemini |
-| gemini-2.0-flash | Economy | $0.0001 | Gemini |
+| Gemini 3.1 Pro (High) | Premium | $0.00125 | Gemini (agy CLI) |
+| Gemini 3.5 Flash (High) | Standard | $0.000075 | Gemini (agy CLI) |
+| Gemini 3.5 Flash (Low) | Economy | $0.000075 | Gemini (agy CLI) |
 | gpt-5.5 | Premium | $0.003 | Codex |
 | gpt-5.3 | Standard | $0.0025 | Codex/Aider |
 | gpt-4o-mini | Economy | $0.00015 | Codex/Aider |
@@ -55,9 +55,9 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| gemini-3.1-pro-preview | Premium | $0.005 | Gemini |
-| gemini-3-flash-preview | Standard | $0.0003 | Gemini |
-| gemini-2.0-flash | Economy | $0.0004 | Gemini |
+| Gemini 3.1 Pro (High) | Premium | $0.005 | Gemini (agy CLI) |
+| Gemini 3.5 Flash (High) | Standard | $0.0003 | Gemini (agy CLI) |
+| Gemini 3.5 Flash (Low) | Economy | $0.0003 | Gemini (agy CLI) |
 | gpt-5.5 | Premium | $0.012 | Codex |
 | gpt-5.3 | Standard | $0.010 | Codex/Aider |
 | gpt-4o-mini | Economy | $0.0006 | Codex/Aider |

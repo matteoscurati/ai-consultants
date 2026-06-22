@@ -112,8 +112,11 @@ ENABLE_COST_TRACKING=true    # Track API usage costs
 
 Five consultants support switching between CLI and API mode. When API mode is enabled, the CLI is not used.
 
+**Gemini auto-resolution (v2.15.1):** leave `GEMINI_USE_API` unset and the mode is chosen for you — API mode when `GEMINI_API_KEY` is present (no `agy` install or OAuth needed; ideal for `npx`), CLI mode (`agy`) otherwise. Set `GEMINI_USE_API` explicitly only to force a mode (an explicit value disables auto-detection).
+
 ```bash
-GEMINI_USE_API=false         # Use Google AI API instead of gemini CLI
+# GEMINI_USE_API unset = auto (API if GEMINI_API_KEY set, else agy CLI)
+GEMINI_USE_API=false         # Force agy CLI; set true to force Google AI API
 CODEX_USE_API=false          # Use OpenAI API instead of codex CLI
 CLAUDE_USE_API=false         # Use Anthropic API instead of claude CLI
 MISTRAL_USE_API=false        # Use Mistral API instead of vibe CLI
@@ -158,7 +161,7 @@ ENABLE_DEEPSEEK=false
 ### Model Overrides
 
 ```bash
-GEMINI_MODEL=gemini-3.1-pro-preview
+GEMINI_MODEL=Gemini 3.1 Pro (High)   # agy CLI display name; API mode uses GEMINI_API_MODEL
 CODEX_MODEL=gpt-5.3-codex
 CLAUDE_MODEL=claude-opus-4-8
 MISTRAL_MODEL=mistral-large-3

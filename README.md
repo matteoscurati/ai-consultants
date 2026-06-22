@@ -1,8 +1,8 @@
-# AI Consultants v2.14.2
+# AI Consultants v2.15.1
 
 > Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
 
-[![Version](https://img.shields.io/badge/version-2.14.2-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.15.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -405,7 +405,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 
 | Consultant | CLI | Persona | Focus |
 |------------|-----|---------|-------|
-| **Google Gemini** | `gemini` | The Architect | Design patterns, scalability, enterprise |
+| **Google Gemini** | `agy` | The Architect | Design patterns, scalability, enterprise |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, quick wins, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Problems, edge cases, vulnerabilities |
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional approaches |
@@ -436,7 +436,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 At least 2 consultant CLIs are required:
 
 ```bash
-npm install -g @google/gemini-cli      # Gemini
+curl -fsSL https://antigravity.google/cli/install.sh | bash  # Gemini (Antigravity CLI: agy)
 npm install -g @openai/codex           # Codex
 pip install mistral-vibe               # Mistral
 npm install -g @kilocode/cli           # Kilo
@@ -472,7 +472,7 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 | Consultant | Premium | Standard | Economy |
 |------------|---------|----------|---------|
 | Claude | claude-opus-4-8 | claude-sonnet-4-6 | claude-haiku-4-5 |
-| Gemini | gemini-3.1-pro-preview | gemini-3-flash-preview | gemini-2.0-flash |
+| Gemini | Gemini 3.1 Pro (High) | Gemini 3.5 Flash (High) | Gemini 3.5 Flash (Low) |
 | Codex | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
 | Mistral | mistral-large-3 | mistral-medium-latest | devstral-small-2 |
 | Cursor | composer-1.5 | composer-1.5 | gemini-2.0-flash |
@@ -658,6 +658,12 @@ Each consultation generates:
 ---
 
 ## Changelog
+
+### v2.15.1
+
+- **Gemini fixes (Antigravity CLI)**: the default model (`Gemini 3.1 Pro (High)`) wraps its JSON in a ```` ```json ```` fence; v2.15.0 didn't strip it, so every Gemini reply degraded to a generic fallback. Now de-fenced on all paths (response processing, self-reflection, synthesis).
+- **Works out-of-the-box for `npx`**: Gemini auto-selects API mode when `GEMINI_API_KEY` is set (the `agy` CLI can't be npm-installed and is OAuth-only), so a key-only environment no longer silently drops Gemini.
+- **Synthesis no longer hangs** when `agy` is the synthesizer (it was launched interactively instead of in print mode).
 
 ### v2.10.0
 

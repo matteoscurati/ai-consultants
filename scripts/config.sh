@@ -67,7 +67,9 @@ DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-${_AI_CONSULTANTS_XDG_CACHE}
 # 5 agents support switching: Gemini, Codex, Claude, Mistral, Qwen3
 
 # Mode switching (true = use API, false = use CLI)
-GEMINI_USE_API="${GEMINI_USE_API:-false}"
+# GEMINI_USE_API is intentionally NOT defaulted here: it is auto-resolved in the
+# Gemini configuration section below (needs GEMINI_API_KEY / GEMINI_CMD), so an
+# explicit unset must remain distinguishable from an explicit "false".
 CODEX_USE_API="${CODEX_USE_API:-false}"
 CLAUDE_USE_API="${CLAUDE_USE_API:-false}"
 MISTRAL_USE_API="${MISTRAL_USE_API:-false}"
@@ -99,9 +101,34 @@ LAUNCH_STAGGER_MAX_SECONDS="${LAUNCH_STAGGER_MAX_SECONDS:-2}"
 # GEMINI CONFIGURATION - The Architect
 # =============================================================================
 
-GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.1-pro-preview}"
+# CLI mode uses the Antigravity CLI (`agy`), successor to the deprecated
+# Gemini CLI (transitioned 2026-06-18). Models are passed by display name.
+GEMINI_MODEL="${GEMINI_MODEL:-Gemini 3.1 Pro (High)}"
 GEMINI_TIMEOUT_SECONDS="${GEMINI_TIMEOUT:-180}"
-GEMINI_CMD="${GEMINI_CMD:-gemini}"
+GEMINI_CMD="${GEMINI_CMD:-agy}"
+# API mode (GEMINI_USE_API=true) talks to the Google AI generativelanguage
+# endpoint, which expects an API model ID, not an `agy` display name.
+GEMINI_API_MODEL="${GEMINI_API_MODEL:-gemini-3.1-pro-preview}"
+
+# Auto-resolve the Gemini transport when the user hasn't pinned GEMINI_USE_API.
+# Rationale (npm/npx distribution): the agy CLI cannot be installed via npm
+# (curl|bash binary into ~/.local/bin) and is OAuth-only (no headless/API-key
+# auth), so a fresh npx user almost never has a working CLI. A GEMINI_API_KEY,
+# by contrast, works headlessly over plain HTTP. So when the mode is unset:
+#   - GEMINI_API_KEY present -> API mode (the npm-friendly path)
+#   - otherwise              -> CLI mode (agy; the orchestrator drops Gemini
+#                               gracefully if absent, and doctor explains the fix)
+# An explicit GEMINI_USE_API=true/false is always honored (back-compat). This
+# block is idempotent across config.sh re-sourcing: once resolved+exported, the
+# "${GEMINI_USE_API+x}" guard treats it as user-set on subsequent sources.
+if [[ -z "${GEMINI_USE_API+x}" ]]; then
+    if [[ -n "${GEMINI_API_KEY:-}" ]]; then
+        GEMINI_USE_API=true
+    else
+        GEMINI_USE_API=false
+    fi
+fi
+export GEMINI_USE_API
 
 # =============================================================================
 # CODEX CONFIGURATION - The Pragmatist
@@ -581,7 +608,7 @@ get_model_for_tier() {
         premium|max|best)
             case "$consultant" in
                 claude)   echo "claude-opus-4-8" ;;
-                gemini)   echo "gemini-3.1-pro-preview" ;;
+                gemini)   echo "Gemini 3.1 Pro (High)" ;;
                 codex)    echo "gpt-5.5" ;;
                 mistral)  echo "mistral-large-3" ;;
                 cursor)   echo "composer-2" ;;
@@ -601,7 +628,7 @@ get_model_for_tier() {
         standard|medium|balanced)
             case "$consultant" in
                 claude)   echo "claude-sonnet-4-6" ;;
-                gemini)   echo "gemini-3-flash-preview" ;;
+                gemini)   echo "Gemini 3.5 Flash (High)" ;;
                 codex)    echo "gpt-5.3" ;;
                 mistral)  echo "mistral-medium-latest" ;;
                 cursor)   echo "composer-1.5" ;;  # Same as premium (single model)
@@ -621,7 +648,7 @@ get_model_for_tier() {
         economy|fast|quick)
             case "$consultant" in
                 claude)   echo "claude-haiku-4-5" ;;
-                gemini)   echo "gemini-2.0-flash" ;;
+                gemini)   echo "Gemini 3.5 Flash (Low)" ;;
                 codex)    echo "gpt-4o-mini" ;;
                 mistral)  echo "devstral-small-2" ;;
                 cursor)   echo "gemini-2.0-flash" ;;
@@ -805,4 +832,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.14.2"
+AI_CONSULTANTS_VERSION="2.15.1"

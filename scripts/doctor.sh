@@ -209,9 +209,23 @@ check_cli_consultant() {
         return 0
     fi
 
+    # Skip the CLI install check when the consultant runs in API mode. For the
+    # 5 switchable agents (Gemini, Codex, Claude, Mistral, Qwen3) a missing CLI
+    # is irrelevant once API mode is on -- the API key is validated separately
+    # by check_api_mode. This matters most for Gemini, which auto-resolves to
+    # API mode whenever GEMINI_API_KEY is set (the npm-friendly path).
+    local use_api_var="${env_var}_USE_API"
+    if [[ "${!use_api_var:-false}" == "true" ]]; then
+        [[ "$VERBOSE" == "true" ]] && _print "  ○ $name: API mode (CLI not required)"
+        return 0
+    fi
+
     # Check if installed
     if ! command -v "$cmd" &> /dev/null; then
         _print "  ✗ $name: NOT INSTALLED (enabled but missing)"
+        if [[ "$name" == "Gemini" ]]; then
+            _print "      tip: set GEMINI_API_KEY to use API mode (no CLI install needed)"
+        fi
         add_issue "consultant" "$name CLI not found" "$install_cmd"
         check_fail
         return 1
@@ -234,7 +248,7 @@ check_cli_consultant() {
 check_cli_consultants() {
     print_section "Checking CLI-based Consultants"
 
-    check_cli_consultant "Gemini" "$GEMINI_CMD" "npm install -g @google/gemini-cli" "GEMINI"
+    check_cli_consultant "Gemini" "$GEMINI_CMD" "curl -fsSL https://antigravity.google/cli/install.sh | bash" "GEMINI"
     check_cli_consultant "Codex" "$CODEX_CMD" "npm install -g @openai/codex" "CODEX"
     check_cli_consultant "Mistral Vibe" "$MISTRAL_CMD" "pip install mistral-vibe" "MISTRAL"
     check_cli_consultant "Kilo" "$KILO_CMD" "npm install -g @kilocode/cli" "KILO"
@@ -761,7 +775,7 @@ attempt_fixes() {
 suggest_configuration() {
     # Map of consultant flag -> CLI command (from config.sh defaults)
     local consultant_clis=(
-        "ENABLE_GEMINI:${GEMINI_CMD:-gemini}"
+        "ENABLE_GEMINI:${GEMINI_CMD:-agy}"
         "ENABLE_CODEX:${CODEX_CMD:-codex}"
         "ENABLE_MISTRAL:${MISTRAL_CMD:-vibe}"
         "ENABLE_KILO:${KILO_CMD:-kilocode}"
@@ -849,7 +863,7 @@ _count_available_consultants() {
     # duplicate them here to avoid the drift trap (e.g. config.sh sets
     # ENABLE_AIDER=false, contradicting any local "default true" claim).
     local entries=(
-        "GEMINI|ENABLE_GEMINI|${GEMINI_CMD:-gemini}"
+        "GEMINI|ENABLE_GEMINI|${GEMINI_CMD:-agy}"
         "CODEX|ENABLE_CODEX|${CODEX_CMD:-codex}"
         "MISTRAL|ENABLE_MISTRAL|${MISTRAL_CMD:-vibe}"
         "KILO|ENABLE_KILO|${KILO_CMD:-kilocode}"

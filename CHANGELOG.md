@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.15.1] - 2026-06-22
+
+### Fixed
+- **Gemini responses are no longer degraded.** The default model (`Gemini 3.1 Pro (High)`) returns its JSON wrapped in a ```` ```json ```` markdown fence, which v2.15.0 failed to parse — every Gemini reply collapsed to a generic "Unstructured response" with confidence 5 and empty pros/cons. Responses are now de-fenced and parsed correctly (bare-JSON models like Flash are unaffected). The fix covers all paths that consume Gemini output: the main response processor, self-reflection/refinement, and synthesis.
+- **Synthesis no longer hangs when Gemini (agy) is the synthesizer.** The agy CLI was invoked without its non-interactive flag, so it launched an interactive session instead of reading the prompt; it now runs in print mode like the other synthesizers.
+- **Gemini now works out-of-the-box for `npx` users.** The Gemini consultant defaulted to the agy (Antigravity) CLI, which can't be installed via npm and needs interactive OAuth — so fresh `npx ai-consultants` runs silently dropped Gemini even when `GEMINI_API_KEY` was set. The transport is now auto-resolved: with `GEMINI_USE_API` unset, API mode is selected when a `GEMINI_API_KEY` is present, CLI mode otherwise. An explicit `GEMINI_USE_API=true/false` is still honored.
+- `doctor` no longer reports a missing agy CLI as a failure when Gemini runs in API mode, and now suggests setting `GEMINI_API_KEY` (no CLI install needed) when agy is missing in CLI mode.
+
+### Changed
+- Just export `GEMINI_API_KEY` to use Gemini over the API — no need to also set `GEMINI_USE_API=true`.
+
+## [2.15.0] - 2026-06-19
+
+### Changed
+- **Gemini consultant now runs on the Antigravity CLI (`agy`)** instead of the deprecated Gemini CLI. Google retired the Gemini CLI for individual/Pro/Ultra users on 2026-06-18. The consultant is still called "Gemini" (The Architect) — only the underlying CLI changed. Install: `curl -fsSL https://antigravity.google/cli/install.sh | bash`, then run `agy` once to sign in (OAuth).
+- Default Gemini models are now agy display names: premium `Gemini 3.1 Pro (High)`, standard `Gemini 3.5 Flash (High)`, economy `Gemini 3.5 Flash (Low)`. Override with `GEMINI_MODEL`.
+- API mode (`GEMINI_USE_API=true`) is unchanged but now reads its model ID from the new `GEMINI_API_MODEL` (default `gemini-3.1-pro-preview`), keeping it independent of the CLI display name.
+- `cost_rates.json` / `COST_RATES.md` updated with the new Gemini model names (old API IDs retained for API mode and historical lookups).
+
+### Migration
+- Install `agy` and sign in once (`agy`). No config changes needed if you use defaults. To pin a model, set `GEMINI_MODEL="Gemini 3.1 Pro (High)"` (see `agy models` for options). Enterprise users who still have the Gemini CLI can keep it by setting `GEMINI_CMD=gemini` and `GEMINI_MODEL=<api-id>`.
+
+### Not included
+- Running ai-consultants *from* Gemini CLI as a slash-command host is affected by the same deprecation but is **not** migrated in this release — only the Gemini consultant (the model being queried) was changed.
+
 ## [2.14.2] - 2026-05-29
 
 ### Changed

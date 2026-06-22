@@ -1108,7 +1108,7 @@ test_model_tiers() {
 test_economic_models() {
     suite "costs.sh: get_economic_model"
 
-    assert_equals "gemini-2.0-flash" "$(get_economic_model "gemini")" "gemini economy is gemini-2.0-flash"
+    assert_equals "Gemini 3.5 Flash (Low)" "$(get_economic_model "gemini")" "gemini economy is Gemini 3.5 Flash (Low) (agy)"
     assert_equals "gpt-4o-mini"      "$(get_economic_model "codex")"  "codex economy is gpt-4o-mini"
     assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
     assert_equals "MiniMax-M2.5"     "$(get_economic_model "minimax")" "minimax economy is MiniMax-M2.5"
@@ -1449,8 +1449,8 @@ test_model_for_tier() {
     assert_equals "claude-opus-4-8"       "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-4-8"
     assert_equals "claude-sonnet-4-6"     "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-4-6"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
-    assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium")" "gemini premium is gemini-3.1-pro-preview"
-    assert_equals "gemini-2.0-flash"       "$(get_model_for_tier "gemini" "economy")" "gemini economy is gemini-2.0-flash"
+    assert_equals "Gemini 3.1 Pro (High)" "$(get_model_for_tier "gemini" "premium")" "gemini premium is Gemini 3.1 Pro (High) (agy)"
+    assert_equals "Gemini 3.5 Flash (Low)" "$(get_model_for_tier "gemini" "economy")" "gemini economy is Gemini 3.5 Flash (Low) (agy)"
     assert_equals "MiniMax-M2.7"           "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M2.7"
     assert_equals "MiniMax-M2.5"           "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M2.5"
     assert_equals "auto"                  "$(get_model_for_tier "kilo" "premium")"   "kilo always returns auto"

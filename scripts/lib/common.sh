@@ -150,7 +150,7 @@ check_command() {
 #
 # The query is passed via stdin to the command.
 # Example:
-#   echo "$QUERY" | run_query "Gemini" "/tmp/out.json" 120 gemini -p - --output-format json
+#   echo "$QUERY" | run_query "Gemini" "/tmp/out.json" 120 agy -p - --model "Gemini 3.1 Pro (High)"
 #
 run_query() {
     local consultant_name="$1"
@@ -917,6 +917,24 @@ build_error_response() {
 }
 
 # Process consultant response and write to output file
+# Strip a markdown code fence wrapping a JSON payload.
+# Some CLIs print the model's JSON inside a ```json ... ``` fence instead of raw
+# JSON (e.g. agy / Gemini 3.1 Pro), which breaks downstream jq parsing. This is
+# fallback-only: if the input already parses as JSON it is returned unchanged
+# (a real fence makes the text invalid JSON, so the gate reliably detects it).
+# Usage: cleaned=$(strip_json_fence "$raw")
+strip_json_fence() {
+    local text="$1"
+    if echo "$text" | jq -e '.' > /dev/null 2>&1; then
+        printf '%s' "$text"
+        return 0
+    fi
+    # Drop lines that are purely a fence marker (```), optionally with a language
+    # tag (```json). A valid JSON string value can never be such a line (JSON
+    # strings cannot contain a raw newline), so this never corrupts valid JSON.
+    printf '%s\n' "$text" | sed '/^[[:space:]]*```[[:alnum:]]*[[:space:]]*$/d'
+}
+
 # This encapsulates the common post-processing pattern found in all query scripts
 # Usage: process_consultant_response <consultant> <model> <persona> <temp_output> <output_file> <exit_code> <latency_ms> [native_json_field]
 # Parameters:
@@ -951,6 +969,12 @@ process_consultant_response() {
         fi
 
         rm -f "$temp_output"
+
+        # Some CLIs wrap the JSON envelope in a markdown code fence instead of
+        # printing raw JSON (e.g. agy / Gemini 3.1 Pro emits ```json ... ```,
+        # while Flash returns bare JSON). Strip it before parsing; no-op when
+        # the text is already valid JSON.
+        inner_response=$(strip_json_fence "$inner_response")
 
         # Use shared helpers for response building
         if echo "$inner_response" | jq -e '.response.summary' > /dev/null 2>&1; then
@@ -1046,7 +1070,7 @@ resolve_synthesis_cli() {
     for candidate in gemini codex claude ollama; do
         [[ "$candidate" == "$avoid_cmd" ]] && continue
         case "$candidate" in
-            gemini) cmd="${GEMINI_CMD:-gemini}" ;;
+            gemini) cmd="${GEMINI_CMD:-agy}" ;;
             codex)  cmd="${CODEX_CMD:-codex}" ;;
             claude) cmd="${CLAUDE_CMD:-claude}" ;;
             ollama) cmd="ollama" ;;
@@ -1074,7 +1098,12 @@ build_synthesis_args() {
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;
         gemini)
-            SYNTHESIS_ARGS=("${GEMINI_CMD:-gemini}")
+            # agy needs -p - to read the piped prompt non-interactively; without
+            # it the CLI launches its interactive session and synthesis hangs /
+            # produces nothing. Mirrors query_gemini.sh's invocation.
+            SYNTHESIS_ARGS=("${GEMINI_CMD:-agy}" "-p" "-")
+            local model="${SYNTHESIS_MODEL:-${GEMINI_MODEL:-}}"
+            [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;
         codex)
             SYNTHESIS_ARGS=("${CODEX_CMD:-codex}" "--quiet" "--full-auto")

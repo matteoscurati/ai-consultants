@@ -147,7 +147,7 @@ run_consultant_review() {
     log_debug "Running peer review by $consultant..."
 
     case "$consultant" in
-        Gemini)  echo "$prompt" | run_with_timeout "$timeout" "$GEMINI_CMD" -p - -m "$GEMINI_MODEL" ;;
+        Gemini)  echo "$prompt" | run_with_timeout "$timeout" "$GEMINI_CMD" -p - --model "$GEMINI_MODEL" ;;
         Codex)   run_with_timeout "$timeout" "$CODEX_CMD" exec --skip-git-repo-check "$prompt" ;;
         Mistral) run_with_timeout "$timeout" "$MISTRAL_CMD" --prompt "$prompt" --auto-approve ;;
         Kilo)    run_with_timeout "$timeout" "$KILO_CMD" --auto --json "$prompt" ;;

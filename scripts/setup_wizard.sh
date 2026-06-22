@@ -131,12 +131,12 @@ check_prerequisites() {
 check_consultants() {
     print_section "Consultant CLIs"
 
-    # Gemini
-    if check_cli "Gemini" "$GEMINI_CMD" "npm install -g @google/gemini-cli"; then
-        status_ok "Gemini CLI installed"
+    # Gemini (via Antigravity CLI: agy)
+    if check_cli "Gemini" "$GEMINI_CMD" "curl -fsSL https://antigravity.google/cli/install.sh | bash"; then
+        status_ok "Antigravity CLI (agy) installed"
     else
-        status_warn "Gemini CLI not found"
-        echo "        Install: npm install -g @google/gemini-cli"
+        status_warn "Antigravity CLI (agy) not found"
+        echo "        Install: curl -fsSL https://antigravity.google/cli/install.sh | bash"
     fi
 
     # Codex

@@ -68,7 +68,7 @@ _exec_consultant() {
     local prompt="$2"
 
     case "$consultant" in
-        Gemini)  echo "$prompt" | "$GEMINI_CMD" -p - -m "$GEMINI_MODEL" 2>/dev/null ;;
+        Gemini)  echo "$prompt" | "$GEMINI_CMD" -p - --model "$GEMINI_MODEL" 2>/dev/null ;;
         Codex)   "$CODEX_CMD" exec --skip-git-repo-check "$prompt" 2>/dev/null ;;
         Mistral) "$MISTRAL_CMD" --prompt "$prompt" --auto-approve 2>/dev/null ;;
         Kilo)    "$KILO_CMD" --auto --json "$prompt" 2>/dev/null ;;
@@ -127,6 +127,9 @@ run_reflection_cycle() {
 
         # Step 2: Self-critique
         local critique=$(generate_critique "$consultant" "$current_response")
+        # CLIs like agy wrap JSON in a ```json fence; strip it so the jq reads
+        # below (and the final response write) see valid JSON.
+        critique=$(strip_json_fence "$critique")
 
         # Check if refinement is needed
         local needs_refinement=$(echo "$critique" | jq -r '.needs_refinement // false' 2>/dev/null)
@@ -143,7 +146,7 @@ run_reflection_cycle() {
         local refined=$(refine_response "$consultant" "$current_response" "$critique")
 
         if [[ -n "$refined" ]]; then
-            current_response="$refined"
+            current_response=$(strip_json_fence "$refined")
         else
             log_warn "[$consultant] Refinement failed, keeping previous response"
             break

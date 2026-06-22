@@ -192,6 +192,30 @@ test_map_functions() {
 }
 
 # Main test runner
+test_process_consultant_response_fence() {
+    echo -e "\n${C_YELLOW}Testing process_consultant_response() markdown-fence handling${C_RESET}"
+
+    local tmp_in tmp_out
+    tmp_in=$(mktemp)
+    tmp_out=$(mktemp)
+
+    # Case 1: JSON wrapped in a ```json fence (agy / Gemini 3.1 Pro behavior)
+    printf '```json\n{"response":{"summary":"fenced ok"},"confidence":{"score":8}}\n```\n' > "$tmp_in"
+    process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 >/dev/null 2>&1 || true
+    assert_equal "fenced ok" "$(jq -r '.response.summary' "$tmp_out" 2>/dev/null)" \
+        "Fenced JSON is de-fenced and parsed as structured response"
+    assert_equal "8" "$(jq -r '.confidence.score' "$tmp_out" 2>/dev/null)" \
+        "Fenced JSON confidence score preserved"
+
+    # Case 2: bare JSON (Flash behavior) must still parse unchanged
+    printf '{"response":{"summary":"bare ok"},"confidence":{"score":9}}\n' > "$tmp_in"
+    process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 >/dev/null 2>&1 || true
+    assert_equal "bare ok" "$(jq -r '.response.summary' "$tmp_out" 2>/dev/null)" \
+        "Bare JSON still parses as structured response (no regression)"
+
+    rm -f "$tmp_in" "$tmp_out"
+}
+
 run_tests() {
     echo -e "${C_BLUE}=== Running Unit Tests ===${C_RESET}"
     

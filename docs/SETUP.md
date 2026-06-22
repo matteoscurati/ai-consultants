@@ -238,15 +238,23 @@ gtimeout --version
 
 You need **at least 2 consultants** configured for AI Consultants to work.
 
-### Gemini CLI (The Architect)
+### Antigravity CLI — `agy` (The Architect)
+
+The Gemini consultant runs on the Antigravity CLI (`agy`), the successor to the
+deprecated Gemini CLI (transitioned 2026-06-18).
 
 ```bash
-npm install -g @google/gemini-cli
+curl -fsSL https://antigravity.google/cli/install.sh | bash
 
-# Authentication
-gemini auth login
-# OR: export GOOGLE_API_KEY="your-key"
+# Authentication (OAuth — sign in once, credentials are cached)
+agy            # launch without arguments to sign in
+
+# Optional: list available models (after sign-in)
+agy models
 ```
+
+> API mode (`GEMINI_USE_API=true`) is an alternative that talks to the Google AI
+> endpoint with `GEMINI_API_KEY` and `GEMINI_API_MODEL` instead of the agy CLI.
 
 Get API key: [Google AI Studio](https://makersuite.google.com/app/apikey)
 
@@ -677,7 +685,8 @@ AMP_API_KEY=your-amp-key
 QWEN3_API_KEY=your-dashscope-key
 
 # CLI/API Mode Switching (v2.6+)
-GEMINI_USE_API=false
+# GEMINI_USE_API auto-resolves when unset (v2.15.1): API if GEMINI_API_KEY is
+# set, else the agy CLI. Set it explicitly only to force a specific mode.
 CODEX_USE_API=false
 CLAUDE_USE_API=false
 MISTRAL_USE_API=false
@@ -797,11 +806,12 @@ pip list | grep mistral
 
 ### Authentication failures
 
-**Gemini:**
+**Gemini (Antigravity CLI):**
 ```bash
-gemini auth logout
-gemini auth login
+agy            # launch with no arguments to (re-)sign in via browser OAuth
+agy models     # verify auth: lists available models when signed in
 ```
+(Or skip the CLI entirely: set `GEMINI_API_KEY` to run Gemini over the API.)
 
 **Codex:**
 ```bash

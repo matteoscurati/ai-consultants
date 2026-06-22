@@ -1,11 +1,15 @@
 {
-  "version": "2.14.2",
-  "updated": "2026-05-31",
+  "version": "2.15.1",
+  "updated": "2026-06-19",
   "models": {
     "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
     "_comment_premium": "Premium tier models - May 2026",
     "claude-opus-4-8": {"input": 0.005, "output": 0.025},
     "gemini-3.1-pro-preview": {"input": 0.00125, "output": 0.005},
+    "_comment_agy": "Antigravity CLI (agy) addresses Gemini models by display name (v2.15). agy runs on OAuth/subscription auth; these per-1K rates mirror the matching Gemini API tier so the estimator stays consistent. gemini-3.1-pro-preview etc. above remain for GEMINI_USE_API mode.",
+    "Gemini 3.1 Pro (High)": {"input": 0.00125, "output": 0.005},
+    "Gemini 3.5 Flash (High)": {"input": 0.000075, "output": 0.0003},
+    "Gemini 3.5 Flash (Low)": {"input": 0.000075, "output": 0.0003},
     "gpt-5.5": {"input": 0.003, "output": 0.012},
     "mistral-large-3": {"input": 0.002, "output": 0.006},
     "deepseek-v4-pro": {"input": 0.00055, "output": 0.00219},
@@ -81,7 +85,7 @@
   "consultant_fallbacks": {
     "_comment": "Premium defaults - Updated May 2026",
     "claude": "claude-opus-4-8",
-    "gemini": "gemini-3.1-pro-preview",
+    "gemini": "Gemini 3.1 Pro (High)",
     "codex": "gpt-5.5",
     "mistral": "mistral-large-3",
     "deepseek": "deepseek-v4-pro",
@@ -100,7 +104,7 @@
     "_comment": "Model tiers for apply_model_tier() function",
     "premium": {
       "claude": "claude-opus-4-8",
-      "gemini": "gemini-3.1-pro-preview",
+      "gemini": "Gemini 3.1 Pro (High)",
       "codex": "gpt-5.5",
       "mistral": "mistral-large-3",
       "deepseek": "deepseek-v4-pro",
@@ -117,7 +121,7 @@
     },
     "standard": {
       "claude": "claude-sonnet-4-6",
-      "gemini": "gemini-3-flash-preview",
+      "gemini": "Gemini 3.5 Flash (High)",
       "codex": "gpt-5.3",
       "mistral": "mistral-medium-latest",
       "deepseek": "deepseek-v3.2",
@@ -134,7 +138,7 @@
     },
     "economy": {
       "claude": "claude-haiku-4-5",
-      "gemini": "gemini-2.0-flash",
+      "gemini": "Gemini 3.5 Flash (Low)",
       "codex": "gpt-4o-mini",
       "mistral": "devstral-small-2",
       "deepseek": "deepseek-chat",

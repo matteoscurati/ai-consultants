@@ -2,13 +2,13 @@
 name: ai-consultants
 description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Kimi, Qwen, MiniMax, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
 license: MIT
-compatibility: Requires bash, jq, and at least 2 AI CLI tools (gemini, codex, vibe, etc.). macOS and Linux.
+compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
   author: matteoscurati
-  version: 2.14.2
+  version: 2.15.1
 ---
 
-# AI Consultants v2.14.2 - AI Expert Panel
+# AI Consultants v2.15.1 - AI Expert Panel
 
 Simultaneously consult multiple AIs as "consultants" for coding questions. Each consultant has a **configurable persona** that influences their response style.
 
@@ -32,7 +32,7 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 
 | Consultant | CLI | Persona | Focus |
 |------------|-----|---------|-------|
-| **Google Gemini** | `gemini` | The Architect | Design patterns, scalability |
+| **Google Gemini** | `agy` | The Architect | Design patterns, scalability |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Edge cases, vulnerabilities |
 | **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional |
@@ -46,7 +46,7 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 
 **API-only consultants**: GLM (The Methodologist), Grok (The Provocateur), DeepSeek (The Code Specialist), MiniMax (The Pragmatic Optimizer)
 
-**CLI/API Mode**: Gemini, Codex, Claude, Mistral, and Qwen can switch between CLI and API mode via `*_USE_API` environment variables.
+**CLI/API Mode**: Gemini, Codex, Claude, Mistral, and Qwen can switch between CLI and API mode via `*_USE_API` environment variables. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 
