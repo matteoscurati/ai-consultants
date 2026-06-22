@@ -1,7 +1,7 @@
 {
   "name": "ai-consultants",
-  "version": "2.15.1",
-  "description": "Multi-model AI deliberation system - query up to 15 AI consultants for coding problems",
+  "version": "2.16.0",
+  "description": "A harness for every question - a panel of up to 15 AI models that picks its own deliberation strategy per question (convergence, adversarial verification, tournament) and checks its work before answering",
   "bin": {
     "ai-consultants": "bin/ai-consultants"
   },
@@ -25,6 +25,9 @@
     "codex",
     "cli",
     "deliberation",
+    "orchestration",
+    "workflow",
+    "convergence",
     "coding"
   ],
   "author": "Matteo Scurati",

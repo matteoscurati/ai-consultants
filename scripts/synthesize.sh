@@ -177,6 +177,13 @@ get_strategy_instructions() {
 
 STRATEGY_INSTRUCTIONS=$(get_strategy_instructions "$SYNTHESIS_STRATEGY")
 
+# Tournament shape (v2.16.0): the orchestrator asks synthesis to declare a single
+# winning approach with explicit pairwise reasoning, rather than a blended consensus.
+if [[ "${ORCHESTRATION_SELECT_WINNER:-false}" == "true" ]]; then
+    STRATEGY_INSTRUCTIONS="$STRATEGY_INSTRUCTIONS
+TOURNAMENT: Compare the distinct approaches pairwise and declare ONE winner. Set 'approach' to the winning approach name and justify why it beats each runner-up."
+fi
+
 # --- Build synthesis prompt (token-optimized v2.2) ---
 SYNTHESIS_PROMPT="You are an expert meta-analyst. Synthesize AI consultant responses.
 Role context: Architect=scalability/design, Pragmatist=simplicity, Advocate=risks/edge-cases, Innovator=creativity.

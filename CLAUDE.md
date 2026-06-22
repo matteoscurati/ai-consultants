@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.15.1
+**Version**: 2.16.0
 
 ## Distribution
 
@@ -54,6 +54,7 @@ ai-consultants/
 │       ├── schema.json         # JSON output schema
 │       ├── voting.sh           # Voting/consensus + confidence intervals
 │       ├── routing.sh          # Smart routing + cost-aware routing
+│       ├── orchestration.sh    # Dynamic orchestration planner + shapes (v2.16)
 │       ├── session.sh          # Session management
 │       ├── costs.sh            # Cost tracking + response limits
 │       ├── cache.sh            # Semantic caching (v2.3)
@@ -154,13 +155,15 @@ Each consultant must produce JSON with this minimum structure:
 1. `consult_all.sh` receives query, optional files, and flags (`--preset`, `--strategy`)
 2. Applies preset if specified (`apply_preset()` in config.sh)
 3. Classifies the question (`classify_question.sh`)
-4. Selects consultants (smart routing or all)
-5. Launches parallel queries (`query_*.sh`)
-6. Calculates voting/consensus with confidence intervals (`lib/voting.sh`)
-7. Checks for panic mode triggers (`lib/common.sh`)
-8. Generates synthesis with selected strategy (`synthesize.sh`)
-9. Optionally runs peer review (`peer_review.sh`)
-10. Produces final report
+4. Plans orchestration: complexity + intent → shape (`select_orchestration_shape()` in `lib/orchestration.sh`); `ORCHESTRATION_MODE=fixed` bypasses to the legacy path
+5. Selects consultants (smart routing or all)
+6. Launches parallel queries (`query_*.sh`)
+7. Deliberates per the chosen shape: convergence loop / adversarial gate / tournament / exhaustive sweep (`run_orchestration()`), or fixed debate rounds in `fixed` mode
+8. Calculates voting/consensus with confidence intervals (`lib/voting.sh`)
+9. Checks for panic mode triggers (`lib/common.sh`)
+10. Generates synthesis with selected strategy (`synthesize.sh`)
+11. Optionally runs peer review (`peer_review.sh`)
+12. Produces final report
 
 ## v2.2 Features
 
@@ -822,6 +825,23 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.16.0
+- **Dynamic orchestration engine** — the fixed `classify → query → debate(N fixed rounds) → synth` pipeline becomes adaptive, inspired by Claude Code's dynamic workflows but implemented entirely in standalone bash (no Workflow tool / Claude-Code dependency). A planner picks an orchestration **shape** per question; debate becomes a **convergence loop**.
+- **New module `lib/orchestration.sh`** (sourced by `consult_all.sh` after voting/costs). Public surface:
+  - `detect_intent <query>` → `advise|compare|exhaustive` (heuristic regex over the query; zero-dep).
+  - `select_orchestration_shape <category> <complexity> <intent>` → `quick|converge|adversarial|tournament|exhaustive|fixed`. Auto resolution priority: explicit `ORCHESTRATION_MODE` override → intent (`exhaustive`/`compare`) → category (`SECURITY`→adversarial) → complexity (≤`COMPLEXITY_THRESHOLD_SIMPLE`→quick, else converge).
+  - `run_orchestration <shape> <dir> <category>` dispatcher; skips multi-round shapes when `SUCCESS_COUNT ≤ 1`.
+  - Pure decision helpers, unit-tested without live CLIs: `_convergence_should_stop <score> <prev> <target> <epsilon>` (→`converged|stalled|continue`) and `_approach_signature <dir>` (sorted-unique approach set, the loop-until-dry stop signal).
+- **Convergence loop (`run_convergence_loop`)** replaces the fixed `for round=2..DEBATE_ROUNDS`. Stops on: consensus ≥ `CONVERGENCE_TARGET_CONSENSUS` (converged), per-round gain < `CONVERGENCE_STALL_EPSILON` (stalled), `CONVERGENCE_MAX_ROUNDS` reached, or budget. `min_rounds` param forces ≥N critique rounds even on early consensus (adversarial uses 2). Reuses `calculate_consensus_score` (voting.sh) for the stop signal and the extracted `_apply_debate_round` helper (the legacy loop body, now shared) for execution+merge. Trajectory + stop reason written to `orchestration.json`.
+- **Shapes**: `quick` (no debate), `converge` (loop to consensus), `adversarial` (forced critique round + peer review as refutation gate — `SECURITY`), `tournament` (converge, then synthesis declares one winner via `ORCHESTRATION_SELECT_WINNER` directive in `synthesize.sh`), `exhaustive` (`run_exhaustive_loop`: iterate until a round adds no new `.response.approach`).
+- **`consult_all.sh` integration**: after classification, computes `QUERY_COMPLEXITY` (`calculate_query_complexity`, costs.sh) + `QUERY_INTENT` + `ORCH_SHAPE`; the debate block dispatches on `ORCHESTRATION_MODE` (`fixed` → byte-equivalent legacy loop via `_apply_debate_round`; else → `run_orchestration`). Adversarial shape force-enables `ENABLE_PEER_REVIEW`. Shape/complexity/intent recorded in `optimization_metrics.json`.
+- **Config (all back-compat)**: `ORCHESTRATION_MODE` (default `auto`), `CONVERGENCE_MAX_ROUNDS` (4), `CONVERGENCE_TARGET_CONSENSUS` (75), `CONVERGENCE_STALL_EPSILON` (5), `ENABLE_ADVERSARIAL_VERIFY` (true). `ORCHESTRATION_MODE=fixed` restores the exact pre-2.16 pipeline.
+- **Behavioral change (default)**: with `auto` the panel may run more or fewer rounds than the old fixed default, driven by consensus — complex/contested questions iterate further, simple ones short-circuit to `quick`. Every round still passes `enforce_budget`, so `MAX_SESSION_COST` continues to cap spend. Set `ORCHESTRATION_MODE=fixed` to opt out.
+- **Minor robustness**: `_apply_debate_round` swallows a failed `debate_round.sh` (`|| true`) instead of aborting the whole consultation under `set -e` (the legacy inline `$()` capture would abort). Applies to both `fixed` and dynamic paths.
+- **Convergence actually converges (fixed in `/code-review max`).** The round file carries the consultant's *updated* top-level `.response.approach` (`build_structured_response` uses `$inner.response`), but the legacy merge grafts only `.debate` (which `build_structured_response` doesn't even preserve → null). Since `calculate_consensus_score` reads `.response.approach`, the consensus signal was invariant under debate → the loop stalled after exactly one round every time. Fix: `_apply_debate_round` gained a `promote` flag; the dynamic loops (`promote=true`) adopt the round file's post-debate `.response`/`.confidence` so consensus reflects evolved positions. The legacy `fixed` path (`promote=false`) keeps the original `.debate`-only graft. Verified: a stubbed converging panel now moves 0 → 100 (`converged`), where before it logged `stalled` at round 1. Regression tests assert promote adopts the updated approach and legacy preserves the original.
+- **ARCHITECTURE keeps its mandatory debate (fixed in `/code-review max`).** The legacy pipeline always debated `SECURITY` *and* `ARCHITECTURE`; the first planner cut only special-cased `SECURITY`→adversarial, letting `ARCHITECTURE` fall through to `converge` (min_rounds=1), which early-exits with zero debate rounds when the fan-out already agrees. Now `ARCHITECTURE` pins to `converge` (never `quick`) and `run_orchestration` forces `min_rounds=2` for both mandatory categories, so they always run ≥1 critique round — restoring pre-2.16 behavior.
+- **Tests**: new `scripts/test_orchestration.sh` (32 assertions, 13 tests) — intent detection, shape selection (intent/category/complexity priority + overrides + fixed bypass + threshold boundary + ARCHITECTURE mandatory-debate), convergence stop decision (converged/stalled incl. negative-gain/continue), `_apply_debate_round` promote-vs-legacy merge, `_approach_signature` over fixtures, `ORCHESTRATION_MODE=auto` default. Auto-discovered by `test_all.sh` → now **8 suites**. Convergence loop smoke-tested end-to-end with a stubbed `debate_round.sh` (0 → 100 converged).
 
 ### v2.15.1
 - **Markdown-fence parsing fix — Gemini's default model produced degraded (fallback) responses under v2.15.0.** The v2.15.0 migration note claimed "agy prints the model JSON directly (top-level `.response`)"; verified against agy 1.0.10, that is only true for some models (e.g. `Gemini 3.5 Flash (Low)` returns bare JSON). The **default** `Gemini 3.1 Pro (High)` wraps the envelope in a ```` ```json … ``` ```` markdown fence, so `process_consultant_response` failed the `.response.summary` jq probe and fell through to `build_fallback_response` — emitting `summary: "Unstructured response - see detailed"`, `confidence: 5`, and empty pros/cons for every Gemini reply, with the real structured envelope buried as a fenced string inside `.detailed`. Fix: new shared helper `lib/common.sh::strip_json_fence` — returns the text unchanged when it already parses as JSON (a real fence makes the text invalid JSON, so the gate reliably detects it), otherwise drops pure fence-marker lines (`/^[[:space:]]*```[[:alnum:]]*[[:space:]]*$/d`). Consultant-agnostic; the bare-JSON path (Flash, every other consultant) is untouched. Verified end-to-end against live agy: `Gemini 3.1 Pro (High)` now yields a populated `build_structured_response` (summary/approach/pros/cons/confidence=10). Regression test in `test_functions.sh::test_process_consultant_response_fence`.

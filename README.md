@@ -1,8 +1,8 @@
-# AI Consultants v2.15.1
+# AI Consultants v2.16.0
 
-> Query multiple AI models simultaneously for expert opinions on coding questions. Get diverse perspectives, automatic synthesis, confidence-weighted recommendations, and multi-agent debate.
+> **A harness for every question.** A panel of up to 15 frontier models that writes its own playbook per question — fan out, debate to convergence, cross-examine under adversarial review, or run a tournament — and checks its work before it reaches you.
 
-[![Version](https://img.shields.io/badge/version-2.15.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.16.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -35,14 +35,16 @@
 
 ## Why AI Consultants?
 
-Making important technical decisions? Get **multiple expert perspectives** instantly:
+A single model gives you a single guess. AI Consultants gives you a **panel that deliberates — and adapts how it deliberates to the question in front of it.**
 
-- **15 AI consultants** with unique personas (Architect, Pragmatist, Devil's Advocate, etc.)
-- **Automatic synthesis** combines all responses into a weighted recommendation
-- **Confidence scoring** tells you how certain each consultant is
-- **Multi-agent debate** lets consultants critique each other
-- **Anonymous peer review** identifies the strongest arguments without bias
-- **Local model support** via Ollama for complete privacy
+Instead of running a fixed script, it classifies your question, picks an orchestration **shape**, and iterates until the answers hold up — the way a workflow builds a harness for the task at hand:
+
+- **Dynamic orchestration** — the engine chooses the strategy per question: a quick read, a convergence loop, an adversarial refutation gate, a tournament of approaches, or an exhaustive sweep
+- **Convergence, not fixed rounds** — debate iterates until the panel actually agrees (or provably won't), instead of a hardcoded count
+- **Self-checking** — security answers are stress-tested by consultants trying to refute them before anything reaches you
+- **15 frontier models** with distinct personas (Architect, Pragmatist, Devil's Advocate, …)
+- **Confidence-weighted synthesis** — one recommendation, with the dissent and the path it took surfaced so you know how much to trust it
+- **Local + private** — runs fully offline via Ollama when you need it
 
 ---
 
@@ -584,18 +586,25 @@ ai-consultants doctor --suggest-preset --question "..."        # Recommend prese
 ## How It Works
 
 ```
-Query -> Classify -> Parallel Queries -> Voting -> Synthesis -> Report
-                          |                |           |
-                     Gemini (8)      Consensus    Recommendation
-                     Codex (7)       Analysis     Comparison
-                     Mistral (6)                  Risk Assessment
-                     Kilo (9)                     Action Items
+Classify -> Plan shape -> Fan out -> Deliberate & converge -> Synthesize
+   |            |             |               |
+ category   orchestration  Gemini (8)    convergence loop /
+ complexity    shape       Codex (7)     adversarial gate /
+ intent                    Mistral (6)   tournament / exhaustive
+                           Kilo (9)
 ```
 
-With debate enabled:
-```
-Round 1 -> Cross-Critique -> Round 2 -> Updated Positions -> Final Synthesis
-```
+The **shape** is chosen per question (or pinned via `ORCHESTRATION_MODE`):
+
+| Shape | When | What happens |
+|-------|------|--------------|
+| `quick` | simple questions | one fan-out, no debate |
+| `converge` | most questions | debate rounds until consensus is reached (not a fixed count) |
+| `adversarial` | security | a forced critique round + peer-review refutation gate |
+| `tournament` | "compare X vs Y" | converge, then declare a single winning approach |
+| `exhaustive` | "find all / audit" | loop until a round surfaces no new angle |
+
+Set `ORCHESTRATION_MODE=fixed` for the classic fixed-round pipeline.
 
 With peer review:
 ```

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.16.0] - 2026-06-22
+
+### Added
+- **Dynamic orchestration.** Instead of a fixed pipeline, a planner now picks an orchestration *shape* for each question and runs debate as a **convergence loop** — iterating until the panel's answers converge rather than for a fixed number of rounds. Shapes: `quick` (simple questions, no debate), `converge` (debate to consensus), `adversarial` (security: forced critique round + anonymous peer-review refutation gate), `tournament` (compare approaches, then pick one winner), `exhaustive` (find-all: loop until no new angle surfaces).
+- New settings: `ORCHESTRATION_MODE` (`auto` default / `fixed` / a specific shape), `CONVERGENCE_MAX_ROUNDS`, `CONVERGENCE_TARGET_CONSENSUS`, `CONVERGENCE_STALL_EPSILON`, `ENABLE_ADVERSARIAL_VERIFY`.
+
+### Changed
+- The default deliberation is now adaptive (`ORCHESTRATION_MODE=auto`): complex or contested questions iterate further toward consensus, simple ones short-circuit. Budget limits (`MAX_SESSION_COST`) still cap every round. Set `ORCHESTRATION_MODE=fixed` to keep the previous fixed-round behavior exactly.
+
 ## [2.15.1] - 2026-06-22
 
 ### Fixed

@@ -39,6 +39,7 @@ source "$SCRIPT_DIR/lib/costs.sh"
 source "$SCRIPT_DIR/lib/voting.sh"
 source "$SCRIPT_DIR/lib/routing.sh"
 source "$SCRIPT_DIR/lib/cache.sh"
+source "$SCRIPT_DIR/lib/orchestration.sh"
 
 # --- Custom API Agent Discovery ---
 # Discovers custom API agents from environment variables
@@ -267,6 +268,22 @@ if [[ "$ENABLE_CLASSIFICATION" == "true" ]]; then
     log_info "Classifying question..."
     QUESTION_CATEGORY=$("$SCRIPT_DIR/classify_question.sh" "$QUERY" 2>/dev/null || echo "GENERAL")
     log_info "Category: $QUESTION_CATEGORY"
+fi
+
+# --- Orchestration Planning (v2.16.0) ---
+# Pick the orchestration shape from category + complexity + intent. Shape drives
+# how the panel deliberates (convergence loop, adversarial gate, tournament,
+# exhaustive sweep) rather than a fixed debate-round count. ORCHESTRATION_MODE=fixed
+# bypasses the planner and preserves the legacy pipeline exactly.
+QUERY_COMPLEXITY=$(calculate_query_complexity "$QUERY" "${#FILES[@]}" "$QUESTION_CATEGORY" 2>/dev/null || echo 5)
+QUERY_INTENT=$(detect_intent "$QUERY")
+ORCH_SHAPE=$(select_orchestration_shape "$QUESTION_CATEGORY" "$QUERY_COMPLEXITY" "$QUERY_INTENT")
+if [[ "$ORCH_SHAPE" != "fixed" ]]; then
+    log_info "Orchestration: shape=$ORCH_SHAPE (complexity=$QUERY_COMPLEXITY, intent=$QUERY_INTENT)"
+    # The adversarial shape uses anonymous peer review as its refutation gate.
+    if [[ "$ORCH_SHAPE" == "adversarial" && "${ENABLE_ADVERSARIAL_VERIFY:-true}" == "true" ]]; then
+        ENABLE_PEER_REVIEW=true
+    fi
 fi
 
 # --- Create Output Directory (with secure permissions) ---
@@ -617,45 +634,38 @@ if [[ "$ENABLE_PANIC_MODE" != "never" && $SUCCESS_COUNT -gt 1 ]]; then
     fi
 fi
 
-# --- Round 2+: Multi-Agent Debate (optional) ---
-if [[ "$ENABLE_DEBATE" == "true" && $DEBATE_ROUNDS -gt 1 && $SUCCESS_COUNT -gt 1 ]]; then
-    # Budget Check: Before Debate
-    if is_budget_enabled; then
-        DEBATE_ESTIMATE=$(estimate_phase_cost "debate" "$SUCCESS_COUNT" "$CONTEXT_SIZE")
-        DEBATE_ESTIMATE=$(echo "scale=6; $DEBATE_ESTIMATE * $DEBATE_ROUNDS" | bc)
-        if ! enforce_budget "$CURRENT_COST" "$DEBATE_ESTIMATE" "debate rounds"; then
-            log_warn "Skipping debate due to budget constraints"
-            ENABLE_DEBATE=false
+# --- Round 2+: Deliberation (dynamic orchestration or legacy debate) ---
+if [[ "$ORCHESTRATION_MODE" == "fixed" ]]; then
+    # Legacy pipeline (pre-v2.16): fixed number of debate rounds.
+    if [[ "$ENABLE_DEBATE" == "true" && $DEBATE_ROUNDS -gt 1 && $SUCCESS_COUNT -gt 1 ]]; then
+        # Budget Check: Before Debate
+        if is_budget_enabled; then
+            DEBATE_ESTIMATE=$(estimate_phase_cost "debate" "$SUCCESS_COUNT" "$CONTEXT_SIZE")
+            DEBATE_ESTIMATE=$(echo "scale=6; $DEBATE_ESTIMATE * $DEBATE_ROUNDS" | bc)
+            if ! enforce_budget "$CURRENT_COST" "$DEBATE_ESTIMATE" "debate rounds"; then
+                log_warn "Skipping debate due to budget constraints"
+                ENABLE_DEBATE=false
+            fi
+        fi
+
+        # Proceed with debate if still enabled after budget check
+        if [[ "$ENABLE_DEBATE" == "true" ]]; then
+            log_info "Starting Multi-Agent Debate (${DEBATE_ROUNDS} total rounds)..."
+
+            for ((round=2; round<=DEBATE_ROUNDS; round++)); do
+                log_info "  Round $round..."
+                _apply_debate_round "$OUTPUT_DIR" "$round" "$QUESTION_CATEGORY"
+            done
+            echo "" >&2
         fi
     fi
-
-    # Proceed with debate if still enabled after budget check
-    if [[ "$ENABLE_DEBATE" == "true" ]]; then
-        log_info "Starting Multi-Agent Debate (${DEBATE_ROUNDS} total rounds)..."
-
-        for ((round=2; round<=DEBATE_ROUNDS; round++)); do
-            log_info "  Round $round..."
-            # v2.3: Pass category for mandatory debate check (SECURITY/ARCHITECTURE always debate)
-            DEBATE_OUTPUT=$("$SCRIPT_DIR/debate_round.sh" "$OUTPUT_DIR" "$round" "$OUTPUT_DIR/round_$round" "$QUESTION_CATEGORY")
-
-            # Update responses with debate results
-            if [[ -d "$OUTPUT_DIR/round_$round" ]]; then
-                for f in "$OUTPUT_DIR/round_$round"/*.json; do
-                    if [[ -f "$f" && "$f" != *"summary"* ]]; then
-                        consultant=$(basename "$f" .json)
-                        # Merge debate data into main response
-                        if [[ -f "$OUTPUT_DIR/${consultant}.json" ]]; then
-                            jq -s '.[0] * {debate: .[1].debate}' \
-                                "$OUTPUT_DIR/${consultant}.json" "$f" \
-                                > "$OUTPUT_DIR/${consultant}.json.tmp" && \
-                                mv "$OUTPUT_DIR/${consultant}.json.tmp" "$OUTPUT_DIR/${consultant}.json"
-                        fi
-                    fi
-                done
-            fi
-        done
-        echo "" >&2
-    fi
+else
+    # Dynamic orchestration (v2.16.0): the planned shape drives deliberation
+    # (convergence loop / adversarial gate / tournament / exhaustive sweep).
+    # Per-round budget enforcement happens inside the loop.
+    log_info "Deliberation: running '${ORCH_SHAPE}' orchestration..."
+    run_orchestration "$ORCH_SHAPE" "$OUTPUT_DIR" "$QUESTION_CATEGORY"
+    echo "" >&2
 fi
 
 # --- Voting and Consensus ---
@@ -692,6 +702,10 @@ jq -n \
     --argjson success_count "$SUCCESS_COUNT" \
     --argjson total "${#PIDS[@]}" \
     --arg category "$QUESTION_CATEGORY" \
+    --arg orch_mode "${ORCHESTRATION_MODE:-auto}" \
+    --arg orch_shape "${ORCH_SHAPE:-fixed}" \
+    --argjson complexity "${QUERY_COMPLEXITY:-5}" \
+    --arg intent "${QUERY_INTENT:-advise}" \
     '{
         optimization_settings: {
             cache_enabled: $cache_enabled,
@@ -700,6 +714,12 @@ jq -n \
             cost_aware_routing: $cost_aware,
             debate_optimization: $debate_opt,
             compact_report: $compact
+        },
+        orchestration: {
+            mode: $orch_mode,
+            shape: $orch_shape,
+            complexity: $complexity,
+            intent: $intent
         },
         quality_metrics: {
             consensus_score: $consensus,

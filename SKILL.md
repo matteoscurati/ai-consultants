@@ -5,12 +5,12 @@ license: MIT
 compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
   author: matteoscurati
-  version: 2.15.1
+  version: 2.16.0
 ---
 
-# AI Consultants v2.15.1 - AI Expert Panel
+# AI Consultants v2.16.0 - AI Expert Panel
 
-Simultaneously consult multiple AIs as "consultants" for coding questions. Each consultant has a **configurable persona** that influences their response style.
+**A harness for every question.** Convene a panel of AI "consultants" for coding questions — and let the engine pick *how* they deliberate: a quick read, a convergence loop, an adversarial refutation gate, a tournament, or an exhaustive sweep. Each consultant has a **configurable persona** that shapes its analysis.
 
 ## Quick Start
 
@@ -81,7 +81,9 @@ Presets: `minimal`, `balanced`, `thorough`, `high-stakes`, `local`, `security`, 
 
 ## Workflow
 
-Query is classified, then sent to consultants in parallel. Responses are scored, voted on, and synthesized into a recommendation. With debate enabled, consultants cross-critique before final synthesis.
+Query is classified, then sent to consultants in parallel. Responses are scored, voted on, and synthesized into a recommendation.
+
+**Dynamic orchestration (v2.16+):** a planner picks an orchestration *shape* per question — `quick` (simple), `converge` (debate until consensus, not a fixed round count), `adversarial` (SECURITY: forced critique + peer-review refutation gate), `tournament` (compare approaches → pick a winner), `exhaustive` (find-all: loop until no new angle). Set `ORCHESTRATION_MODE=fixed` for the legacy pipeline. See [configuration reference](references/configuration.md#dynamic-orchestration-v216).
 
 ## Features
 

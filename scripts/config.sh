@@ -548,6 +548,32 @@ COMPLEXITY_THRESHOLD_MEDIUM="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
 ENABLE_SELECTIVE_CONTEXT="${ENABLE_SELECTIVE_CONTEXT:-false}"
 MAX_FILES_PER_CONSULTANT="${MAX_FILES_PER_CONSULTANT:-5}"
 
+# =============================================================================
+# DYNAMIC ORCHESTRATION (v2.16.0)
+# =============================================================================
+# The planner (lib/orchestration.sh) picks an orchestration SHAPE per question
+# from its category, complexity, and intent, and runs debate as a CONVERGENCE
+# LOOP (iterate until answers converge) instead of a fixed round count.
+#
+# ORCHESTRATION_MODE:
+#   auto        - planner selects the shape (default)
+#   fixed       - legacy pipeline (pre-2.16 behavior, fixed DEBATE_ROUNDS)
+#   quick|converge|adversarial|tournament|exhaustive - force a specific shape
+ORCHESTRATION_MODE="${ORCHESTRATION_MODE:-auto}"
+
+# Convergence loop controls (used by auto/converge/adversarial/tournament).
+# Max debate rounds the loop may run before stopping regardless of consensus.
+CONVERGENCE_MAX_ROUNDS="${CONVERGENCE_MAX_ROUNDS:-4}"
+# Consensus score (0-100) at or above which the loop is considered converged.
+CONVERGENCE_TARGET_CONSENSUS="${CONVERGENCE_TARGET_CONSENSUS:-75}"
+# Minimum per-round consensus gain; below this the loop stops as "stalled"
+# (prevents burning rounds when the panel has stopped moving).
+CONVERGENCE_STALL_EPSILON="${CONVERGENCE_STALL_EPSILON:-5}"
+
+# Adversarial verification: the 'adversarial' shape forces >=1 critique round
+# and runs anonymous peer review as a refutation gate before synthesis.
+ENABLE_ADVERSARIAL_VERIFY="${ENABLE_ADVERSARIAL_VERIFY:-true}"
+
 # --- Debate Optimization ---
 # Optimize debate rounds for token efficiency: skip debate when consensus is
 # already high (confidence spread below DEBATE_CONFIDENCE_SPREAD_THRESHOLD).
@@ -832,4 +858,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.15.1"
+AI_CONSULTANTS_VERSION="2.16.0"

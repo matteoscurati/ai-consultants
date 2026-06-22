@@ -108,6 +108,39 @@ ENABLE_SMART_ROUTING=false   # Category-based consultant selection
 ENABLE_COST_TRACKING=true    # Track API usage costs
 ```
 
+## Dynamic Orchestration (v2.16+)
+
+A planner picks an orchestration **shape** per question (from category, complexity,
+and intent) and runs debate as a **convergence loop** — iterating until the panel's
+answers converge instead of a fixed `DEBATE_ROUNDS` count.
+
+```bash
+ORCHESTRATION_MODE=auto              # auto (planner) | fixed (legacy) | <shape>
+CONVERGENCE_MAX_ROUNDS=4             # hard cap on debate rounds
+CONVERGENCE_TARGET_CONSENSUS=75      # consensus score (0-100) that counts as converged
+CONVERGENCE_STALL_EPSILON=5          # min per-round gain; below it the loop stops "stalled"
+ENABLE_ADVERSARIAL_VERIFY=true       # adversarial shape forces a critique round + peer review
+```
+
+**Shapes** (auto-selected, or force one via `ORCHESTRATION_MODE=<shape>`):
+
+| Shape | Picked when | Behavior |
+|-------|-------------|----------|
+| `quick` | complexity ≤ `COMPLEXITY_THRESHOLD_SIMPLE` | single fan-out, no debate |
+| `converge` | medium/high complexity (default) | debate until consensus ≥ target |
+| `adversarial` | category `SECURITY` | ≥1 forced critique round + peer-review refutation gate |
+| `tournament` | intent "compare X vs Y" | converge, then synthesis declares one winner |
+| `exhaustive` | intent "find all / audit" | loop until a round surfaces no new approach |
+
+`SECURITY` and `ARCHITECTURE` are mandatory-debate categories (as in the pre-2.16
+pipeline): `SECURITY` → `adversarial`, `ARCHITECTURE` → `converge` with a forced
+critique round, so they always get at least one debate round even when the panel
+agrees on the first pass.
+
+`ORCHESTRATION_MODE=fixed` restores the exact pre-2.16 pipeline (fixed `DEBATE_ROUNDS`).
+The convergence trajectory and stop reason are recorded in `orchestration.json` /
+`optimization_metrics.json`. Every round still respects `MAX_SESSION_COST` / budget limits.
+
 ## CLI/API Mode Switching (v2.6+)
 
 Five consultants support switching between CLI and API mode. When API mode is enabled, the CLI is not used.
