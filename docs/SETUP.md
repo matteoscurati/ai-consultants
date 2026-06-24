@@ -414,7 +414,7 @@ ollama pull deepseek-coder
 
 # Smaller/faster options
 ollama pull mistral
-ollama pull qwen2.5-coder
+ollama pull hf.co/prithivMLmods/VibeThinker-3B-GGUF
 ```
 
 ### Configuration
@@ -424,8 +424,8 @@ ollama pull qwen2.5-coder
 # Enable Ollama consultant
 export ENABLE_OLLAMA=true
 
-# Choose model (default: qwen2.5-coder:32b)
-export OLLAMA_MODEL=qwen2.5-coder:32b
+# Choose model (default: hf.co/prithivMLmods/VibeThinker-3B-GGUF)
+export OLLAMA_MODEL=hf.co/prithivMLmods/VibeThinker-3B-GGUF
 
 # Server URL (default: localhost)
 export OLLAMA_HOST=http://localhost:11434
@@ -697,7 +697,7 @@ DEFAULT_PRESET=balanced
 DEFAULT_STRATEGY=majority
 
 # Ollama
-OLLAMA_MODEL=qwen2.5-coder:32b
+OLLAMA_MODEL=hf.co/prithivMLmods/VibeThinker-3B-GGUF
 
 # Features
 ENABLE_DEBATE=false

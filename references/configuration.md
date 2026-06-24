@@ -195,20 +195,20 @@ ENABLE_DEEPSEEK=false
 
 ```bash
 GEMINI_MODEL=Gemini 3.1 Pro (High)   # agy CLI display name; API mode uses GEMINI_API_MODEL
-CODEX_MODEL=gpt-5.3-codex
+CODEX_MODEL=gpt-5.5
 CLAUDE_MODEL=claude-opus-4-8
 MISTRAL_MODEL=mistral-large-3
 KILO_MODEL=auto
-CURSOR_MODEL=composer-1.5
-AIDER_MODEL=gpt-5.3-codex
+CURSOR_MODEL=composer-2.5
+AIDER_MODEL=qwen3-coder:free
 AMP_MODEL=amp
 KIMI_MODEL=kimi-code/kimi-for-coding
-QWEN3_MODEL=qwen3.6-plus
-GLM_MODEL=glm-5.1
-GROK_MODEL=grok-4.20-0309-reasoning
-DEEPSEEK_MODEL=deepseek-reasoner
+QWEN3_MODEL=qwen3.7-max
+GLM_MODEL=glm-5.2
+GROK_MODEL=grok-4.3
+DEEPSEEK_MODEL=deepseek-v4-pro
 MINIMAX_MODEL=MiniMax-M2.7
-OLLAMA_MODEL=qwen2.5-coder:32b
+OLLAMA_MODEL=hf.co/prithivMLmods/VibeThinker-3B-GGUF
 ```
 
 ## Model Quality Tiers (v2.5)
@@ -225,7 +225,7 @@ apply_model_tier "economy"   # Optimized for speed and low cost
 
 ```bash
 ENABLE_OLLAMA=true
-OLLAMA_MODEL=qwen2.5-coder:32b
+OLLAMA_MODEL=hf.co/prithivMLmods/VibeThinker-3B-GGUF
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_TIMEOUT=300
 ```

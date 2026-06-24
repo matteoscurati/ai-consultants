@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.16.0
+**Version**: 2.17.0
 
 ## Distribution
 
@@ -226,7 +226,7 @@ OLLAMA_MODEL=codellama ./scripts/consult_all.sh "question"
 ```
 
 Configuration in `config.sh`:
-- `OLLAMA_MODEL` - Model to use (default: qwen2.5-coder:32b)
+- `OLLAMA_MODEL` - Model to use (default: hf.co/prithivMLmods/VibeThinker-3B-GGUF)
 - `OLLAMA_HOST` - Server URL (default: http://localhost:11434)
 - `OLLAMA_TIMEOUT` - Timeout in seconds (default: 300)
 
@@ -418,8 +418,8 @@ Three tiers of models are available for each consultant, configurable via `apply
 | Tier | Description | Example Models |
 |------|-------------|----------------|
 | **premium** | Latest flagship models | claude-opus-4-8, Gemini 3.1 Pro (High), gpt-5.5 |
-| **standard** | Good quality at reasonable cost | claude-sonnet-4-6, Gemini 3.5 Flash (High), gpt-5.3 |
-| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.5 Flash (Low), gpt-4o-mini |
+| **standard** | Good quality at reasonable cost | claude-sonnet-4-6, Gemini 3.5 Flash (High), gpt-5.4 |
+| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.5 Flash (Low), gpt-5.4-nano |
 
 **Default models are now premium tier** for maximum quality.
 
@@ -449,7 +449,7 @@ Three new presets leverage the model tiers:
 ./scripts/consult_all.sh --preset fast "quick syntax question"
 ```
 
-### Premium Model Defaults (March 2026)
+### Premium Model Defaults (June 2026)
 All consultants now use premium models by default:
 
 | Consultant | Default Model |
@@ -458,16 +458,16 @@ All consultants now use premium models by default:
 | Gemini | Gemini 3.1 Pro (High) (via agy CLI) |
 | Codex | gpt-5.5 |
 | Mistral | mistral-large-3 |
-| Cursor | composer-2 |
+| Cursor | composer-2.5 |
 | DeepSeek | deepseek-v4-pro |
-| GLM | glm-5.1 |
+| GLM | glm-5.2 |
 | Grok | grok-4.3 |
-| Qwen3 | qwen3.6-plus |
+| Qwen3 | qwen3.7-max |
 | Kimi | kimi-code/kimi-for-coding |
-| Aider | nvidia/nemotron-3-super-120b-a12b:free |
+| Aider | qwen3-coder:free |
 | MiniMax | MiniMax-M2.7 |
 | Kilo | auto |
-| Ollama | qwen2.5-coder:32b |
+| Ollama | hf.co/prithivMLmods/VibeThinker-3B-GGUF |
 
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
 
@@ -655,7 +655,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_PANIC_MODE` | auto | Panic mode trigger (v2.2) |
 | `PANIC_CONFIDENCE_THRESHOLD` | 5 | Panic threshold (v2.2) |
 | `ENABLE_OLLAMA` | false | Local model support (v2.2) |
-| `OLLAMA_MODEL` | qwen2.5-coder:32b | Ollama model (v2.5 - premium default) |
+| `OLLAMA_MODEL` | hf.co/prithivMLmods/VibeThinker-3B-GGUF | Ollama model (v2.17 default) |
 | `CLAUDE_MODEL` | claude-opus-4-8 | Claude model (v2.5) |
 | `GEMINI_MODEL` | Gemini 3.1 Pro (High) | Gemini agy CLI model (v2.15) |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
@@ -825,6 +825,24 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.17.0
+- **Model catalog refresh (June 2026)** across all three tiers + cost rates, for every agent. Source of truth stays `config.sh::get_model_for_tier` (+ default `*_MODEL` vars) mirrored by `docs/cost_rates.json` (`model_tiers` + `consultant_fallbacks` + per-1K `models` rates). CLI-addressed models verified by querying the installed binaries (`agy models`, `agent --list-models`, kimi config); API/provider models + pricing researched against official sources. Superseded IDs kept in `cost_rates.json` for historical/pinned lookups.
+- **Changed models** (premium / standard / economy):
+  - **codex**: gpt-5.5 / **gpt-5.4** (was gpt-5.3) / **gpt-5.4-nano** (was gpt-4o-mini).
+  - **cursor**: **composer-2.5** / **composer-2** / **gemini-3-flash** (was composer-2 / composer-1.5 / gemini-2.0-flash).
+  - **deepseek**: deepseek-v4-pro / **deepseek-v4-flash** ×2 (was deepseek-v3.2 / deepseek-chat; chat+reasoner deprecate 2026-07-24).
+  - **glm**: **glm-5.2** premium+standard (was glm-5.1) / glm-4-flash.
+  - **grok**: grok-4.3 / **grok-4.1-fast** ×2 (was grok-3 / grok-3-mini).
+  - **qwen3**: **qwen3.7-max** (was qwen3.6-plus) / qwen3.6-35b-a3b / qwen3-32b.
+  - **aider**: **qwen3-coder:free** (was nvidia/nemotron…:free) / **gpt-5.4** / **gpt-5.4-nano**.
+  - **ollama**: **hf.co/prithivMLmods/VibeThinker-3B-GGUF** default (was qwen2.5-coder:32b); standard/economy keep llama3.3/llama3.2.
+- **Unchanged (verified current)**: claude, gemini (agy display names — no newer Gemini), mistral, minimax, kimi/amp/kilo.
+- **Cost-rate corrections (per-1K)**: `gpt-5.5` → 0.005/0.030 (was understated 0.003/0.012), `deepseek-v4-pro` → 0.000435/0.00087, `minimax-m2.7` → 0.00025/0.001, `composer-2` → 0.0005/0.0025, Gemini Flash → 0.0015/0.009, Gemini 3.1 Pro → 0.002/0.012, mistral-medium → 0.001/0.003, devstral-small-2 → 0 (free). New IDs added with researched per-1K rates. `COST_RATES.md` regenerated to match the JSON.
+- **Estimates flagged**: `glm-5.2` (mirrors glm-5.1) and `qwen3.7-max` (mirrors qwen3-max) pending official pricing.
+- **Docs synced**: README, configuration.md, .env.example (+ fixed pre-existing GROK/DEEPSEEK default drift), SETUP.md, CLAUDE.md tables. Tests: tier assertions updated +10 new; 8 suites pass; shellcheck clean.
+- **Found in `/code-review max` (workflow-backed, 61 agents): case-insensitive cost lookup.** `lib/costs.sh::get_rate_from_file` did an exact-case jq key match, but callers lowercase the model name first — so every **mixed-case** rate key silently missed and fell to `default_rate` ($0.005/$0.015 per 1K). This diff newly tripped it with the Ollama default `hf.co/prithivMLmods/VibeThinker-3B-GGUF` (a free local model billed at $0.02/query → wrong session cost reports, pre-run estimates, and budget halts under `ENABLE_BUDGET_LIMIT`), and it had silently rendered the **Gemini** agy display-name rates inert since v2.15 (every Gemini consultation cost-reported at default, not its real rate). Fixed by matching keys case-insensitively (`ascii_downcase` both sides via `first(.models|to_entries[]|select(...))`) — lowercase keys (minimax/gpt-5.5) still match; mixed-case (Gemini, VibeThinker) now resolve. Verified: VibeThinker → $0, Gemini 3.1 Pro → $0.014 for 1k+1k. Regression tests added (VibeThinker=0, Gemini resolves, local model free).
+- **Also from review**: `estimate_query_cost`/`format_cost` now restore the leading zero bc drops on sub-1 values (".014000"/".03¢" → "0.014000"/"0.03¢") — surfaced by the diff's many sub-cent rates. README roster + `references/configuration.md` Grok/DeepSeek default cells synced to grok-4.3 / deepseek-v4-pro (the partial sync had left them stale). `config.sh` codex + ollama inline comments corrected to the new defaults. `cost_rates.json` premium-block date comment → Jun 2026. (Skipped as deliberate: re-ordering legacy entries under `_comment_legacy`, and the `gemini-3-flash-preview` vs `gemini-3-flash` coexistence — the former is the historical Gemini-API id, the latter Cursor's economy model, kept separately on purpose.)
 
 ### v2.16.0
 - **Dynamic orchestration engine** — the fixed `classify → query → debate(N fixed rounds) → synth` pipeline becomes adaptive, inspired by Claude Code's dynamic workflows but implemented entirely in standalone bash (no Workflow tool / Claude-Code dependency). A planner picks an orchestration **shape** per question; debate becomes a **convergence loop**.

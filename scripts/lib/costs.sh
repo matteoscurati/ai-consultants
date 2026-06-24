@@ -16,13 +16,22 @@ COST_RATES_FILE="${COST_RATES_FILE:-$_COSTS_SCRIPT_DIR/../../docs/cost_rates.jso
 # Load rate from JSON file
 # Usage: get_rate_from_file <model> <type: input|output>
 # Returns: rate as string, or exits with 1 if not found
+#
+# The match is CASE-INSENSITIVE: callers lowercase the model name, but several
+# rate keys are mixed-case (agy display names like "Gemini 3.1 Pro (High)", the
+# Ollama "hf.co/.../VibeThinker-3B-GGUF" path). An exact-case jq lookup on a
+# lowercased model would miss those keys and silently fall through to
+# default_rate — mis-billing free/local and Gemini models. Downcasing both sides
+# fixes it generally (lowercase keys like minimax-m2.7/gpt-5.5 still match).
 get_rate_from_file() {
     local model="$1"
     local type="$2"
 
     if [[ -f "$COST_RATES_FILE" ]]; then
         local rate
-        rate=$(jq -r ".models[\"$model\"].$type // null" "$COST_RATES_FILE" 2>/dev/null)
+        rate=$(jq -r --arg m "$model" --arg t "$type" \
+            'first(.models | to_entries[] | select((.key | ascii_downcase) == ($m | ascii_downcase)) | .value[$t]) // null' \
+            "$COST_RATES_FILE" 2>/dev/null)
         if [[ "$rate" != "null" && -n "$rate" ]]; then
             echo "$rate"
             return 0
@@ -228,6 +237,11 @@ estimate_query_cost() {
     output_cost=$(echo "scale=6; $output_tokens / 1000 * $output_rate" | bc)
     total_cost=$(echo "scale=6; $input_cost + $output_cost" | bc)
 
+    # bc prints sub-1 values without a leading zero (".014000"); restore it so
+    # cost reports read "0.014000". Numeric comparisons are unaffected either way.
+    [[ "$total_cost" == .* ]] && total_cost="0$total_cost"
+    [[ "$total_cost" == -.* ]] && total_cost="-0${total_cost#-}"
+
     echo "$total_cost"
 }
 
@@ -262,6 +276,8 @@ format_cost() {
     # Convert to cents if very small
     if (( $(echo "$cost < 0.01" | bc -l) )); then
         local cents=$(echo "scale=2; $cost * 100" | bc)
+        # bc drops the leading zero on sub-1 values (".03"); restore it.
+        [[ "$cents" == .* ]] && cents="0$cents"
         echo "${cents}¢"
     else
         printf "\$%.4f" "$cost"

@@ -971,7 +971,7 @@ test_cost_estimation() {
     # 1000 input tokens, 500 output tokens
     # cost = (1000/1000)*0.005 + (500/1000)*0.015 = 0.005 + 0.0075 = 0.012500
     result=$(estimate_query_cost "gpt-4o" 1000 500)
-    assert_equals ".012500" "$result" "gpt-4o 1000in+500out = 0.0125"
+    assert_equals "0.012500" "$result" "gpt-4o 1000in+500out = 0.0125 (leading zero, v2.17.0)"
 
     # Zero tokens
     result=$(estimate_query_cost "gpt-4o" 0 0)
@@ -994,8 +994,19 @@ test_cost_per1k_contract() {
     assert_equals "0.005" "$(get_output_cost_per_1k claude-haiku-4-5)" "haiku-4-5 output is per-1K (0.005)"
 
     # End-to-end: per-1K rates => correct dollar costs (pre-fix opus 1k+1k was $30, not $0.03).
-    assert_equals ".030000" "$(estimate_query_cost claude-opus-4-8 1000 1000)"  "opus 1k+1k = 0.03 (regression: pre-fix was 30)"
-    assert_equals ".006000" "$(estimate_query_cost claude-haiku-4-5 1000 1000)" "haiku 1k+1k = 0.006"
+    # Leading zero restored in v2.17.0 (bc drops it).
+    assert_equals "0.030000" "$(estimate_query_cost claude-opus-4-8 1000 1000)"  "opus 1k+1k = 0.03 (regression: pre-fix was 30)"
+    assert_equals "0.006000" "$(estimate_query_cost claude-haiku-4-5 1000 1000)" "haiku 1k+1k = 0.006"
+
+    # v2.17.0: cost lookup must be CASE-INSENSITIVE. Mixed-case rate keys (agy
+    # display names, the Ollama hf.co path) previously missed and fell to
+    # default_rate, mis-billing free/local + Gemini. These would all read 0.005
+    # (the default) under the pre-fix exact-case lookup.
+    assert_equals "0" "$(get_input_cost_per_1k 'hf.co/prithivMLmods/VibeThinker-3B-GGUF')" "Ollama VibeThinker input resolves to 0 (case-insensitive)"
+    assert_equals "0" "$(get_output_cost_per_1k 'hf.co/prithivMLmods/VibeThinker-3B-GGUF')" "Ollama VibeThinker output resolves to 0"
+    assert_equals "0.002" "$(get_input_cost_per_1k 'Gemini 3.1 Pro (High)')"  "Gemini 3.1 Pro input resolves (not default_rate)"
+    assert_equals "0.012" "$(get_output_cost_per_1k 'Gemini 3.1 Pro (High)')" "Gemini 3.1 Pro output resolves (not default_rate)"
+    assert_equals "0" "$(estimate_query_cost 'hf.co/prithivMLmods/VibeThinker-3B-GGUF' 1000 1000)" "local Ollama model is free (0), not default-priced"
 
     if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
 }
@@ -1109,7 +1120,7 @@ test_economic_models() {
     suite "costs.sh: get_economic_model"
 
     assert_equals "Gemini 3.5 Flash (Low)" "$(get_economic_model "gemini")" "gemini economy is Gemini 3.5 Flash (Low) (agy)"
-    assert_equals "gpt-4o-mini"      "$(get_economic_model "codex")"  "codex economy is gpt-4o-mini"
+    assert_equals "gpt-5.4-nano"     "$(get_economic_model "codex")"  "codex economy is gpt-5.4-nano"
     assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
     assert_equals "MiniMax-M2.5"     "$(get_economic_model "minimax")" "minimax economy is MiniMax-M2.5"
     assert_equals ""                 "$(get_economic_model "unknown")" "unknown consultant returns empty"
@@ -1454,6 +1465,25 @@ test_model_for_tier() {
     assert_equals "MiniMax-M2.7"           "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M2.7"
     assert_equals "MiniMax-M2.5"           "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M2.5"
     assert_equals "auto"                  "$(get_model_for_tier "kilo" "premium")"   "kilo always returns auto"
+    # v2.17.0 model refresh
+    assert_equals "gpt-5.5"               "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-5.5"
+    assert_equals "gpt-5.4"               "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.4"
+    assert_equals "gpt-5.4-nano"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.4-nano"
+    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "premium")"   "cursor premium is composer-2.5"
+    assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
+    assert_equals "glm-5.2"               "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.2"
+    assert_equals "grok-4.1-fast"         "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.1-fast"
+    assert_equals "qwen3.7-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.7-max"
+    assert_equals "qwen3-coder:free"      "$(get_model_for_tier "aider" "premium")"    "aider premium is qwen3-coder:free"
+    assert_equals "hf.co/prithivMLmods/VibeThinker-3B-GGUF" "$(get_model_for_tier "ollama" "premium")" "ollama premium is VibeThinker GGUF"
+    # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
+    assert_equals "composer-2"            "$(get_model_for_tier "cursor" "standard")"   "cursor standard is composer-2"
+    assert_equals "gemini-3-flash"        "$(get_model_for_tier "cursor" "economy")"    "cursor economy is gemini-3-flash"
+    assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-v4-flash"
+    assert_equals "glm-5.2"               "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.2"
+    assert_equals "grok-4.1-fast"         "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.1-fast"
+    assert_equals "gpt-5.4"               "$(get_model_for_tier "aider" "standard")"    "aider standard is gpt-5.4"
+    assert_equals "gpt-5.4-nano"          "$(get_model_for_tier "aider" "economy")"     "aider economy is gpt-5.4-nano"
 
     # Unknown tier returns empty
     assert_equals "" "$(get_model_for_tier "claude" "mythical")" "unknown tier returns empty"

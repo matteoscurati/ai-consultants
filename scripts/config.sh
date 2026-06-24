@@ -134,7 +134,7 @@ export GEMINI_USE_API
 # CODEX CONFIGURATION - The Pragmatist
 # =============================================================================
 
-# Model: "gpt-5.5" (default), "gpt-5.3", "gpt-4o-mini", etc.
+# Model: "gpt-5.5" (default), "gpt-5.4", "gpt-5.4-nano", "gpt-5.3-codex", etc.
 CODEX_MODEL="${CODEX_MODEL:-gpt-5.5}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
 CODEX_CMD="${CODEX_CMD:-codex}"
@@ -160,7 +160,7 @@ KILO_CMD="${KILO_CMD:-kilocode}"
 # CURSOR CONFIGURATION - The Integrator
 # =============================================================================
 
-CURSOR_MODEL="${CURSOR_MODEL:-composer-2}"
+CURSOR_MODEL="${CURSOR_MODEL:-composer-2.5}"
 CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
 CURSOR_CMD="${CURSOR_CMD:-agent}"
 
@@ -168,7 +168,7 @@ CURSOR_CMD="${CURSOR_CMD:-agent}"
 # AIDER CONFIGURATION - The Pair Programmer
 # =============================================================================
 
-AIDER_MODEL="${AIDER_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
+AIDER_MODEL="${AIDER_MODEL:-qwen3-coder:free}"
 AIDER_TIMEOUT_SECONDS="${AIDER_TIMEOUT:-180}"
 AIDER_CMD="${AIDER_CMD:-aider}"
 
@@ -176,7 +176,7 @@ AIDER_CMD="${AIDER_CMD:-aider}"
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
 # =============================================================================
 
-QWEN3_MODEL="${QWEN3_MODEL:-qwen3.6-plus}"
+QWEN3_MODEL="${QWEN3_MODEL:-qwen3.7-max}"
 QWEN3_TIMEOUT_SECONDS="${QWEN3_TIMEOUT:-180}"
 QWEN3_CMD="${QWEN3_CMD:-qwen}"
 QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
@@ -188,7 +188,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 # GLM CONFIGURATION - The Code Specialist (API-based)
 # =============================================================================
 
-GLM_MODEL="${GLM_MODEL:-glm-5.1}"
+GLM_MODEL="${GLM_MODEL:-glm-5.2}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
 GLM_API_URL="${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
@@ -255,8 +255,8 @@ CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 # OLLAMA CONFIGURATION - The Local Expert (v2.2)
 # =============================================================================
 
-# Default model for local inference (premium: qwen2.5-coder:32b)
-OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5-coder:32b}"
+# Default model for local inference (premium: hf.co/prithivMLmods/VibeThinker-3B-GGUF)
+OLLAMA_MODEL="${OLLAMA_MODEL:-hf.co/prithivMLmods/VibeThinker-3B-GGUF}"
 # Alternative models: llama3.3, llama3.2, codellama, mistral, deepseek-coder
 
 # Ollama server URL (default: local)
@@ -637,14 +637,14 @@ get_model_for_tier() {
                 gemini)   echo "Gemini 3.1 Pro (High)" ;;
                 codex)    echo "gpt-5.5" ;;
                 mistral)  echo "mistral-large-3" ;;
-                cursor)   echo "composer-2" ;;
+                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
-                glm)      echo "glm-5.1" ;;
+                glm)      echo "glm-5.2" ;;
                 grok)     echo "grok-4.3" ;;
-                qwen3)    echo "qwen3.6-plus" ;;
-                aider)    echo "nvidia/nemotron-3-super-120b-a12b:free" ;;
+                qwen3)    echo "qwen3.7-max" ;;
+                aider)    echo "qwen3-coder:free" ;;
                 amp)      echo "amp" ;;
-                ollama)   echo "qwen2.5-coder:32b" ;;
+                ollama)   echo "hf.co/prithivMLmods/VibeThinker-3B-GGUF" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
                 kilo)     echo "auto" ;;
@@ -655,14 +655,14 @@ get_model_for_tier() {
             case "$consultant" in
                 claude)   echo "claude-sonnet-4-6" ;;
                 gemini)   echo "Gemini 3.5 Flash (High)" ;;
-                codex)    echo "gpt-5.3" ;;
+                codex)    echo "gpt-5.4" ;;
                 mistral)  echo "mistral-medium-latest" ;;
-                cursor)   echo "composer-1.5" ;;  # Same as premium (single model)
-                deepseek) echo "deepseek-v3.2" ;;
-                glm)      echo "glm-5.1" ;;  # Same as premium (no mid-tier GLM)
-                grok)     echo "grok-3" ;;
+                cursor)   echo "composer-2" ;;
+                deepseek) echo "deepseek-v4-flash" ;;
+                glm)      echo "glm-5.2" ;;  # Same as premium (no mid-tier GLM)
+                grok)     echo "grok-4.1-fast" ;;
                 qwen3)    echo "qwen3.6-35b-a3b" ;;  # Open-weight MoE (35B total, 3B active)
-                aider)    echo "gpt-5.3" ;;
+                aider)    echo "gpt-5.4" ;;
                 amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.3" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
@@ -675,14 +675,14 @@ get_model_for_tier() {
             case "$consultant" in
                 claude)   echo "claude-haiku-4-5" ;;
                 gemini)   echo "Gemini 3.5 Flash (Low)" ;;
-                codex)    echo "gpt-4o-mini" ;;
+                codex)    echo "gpt-5.4-nano" ;;
                 mistral)  echo "devstral-small-2" ;;
-                cursor)   echo "gemini-2.0-flash" ;;
-                deepseek) echo "deepseek-chat" ;;
+                cursor)   echo "gemini-3-flash" ;;
+                deepseek) echo "deepseek-v4-flash" ;;
                 glm)      echo "glm-4-flash" ;;
-                grok)     echo "grok-3-mini" ;;
+                grok)     echo "grok-4.1-fast" ;;
                 qwen3)    echo "qwen3-32b" ;;
-                aider)    echo "gpt-4o-mini" ;;
+                aider)    echo "gpt-5.4-nano" ;;
                 amp)      echo "amp" ;;  # Same model (no tiers)
                 ollama)   echo "llama3.2" ;;
                 kimi)     echo "kimi-code/kimi-for-coding" ;;
@@ -858,4 +858,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.16.0"
+AI_CONSULTANTS_VERSION="2.17.0"

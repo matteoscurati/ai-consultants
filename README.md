@@ -1,8 +1,8 @@
-# AI Consultants v2.16.0
+# AI Consultants v2.17.0
 
 > **A harness for every question.** A panel of up to 15 frontier models that writes its own playbook per question — fan out, debate to convergence, cross-examine under adversarial review, or run a tournament — and checks its work before it reaches you.
 
-[![Version](https://img.shields.io/badge/version-2.16.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.17.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -421,17 +421,17 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 
 | Consultant | Default Model | Persona | Focus |
 |------------|---------------|---------|-------|
-| **Qwen3** | qwen3.6-plus | The Analyst | Data-driven analysis |
-| **GLM** | glm-5.1 | The Methodologist | Structured approaches |
-| **Grok** | grok-4.20-0309-reasoning | The Provocateur | Challenge conventions |
-| **DeepSeek** | deepseek-reasoner | The Code Specialist | Algorithms, code generation |
+| **Qwen3** | qwen3.7-max | The Analyst | Data-driven analysis |
+| **GLM** | glm-5.2 | The Methodologist | Structured approaches |
+| **Grok** | grok-4.3 | The Provocateur | Challenge conventions |
+| **DeepSeek** | deepseek-v4-pro | The Code Specialist | Algorithms, code generation |
 | **MiniMax** | MiniMax-M2.7 | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
 ### Local Consultants
 
 | Consultant | Default Model | Persona | Focus |
 |------------|---------------|---------|-------|
-| **Ollama** | qwen2.5-coder:32b | The Local Expert | Privacy-first, zero API cost |
+| **Ollama** | hf.co/prithivMLmods/VibeThinker-3B-GGUF | The Local Expert | Privacy-first, zero API cost |
 
 ### Installing Consultant CLIs
 
@@ -475,16 +475,16 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 |------------|---------|----------|---------|
 | Claude | claude-opus-4-8 | claude-sonnet-4-6 | claude-haiku-4-5 |
 | Gemini | Gemini 3.1 Pro (High) | Gemini 3.5 Flash (High) | Gemini 3.5 Flash (Low) |
-| Codex | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
+| Codex | gpt-5.5 | gpt-5.4 | gpt-5.4-nano |
 | Mistral | mistral-large-3 | mistral-medium-latest | devstral-small-2 |
-| Cursor | composer-1.5 | composer-1.5 | gemini-2.0-flash |
-| DeepSeek | deepseek-reasoner | deepseek-v3.2 | deepseek-chat |
-| GLM | glm-5.1 | glm-5.1 | glm-4-flash |
-| Grok | grok-4.20-0309-reasoning | grok-3 | grok-3-mini |
-| Qwen3 | qwen3.6-plus | qwen3.6-35b-a3b | qwen3-32b |
-| Aider | gpt-5.3-codex | gpt-5.3 | gpt-4o-mini |
+| Cursor | composer-2.5 | composer-2 | gemini-3-flash |
+| DeepSeek | deepseek-v4-pro | deepseek-v4-flash | deepseek-v4-flash |
+| GLM | glm-5.2 | glm-5.2 | glm-4-flash |
+| Grok | grok-4.3 | grok-4.1-fast | grok-4.1-fast |
+| Qwen3 | qwen3.7-max | qwen3.6-35b-a3b | qwen3-32b |
+| Aider | qwen3-coder:free | gpt-5.4 | gpt-5.4-nano |
 | MiniMax | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
-| Ollama | qwen2.5-coder:32b | llama3.3 | llama3.2 |
+| Ollama | hf.co/prithivMLmods/VibeThinker-3B-GGUF | llama3.3 | llama3.2 |
 
 ### Usage
 

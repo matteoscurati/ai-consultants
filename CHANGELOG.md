@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.17.0] - 2026-06-24
+
+### Changed
+- **Refreshed every consultant's models (June 2026) across premium / standard / economy, with updated cost rates.** CLI-based agents were verified against the installed CLIs; API/provider models and pricing were researched against official sources.
+  - Codex → `gpt-5.5` / `gpt-5.4` / `gpt-5.4-nano`
+  - Cursor → `composer-2.5` / `composer-2` / `gemini-3-flash`
+  - DeepSeek → `deepseek-v4-pro` / `deepseek-v4-flash` (×2; `deepseek-chat`/`deepseek-reasoner` are being deprecated)
+  - GLM → `glm-5.2`
+  - Grok → `grok-4.3` / `grok-4.1-fast` (×2)
+  - Qwen3 → `qwen3.7-max` (premium)
+  - Aider → `qwen3-coder:free`
+  - Ollama → `hf.co/prithivMLmods/VibeThinker-3B-GGUF`
+  - Claude, Gemini, Mistral, MiniMax, Kimi: verified current, unchanged.
+- Corrected several cost rates to verified provider pricing (notably `gpt-5.5`, which was understated). Set `ORCHESTRATION_MODE`/per-agent `*_MODEL` env vars to override any default.
+
 ## [2.16.0] - 2026-06-22
 
 ### Added
