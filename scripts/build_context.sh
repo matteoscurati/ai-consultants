@@ -475,10 +475,31 @@ shift
 QUERY="$1"
 shift
 
-# Validate output file path (allow /tmp for output)
-if [[ "$OUTPUT_FILE" == /tmp/* ]]; then
-    : # Allow /tmp paths for output
-elif ! validate_file_path "$OUTPUT_FILE" "true"; then
+# Returns 0 if PATH is under a recognized temp root: /tmp, /private/tmp (macOS:
+# /tmp is a symlink to /private/tmp), $TMPDIR, or the /private-prefixed macOS
+# alias of $TMPDIR. Rejects any path containing ".." so a temp prefix cannot be
+# used to traverse out (e.g. /tmp/../etc/...).
+_is_temp_path() {
+    local p="$1"
+    [[ "$p" == *".."* ]] && return 1
+    case "$p" in
+        /tmp/*|/private/tmp/*) return 0 ;;
+    esac
+    if [[ -n "${TMPDIR:-}" ]]; then
+        local t="${TMPDIR%/}"
+        [[ "$p" == "$t"/* ]] && return 0
+        [[ "$p" == /private"$t"/* ]] && return 0
+    fi
+    return 1
+}
+
+# Validate output file path. OUTPUT_FILE is tool-chosen (consult_all picks the
+# output dir — under the XDG cache or /tmp), so absolute is allowed, but the
+# traversal + sensitive-path guards in validate_file_path must still apply.
+# (Previously a literal "/tmp/*" prefix short-circuited past those guards, so an
+# output path like /tmp/../etc/x bypassed the ".." check — fixed by routing all
+# output paths through validate_file_path uniformly.)
+if ! validate_file_path "$OUTPUT_FILE" "true"; then
     log_error "Invalid output file path: $OUTPUT_FILE"
     exit 1
 fi
@@ -492,15 +513,20 @@ while [[ $# -gt 0 ]]; do
     file_arg="$1"
     shift
     _parse_tagged_path "$file_arg"
-    # Context files are explicitly user/agent-provided, so allow ABSOLUTE paths
-    # (allow_absolute=true) -- the sensitive-path blocklist, path-traversal, and
-    # null-byte guards in validate_file_path still apply. The previous logic only
-    # accepted relative paths or a literal "/tmp/*" prefix, which silently dropped
-    # legitimate absolute context files: most importantly macOS scratch files,
-    # where /tmp is a symlink to /private/tmp (so the path arrives as
-    # /private/tmp/... and missed the "/tmp/*" check), but also any file the user
-    # keeps outside cwd. Mirrors the OUTPUT_FILE handling above (allow_absolute=true).
-    if validate_file_path "$_PARSED_PATH" "true" 2>/dev/null; then
+    # SECURITY: build_context sends file contents to EXTERNAL AI providers, so a
+    # context arg must NOT be able to read arbitrary absolute paths (e.g.
+    # ~/.ssh/id_rsa, ~/.aws/credentials, ~/.netrc). Accept only:
+    #   (a) relative, in-tree paths — validate_file_path with allow_absolute=false
+    #       rejects absolute paths and ".." traversal, keeping them under cwd; or
+    #   (b) files under a recognized temp root (_is_temp_path).
+    # This fixes the macOS scratch-file regression (Claude Code writes
+    # /private/tmp/...; /tmp is a symlink to /private/tmp, and $TMPDIR is
+    # /var/folders/...) WITHOUT widening to the whole filesystem.
+    # NOTE: v2.17.1 briefly used allow_absolute=true here, which let any absolute
+    # path through a prefix-only blocklist — a secret-exfiltration surface. Do not
+    # reintroduce it. (OUTPUT_FILE above is tool-chosen, not user input, so it is
+    # validated differently — the two sites are intentionally not identical.)
+    if _is_temp_path "$_PARSED_PATH" || validate_file_path "$_PARSED_PATH" "false" 2>/dev/null; then
         FILES+=("$_PARSED_PATH")
         FILE_TAGS+=("$_PARSED_TAG")
     else

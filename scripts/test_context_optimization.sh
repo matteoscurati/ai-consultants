@@ -9,8 +9,9 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-# Relative path is required: lib/common.sh::validate_file_path rejects
-# absolute paths in non-/tmp locations.
+# Fixtures are referenced by RELATIVE path: build_context.sh's context gate
+# accepts only relative in-tree paths or temp-root paths (/tmp, /private/tmp,
+# $TMPDIR) and rejects arbitrary absolute paths (see Test 15 for the boundary).
 FIXTURES_REL="scripts/test_fixtures/context"
 
 # Always invoke build_context.sh from the project root so relative fixture
@@ -283,25 +284,32 @@ test_legacy_inlined_query() {
 # -----------------------------------------------------------------------------
 echo "test_context_optimization.sh — v2.14 context handoff regression suite"
 # -----------------------------------------------------------------------------
-# Test 15: absolute context paths accepted (v2.17.1 — /private/tmp regression)
+# Test 15: context-file path boundary (v2.17.2)
 # -----------------------------------------------------------------------------
-# Pre-fix, build_context.sh only accepted relative paths or a literal "/tmp/*"
-# prefix, so an absolute context file outside /tmp (notably macOS scratch files
-# at /private/tmp, since /tmp is a symlink) was silently dropped. Now any
-# absolute path the caller passes is accepted, while sensitive paths are not.
-test_absolute_context_path() {
-    local absfile="$HOME/.aic_ctx_test_$$.txt"
-    printf 'UNIQUE_CTX_MARKER_42 lorem ipsum\n' > "$absfile"
-    "$SCRIPT_DIR/build_context.sh" "$_TMPDIR/ctx_abs.md" "summarize this" "$absfile" >/dev/null 2>&1
+# build_context.sh sends file contents to external AI providers, so the context
+# gate must (a) ACCEPT temp-root paths — fixing the macOS /private/tmp scratch-file
+# regression — and (b) REJECT arbitrary absolute paths so secrets like ~/.ssh/id_rsa
+# can't be exfiltrated. ($_TMPDIR is itself a temp root: /var/folders/... on macOS,
+# /tmp/... on Linux — the exact accept case, auto-cleaned, no $HOME litter.)
+# QUESTION_CATEGORY=SECURITY skips the project-tree find these assertions don't need.
+test_context_path_boundary() {
+    local tmpfile="$_TMPDIR/aic_ctx_abs.txt"
+    printf 'UNIQUE_CTX_MARKER_42 lorem ipsum\n' > "$tmpfile"
+    QUESTION_CATEGORY=SECURITY "$SCRIPT_DIR/build_context.sh" "$_TMPDIR/ctx_tmp.md" "summarize this" "$tmpfile" >/dev/null 2>&1
     local content
-    content=$(cat "$_TMPDIR/ctx_abs.md" 2>/dev/null)
-    rm -f "$absfile"
+    content=$(cat "$_TMPDIR/ctx_tmp.md" 2>/dev/null)
     assert_match "UNIQUE_CTX_MARKER_42" "$content" \
-        "absolute context path (outside /tmp) is included, not silently skipped"
+        "temp-root context path is included (macOS /private/tmp regression class)"
 
-    # Sensitive paths must still be rejected by the blocklist.
+    # Arbitrary absolute path outside the temp roots must be REJECTED (no secret
+    # exfiltration). Path need not exist — rejection happens at validation.
     local stderr
-    stderr=$("$SCRIPT_DIR/build_context.sh" "$_TMPDIR/ctx_sens.md" "q" "/etc/passwd" 2>&1)
+    stderr=$(QUESTION_CATEGORY=SECURITY "$SCRIPT_DIR/build_context.sh" "$_TMPDIR/ctx_sec.md" "q" "$HOME/.ssh/id_rsa" 2>&1)
+    assert_match "Skipping invalid file path: $HOME/.ssh/id_rsa" "$stderr" \
+        "absolute path outside temp roots is rejected (secret exfiltration blocked)"
+
+    # Sensitive system path still rejected.
+    stderr=$(QUESTION_CATEGORY=SECURITY "$SCRIPT_DIR/build_context.sh" "$_TMPDIR/ctx_etc.md" "q" "/etc/passwd" 2>&1)
     assert_match "Skipping invalid file path: /etc/passwd" "$stderr" \
         "sensitive /etc path is still rejected"
 }
@@ -320,6 +328,6 @@ run_test "Test 11: --query-file is parsed correctly" test_query_file_flag
 run_test "Test 12: --query-file with missing file is rejected" test_query_file_missing
 run_test "Test 13: --query-file conflicts with positional query" test_query_file_conflict
 run_test "Test 14: Legacy no-FILES path still works" test_legacy_inlined_query
-run_test "Test 15: absolute context path accepted (v2.17.1)" test_absolute_context_path
+run_test "Test 15: context-file path boundary (v2.17.2)" test_context_path_boundary
 
 test_summary "test_context_optimization.sh"

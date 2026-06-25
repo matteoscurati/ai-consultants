@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.17.2] - 2026-06-25
+
+### Security
+- **Context files could read arbitrary absolute paths and send them to external AI providers.** v2.17.1 widened `build_context.sh` to accept any absolute context path behind a small prefix blocklist that did not cover home secrets — so a context argument pointing at `~/.ssh/id_rsa`, `~/.aws/credentials`, `~/.netrc`, etc. would be read and forwarded to the consultant models. Context files are now restricted to relative in-tree paths or recognized temp roots (`/tmp`, `/private/tmp`, `$TMPDIR`); arbitrary absolute paths are rejected. The original macOS `/private/tmp` scratch-file fix is preserved. v2.17.1 was never published to npm; **use 2.17.2**.
+
+### Fixed
+- `build_context.sh` output-path validation no longer short-circuits past the traversal/sensitive-path guards for `/tmp` outputs.
+
 ## [2.17.1] - 2026-06-25
 
 ### Fixed

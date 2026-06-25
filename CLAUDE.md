@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.17.1
+**Version**: 2.17.2
 
 ## Distribution
 
@@ -825,6 +825,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.17.2
+- **SECURITY: revert v2.17.1's `allow_absolute=true` for context files — it opened a secret-exfiltration surface (caught in `/code-review max`).** v2.17.1 fixed the macOS `/private/tmp` drop by letting `build_context.sh` accept *any* absolute context path behind `validate_file_path`'s prefix-only blocklist (`/etc /root /var/log /proc /sys /dev`). That blocklist covers no home secrets, so a context arg of `~/.ssh/id_rsa`, `~/.aws/credentials`, `~/.netrc`, or `~/.config/gh/hosts.yml` was read verbatim and **sent to the external AI providers**. It also matched literal non-canonical prefixes, so `/private/etc/master.passwd` (the real `/etc` on macOS, via the same symlink aliasing) bypassed the `/etc` rule.
+- **Fix (correct altitude — allowlist, not blocklist)**: context files are now accepted only when (a) relative and in-tree (`validate_file_path ... false` — rejects absolute and `..`), or (b) under a recognized temp root via the new `_is_temp_path` helper (`/tmp`, `/private/tmp`, `$TMPDIR`, and the `/private`-prefixed macOS alias of `$TMPDIR`; `..` rejected so a temp prefix can't traverse out). Still fixes the original macOS scratch-file regression (Claude Code writes `/private/tmp/...`) **without** widening to the whole filesystem. Verified: `/tmp`, `/private/tmp`, `$TMPDIR/...`, relative in-tree → accepted; `~/.ssh/id_rsa`, `/etc/passwd`, `/private/etc/master.passwd`, `/tmp/../etc/passwd` → rejected.
+- **`build_context.sh` OUTPUT_FILE**: removed the `/tmp/*` short-circuit that jumped past `validate_file_path` (so `/tmp/../etc/x` bypassed the `..` check). Output paths now always run through `validate_file_path "$OUTPUT_FILE" "true"` — absolute allowed (output lives under the XDG cache or `/tmp`), traversal + sensitive-path guards enforced. The two validation sites are intentionally different now (OUTPUT is tool-chosen; context files are untrusted input) and the comments say so.
+- **Test**: rewrote `test_context_optimization.sh` Test 15 as a *boundary* test — temp-root accepted, `~/.ssh/id_rsa` rejected (exfiltration blocked), `/etc/passwd` rejected. Uses the auto-cleaned `$_TMPDIR` (no `$HOME` litter) and `QUESTION_CATEGORY=SECURITY` to skip the project-tree `find` the assertions don't need. Fixed the stale suite-header comment that contradicted the new behavior. 8 suites pass; shellcheck clean.
+- **Note**: v2.17.1 was tagged and GitHub-released but **never published to npm** (npm stayed at 2.17.0), so no npm user received the vulnerable version. Publish **2.17.2**, not 2.17.1.
 
 ### v2.17.1
 - **Fix: context files at absolute paths outside `/tmp` were silently dropped.** `build_context.sh`'s context-file gate accepted only relative paths or a literal `/tmp/*` prefix (`if [[ "$_PARSED_PATH" == /tmp/* ]] || validate_file_path "$_PARSED_PATH" "false"`). On macOS `/tmp` is a symlink to `/private/tmp`, so Claude Code scratch files arrive as `/private/tmp/...` and matched neither branch → `log_warn "Skipping invalid file path"` and the file was excluded, with `build_context.sh` falling back to a generic repo auto-context. Net effect: a consultation looked like it ran with the user's context but the consultants never received it. (Reported from a real session where the passed context was dropped and an auto-context substituted.)
