@@ -282,6 +282,30 @@ test_legacy_inlined_query() {
 # Suite runner
 # -----------------------------------------------------------------------------
 echo "test_context_optimization.sh — v2.14 context handoff regression suite"
+# -----------------------------------------------------------------------------
+# Test 15: absolute context paths accepted (v2.17.1 — /private/tmp regression)
+# -----------------------------------------------------------------------------
+# Pre-fix, build_context.sh only accepted relative paths or a literal "/tmp/*"
+# prefix, so an absolute context file outside /tmp (notably macOS scratch files
+# at /private/tmp, since /tmp is a symlink) was silently dropped. Now any
+# absolute path the caller passes is accepted, while sensitive paths are not.
+test_absolute_context_path() {
+    local absfile="$HOME/.aic_ctx_test_$$.txt"
+    printf 'UNIQUE_CTX_MARKER_42 lorem ipsum\n' > "$absfile"
+    "$SCRIPT_DIR/build_context.sh" "$_TMPDIR/ctx_abs.md" "summarize this" "$absfile" >/dev/null 2>&1
+    local content
+    content=$(cat "$_TMPDIR/ctx_abs.md" 2>/dev/null)
+    rm -f "$absfile"
+    assert_match "UNIQUE_CTX_MARKER_42" "$content" \
+        "absolute context path (outside /tmp) is included, not silently skipped"
+
+    # Sensitive paths must still be rejected by the blocklist.
+    local stderr
+    stderr=$("$SCRIPT_DIR/build_context.sh" "$_TMPDIR/ctx_sens.md" "q" "/etc/passwd" 2>&1)
+    assert_match "Skipping invalid file path: /etc/passwd" "$stderr" \
+        "sensitive /etc path is still rejected"
+}
+
 run_test "Test 1: @TAG defaults to PRIMARY" test_tag_default_primary
 run_test "Test 2: @TAG honored when explicit" test_tag_explicit
 run_test "Test 3: @TAG unknown falls back to PRIMARY with warning" test_tag_unknown_fallback
@@ -296,5 +320,6 @@ run_test "Test 11: --query-file is parsed correctly" test_query_file_flag
 run_test "Test 12: --query-file with missing file is rejected" test_query_file_missing
 run_test "Test 13: --query-file conflicts with positional query" test_query_file_conflict
 run_test "Test 14: Legacy no-FILES path still works" test_legacy_inlined_query
+run_test "Test 15: absolute context path accepted (v2.17.1)" test_absolute_context_path
 
 test_summary "test_context_optimization.sh"

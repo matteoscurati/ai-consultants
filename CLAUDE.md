@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.17.0
+**Version**: 2.17.1
 
 ## Distribution
 
@@ -825,6 +825,12 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.17.1
+- **Fix: context files at absolute paths outside `/tmp` were silently dropped.** `build_context.sh`'s context-file gate accepted only relative paths or a literal `/tmp/*` prefix (`if [[ "$_PARSED_PATH" == /tmp/* ]] || validate_file_path "$_PARSED_PATH" "false"`). On macOS `/tmp` is a symlink to `/private/tmp`, so Claude Code scratch files arrive as `/private/tmp/...` and matched neither branch → `log_warn "Skipping invalid file path"` and the file was excluded, with `build_context.sh` falling back to a generic repo auto-context. Net effect: a consultation looked like it ran with the user's context but the consultants never received it. (Reported from a real session where the passed context was dropped and an auto-context substituted.)
+- **Fix**: the gate now uses `validate_file_path "$_PARSED_PATH" "true"` (allow absolute), mirroring the OUTPUT_FILE handling a few lines above. Context files are explicitly user/agent-provided, so absolute paths are legitimate; the sensitive-path blocklist (`/etc /root /var/log /proc /sys /dev`), path-traversal (`..`), and null-byte guards in `validate_file_path` still apply. Verified: `/private/tmp/...`, `/tmp/...`, relative, and `$HOME/...` paths accepted; `/etc/passwd`, `/var/log/...`, `../../etc/...` still rejected.
+- **Test**: `test_context_optimization.sh` Test 15 — an absolute context path outside `/tmp` (a `$HOME` file) is now included in the built context, and `/etc/passwd` is still skipped. 8 suites pass; shellcheck clean.
+- **Note (not a code change)**: the same session also showed Gemini/Codex failing immediately — because the *installed* skill at `~/.claude/skills/ai-consultants` was **v2.10.0** (pre-agy migration), so Gemini called the deprecated `gemini` binary. Updating the installed skill to ≥v2.15 (now v2.17.1) resolves that; it's an install-staleness issue, not a current-code bug.
 
 ### v2.17.0
 - **Model catalog refresh (June 2026)** across all three tiers + cost rates, for every agent. Source of truth stays `config.sh::get_model_for_tier` (+ default `*_MODEL` vars) mirrored by `docs/cost_rates.json` (`model_tiers` + `consultant_fallbacks` + per-1K `models` rates). CLI-addressed models verified by querying the installed binaries (`agy models`, `agent --list-models`, kimi config); API/provider models + pricing researched against official sources. Superseded IDs kept in `cost_rates.json` for historical/pinned lookups.

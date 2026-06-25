@@ -492,8 +492,15 @@ while [[ $# -gt 0 ]]; do
     file_arg="$1"
     shift
     _parse_tagged_path "$file_arg"
-    # Allow relative paths and /tmp paths for context files
-    if [[ "$_PARSED_PATH" == /tmp/* ]] || validate_file_path "$_PARSED_PATH" "false" 2>/dev/null; then
+    # Context files are explicitly user/agent-provided, so allow ABSOLUTE paths
+    # (allow_absolute=true) -- the sensitive-path blocklist, path-traversal, and
+    # null-byte guards in validate_file_path still apply. The previous logic only
+    # accepted relative paths or a literal "/tmp/*" prefix, which silently dropped
+    # legitimate absolute context files: most importantly macOS scratch files,
+    # where /tmp is a symlink to /private/tmp (so the path arrives as
+    # /private/tmp/... and missed the "/tmp/*" check), but also any file the user
+    # keeps outside cwd. Mirrors the OUTPUT_FILE handling above (allow_absolute=true).
+    if validate_file_path "$_PARSED_PATH" "true" 2>/dev/null; then
         FILES+=("$_PARSED_PATH")
         FILE_TAGS+=("$_PARSED_TAG")
     else

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.17.1] - 2026-06-25
+
+### Fixed
+- **Context files at absolute paths outside `/tmp` were silently dropped.** `build_context.sh` only accepted relative paths or a literal `/tmp/*` prefix, so an absolute context file — notably macOS scratch files at `/private/tmp/...` (where `/tmp` is a symlink) — was skipped and a generic auto-context substituted, without the consultants ever receiving the intended context. Absolute paths are now accepted (the sensitive-path / traversal / null-byte guards still apply).
+
 ## [2.17.0] - 2026-06-24
 
 ### Changed
