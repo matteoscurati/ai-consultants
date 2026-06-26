@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.19.0] - 2026-06-26
+
+### Added
+- **Quorum grading + Diagnosed Failures report.** A consultation is now graded MET / DEGRADED / FAILED by how many consultants actually responded (vs `QUORUM_MIN`, default 2), and the report lists each failed consultant with its diagnosed reason — so a panel that silently shrank no longer presents as authoritative. `QUORUM_ACTION=stop` aborts below quorum (default `warn` continues with a banner).
+- **Health gate (`ENABLE_HEALTH_GATE`, opt-in).** Pings each selected consultant in parallel before the run and drops the non-responsive ones (installed-but-unauthenticated CLIs), so the panel only spends the full run on consultants that work. Costs one tiny query per consultant; `HEALTH_GATE_TIMEOUT` default 30s.
+
 ## [2.18.0] - 2026-06-26
 
 ### Added

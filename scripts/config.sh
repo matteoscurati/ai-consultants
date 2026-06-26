@@ -574,6 +574,29 @@ CONVERGENCE_STALL_EPSILON="${CONVERGENCE_STALL_EPSILON:-5}"
 # and runs anonymous peer review as a refutation gate before synthesis.
 ENABLE_ADVERSARIAL_VERIFY="${ENABLE_ADVERSARIAL_VERIFY:-true}"
 
+# =============================================================================
+# QUORUM GRADING (v2.19.0)
+# =============================================================================
+# Grade the consultation outcome by the number of consultants that actually
+# responded, so a run that silently shrank to a few panelists is reported as
+# DEGRADED/FAILED instead of presenting as authoritative. Failures are listed
+# with their diagnosed reason (from the v2.18.0 .err capture) in the report.
+# Minimum successful responses below which the outcome is FAILED.
+QUORUM_MIN="${QUORUM_MIN:-2}"
+# warn (default: banner + continue) | stop (abort if below quorum)
+QUORUM_ACTION="${QUORUM_ACTION:-warn}"
+
+# =============================================================================
+# HEALTH GATE (v2.19.0, opt-in)
+# =============================================================================
+# Before the consultation, send a cheap real "ping" query to each selected
+# consultant in parallel and drop the non-responsive ones (installed-but-
+# unauthenticated CLIs, stale installs), so the panel only spends the full run
+# on consultants that actually work. Opt-in: it costs one tiny extra query per
+# consultant. Prunes; it does not switch transport.
+ENABLE_HEALTH_GATE="${ENABLE_HEALTH_GATE:-false}"
+HEALTH_GATE_TIMEOUT="${HEALTH_GATE_TIMEOUT:-30}"
+
 # --- Debate Optimization ---
 # Optimize debate rounds for token efficiency: skip debate when consensus is
 # already high (confidence spread below DEBATE_CONFIDENCE_SPREAD_THRESHOLD).
@@ -858,4 +881,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.18.0"
+AI_CONSULTANTS_VERSION="2.19.0"

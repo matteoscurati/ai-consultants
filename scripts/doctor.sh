@@ -1097,7 +1097,6 @@ suggest_preset() {
 check_live_consultants() {
     print_section "Live Consultant Check (real ping query)"
 
-    local ping="Reply with exactly: OK"
     local timeout_s="${DOCTOR_LIVE_TIMEOUT:-45}"
     local tmpdir
     tmpdir=$(mktemp -d)
@@ -1111,7 +1110,7 @@ check_live_consultants() {
         "DeepSeek|ENABLE_DEEPSEEK" "MiniMax|ENABLE_MINIMAX" "Ollama|ENABLE_OLLAMA"
     )
 
-    local live_pass=0 live_fail=0 e name flagvar lower qs out err reason
+    local live_pass=0 live_fail=0 e name flagvar lower out err reason rc
     for e in "${entries[@]}"; do
         name="${e%%|*}"; flagvar="${e##*|}"
         if [[ "${!flagvar:-false}" != "true" ]]; then
@@ -1123,15 +1122,13 @@ check_live_consultants() {
             continue
         fi
         lower=$(to_lower "$name")
-        qs="$SCRIPT_DIR/query_${lower}.sh"
-        if [[ ! -x "$qs" ]]; then
-            _print "  ✗ $name: query script missing ($qs)"
-            add_issue "live" "$name query script missing" "reinstall the skill"
-            check_fail; live_fail=$((live_fail + 1)); continue
-        fi
         out="$tmpdir/${lower}.json"; err="$tmpdir/${lower}.err"
-        ENABLE_PERSONA=false run_with_timeout "$timeout_s" "$qs" "$ping" "" "$out" >/dev/null 2>"$err" || true
-        if [[ -s "$out" ]] && jq -e '.response' "$out" >/dev/null 2>&1; then
+        if ping_consultant "$name" "$SCRIPT_DIR" "$timeout_s" "$out" "$err"; then rc=0; else rc=$?; fi
+        if [[ $rc -eq 2 ]]; then
+            _print "  ✗ $name: query script missing"
+            add_issue "live" "$name query script missing" "reinstall the skill"
+            check_fail; live_fail=$((live_fail + 1))
+        elif [[ $rc -eq 0 ]]; then
             _print "  ✓ $name: responded"
             check_pass; live_pass=$((live_pass + 1))
         else

@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.18.0
+**Version**: 2.19.0
 
 ## Distribution
 
@@ -825,6 +825,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.19.0
+- **Quorum grading + "Diagnosed Failures" report** (the #1 pick from the `/workflows` CLI-reliability investigation — chosen for zero transport/billing risk over the CLI→API fallback, which the workflow's adversarial critique showed would emit persona-less confidence-5 stubs that poison voting). After the round-1 collect loop, `grade_quorum <success> <attempted> <min>` (new pure helper in `lib/common.sh`) classifies the run **MET / DEGRADED / FAILED** vs `QUORUM_MIN` (default 2). The report gains an `**Outcome**:` banner and a **## Diagnosed Failures** table that surfaces each dropped consultant's reason (the v2.18.0 `.err` capture) — so a panel that silently shrank to 2/7 is visibly DEGRADED instead of presenting as authoritative. `QUORUM_ACTION=stop` aborts below quorum; default `warn` continues with the banner. Failures are collected in `_surface_consultant_error` (DRY — same call that already logs the reason).
+- **Health gate (`ENABLE_HEALTH_GATE`, opt-in)** — before the run, ping every selected consultant **in parallel** (new `lib/common.sh::ping_consultant`, `HEALTH_GATE_TIMEOUT` default 30s) and drop the non-responsive ones, so installed-but-unauthenticated CLIs (Cursor/Kimi/stale installs) are pruned up front and the quorum/budget checks see the genuinely-working panel. Script-less custom API agents (no `query_*.sh`) return code 2 and are kept (not probeable). Opt-in because it costs one extra tiny query per consultant; it prunes, it does not switch transport.
+- **DRY**: `doctor --live` refactored to use the shared `ping_consultant`; both surfaces now share one probe implementation.
+- **Explicitly NOT done** (per the workflow synthesis): CLI→API automatic fallback (persona-loss vote poisoning; Gemini already auto-resolves), cold-start retry-timeout escalation (stretches the whole round's worst case), warm-up calls, and the transport-abstraction circuit breaker (racy on-disk state, highest blast radius).
+- **Tests**: `test_functions.sh` — `test_grade_quorum` (5 assertions: MET/DEGRADED/FAILED + boundaries) and `test_ping_consultant` (3: valid→0, no-output→fail, missing-script→2, via stub query scripts). 8 suites pass; shellcheck clean. End-to-end smoke verified: a forced CLI failure yields FAILED outcome + Diagnosed Failures table with the real reason, and the health gate prunes the dead consultant pre-run.
 
 ### v2.18.0
 - **Failures are now diagnosable, not silent (Fix A).** `consult_all.sh` launched every consultant with `> /dev/null 2>&1` — discarding stderr — so a failed consultant produced only a bare `Failed`/`Empty response`, with no way to tell *not installed* vs *not authenticated* vs *transient* (this is exactly what led a real session to mis-attribute failures to a timeout). Now each consultant's stderr is captured to `$OUTPUT_DIR/<consultant>.err`, and on FAILED/EMPTY the run surfaces a one-line reason via the new `lib/common.sh::get_consultant_error_reason` helper (ANSI-stripped, prefers an explicit error line, drops orchestration status noise, falls back to "no error captured — CLI likely missing or not authenticated").

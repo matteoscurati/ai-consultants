@@ -245,6 +245,44 @@ test_get_consultant_error_reason() {
     rm -f "$ef"
 }
 
+test_grade_quorum() {
+    echo -e "\n${C_YELLOW}Testing grade_quorum()${C_RESET}"
+    assert_equal "MET"      "$(grade_quorum 4 4 2)" "all responded -> MET"
+    assert_equal "DEGRADED" "$(grade_quorum 3 4 2)" "some failed but >= min -> DEGRADED"
+    assert_equal "FAILED"   "$(grade_quorum 1 4 2)" "below min -> FAILED"
+    assert_equal "MET"      "$(grade_quorum 2 2 2)" "exactly min and all responded -> MET"
+    assert_equal "FAILED"   "$(grade_quorum 0 3 2)" "zero responses -> FAILED"
+}
+
+test_ping_consultant() {
+    echo -e "\n${C_YELLOW}Testing ping_consultant() (stubbed query script)${C_RESET}"
+    local dir
+    dir=$(mktemp -d)
+
+    # Stub that emits a valid envelope -> responded (0)
+    cat > "$dir/query_okagent.sh" <<'EOF'
+#!/bin/bash
+echo '{"response":{"summary":"ok"}}' > "$3"
+EOF
+    chmod +x "$dir/query_okagent.sh"
+    assert_success "ping_consultant okagent '$dir' 10 '$dir/o.json' '$dir/o.err'" "valid response -> success (0)"
+
+    # Stub that writes nothing -> failed (1)
+    cat > "$dir/query_badagent.sh" <<'EOF'
+#!/bin/bash
+echo "boom: not authenticated" >&2
+EOF
+    chmod +x "$dir/query_badagent.sh"
+    assert_failure "ping_consultant badagent '$dir' 10 '$dir/b.json' '$dir/b.err'" "no/invalid output -> failure (non-zero)"
+
+    # No script -> return 2 (not probeable)
+    local rc
+    if ping_consultant noscriptagent "$dir" 10 "$dir/n.json" "$dir/n.err"; then rc=0; else rc=$?; fi
+    assert_equal "2" "$rc" "missing query script -> return 2"
+
+    rm -rf "$dir"
+}
+
 run_tests() {
     echo -e "${C_BLUE}=== Running Unit Tests ===${C_RESET}"
     

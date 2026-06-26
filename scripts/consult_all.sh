@@ -369,6 +369,38 @@ else
     _discover_custom_api_agents
 fi
 
+# --- Health Gate (v2.19.0, opt-in) ---
+# Ping each selected consultant in parallel and drop the non-responsive ones
+# (installed-but-unauthenticated CLIs, stale installs) BEFORE the real run, so
+# the quorum/budget checks below see the genuinely-working panel. Opt-in: costs
+# one tiny extra query per consultant. Prunes; does not switch transport.
+if [[ "${ENABLE_HEALTH_GATE:-false}" == "true" && ${#SELECTED_CONSULTANTS[@]} -gt 0 ]]; then
+    log_info "Health gate: pinging ${#SELECTED_CONSULTANTS[@]} consultants in parallel..."
+    HG_DIR=$(mktemp -d)
+    declare -a HG_PIDS=() HG_NAMES=()
+    for _c in "${SELECTED_CONSULTANTS[@]}"; do
+        _cl=$(to_lower "$_c")
+        ( ping_consultant "$_c" "$SCRIPT_DIR" "${HEALTH_GATE_TIMEOUT:-30}" "$HG_DIR/${_cl}.json" "$HG_DIR/${_cl}.err" ) &
+        HG_PIDS+=("$!"); HG_NAMES+=("$_c")
+    done
+    declare -a RESPONSIVE=()
+    for _i in "${!HG_PIDS[@]}"; do
+        if wait "${HG_PIDS[$_i]}" 2>/dev/null; then _rc=0; else _rc=$?; fi
+        _nm="${HG_NAMES[$_i]}"
+        if [[ $_rc -eq 0 || $_rc -eq 2 ]]; then
+            RESPONSIVE+=("$_nm")
+            [[ $_rc -eq 2 ]] && log_debug "  Health gate: $_nm not probeable (no query script), kept"
+        else
+            _cl=$(to_lower "$_nm")
+            _reason=$(get_consultant_error_reason "$HG_DIR/${_cl}.err")
+            log_warn "  Health gate dropped $_nm${_reason:+: $_reason}"
+        fi
+    done
+    rm -rf "$HG_DIR"
+    SELECTED_CONSULTANTS=(${RESPONSIVE[@]+"${RESPONSIVE[@]}"})
+    log_info "Health gate: ${#SELECTED_CONSULTANTS[@]} of ${#HG_NAMES[@]} responsive"
+fi
+
 if [[ ${#SELECTED_CONSULTANTS[@]} -eq 0 ]]; then
     log_error "No consultant enabled or selected"
     exit 1
@@ -493,17 +525,17 @@ _surface_consultant_error() {
     local ef="${out%.json}.err"
     local reason
     reason=$(get_consultant_error_reason "$ef")
-    if [[ -n "$reason" ]]; then
-        log_warn "    ↳ ${cname}: ${reason}"
-    else
-        log_warn "    ↳ ${cname}: no output and no error captured — CLI likely missing or not authenticated (run doctor.sh --live)"
-    fi
+    local detail="${reason:-no output and no error captured — CLI likely missing or not authenticated (run doctor.sh --live)}"
+    log_warn "    ↳ ${cname}: ${detail}"
+    # Record for the report's "Diagnosed Failures" section (quorum grading, v2.19.0).
+    DIAGNOSED_FAILURES+=("${cname}|${detail}")
 }
 
 # --- Wait and Collect Results ---
 log_info "Waiting for responses from ${#PIDS[@]} consultants..."
 
 declare -a RESULTS=()
+declare -a DIAGNOSED_FAILURES=()
 SUCCESS_COUNT=0
 
 for i in "${!PIDS[@]}"; do
@@ -552,6 +584,27 @@ for i in "${!PIDS[@]}"; do
 done
 
 echo "" >&2
+
+# --- Quorum Grading (v2.19.0) ---
+# Grade the run by how many consultants actually responded, so a silently-shrunk
+# panel is reported as DEGRADED/FAILED instead of presenting as authoritative.
+QUORUM_ATTEMPTED=${#PIDS[@]}
+QUORUM_MIN_EFF="${QUORUM_MIN:-2}"
+QUORUM_OUTCOME=$(grade_quorum "$SUCCESS_COUNT" "$QUORUM_ATTEMPTED" "$QUORUM_MIN_EFF")
+
+if [[ "$QUORUM_OUTCOME" == "DEGRADED" ]]; then
+    log_warn "Quorum: DEGRADED — ${SUCCESS_COUNT}/${QUORUM_ATTEMPTED} consultants responded"
+elif [[ "$QUORUM_OUTCOME" == "FAILED" ]]; then
+    log_error "Quorum: FAILED — only ${SUCCESS_COUNT}/${QUORUM_ATTEMPTED} responded (need >= ${QUORUM_MIN_EFF})"
+    if [[ ${#DIAGNOSED_FAILURES[@]} -gt 0 ]]; then
+        log_error "Diagnosed failures:"
+        for _df in "${DIAGNOSED_FAILURES[@]}"; do log_error "  - ${_df%%|*}: ${_df#*|}"; done
+    fi
+    if [[ "${QUORUM_ACTION:-warn}" == "stop" ]]; then
+        log_error "Aborting below quorum (QUORUM_ACTION=stop). Set QUORUM_ACTION=warn to continue."
+        exit 1
+    fi
+fi
 
 # --- Budget Check: After Round 1 ---
 CURRENT_COST=0
@@ -812,9 +865,29 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
     echo "**Directory**: $(pwd)"
     echo "**Version**: AI Consultants v${AI_CONSULTANTS_VERSION}"
     echo "**Category**: $QUESTION_CATEGORY"
-    echo "**Successes**: $SUCCESS_COUNT/${#PIDS[@]} consultants"
+    echo "**Outcome**: ${QUORUM_OUTCOME:-MET} (${SUCCESS_COUNT}/${QUORUM_ATTEMPTED:-${#PIDS[@]}} responded, quorum=${QUORUM_MIN_EFF:-2})"
     echo "**Consensus**: ${CONSENSUS_SCORE}% ($CONSENSUS_LEVEL)"
     echo ""
+
+    # Diagnosed failures (quorum grading, v2.19.0) — surface WHY consultants
+    # dropped, so a degraded panel is visible instead of silently authoritative.
+    if [[ ${#DIAGNOSED_FAILURES[@]} -gt 0 ]]; then
+        echo "## Diagnosed Failures"
+        echo ""
+        if [[ "${QUORUM_OUTCOME:-MET}" == "FAILED" ]]; then
+            echo "> ⚠️ Below quorum (${SUCCESS_COUNT}/${QUORUM_MIN_EFF:-2}). Treat the recommendation as low-confidence."
+        elif [[ "${QUORUM_OUTCOME:-MET}" == "DEGRADED" ]]; then
+            echo "> Some consultants did not respond — the panel ran with ${SUCCESS_COUNT}/${QUORUM_ATTEMPTED:-${#PIDS[@]}}."
+        fi
+        echo ""
+        echo "| Consultant | Reason |"
+        echo "|------------|--------|"
+        for _df in "${DIAGNOSED_FAILURES[@]}"; do
+            echo "| ${_df%%|*} | ${_df#*|} |"
+        done
+        echo ""
+    fi
+
     echo "---"
     echo ""
 
