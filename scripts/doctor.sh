@@ -32,6 +32,7 @@ VERBOSE=false
 QUICK_MODE=false
 SUGGEST_CONFIG=false
 SUGGEST_PRESET=false
+LIVE_MODE=false
 QUESTION=""
 
 while [[ $# -gt 0 ]]; do
@@ -60,6 +61,10 @@ while [[ $# -gt 0 ]]; do
             SUGGEST_PRESET=true
             shift
             ;;
+        --live)
+            LIVE_MODE=true
+            shift
+            ;;
         --question)
             QUESTION="${2:-}"
             shift 2
@@ -78,6 +83,9 @@ while [[ $# -gt 0 ]]; do
             echo "  --suggest-config   Print recommended ENABLE_* configuration"
             echo "  --suggest-preset   Recommend preset + strategy for a question"
             echo "  --question \"...\"   Question text for --suggest-preset"
+            echo "  --live             Send a real ping query to each enabled consultant"
+            echo "                     (catches installed-but-unauthenticated CLIs that the"
+            echo "                     static check reports as healthy). Costs a tiny query each."
             exit 0
             ;;
         *)
@@ -1080,6 +1088,65 @@ suggest_preset() {
 # MAIN
 # =============================================================================
 
+# --- Live consultant ping (--live) ---------------------------------------------
+# The static checks above only verify a CLI is installed (`--version`), so they
+# report a consultant as healthy even when its CLI errors at query time (e.g.
+# not authenticated). This sends a real, minimal query to each ENABLED consultant
+# and reports pass/fail with the captured error reason. Opt-in (costs one tiny
+# query per consultant).
+check_live_consultants() {
+    print_section "Live Consultant Check (real ping query)"
+
+    local ping="Reply with exactly: OK"
+    local timeout_s="${DOCTOR_LIVE_TIMEOUT:-45}"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+
+    # name|enable-flag — mirrors consult_all's selection set.
+    local entries=(
+        "Gemini|ENABLE_GEMINI"   "Codex|ENABLE_CODEX"   "Mistral|ENABLE_MISTRAL"
+        "Kilo|ENABLE_KILO"       "Cursor|ENABLE_CURSOR" "Aider|ENABLE_AIDER"
+        "Amp|ENABLE_AMP"         "Kimi|ENABLE_KIMI"     "Claude|ENABLE_CLAUDE"
+        "Qwen3|ENABLE_QWEN3"     "GLM|ENABLE_GLM"       "Grok|ENABLE_GROK"
+        "DeepSeek|ENABLE_DEEPSEEK" "MiniMax|ENABLE_MINIMAX" "Ollama|ENABLE_OLLAMA"
+    )
+
+    local live_pass=0 live_fail=0 e name flagvar lower qs out err reason
+    for e in "${entries[@]}"; do
+        name="${e%%|*}"; flagvar="${e##*|}"
+        if [[ "${!flagvar:-false}" != "true" ]]; then
+            [[ "$VERBOSE" == "true" ]] && _print "  ○ $name: disabled"
+            continue
+        fi
+        if should_skip_consultant "$name" 2>/dev/null; then
+            _print "  ○ $name: excluded (invoking agent)"
+            continue
+        fi
+        lower=$(to_lower "$name")
+        qs="$SCRIPT_DIR/query_${lower}.sh"
+        if [[ ! -x "$qs" ]]; then
+            _print "  ✗ $name: query script missing ($qs)"
+            add_issue "live" "$name query script missing" "reinstall the skill"
+            check_fail; live_fail=$((live_fail + 1)); continue
+        fi
+        out="$tmpdir/${lower}.json"; err="$tmpdir/${lower}.err"
+        ENABLE_PERSONA=false run_with_timeout "$timeout_s" "$qs" "$ping" "" "$out" >/dev/null 2>"$err" || true
+        if [[ -s "$out" ]] && jq -e '.response' "$out" >/dev/null 2>&1; then
+            _print "  ✓ $name: responded"
+            check_pass; live_pass=$((live_pass + 1))
+        else
+            reason=$(get_consultant_error_reason "$err")
+            _print "  ✗ $name: no valid response${reason:+ — $reason}"
+            add_issue "live" "$name failed live ping${reason:+: $reason}" "check that the $name CLI is installed and authenticated"
+            check_fail; live_fail=$((live_fail + 1))
+        fi
+    done
+
+    rm -rf "$tmpdir"
+    _print ""
+    _print "  Live result: ${live_pass} responding, ${live_fail} failing"
+}
+
 main() {
     print_header
     check_dependencies
@@ -1110,6 +1177,13 @@ fi
 if [[ "$SUGGEST_PRESET" == "true" ]]; then
     suggest_preset
     exit 0
+fi
+
+if [[ "$LIVE_MODE" == "true" ]]; then
+    print_header
+    check_live_consultants
+    print_summary
+    [[ ${#ISSUES[@]} -gt 0 ]] && exit 1 || exit 0
 fi
 
 main

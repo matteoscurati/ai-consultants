@@ -192,11 +192,17 @@ run_query() {
         local error_msg=""
         [[ -f "$error_file" ]] && error_msg=$(head -5 "$error_file" 2>/dev/null)
 
+        # First line of the CLI's own stderr — the actual reason (auth error,
+        # command not found, etc.). Kept for the final failure message so it
+        # reaches the orchestrator's captured stderr (the per-CLI error_file is a
+        # mktemp path the caller can't locate).
+        local error_first=""
+        [[ -n "$error_msg" ]] && error_first=$(printf '%s\n' "$error_msg" | grep -v '^[[:space:]]*$' | head -1 | cut -c1-200)
+
         if [[ $exit_code -eq 124 ]]; then
             log_warn "[$consultant_name] Timeout after ${timeout_seconds}s"
         else
-            log_warn "[$consultant_name] Error (code: $exit_code)"
-            [[ -n "$error_msg" ]] && log_debug "Details: $error_msg"
+            log_warn "[$consultant_name] Error (code: $exit_code)${error_first:+: $error_first}"
         fi
 
         ((attempt++)) || true
@@ -206,7 +212,7 @@ run_query() {
         fi
     done
 
-    log_error "[$consultant_name] All $MAX_RETRIES attempts failed"
+    log_error "[$consultant_name] All $MAX_RETRIES attempts failed${error_first:+: $error_first}"
     return 1
 }
 
@@ -923,6 +929,29 @@ build_error_response() {
 # fallback-only: if the input already parses as JSON it is returned unchanged
 # (a real fence makes the text invalid JSON, so the gate reliably detects it).
 # Usage: cleaned=$(strip_json_fence "$raw")
+# Extract a concise, ANSI-stripped failure reason from a consultant's captured
+# stderr (.err) file, for surfacing WHY a consultant produced no output (auth
+# error, CLI not installed, transient init failure, ...) instead of a bare
+# "Failed". Prefers an explicit error-ish line; falls back to the last non-empty
+# line. Returns empty string if the file is missing/empty.
+# Usage: reason=$(get_consultant_error_reason "$err_file")
+get_consultant_error_reason() {
+    local ef="$1"
+    [[ -s "$ef" ]] || return 0
+    local esc cleaned line
+    esc=$(printf '\033')
+    # Strip ANSI, blank lines, AND our own orchestration status logs first — those
+    # carry no failure info and would otherwise be mis-picked (e.g. the
+    # "Consulting X (timeout: 180s...)" header matches the 'timeout' pattern below).
+    cleaned=$(sed "s/${esc}\[[0-9;]*m//g" "$ef" 2>/dev/null \
+        | grep -v '^[[:space:]]*$' \
+        | grep -ivE '\[INFO\].*(Consulting|Response received|Waiting .* before|Attempt [0-9]|Querying)')
+    # Prefer a line that names an actual error; else the last remaining line.
+    line=$(printf '%s\n' "$cleaned" | grep -iE 'error|fail|not found|no such|denied|unauthor|invalid|timed? ?out|missing|command not found|exit code' | tail -1)
+    [[ -z "$line" ]] && line=$(printf '%s\n' "$cleaned" | tail -1)
+    printf '%s' "$line" | cut -c1-200
+}
+
 strip_json_fence() {
     local text="$1"
     if echo "$text" | jq -e '.' > /dev/null 2>&1; then

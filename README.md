@@ -1,8 +1,8 @@
-# AI Consultants v2.17.2
+# AI Consultants v2.18.0
 
 > **A harness for every question.** A panel of up to 15 frontier models that writes its own playbook per question — fan out, debate to convergence, cross-examine under adversarial review, or run a tournament — and checks its work before it reaches you.
 
-[![Version](https://img.shields.io/badge/version-2.17.2-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.18.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -574,12 +574,15 @@ Full reference (~150 vars): [`references/configuration.md`](references/configura
 Diagnose, suggest, and fix:
 
 ```bash
-ai-consultants doctor                                          # 22 health checks
+ai-consultants doctor                                          # 22 health checks (CLI installed?)
 ai-consultants doctor --fix                                    # Auto-fix common issues
 ai-consultants doctor --json                                   # JSON for automation
+ai-consultants doctor --live                                   # Real ping per consultant — catches installed-but-unauthenticated CLIs
 ai-consultants doctor --suggest-config                         # Print recommended ENABLE_* based on detected CLIs
 ai-consultants doctor --suggest-preset --question "..."        # Recommend preset + strategy for a question
 ```
+
+> When a consultant fails mid-consultation, the run surfaces the captured reason (e.g. `CLI not found`, `401 Unauthorized`) instead of a bare "Failed", so you can tell *not installed* from *not authenticated* from *transient*.
 
 ---
 

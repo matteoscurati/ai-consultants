@@ -421,6 +421,9 @@ declare -a CACHE_HITS=()
 for consultant in "${SELECTED_CONSULTANTS[@]}"; do
     consultant_lower=$(to_lower "$consultant")
     local_output_file="$OUTPUT_DIR/${consultant_lower}.json"
+    # Capture each consultant's stderr so a failure (auth/CLI-missing/transient)
+    # can be surfaced instead of silently discarded (was `2>&1` to /dev/null).
+    local_err_file="$OUTPUT_DIR/${consultant_lower}.err"
     OUTPUT_FILES+=("$local_output_file")
     NAMES+=("$consultant")
 
@@ -456,21 +459,21 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
                     apply_launch_stagger
                     export "$model_var=$local_model"
                     "$query_script" "" "$CONTEXT_FILE" "$local_output_file"
-                ) > /dev/null 2>&1 &
+                ) > /dev/null 2>"$local_err_file" &
                 PIDS+=($!)
                 update_progress "$consultant" 10 "running"
                 continue
             fi
         fi
         # Standard launch (inherits current environment models)
-        ( apply_launch_stagger; "$query_script" "" "$CONTEXT_FILE" "$local_output_file" ) > /dev/null 2>&1 &
+        ( apply_launch_stagger; "$query_script" "" "$CONTEXT_FILE" "$local_output_file" ) > /dev/null 2>"$local_err_file" &
     else
         # Fallback: custom API agent via generic API query
         (
             apply_launch_stagger
             source "$SCRIPT_DIR/lib/api_query.sh"
             run_api_consultant "$consultant" "" "$CONTEXT_FILE" "$local_output_file"
-        ) > /dev/null 2>&1 &
+        ) > /dev/null 2>"$local_err_file" &
     fi
 
     PIDS+=($!)
@@ -481,6 +484,21 @@ done
 if [[ ${#CACHE_HITS[@]} -gt 0 ]]; then
     log_info "Cache hits: ${CACHE_HITS[*]}"
 fi
+
+# Surface the captured stderr reason for a consultant that produced no usable
+# output, so the user sees WHY (auth error, CLI missing, transient) instead of a
+# bare "Failed". Derives the .err path from the .json output path.
+_surface_consultant_error() {
+    local cname="$1" out="$2"
+    local ef="${out%.json}.err"
+    local reason
+    reason=$(get_consultant_error_reason "$ef")
+    if [[ -n "$reason" ]]; then
+        log_warn "    ↳ ${cname}: ${reason}"
+    else
+        log_warn "    ↳ ${cname}: no output and no error captured — CLI likely missing or not authenticated (run doctor.sh --live)"
+    fi
+}
 
 # --- Wait and Collect Results ---
 log_info "Waiting for responses from ${#PIDS[@]} consultants..."
@@ -521,11 +539,13 @@ for i in "${!PIDS[@]}"; do
             fi
         else
             log_warn "  $name: Empty response"
+            _surface_consultant_error "$name" "$output_file"
             RESULTS+=("$name:EMPTY")
             update_progress "$name" 100 "failed"
         fi
     else
         log_error "  $name: Failed"
+        _surface_consultant_error "$name" "$output_file"
         RESULTS+=("$name:FAILED")
         update_progress "$name" 100 "failed"
     fi

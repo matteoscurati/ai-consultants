@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.17.2
+**Version**: 2.18.0
 
 ## Distribution
 
@@ -825,6 +825,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.18.0
+- **Failures are now diagnosable, not silent (Fix A).** `consult_all.sh` launched every consultant with `> /dev/null 2>&1` — discarding stderr — so a failed consultant produced only a bare `Failed`/`Empty response`, with no way to tell *not installed* vs *not authenticated* vs *transient* (this is exactly what led a real session to mis-attribute failures to a timeout). Now each consultant's stderr is captured to `$OUTPUT_DIR/<consultant>.err`, and on FAILED/EMPTY the run surfaces a one-line reason via the new `lib/common.sh::get_consultant_error_reason` helper (ANSI-stripped, prefers an explicit error line, drops orchestration status noise, falls back to "no error captured — CLI likely missing or not authenticated").
+- **`run_query` now embeds the CLI's real error in its failure log.** The per-attempt CLI stderr (`${output_file}.err`, an unpredictable mktemp path the orchestrator can't locate) was only `log_debug`'d. Its first line is now appended to the `Error (code: N)` and `All N attempts failed` warnings, so the actual reason (e.g. `401 Unauthorized`, `command not found`) reaches the captured stderr and the surfaced message.
+- **`doctor.sh --live` (Fix B): real ping per consultant.** The static checks only verify a CLI is installed (`--version`), so `doctor` reports a consultant healthy even when it errors at query time (unauthenticated) — a real source of "All systems healthy" while 3 consultants silently fail. `--live` sends a minimal real query to each *enabled* (and not self-excluded) consultant with a short timeout (`DOCTOR_LIVE_TIMEOUT`, default 45s), and reports ✓/✗ with the captured reason; failures become `doctor` issues (exit 1). Opt-in (costs one tiny query each). Standalone short-circuit mode like `--suggest-preset`.
+- **Tests**: `test_functions.sh::test_get_consultant_error_reason` (5 assertions: explicit-error line, embedded-auth reason, orchestration-noise-not-mistaken, empty/missing file). 8 suites pass; shellcheck clean (CI invocation).
+- **Not fixable in code (documented for users)**: the underlying CLI auth/install state, and cold-start/warm-up retry effects, are environment issues — `--live` *surfaces* them but can't authenticate a CLI for you.
 
 ### v2.17.2
 - **SECURITY: revert v2.17.1's `allow_absolute=true` for context files — it opened a secret-exfiltration surface (caught in `/code-review max`).** v2.17.1 fixed the macOS `/private/tmp` drop by letting `build_context.sh` accept *any* absolute context path behind `validate_file_path`'s prefix-only blocklist (`/etc /root /var/log /proc /sys /dev`). That blocklist covers no home secrets, so a context arg of `~/.ssh/id_rsa`, `~/.aws/credentials`, `~/.netrc`, or `~/.config/gh/hosts.yml` was read verbatim and **sent to the external AI providers**. It also matched literal non-canonical prefixes, so `/private/etc/master.passwd` (the real `/etc` on macOS, via the same symlink aliasing) bypassed the `/etc` rule.

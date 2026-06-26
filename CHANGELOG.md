@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.18.0] - 2026-06-26
+
+### Added
+- **`doctor.sh --live`** — sends a real ping query to each enabled consultant and reports which actually respond, catching CLIs that are installed but not authenticated (the static check reports those as healthy). Opt-in; costs one tiny query per consultant. Timeout via `DOCTOR_LIVE_TIMEOUT` (default 45s).
+
+### Changed
+- **Consultant failures now show why.** Previously a failed consultant produced a bare "Failed" with its error discarded. The run now captures each consultant's stderr and surfaces a one-line reason (e.g. "CLI not found", "401 Unauthorized") so you can tell *not installed* from *not authenticated* from *transient*. `run_query` also embeds the CLI's real error in its failure log.
+
 ## [2.17.2] - 2026-06-25
 
 ### Security

@@ -5,10 +5,10 @@ license: MIT
 compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
   author: matteoscurati
-  version: 2.17.2
+  version: 2.18.0
 ---
 
-# AI Consultants v2.17.2 - AI Expert Panel
+# AI Consultants v2.18.0 - AI Expert Panel
 
 **A harness for every question.** Convene a panel of AI "consultants" for coding questions — and let the engine pick *how* they deliberate: a quick read, a convergence loop, an adversarial refutation gate, a tournament, or an exhaustive sweep. Each consultant has a **configurable persona** that shapes its analysis.
 
@@ -130,10 +130,13 @@ See [Full Configuration Reference](references/configuration.md) for all variable
 Diagnose and fix issues:
 
 ```bash
-./scripts/doctor.sh              # Full check
+./scripts/doctor.sh              # Full check (CLI installed?)
 ./scripts/doctor.sh --fix        # Auto-fix
 ./scripts/doctor.sh --json       # JSON output
+./scripts/doctor.sh --live       # Real ping per consultant — catches installed-but-unauthenticated CLIs
 ```
+
+When a consultant fails during a consultation, the run now prints the captured reason (e.g. "CLI not found", "401 Unauthorized") instead of a bare "Failed".
 
 ## Interpreting Results
 

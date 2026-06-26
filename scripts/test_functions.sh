@@ -216,6 +216,35 @@ test_process_consultant_response_fence() {
     rm -f "$tmp_in" "$tmp_out"
 }
 
+test_get_consultant_error_reason() {
+    echo -e "\n${C_YELLOW}Testing get_consultant_error_reason() failure-reason extraction${C_RESET}"
+    local ef
+    ef=$(mktemp)
+
+    # Not-installed: the [ERROR] line wins.
+    printf '[INFO] Consulting Cursor...\n[ERROR] Cursor CLI not found (command: agent)\n' > "$ef"
+    assert_equal "[ERROR] Cursor CLI not found (command: agent)" "$(get_consultant_error_reason "$ef")" \
+        "picks the explicit error line"
+
+    # Auth failure embedded in the orchestrator's failure log.
+    printf '[INFO] Consulting GLM...\n[GLM] All 2 attempts failed: 401 Unauthorized\n' > "$ef"
+    assert_equal "[GLM] All 2 attempts failed: 401 Unauthorized" "$(get_consultant_error_reason "$ef")" \
+        "surfaces the embedded auth reason"
+
+    # Only orchestration noise (incl. a 'timeout: 180s' header) -> no reason, not
+    # a mis-picked status line.
+    printf '[07:24:43] [INFO] Consulting Kimi (timeout: 180s, max retry: 2)...\n' > "$ef"
+    assert_equal "" "$(get_consultant_error_reason "$ef")" \
+        "orchestration status logs are not mistaken for an error"
+
+    # Empty / missing file -> empty.
+    : > "$ef"
+    assert_equal "" "$(get_consultant_error_reason "$ef")" "empty err file -> empty reason"
+    assert_equal "" "$(get_consultant_error_reason "/nonexistent/path.err")" "missing err file -> empty reason"
+
+    rm -f "$ef"
+}
+
 run_tests() {
     echo -e "${C_BLUE}=== Running Unit Tests ===${C_RESET}"
     
