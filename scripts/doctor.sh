@@ -1123,7 +1123,7 @@ check_live_consultants() {
         fi
         lower=$(to_lower "$name")
         out="$tmpdir/${lower}.json"; err="$tmpdir/${lower}.err"
-        if ping_consultant "$name" "$SCRIPT_DIR" "$timeout_s" "$out" "$err"; then rc=0; else rc=$?; fi
+        if ping_consultant "$lower" "$SCRIPT_DIR" "$timeout_s" "$out" "$err"; then rc=0; else rc=$?; fi
         if [[ $rc -eq 2 ]]; then
             _print "  ✗ $name: query script missing"
             add_issue "live" "$name query script missing" "reinstall the skill"

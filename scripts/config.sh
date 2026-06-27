@@ -593,7 +593,13 @@ QUORUM_ACTION="${QUORUM_ACTION:-warn}"
 # consultant in parallel and drop the non-responsive ones (installed-but-
 # unauthenticated CLIs, stale installs), so the panel only spends the full run
 # on consultants that actually work. Opt-in: it costs one tiny extra query per
-# consultant. Prunes; it does not switch transport.
+# consultant. Prunes; it does not switch transport. Consultants whose response
+# is already cached are kept WITHOUT a ping (cache-aware).
+#
+# TRADE-OFF: the gate runs BEFORE Round 1 and is serial with it (a pre-flight
+# probe can't overlap the real run by definition), so it adds up to
+# HEALTH_GATE_TIMEOUT of blocking startup latency when a consultant is slow/dead.
+# That's the cost of pruning up front; keep it opt-in and tune the timeout.
 ENABLE_HEALTH_GATE="${ENABLE_HEALTH_GATE:-false}"
 HEALTH_GATE_TIMEOUT="${HEALTH_GATE_TIMEOUT:-30}"
 
@@ -881,4 +887,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.19.0"
+AI_CONSULTANTS_VERSION="2.19.1"

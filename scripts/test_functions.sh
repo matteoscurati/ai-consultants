@@ -245,6 +245,20 @@ test_get_consultant_error_reason() {
     rm -f "$ef"
 }
 
+test_render_diagnosed_failure() {
+    echo -e "\n${C_YELLOW}Testing render_diagnosed_failure()${C_RESET}"
+    assert_equal "  - GLM: 401 Unauthorized" "$(render_diagnosed_failure 'GLM|401 Unauthorized')" \
+        "console: '  - name: reason'"
+    assert_equal "| GLM | 401 Unauthorized |" "$(render_diagnosed_failure 'GLM|401 Unauthorized' table)" \
+        "table: '| name | reason |'"
+    # A pipe in the reason must be escaped in table mode (would mangle the markdown row).
+    assert_equal "| Cursor | a \\| b failed |" "$(render_diagnosed_failure 'Cursor|a | b failed' table)" \
+        "table escapes a pipe in the reason"
+    # Split keeps the full reason even when it contains pipes (name has no pipe).
+    assert_equal "  - Cursor: a | b failed" "$(render_diagnosed_failure 'Cursor|a | b failed')" \
+        "console keeps the full reason (pipes and all)"
+}
+
 test_grade_quorum() {
     echo -e "\n${C_YELLOW}Testing grade_quorum()${C_RESET}"
     assert_equal "MET"      "$(grade_quorum 4 4 2)" "all responded -> MET"

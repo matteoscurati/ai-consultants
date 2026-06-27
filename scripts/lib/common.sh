@@ -952,6 +952,22 @@ get_consultant_error_reason() {
     printf '%s' "$line" | cut -c1-200
 }
 
+# Render one DIAGNOSED_FAILURES entry ("name|reason") for a given surface.
+# Single source of the "name|reason" decode (used by both the console log and the
+# report table), and the table mode escapes any '|' in the reason so a CLI error
+# containing a pipe doesn't mangle the markdown row.
+# Usage: render_diagnosed_failure "<name>|<reason>" [console|table]
+render_diagnosed_failure() {
+    local entry="$1" mode="${2:-console}" name reason
+    name="${entry%%|*}"
+    reason="${entry#*|}"
+    if [[ "$mode" == "table" ]]; then
+        printf '| %s | %s |' "$name" "${reason//|/\\|}"
+    else
+        printf '  - %s: %s' "$name" "$reason"
+    fi
+}
+
 # Grade a consultation by how many consultants responded (v2.19.0).
 # Usage: grade_quorum <success_count> <attempted_count> <min_quorum>
 # Echoes: FAILED (< min) | DEGRADED (>= min but some failed) | MET (all responded)
@@ -970,13 +986,14 @@ grade_quorum() {
 # whether it produced a structurally valid response. Shared by `doctor --live`
 # and the consult_all health gate. Persona is disabled (we only need a parseable
 # envelope, not a full analysis). Caller provides scratch out/err paths.
-# Usage: ping_consultant <name> <scripts_dir> <timeout_s> <out_file> <err_file>
+# <id> is the ALREADY-lowercased consultant id. Callers compute the lowercase
+# form anyway (for the out/err paths), so we take it directly instead of forking
+# to_lower again per consultant.
+# Usage: ping_consultant <id> <scripts_dir> <timeout_s> <out_file> <err_file>
 # Returns: 0 = responded, 1 = failed/empty, 2 = no query script (not probeable)
 ping_consultant() {
-    local name="$1" scripts_dir="$2" timeout_s="$3" out="$4" err="$5"
-    local lower qs
-    lower=$(to_lower "$name")
-    qs="$scripts_dir/query_${lower}.sh"
+    local id="$1" scripts_dir="$2" timeout_s="$3" out="$4" err="$5"
+    local qs="$scripts_dir/query_${id}.sh"
     [[ -x "$qs" ]] || return 2
     ENABLE_PERSONA=false run_with_timeout "$timeout_s" "$qs" "Reply with exactly: OK" "" "$out" >/dev/null 2>"$err" || true
     [[ -s "$out" ]] && jq -e '.response' "$out" >/dev/null 2>&1

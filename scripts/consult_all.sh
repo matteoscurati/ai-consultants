@@ -375,15 +375,21 @@ fi
 # the quorum/budget checks below see the genuinely-working panel. Opt-in: costs
 # one tiny extra query per consultant. Prunes; does not switch transport.
 if [[ "${ENABLE_HEALTH_GATE:-false}" == "true" && ${#SELECTED_CONSULTANTS[@]} -gt 0 ]]; then
-    log_info "Health gate: pinging ${#SELECTED_CONSULTANTS[@]} consultants in parallel..."
     HG_DIR=$(mktemp -d)
-    declare -a HG_PIDS=() HG_NAMES=()
+    declare -a HG_PIDS=() HG_NAMES=() RESPONSIVE=()
     for _c in "${SELECTED_CONSULTANTS[@]}"; do
         _cl=$(to_lower "$_c")
-        ( ping_consultant "$_c" "$SCRIPT_DIR" "${HEALTH_GATE_TIMEOUT:-30}" "$HG_DIR/${_cl}.json" "$HG_DIR/${_cl}.err" ) &
+        # Cache-aware: a consultant whose response is already cached costs nothing
+        # in Round 1 (check_cache short-circuits), so keep it without a billed ping.
+        if is_cache_enabled && [[ -n "$(check_cache "$QUERY" "$QUESTION_CATEGORY" "$_cl" "$CONTEXT_FILE" 2>/dev/null || echo "")" ]]; then
+            RESPONSIVE+=("$_c")
+            log_debug "  Health gate: $_c cached, kept (not pinged)"
+            continue
+        fi
+        ( ping_consultant "$_cl" "$SCRIPT_DIR" "${HEALTH_GATE_TIMEOUT:-30}" "$HG_DIR/${_cl}.json" "$HG_DIR/${_cl}.err" ) &
         HG_PIDS+=("$!"); HG_NAMES+=("$_c")
     done
-    declare -a RESPONSIVE=()
+    [[ ${#HG_PIDS[@]} -gt 0 ]] && log_info "Health gate: pinging ${#HG_PIDS[@]} consultants in parallel..."
     for _i in "${!HG_PIDS[@]}"; do
         if wait "${HG_PIDS[$_i]}" 2>/dev/null; then _rc=0; else _rc=$?; fi
         _nm="${HG_NAMES[$_i]}"
@@ -397,8 +403,9 @@ if [[ "${ENABLE_HEALTH_GATE:-false}" == "true" && ${#SELECTED_CONSULTANTS[@]} -g
         fi
     done
     rm -rf "$HG_DIR"
+    _hg_total=${#SELECTED_CONSULTANTS[@]}
     SELECTED_CONSULTANTS=(${RESPONSIVE[@]+"${RESPONSIVE[@]}"})
-    log_info "Health gate: ${#SELECTED_CONSULTANTS[@]} of ${#HG_NAMES[@]} responsive"
+    log_info "Health gate: ${#SELECTED_CONSULTANTS[@]} of ${_hg_total} usable"
 fi
 
 if [[ ${#SELECTED_CONSULTANTS[@]} -eq 0 ]]; then
@@ -598,7 +605,7 @@ elif [[ "$QUORUM_OUTCOME" == "FAILED" ]]; then
     log_error "Quorum: FAILED — only ${SUCCESS_COUNT}/${QUORUM_ATTEMPTED} responded (need >= ${QUORUM_MIN_EFF})"
     if [[ ${#DIAGNOSED_FAILURES[@]} -gt 0 ]]; then
         log_error "Diagnosed failures:"
-        for _df in "${DIAGNOSED_FAILURES[@]}"; do log_error "  - ${_df%%|*}: ${_df#*|}"; done
+        for _df in "${DIAGNOSED_FAILURES[@]}"; do log_error "$(render_diagnosed_failure "$_df")"; done
     fi
     if [[ "${QUORUM_ACTION:-warn}" == "stop" ]]; then
         log_error "Aborting below quorum (QUORUM_ACTION=stop). Set QUORUM_ACTION=warn to continue."
@@ -883,7 +890,7 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         echo "| Consultant | Reason |"
         echo "|------------|--------|"
         for _df in "${DIAGNOSED_FAILURES[@]}"; do
-            echo "| ${_df%%|*} | ${_df#*|} |"
+            echo "$(render_diagnosed_failure "$_df" table)"
         done
         echo ""
     fi

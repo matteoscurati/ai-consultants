@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.19.1] - 2026-06-27
+
+### Fixed
+- **Diagnosed Failures report table no longer breaks when a failure reason contains a `|`** (e.g. a CLI error mentioning a piped command). The pipe is now escaped in the markdown table.
+- **Health gate is cache-aware**: it no longer sends a billed ping to a consultant whose response is already cached.
+
+### Changed
+- Internal cleanup from code review: a single `render_diagnosed_failure` helper now renders both the console and report surfaces (no duplicated decode); `ping_consultant` takes the already-lowercased id (one fewer fork per consultant). Documented the health gate's pre-run startup latency.
+
 ## [2.19.0] - 2026-06-26
 
 ### Added

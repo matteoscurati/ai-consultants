@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.19.0
+**Version**: 2.19.1
 
 ## Distribution
 
@@ -825,6 +825,15 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.19.1
+- Cleanup from `/code-review max` on v2.19.0 (the workflow ran degraded under rate limits but surfaced these once it completed; all confirmed inline):
+  - **Report-table mangling fixed**: a failure reason containing a `|` (e.g. a CLI error mentioning a piped command) broke the "Diagnosed Failures" markdown row. The new `lib/common.sh::render_diagnosed_failure <entry> [console|table]` escapes `|`→`\|` in table mode. (Not a security injection — the text is the user's own CLI stderr — but a real rendering bug.)
+  - **DRY**: that helper is now the single source of the `name|reason` decode; the console log (quorum FAILED branch) and the report table both call it, so a future delimiter/encoding change touches one place instead of two.
+  - **Health gate is cache-aware**: it no longer pings a consultant whose response is already cached (Round 1 would serve it free via `check_cache`) — it keeps the cached consultant without a billed probe. Avoids the opt-in gate defeating the semantic cache.
+  - **`ping_consultant` takes the already-lowercased id** (callers compute it for the out/err paths anyway), dropping a redundant `to_lower` fork per consultant on both call sites (`doctor --live`, health gate).
+  - **Documented** the health gate's inherent pre-Round-1 startup latency (serial with the run by definition; up to `HEALTH_GATE_TIMEOUT`) in `config.sh` — it's the cost of pruning up front; opt-in + tunable.
+- Tests: `test_render_diagnosed_failure` (4 assertions incl. pipe-escaping); `test_ping_consultant` updated for the lowercased-id signature. 8 suites pass; shellcheck clean. Smoke-verified: report table renders correctly, health gate still prunes + the min-2 guard fires on the pruned count.
 
 ### v2.19.0
 - **Quorum grading + "Diagnosed Failures" report** (the #1 pick from the `/workflows` CLI-reliability investigation — chosen for zero transport/billing risk over the CLI→API fallback, which the workflow's adversarial critique showed would emit persona-less confidence-5 stubs that poison voting). After the round-1 collect loop, `grade_quorum <success> <attempted> <min>` (new pure helper in `lib/common.sh`) classifies the run **MET / DEGRADED / FAILED** vs `QUORUM_MIN` (default 2). The report gains an `**Outcome**:` banner and a **## Diagnosed Failures** table that surfaces each dropped consultant's reason (the v2.18.0 `.err` capture) — so a panel that silently shrank to 2/7 is visibly DEGRADED instead of presenting as authoritative. `QUORUM_ACTION=stop` aborts below quorum; default `warn` continues with the banner. Failures are collected in `_surface_consultant_error` (DRY — same call that already logs the reason).
