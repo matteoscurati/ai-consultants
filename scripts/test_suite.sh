@@ -1011,6 +1011,43 @@ test_cost_per1k_contract() {
     if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
 }
 
+# Fresh-install regression: track_session_cost wrote to $COST_TRACKING_FILE
+# without creating its parent directory, so on a fresh install (XDG data dir
+# ~/.local/share/ai-consultants absent) every session ended with
+# "No such file or directory" and cumulative cost tracking was lost.
+# Also covers the corrupt-file self-heal path (a bad costs.json previously
+# wedged every future update).
+test_cost_tracking_resilience() {
+    suite "costs.sh: track_session_cost resilience (fresh-install + corrupt-file)"
+
+    local saved="$COST_TRACKING_FILE"
+    COST_TRACKING_FILE="$TEST_TMPDIR/cost_tracking/nonexistent/nested/costs.json"
+
+    # Calls are guarded with || true: a recurrence of the guarded bugs must
+    # surface as FAIL assertions below, not abort the suite under set -e
+    track_session_cost "test_session_1" "0.25" 2>/dev/null || true
+
+    # 0.25 and 0.5 are exact in binary floating point, so the jq sum is exact
+    assert_exit_code_success "costs.json created under a missing parent dir" test -f "$COST_TRACKING_FILE"
+    assert_equals "0.25" "$(get_total_tracked_cost)" "session cost recorded on fresh install"
+
+    # Second call must append, not re-initialize
+    track_session_cost "test_session_2" "0.5" 2>/dev/null || true
+    assert_equals "0.75" "$(get_total_tracked_cost)" "second session accumulates on existing file"
+
+    # A corrupt costs.json must be set aside and reset, not wedge every
+    # future update. The dir is created explicitly: this block tests the
+    # self-heal path, not dir creation, and the setup write must not be able
+    # to abort the suite under set -e
+    mkdir -p "$(dirname "$COST_TRACKING_FILE")"
+    echo '{"sessions": [' > "$COST_TRACKING_FILE"
+    track_session_cost "test_session_3" "0.5" 2>/dev/null || true
+    assert_equals "0.5" "$(get_total_tracked_cost)" "corrupt costs.json is reset and the new session recorded"
+    assert_exit_code_success "corrupt file preserved as .corrupt backup" test -f "${COST_TRACKING_FILE}.corrupt"
+
+    COST_TRACKING_FILE="$saved"
+}
+
 # =============================================================================
 # TESTS: costs.sh - Cost formatting
 # =============================================================================
@@ -1616,6 +1653,7 @@ main() {
     test_cost_rates
     test_cost_estimation
     test_cost_per1k_contract
+    test_cost_tracking_resilience
     test_cost_formatting
     test_budget_checking
     test_query_complexity

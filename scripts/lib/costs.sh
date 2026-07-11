@@ -365,23 +365,80 @@ COST_TRACKING_FILE="${COST_TRACKING_FILE:-${_AI_CONSULTANTS_XDG_DATA:-/tmp/ai_co
 
 # Record session cost
 # Usage: track_session_cost <session_id> <cost>
+# Best-effort: cost tracking is bookkeeping. The caller in consult_all.sh runs
+# under set -e *after* every consultant has already been queried and billed,
+# so failures here degrade to a warning instead of aborting the run.
 track_session_cost() {
+    local session_id="$1"
+    local cost="$2"
+
+    # The XDG data dir may not exist yet on a fresh install — costs.json is
+    # the only artifact stored there
+    if ! mkdir -p "$(dirname "$COST_TRACKING_FILE")" 2>/dev/null; then
+        log_warn "Cost tracking skipped: cannot create $(dirname "$COST_TRACKING_FILE")"
+        return 0
+    fi
+
+    # Serialize the read-modify-write against concurrent consultations with a
+    # portable mkdir lock (flock is unavailable on macOS). Bounded wait, then
+    # proceed unlocked: bookkeeping must never block or abort the run.
+    local lock_dir="${COST_TRACKING_FILE}.lock" locked=false _i
+    for _i in {1..50}; do
+        if mkdir "$lock_dir" 2>/dev/null; then locked=true; break; fi
+        sleep 0.1
+    done
+    if [[ "$locked" != "true" ]]; then
+        log_warn "Cost tracking lock busy for 5s (stale ${lock_dir}?), proceeding unlocked"
+    fi
+
+    _track_session_cost_update "$session_id" "$cost" || true
+
+    if [[ "$locked" == "true" ]]; then
+        rmdir "$lock_dir" 2>/dev/null || true
+    fi
+    return 0
+}
+
+# Inner update for track_session_cost — runs with the lock held.
+# Never propagates failure; logs a warning and returns instead.
+_track_session_cost_update() {
     local session_id="$1"
     local cost="$2"
     local timestamp=$(date -Iseconds)
 
-    # Create file if it doesn't exist
+    # A corrupt file (truncated write, interleaved concurrent update) would
+    # fail every future jq update and never self-heal: set it aside and reset
+    if [[ -f "$COST_TRACKING_FILE" ]]; then
+        if ! jq empty "$COST_TRACKING_FILE" 2>/dev/null; then
+            log_warn "Cost tracking file corrupt, resetting (backup: ${COST_TRACKING_FILE}.corrupt)"
+            mv -f "$COST_TRACKING_FILE" "${COST_TRACKING_FILE}.corrupt" 2>/dev/null || true
+        fi
+    fi
     if [[ ! -f "$COST_TRACKING_FILE" ]]; then
-        echo '{"sessions": [], "total_cost": 0}' > "$COST_TRACKING_FILE"
+        if ! { echo '{"sessions": [], "total_cost": 0}' > "$COST_TRACKING_FILE"; } 2>/dev/null; then
+            log_warn "Cost tracking skipped: cannot write $COST_TRACKING_FILE"
+            return 0
+        fi
     fi
 
-    # Add session and update total
-    jq --arg id "$session_id" \
-       --arg cost "$cost" \
-       --arg ts "$timestamp" \
-       '.sessions += [{id: $id, cost: ($cost | tonumber), timestamp: $ts}] | .total_cost += ($cost | tonumber)' \
-       "$COST_TRACKING_FILE" > "${COST_TRACKING_FILE}.tmp" && \
-       mv "${COST_TRACKING_FILE}.tmp" "$COST_TRACKING_FILE"
+    # Unique temp file: even an unlocked writer must not share a fixed .tmp
+    # sibling with other runs (lost records, failed mv)
+    local tmp_file
+    if ! tmp_file=$(mktemp "${COST_TRACKING_FILE}.XXXXXX" 2>/dev/null); then
+        log_warn "Cost tracking skipped: cannot create temp file for $COST_TRACKING_FILE"
+        return 0
+    fi
+    if jq --arg id "$session_id" \
+          --arg cost "$cost" \
+          --arg ts "$timestamp" \
+          '.sessions += [{id: $id, cost: ($cost | tonumber), timestamp: $ts}] | .total_cost += ($cost | tonumber)' \
+          "$COST_TRACKING_FILE" > "$tmp_file" 2>/dev/null; then
+        mv -f "$tmp_file" "$COST_TRACKING_FILE" 2>/dev/null || rm -f "$tmp_file"
+    else
+        rm -f "$tmp_file"
+        log_warn "Cost tracking update failed for session $session_id"
+    fi
+    return 0
 }
 
 # Get total tracked cost

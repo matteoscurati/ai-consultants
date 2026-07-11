@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.19.2] - 2026-07-11
+
+### Fixed
+- **Cost tracking is no longer silently lost on a fresh install.** `track_session_cost` wrote to `costs.json` in the XDG data dir (`~/.local/share/ai-consultants/`) without creating that directory first, so on a fresh install every session failed with "No such file or directory" and cumulative cost tracking never accumulated. The parent directory is now created on demand.
+- **A corrupt `costs.json` now self-heals** instead of wedging every future update: it is set aside as `costs.json.corrupt` and reset, rather than failing the `jq` update forever.
+
+### Changed
+- **`track_session_cost` is now concurrency-safe and strictly best-effort.** The read-modify-write of `costs.json` is serialized with a portable `mkdir` lock (bounded 5s wait, then proceeds unlocked — bookkeeping must never block a run) and writes go through a unique `mktemp` temp file instead of a shared `.tmp` sibling. Every failure path degrades to a warning and returns success, so cost bookkeeping can never abort a consultation under `set -e`.
+
 ## [2.19.1] - 2026-06-27
 
 ### Fixed

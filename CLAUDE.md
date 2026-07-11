@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.19.1
+**Version**: 2.19.2
 
 ## Distribution
 
@@ -825,6 +825,14 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.19.2
+- **Cost tracking silently lost on a fresh install — fixed.** `lib/costs.sh::track_session_cost` wrote to `$COST_TRACKING_FILE` (`$XDG_DATA_HOME/ai-consultants/costs.json`, i.e. `~/.local/share/...`) without ever creating the parent directory. That dir doesn't exist until something makes it, and `costs.json` is the only artifact stored there — so on a fresh install every session's cost write failed with "No such file or directory" (swallowed under `set -e` in the caller) and cumulative cost tracking never accumulated. Fix: `mkdir -p "$(dirname "$COST_TRACKING_FILE")"` up front; on failure, `log_warn` + `return 0`.
+- **Function split for lock discipline**: `track_session_cost` (outer) now owns dir creation + locking and delegates the read-modify-write to a new inner `_track_session_cost_update`, which runs with the lock held and never propagates failure. Rationale documented inline: the caller in `consult_all.sh` runs under `set -e` *after* every consultant has already been queried and billed, so a bookkeeping failure must degrade to a warning, never abort the run.
+- **Concurrency**: the RMW of `costs.json` was unguarded, so parallel consultations could interleave and lose records or fail the `mv`. Added a portable `mkdir`-based lock (flock is unavailable on macOS) with a bounded wait (50 × 0.1s = 5s); if the lock stays busy it proceeds unlocked with a warning rather than blocking or aborting. Writes now go through `mktemp "${COST_TRACKING_FILE}.XXXXXX"` instead of a fixed `.tmp` sibling, so an unlocked concurrent writer can't clobber another run's temp file (lost record / failed `mv`).
+- **Corrupt-file self-heal**: a corrupt `costs.json` (truncated write, interleaved update) previously failed every future `jq` update forever and never recovered. Now `jq empty` gates the file; on failure it's moved aside to `${COST_TRACKING_FILE}.corrupt` and reset, so tracking recovers on the next session.
+- **Tests**: `scripts/test_suite.sh::test_cost_tracking_resilience` (5 assertions, wired into `main()`) — costs.json created under a missing nested parent dir (fresh-install path), second session accumulates on the existing file (0.25 → 0.75, both exact in binary float), a corrupt costs.json is reset with the new session recorded, and the corrupt original is preserved as `.corrupt`. Calls guarded with `|| true` so a regression surfaces as a FAIL assertion, not a `set -e` suite abort. 8 suites pass; the new assertions are green; shellcheck clean.
+- **No behavioral change for existing installs** whose data dir already exists; the fix only affects the first-run/absent-dir, concurrent, and corrupt-file paths. Cost bookkeeping remains best-effort by design.
 
 ### v2.19.1
 - Cleanup from `/code-review max` on v2.19.0 (the workflow ran degraded under rate limits but surfaced these once it completed; all confirmed inline):
