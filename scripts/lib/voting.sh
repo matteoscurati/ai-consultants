@@ -8,6 +8,44 @@
 # CONFIDENCE-WEIGHTED VOTING
 # =============================================================================
 
+# Resolve the capability-weighting axis for the current run, or "" when
+# capability weighting is off or the routing helpers are unavailable (e.g.
+# voting.sh sourced standalone). Reads the run category from QUESTION_CATEGORY.
+# Centralized so each voting function computes the axis once, not per response.
+_voting_capability_axis() {
+    if [[ "${ENABLE_CAPABILITY_WEIGHTING:-false}" != "true" ]]; then
+        echo ""
+        return 0
+    fi
+    if ! declare -f get_capability >/dev/null 2>&1 || ! declare -f get_category_axis >/dev/null 2>&1; then
+        echo ""
+        return 0
+    fi
+    get_category_axis "${QUESTION_CATEGORY:-GENERAL}"
+}
+
+# Effective vote weight for a consultant: its self-reported confidence,
+# optionally modulated by how capable it is on the axis this question's
+# category stresses (capability-aware voting). Degrades to plain confidence
+# when no axis is supplied (feature off / helpers unavailable).
+# Usage: _effective_vote_weight <consultant> <confidence> <axis-or-empty>
+#   weight = confidence * (STRENGTH + capability) / STRENGTH   (integer math)
+#   STRENGTH = CAPABILITY_WEIGHT_STRENGTH (default 10): higher = gentler nudge.
+_effective_vote_weight() {
+    local consultant="$1" confidence="$2" axis="$3"
+    if [[ -z "$axis" ]]; then
+        echo "$confidence"
+        return 0
+    fi
+    local cap strength
+    cap=$(get_capability "$consultant" "$axis")
+    [[ "$cap" =~ ^[0-9]+$ ]] || cap="${CAPABILITY_DEFAULT:-5}"
+    strength="${CAPABILITY_WEIGHT_STRENGTH:-10}"
+    [[ "$strength" =~ ^[0-9]+$ ]] || strength=10
+    [[ "$strength" -le 0 ]] && strength=10
+    echo $(( confidence * (strength + cap) / strength ))
+}
+
 # Calculate the weighted average of confidence scores
 # Usage: calculate_weighted_average <json_responses_dir>
 calculate_weighted_average() {
@@ -178,17 +216,22 @@ calculate_weighted_recommendation() {
     map_clear "APPROACH_WEIGHTS"
     map_clear "APPROACH_SUPPORTERS"
 
+    # Resolve the capability-weighting axis once (empty when weighting is off)
+    local _cap_axis
+    _cap_axis=$(_voting_capability_axis)
+
     # Collect weights for each approach
     for f in "$responses_dir"/*.json; do
         if [[ -f "$f" && -s "$f" ]]; then
-            local consultant approach confidence current_weight current_supporters
+            local consultant approach confidence current_weight current_supporters weight
             consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
             confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
 
-            # Add weight
+            # Add weight (capability-modulated when ENABLE_CAPABILITY_WEIGHTING)
+            weight=$(_effective_vote_weight "$consultant" "$confidence" "$_cap_axis")
             current_weight=$(map_get "APPROACH_WEIGHTS" "$approach")
-            map_set "APPROACH_WEIGHTS" "$approach" "$((${current_weight:-0} + confidence))"
+            map_set "APPROACH_WEIGHTS" "$approach" "$((${current_weight:-0} + weight))"
 
             # Add supporter
             current_supporters=$(map_get "APPROACH_SUPPORTERS" "$approach")
@@ -257,19 +300,27 @@ calculate_final_score() {
 
     local weighted_sum=0
     local total_confidence=0
+    local _cap_axis
+    _cap_axis=$(_voting_capability_axis)
 
     for f in "$responses_dir"/*.json; do
         if [[ -f "$f" && -s "$f" ]]; then
+            local consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             local approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
             local confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
+            local weight
+            weight=$(_effective_vote_weight "$consultant" "$confidence" "$_cap_axis")
 
-            total_confidence=$((total_confidence + confidence))
+            # Normalize by the same weight used in the numerator so the score
+            # stays on the 1-10 scale. weight == confidence unless capability
+            # weighting is enabled.
+            total_confidence=$((total_confidence + weight))
 
-            # Full weight if supports, half if neutral, zero if dissents
+            # Full weight if supports, reduced if dissents (still considered)
             if [[ "$approach" == "$winning_approach" ]]; then
-                weighted_sum=$((weighted_sum + confidence * 10))  # Full support
+                weighted_sum=$((weighted_sum + weight * 10))  # Full support
             else
-                weighted_sum=$((weighted_sum + confidence * 2))   # Dissent but consider
+                weighted_sum=$((weighted_sum + weight * 2))   # Dissent but consider
             fi
         fi
     done

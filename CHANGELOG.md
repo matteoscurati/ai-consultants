@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.20.0] - 2026-07-12
+
+### Added
+- **Capability-aware voting & panel composition (opt-in).** Beyond category *fit* (the affinity matrix), `references/affinity.json` v1.1 adds a per-consultant `capabilities` score on three axes — intelligence, taste, cost — and a `category_axis` map naming the quality axis each category stresses. With `ENABLE_CAPABILITY_WEIGHTING`, a consultant's vote weight becomes `confidence × (S + capability) / S` on that axis; with `ENABLE_CAPABILITY_ROUTING`, eligible consultants are ranked by `affinity + capability`. `cost` is a composition/budget axis only, never a vote weight (tie-break: intelligence > taste > cost). Both default off — behavior is unchanged until enabled.
+- **Roster audit — uncorrelated value.** `scripts/roster_audit.sh` (also `doctor.sh --roster-audit` and the `/ai-consultants:roster-audit` slash command) scores each consultant's distinctiveness across past consultations: one that only echoes the panel is flagged redundant; one that often proposes a distinct approach earns its seat. Read-only.
+- **Measured calibration — replace the heuristic seeds with data.** `scripts/roster_calibrate.sh` (Tier A) derives intelligence/taste from blind peer-review sliced by axis, and cost from observed `tokens_used` × catalog rate. `scripts/taste_elo.sh` (Tier B) refines taste via pairwise LLM-as-judge Elo. `scripts/run_calibration.sh` + `references/calibration_benchmark.json` (50 balanced questions) collect the data; both calibrators can `--write` measured scores into `affinity.json`.
+
+### Changed
+- `npm test` now runs 12 suites (added `test_capability_weighting`, `test_roster_audit`, `test_roster_calibrate`, `test_taste_elo`).
+
+### Notes
+- All new behavior is opt-in and additive; the shipped `capabilities` scores are subjective seeds (Claude/Codex grounded on the model-routing table, the rest heuristic) — run the calibration workflow to measure them for your panel.
+
 ## [2.19.2] - 2026-07-11
 
 ### Fixed

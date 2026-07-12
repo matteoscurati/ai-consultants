@@ -543,6 +543,18 @@ USE_ECONOMIC_MODELS_FOR_SIMPLE="${USE_ECONOMIC_MODELS_FOR_SIMPLE:-true}"
 COMPLEXITY_THRESHOLD_SIMPLE="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
 COMPLEXITY_THRESHOLD_MEDIUM="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
 
+# --- Capability-Aware Routing & Voting (opt-in, v2.20) ---
+# Weight each consultant's vote (and rank the panel) by its capability on the
+# quality axis a question stresses — intelligence or taste, per
+# references/affinity.json 'category_axis'. Scores live in affinity.json
+# 'capabilities'. cost is a composition/budget axis only, never a vote weight
+# (tie-break: intelligence > taste > cost). Both default off -> identical to
+# prior behavior.
+ENABLE_CAPABILITY_WEIGHTING="${ENABLE_CAPABILITY_WEIGHTING:-false}"  # capability-weighted voting
+ENABLE_CAPABILITY_ROUTING="${ENABLE_CAPABILITY_ROUTING:-false}"      # capability-aware panel composition
+CAPABILITY_WEIGHT_STRENGTH="${CAPABILITY_WEIGHT_STRENGTH:-10}"       # higher = gentler nudge: weight = conf*(S+cap)/S
+CAPABILITY_DEFAULT="${CAPABILITY_DEFAULT:-5}"                        # fallback capability for a missing consultant/axis
+
 # --- Selective Context ---
 # Send only relevant files to each consultant
 ENABLE_SELECTIVE_CONTEXT="${ENABLE_SELECTIVE_CONTEXT:-false}"
@@ -887,4 +899,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.19.2"
+AI_CONSULTANTS_VERSION="2.20.0"

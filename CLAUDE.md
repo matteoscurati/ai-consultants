@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.19.2
+**Version**: 2.20.0
 
 ## Distribution
 
@@ -39,6 +39,10 @@ ai-consultants/
 │   ├── config.sh               # Centralized configuration
 │   ├── doctor.sh               # Diagnostic and auto-fix tool (v2.2)
 │   ├── peer_review.sh          # Anonymous peer review (v2.2)
+│   ├── roster_audit.sh         # Roster uncorrelated-value audit (v2.20)
+│   ├── roster_calibrate.sh     # Measured capability calibration, Tier A (v2.20)
+│   ├── run_calibration.sh      # Calibration data-collection harness (v2.20)
+│   ├── taste_elo.sh            # Pairwise-judge taste Elo, Tier B (v2.20)
 │   ├── install.sh              # One-liner installer (v2.2)
 │   ├── query_*.sh              # Wrapper for each consultant
 │   ├── query_claude.sh         # Claude consultant (v2.2)
@@ -668,6 +672,10 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_COST_AWARE_ROUTING` | false | Cost-based model routing (v2.3) |
 | `ENABLE_DEBATE_OPTIMIZATION` | false | Skip debate if all agree (v2.3, opt-in) |
 | `ENABLE_COMPACT_REPORT` | true | Compact report format (v2.3) |
+| `ENABLE_CAPABILITY_WEIGHTING` | false | Capability-weighted voting (v2.20, opt-in) |
+| `ENABLE_CAPABILITY_ROUTING` | false | Capability-aware panel composition (v2.20, opt-in) |
+| `CAPABILITY_WEIGHT_STRENGTH` | 10 | Vote-weight modulation: conf*(S+cap)/S (v2.20) |
+| `CAPABILITY_DEFAULT` | 5 | Fallback capability for a missing consultant/axis (v2.20) |
 | `ENABLE_BUDGET_LIMIT` | false | Budget enforcement (v2.4, opt-in) |
 | `BUDGET_ACTION` | warn | Action on budget exceeded: warn/stop (v2.4) |
 | `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
@@ -825,6 +833,17 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.20.0
+- **Capability axes (borrowed from the delegation-kit cost/intelligence/taste table).** `references/affinity.json` → v1.1: new `capabilities` (per-consultant {intelligence, taste, cost}, 1-10), `category_axis` (category → the quality axis it stresses: taste for API_DESIGN/ARCHITECTURE/CODE_REVIEW/GENERAL, intelligence otherwise), `capability_default`. New `lib/routing.sh::get_capability` / `get_category_axis` (cached like `get_affinity`).
+- **Capability-weighted voting** (`ENABLE_CAPABILITY_WEIGHTING`, opt-in): `lib/voting.sh::_effective_vote_weight` modulates a vote by the consultant's capability on the run's axis — `confidence × (S + cap) / S` (`S = CAPABILITY_WEIGHT_STRENGTH`, default 10). Applied in `calculate_weighted_recommendation` and `calculate_final_score` (normalizer uses the same weight → 1-10 scale preserved). Axis from `QUESTION_CATEGORY`. `cost` never weights a vote (tie-break intelligence > taste > cost).
+- **Capability-aware composition** (`ENABLE_CAPABILITY_ROUTING`, opt-in): `select_consultants` keeps the raw-affinity eligibility filter but ranks eligible consultants by `affinity + (cap − capability_default)`, so under a size limit the quality axis reorders who makes the cut.
+- **Roster audit** — `scripts/roster_audit.sh` scores each consultant's "distinct approach" rate (max pairwise Jaccard of approaches < threshold) across consultations; verdicts unique-value / some-value / redundant? / insufficient-data. Wired as `doctor.sh --roster-audit` (short-circuit mode) and the `/ai-consultants:roster-audit` slash command (3 hosts). Reuses `voting.sh` keyword/Jaccard helpers.
+- **Measured calibration** — `scripts/roster_calibrate.sh` (Tier A): intelligence/taste = mean blind peer-review score sliced by `category_axis`, cost = mean observed `tokens_used`×rate (60/40 split, rank-normalized cheapest=10); emits a `capabilities` block (`--json`/`--write`). `scripts/taste_elo.sh` (Tier B): taste via pairwise-judge Elo (pluggable judge — `JUDGE_CLI` / `TASTE_JUDGE_CMD`). `scripts/run_calibration.sh` drives `references/calibration_benchmark.json` (50 questions, 20 taste / 30 intelligence) through the panel with peer review, then calibrates.
+- **Config** (`config.sh`): `ENABLE_CAPABILITY_WEIGHTING`, `ENABLE_CAPABILITY_ROUTING` (both false), `CAPABILITY_WEIGHT_STRENGTH` (10), `CAPABILITY_DEFAULT` (5). **Observability**: `consult_all.sh` records `capability{weighting_enabled, routing_enabled, axis}` in `optimization_metrics.json`.
+- **Tests**: `test_capability_weighting` (17), `test_roster_audit` (6), `test_roster_calibrate` (10), `test_taste_elo` (6) — 12 suites total. All opt-in; with flags off, existing voting/routing/parity tests pass unchanged. shellcheck clean.
+- **Docs**: `SMART_ROUTING.md` (capability + roster-audit + measured-calibration sections), `.env.example`, `references/configuration.md`, env-var table + structure list here. Website feature card added (sync on push).
+- **Seeds are subjective** (Claude/Codex grounded on the model-routing table; the rest heuristic) — the calibration workflow measures them empirically. Fully back-compat.
 
 ### v2.19.2
 - **Cost tracking silently lost on a fresh install — fixed.** `lib/costs.sh::track_session_cost` wrote to `$COST_TRACKING_FILE` (`$XDG_DATA_HOME/ai-consultants/costs.json`, i.e. `~/.local/share/...`) without ever creating the parent directory. That dir doesn't exist until something makes it, and `costs.json` is the only artifact stored there — so on a fresh install every session's cost write failed with "No such file or directory" (swallowed under `set -e` in the caller) and cumulative cost tracking never accumulated. Fix: `mkdir -p "$(dirname "$COST_TRACKING_FILE")"` up front; on failure, `log_warn` + `return 0`.

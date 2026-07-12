@@ -249,6 +249,23 @@ ENABLE_DEBATE_OPTIMIZATION=false # Skip debate if all agree
 ENABLE_COMPACT_REPORT=true   # Summaries only in reports
 ```
 
+## Capability-Aware Routing & Voting (v2.20+)
+
+Weight each consultant's vote (and rank the panel) by its capability on the
+quality axis a question stresses — **intelligence** or **taste**, per the
+`category_axis` map in [`references/affinity.json`](../references/affinity.json).
+Per-consultant scores live in that file's `capabilities` block. `cost` is a
+composition/budget axis only and is never a vote weight (tie-break order:
+intelligence > taste > cost). Both features are opt-in and additive — with the
+flags off, behavior is identical to before.
+
+```bash
+ENABLE_CAPABILITY_WEIGHTING=false  # capability-weighted voting
+ENABLE_CAPABILITY_ROUTING=false    # capability-aware panel composition
+CAPABILITY_WEIGHT_STRENGTH=10      # higher = gentler nudge: weight = conf*(S+cap)/S
+CAPABILITY_DEFAULT=5               # fallback for a missing consultant/axis
+```
+
 ## Timeouts and Retries
 
 ```bash

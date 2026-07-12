@@ -35,6 +35,10 @@ _AFFINITY_DATA=""
 # portable workaround. At ~135 entries x ~25 chars = ~3KB, memory is a
 # non-issue.
 _AFFINITY_RESULT_CACHE=" "
+# Parallel per-key cache for capability lookups: " CONSULTANT|AXIS=score".
+# Same leading-space bracketing trick as _AFFINITY_RESULT_CACHE to avoid
+# substring collisions. Reset alongside it when the affinity file changes.
+_CAPABILITY_RESULT_CACHE=" "
 
 # Resolve the affinity file path using the same search precedence as user
 # config (v2.12+): explicit AFFINITY_FILE > user config dir > bundled default.
@@ -66,6 +70,7 @@ _load_affinity_data() {
         fi
         _AFFINITY_LOADED_FILE="$file"
         _AFFINITY_RESULT_CACHE=" "
+        _CAPABILITY_RESULT_CACHE=" "
     fi
 }
 
@@ -116,6 +121,60 @@ get_affinity() {
     echo "$score"
 }
 
+# Get a consultant's capability score on a quality/efficiency axis.
+# Usage: get_capability <consultant> <axis>   (axis: intelligence|taste|cost)
+# Scores are 1-10 (higher = better). A missing consultant/axis, missing
+# 'capabilities' block, or missing jq falls back to capability_default (5).
+# Cached per (consultant, axis), mirroring get_affinity.
+get_capability() {
+    local consultant="$1"
+    local axis="$2"
+
+    _load_affinity_data
+
+    local key=" ${consultant}|${axis}="
+    case "$_CAPABILITY_RESULT_CACHE" in
+        *"${key}"*)
+            local cached="${_CAPABILITY_RESULT_CACHE#*"${key}"}"
+            echo "${cached%% *}"
+            return 0
+            ;;
+    esac
+
+    if [[ -z "$_AFFINITY_DATA" ]] || ! command -v jq >/dev/null 2>&1; then
+        echo "${CAPABILITY_DEFAULT:-5}"
+        return 0
+    fi
+
+    local score
+    score=$(jq -r --arg c "$consultant" --arg ax "$axis" '
+        (.capabilities[$c][$ax]) // (.capability_default // 5)
+    ' <<<"$_AFFINITY_DATA" 2>/dev/null)
+
+    [[ -z "$score" || "$score" == "null" ]] && score="${CAPABILITY_DEFAULT:-5}"
+    _CAPABILITY_RESULT_CACHE+="${key#" "}${score} "
+    echo "$score"
+}
+
+# Get the quality axis a question category stresses (intelligence|taste).
+# Usage: get_category_axis <category>
+# Unmapped categories (and missing JSON/jq) default to "intelligence".
+get_category_axis() {
+    local category="$1"
+
+    _load_affinity_data
+
+    if [[ -z "$_AFFINITY_DATA" ]] || ! command -v jq >/dev/null 2>&1; then
+        echo "intelligence"
+        return 0
+    fi
+
+    local axis
+    axis=$(jq -r --arg cat "$category" '(.category_axis[$cat]) // "intelligence"' <<<"$_AFFINITY_DATA" 2>/dev/null)
+    [[ -z "$axis" || "$axis" == "null" ]] && axis="intelligence"
+    echo "$axis"
+}
+
 # Select the best consultants for a category
 # Usage: select_consultants <category> [min_affinity] [max_consultants]
 # Returns: list of consultants sorted by affinity
@@ -129,12 +188,26 @@ select_consultants() {
     local selected=()
     local scores=()
 
-    # Collect affinities
+    # Collect affinities. When capability-aware routing is on, the ELIGIBILITY
+    # filter still uses raw category affinity (same panel as before), but the
+    # SORT rank is nudged by the consultant's capability on the axis this
+    # category stresses — so under a max/limit the quality-axis reorders which
+    # eligible consultants make the cut. Default (flag off): rank == affinity.
+    local _cap_axis=""
+    if [[ "${ENABLE_CAPABILITY_ROUTING:-false}" == "true" ]]; then
+        _cap_axis=$(get_category_axis "$category")
+    fi
     for c in "${consultants[@]}"; do
         local score=$(get_affinity "$category" "$c")
         if [[ $score -ge $min_affinity ]]; then
+            local rank=$score
+            if [[ -n "$_cap_axis" ]]; then
+                local cap
+                cap=$(get_capability "$c" "$_cap_axis")
+                rank=$(( score + cap - ${CAPABILITY_DEFAULT:-5} ))
+            fi
             selected+=("$c")
-            scores+=("$score")
+            scores+=("$rank")
         fi
     done
 

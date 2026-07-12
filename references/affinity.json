@@ -1,8 +1,10 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "_comment": "Affinity scores per (category, consultant). 10 = perfect match, 1 = poor match. Lookup order: (1) consultant NOT in known_consultants -> default_score (5). (2) category present in 'categories' -> categories[category][consultant] (with cell-missing fallback to default_score=5). (3) category absent -> general_score (8). NOTE the asymmetry: a known consultant in an unknown category gets 8, but in a known category with no cell gets 5. Rationale: a missing cell in a known category is a configuration gap (caught by doctor.sh) and should de-rank the consultant; an unknown category is just unmapped routing and treats all known consultants equally. To override at runtime: AFFINITY_FILE=/path/to/custom.json.",
+  "_comment_capabilities": "v1.1: per-consultant capability axes (1-10, higher=better) in 'capabilities', plus 'category_axis' mapping each question category to the quality axis it stresses. intelligence + taste are QUALITY axes: they weight votes (voting.sh, ENABLE_CAPABILITY_WEIGHTING) and rank the panel (routing.sh, ENABLE_CAPABILITY_ROUTING). cost is an EFFICIENCY axis for budget-aware composition only and is NEVER a vote weight (tie-break order: intelligence > taste > cost). Missing consultant/axis -> capability_default. Both features are OPT-IN and additive: with the flags off, behavior is identical to v1.0. These scores are SUBJECTIVE point-in-time seeds — re-derive them for your own panel (see the model-routing methodology): Claude (claude-opus-4-8) and Codex (gpt-5.5) axes are grounded on the author's model-routing table; the other consultants' axes are heuristic seeds pending measurement. Unmapped category_axis -> intelligence.",
   "default_score": 5,
   "general_score": 8,
+  "capability_default": 5,
   "known_consultants": [
     "Gemini", "Codex", "Mistral", "Kilo", "Cursor", "Aider",
     "Amp", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"
@@ -53,5 +55,33 @@
       "Amp": 8, "Kimi": 6, "Claude": 7, "Qwen3": 8, "GLM": 10, "Grok": 7,
       "DeepSeek": 8, "MiniMax": 7
     }
+  },
+  "capabilities": {
+    "Gemini":   { "intelligence": 8, "taste": 8, "cost": 6 },
+    "Codex":    { "intelligence": 8, "taste": 5, "cost": 4 },
+    "Mistral":  { "intelligence": 6, "taste": 6, "cost": 6 },
+    "Kilo":     { "intelligence": 6, "taste": 6, "cost": 6 },
+    "Cursor":   { "intelligence": 6, "taste": 7, "cost": 6 },
+    "Aider":    { "intelligence": 6, "taste": 5, "cost": 9 },
+    "Amp":      { "intelligence": 7, "taste": 7, "cost": 5 },
+    "Kimi":     { "intelligence": 6, "taste": 6, "cost": 6 },
+    "Claude":   { "intelligence": 7, "taste": 8, "cost": 5 },
+    "Qwen3":    { "intelligence": 7, "taste": 5, "cost": 8 },
+    "GLM":      { "intelligence": 6, "taste": 5, "cost": 7 },
+    "Grok":     { "intelligence": 7, "taste": 6, "cost": 7 },
+    "DeepSeek": { "intelligence": 8, "taste": 5, "cost": 9 },
+    "MiniMax":  { "intelligence": 6, "taste": 6, "cost": 8 }
+  },
+  "category_axis": {
+    "API_DESIGN":   "taste",
+    "ARCHITECTURE": "taste",
+    "GENERAL":      "taste",
+    "CODE_REVIEW":  "taste",
+    "ALGORITHM":    "intelligence",
+    "SECURITY":     "intelligence",
+    "BUG_DEBUG":    "intelligence",
+    "DATABASE":     "intelligence",
+    "TESTING":      "intelligence",
+    "QUICK_SYNTAX": "intelligence"
   }
 }

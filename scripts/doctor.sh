@@ -34,6 +34,7 @@ SUGGEST_CONFIG=false
 SUGGEST_PRESET=false
 LIVE_MODE=false
 QUESTION=""
+ROSTER_AUDIT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -65,6 +66,10 @@ while [[ $# -gt 0 ]]; do
             LIVE_MODE=true
             shift
             ;;
+        --roster-audit)
+            ROSTER_AUDIT=true
+            shift
+            ;;
         --question)
             QUESTION="${2:-}"
             shift 2
@@ -86,6 +91,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --live             Send a real ping query to each enabled consultant"
             echo "                     (catches installed-but-unauthenticated CLIs that the"
             echo "                     static check reports as healthy). Costs a tiny query each."
+            echo "  --roster-audit     Audit past consultations for uncorrelated value"
+            echo "                     (which consultants add distinct signal vs echo the panel)"
             exit 0
             ;;
         *)
@@ -1181,6 +1188,14 @@ if [[ "$LIVE_MODE" == "true" ]]; then
     check_live_consultants
     print_summary
     [[ ${#ISSUES[@]} -gt 0 ]] && exit 1 || exit 0
+fi
+
+if [[ "$ROSTER_AUDIT" == "true" ]]; then
+    # Delegate to the standalone audit tool (reuses doctor's --json flag).
+    audit_args=()
+    [[ "$JSON_OUTPUT" == "true" ]] && audit_args+=(--json)
+    "$SCRIPT_DIR/roster_audit.sh" ${audit_args[@]+"${audit_args[@]}"}
+    exit $?
 fi
 
 main

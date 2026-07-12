@@ -1,8 +1,8 @@
-# AI Consultants v2.19.2
+# AI Consultants v2.20.0
 
 > **A harness for every question.** A panel of up to 15 frontier models that writes its own playbook per question — fan out, debate to convergence, cross-examine under adversarial review, or run a tournament — and checks its work before it reaches you.
 
-[![Version](https://img.shields.io/badge/version-2.19.2-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.20.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)

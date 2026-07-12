@@ -46,13 +46,21 @@ customization possible without editing bash.
 
 ```json
 {
-  "version": "1.0",
+  "version": "1.1",
   "default_score": 5,
   "general_score": 8,
+  "capability_default": 5,
   "known_consultants": ["Gemini", "Codex", "..."],
   "categories": {
     "CODE_REVIEW": { "Gemini": 7, "Codex": 10, "..." },
     "BUG_DEBUG":   { "..." }
+  },
+  "capabilities": {
+    "Gemini": { "intelligence": 8, "taste": 8, "cost": 6 },
+    "Codex":  { "intelligence": 8, "taste": 5, "cost": 4 }
+  },
+  "category_axis": {
+    "API_DESIGN": "taste", "CODE_REVIEW": "taste", "ALGORITHM": "intelligence"
   }
 }
 ```
@@ -118,6 +126,112 @@ COMPLEXITY_THRESHOLD_MEDIUM=6    # Score 4-6 = use standard models
 ```
 
 See [COST_RATES.md](COST_RATES.md) for model pricing by tier.
+
+## Capability-Aware Routing & Voting (v2.20+)
+
+Beyond category *fit* (the affinity matrix), v1.1 of `affinity.json` adds a
+per-consultant **capability** score on three axes (1-10): `intelligence`,
+`taste`, and `cost`. A `category_axis` map names the quality axis each category
+stresses — **taste** for design-shaped work (API_DESIGN, ARCHITECTURE,
+CODE_REVIEW, GENERAL), **intelligence** otherwise.
+
+Two opt-in features consume this:
+
+- **`ENABLE_CAPABILITY_WEIGHTING`** — a consultant's vote weight becomes
+  `confidence × (S + capability) / S` (`S = CAPABILITY_WEIGHT_STRENGTH`, default
+  10), so on a taste-shaped question a high-taste model's opinion counts for more.
+- **`ENABLE_CAPABILITY_ROUTING`** — panel *eligibility* still uses raw affinity,
+  but the *sort rank* becomes `affinity + (capability − CAPABILITY_DEFAULT)`, so
+  under a size limit the quality axis reorders which eligible consultants make
+  the cut.
+
+`cost` is an efficiency axis for budget-aware composition only — **never** a
+vote weight (tie-break order: intelligence > taste > cost). Scores are
+subjective, point-in-time seeds — re-derive them for your own panel. Helpers:
+`get_capability <consultant> <axis>` and `get_category_axis <category>` in
+`lib/routing.sh`.
+
+## Roster Audit — Uncorrelated Value (v2.20+)
+
+Adding a consultant only helps if it says something the others don't. The
+`scripts/roster_audit.sh` tool measures this across past consultations: a
+consultant's approach is *distinct* in a round when its keyword set has low
+Jaccard overlap (`< --threshold`, default 20%) with **every** other consultant
+that round. A consultant that is rarely distinct is correlated with the panel —
+a candidate to drop or down-weight; one that is often distinct earns its seat on
+diversity.
+
+```bash
+# audit specific consultation output dirs
+./scripts/roster_audit.sh /path/to/consultation_dir ...
+
+# or the N most recent under the consultations base
+./scripts/roster_audit.sh --recent 30
+
+# machine-readable
+./scripts/roster_audit.sh --json --recent 30
+```
+
+Read-only; reuses the `voting.sh` keyword/Jaccard machinery. Consultations with
+fewer than two responders are skipped (correlation is undefined). This is the
+model-routing "before a new model earns a row" bar (contribute >=1 thing the
+incumbents miss) applied to the consultation panel instead of a review lane.
+
+## Measured Calibration — Replacing the Heuristic Seeds (v2.20+)
+
+The `capabilities` scores in `affinity.json` ship as subjective seeds. To
+**measure** them instead of guessing, three tools derive each axis from data the
+tool already produces — sliced by the same `category_axis` that consumes them:
+
+| Tool | Derives | From |
+|---|---|---|
+| `scripts/roster_calibrate.sh` | intelligence, taste, cost (**Tier A**) | blind peer-review scores (sliced by axis) + observed `tokens_used` × catalog rate |
+| `scripts/taste_elo.sh` | taste (**Tier B**) | pairwise LLM-as-judge Elo over taste-axis answers (removes peer self-bias) |
+| `references/calibration_benchmark.json` | the question set | 50 questions, 5 per category, balanced across the two axes |
+| `scripts/run_calibration.sh` | the data | runs the benchmark through the panel with `ENABLE_PEER_REVIEW=true`, then calibrates |
+
+### Workflow
+
+```bash
+# 1. Collect data: run the benchmark through the full panel (real calls — costs money).
+./scripts/run_calibration.sh --limit 10 --dry-run   # preview
+./scripts/run_calibration.sh                         # full 50-question run
+
+# 2. Tier A: measured intelligence/taste/cost -> capabilities block
+./scripts/roster_calibrate.sh --recent 50            # print measured block
+./scripts/roster_calibrate.sh --recent 50 --write    # merge into affinity.json (keeps unmeasured cells)
+
+# 3. Tier B (optional): refine taste via pairwise-judge Elo
+./scripts/taste_elo.sh --recent 50 --write
+```
+
+Both `roster_calibrate.sh` and `taste_elo.sh` also accept explicit consultation
+dirs and `--json`, and back up `affinity.json` to `.bak` before `--write`.
+
+### How each axis is measured
+
+- **cost** — mean *observed* `$/response` (`tokens_used` × catalog rate, 60/40
+  input/output split), rank-normalized so the cheapest = 10. This is cost per
+  *task* (verbosity + completion), not per-token sticker price — a terse pricey
+  model can still rank cheap.
+- **intelligence / taste** — mean **blind peer-review** `quality_score` (already
+  1-10), sliced by `category_axis`: intelligence = performance on
+  intelligence-axis categories, taste = on taste-axis categories.
+- **taste (Tier B)** — taste has no ground truth, so `taste_elo.sh` measures it
+  *relative to a chosen judge*. Each pair of answers on a taste-axis question is
+  shown to the judge, which picks the better one on design taste only; wins feed
+  an Elo ranking. The judge is pluggable:
+  - `JUDGE_CLI` — CLI for the built-in judge (default `claude`).
+  - `TASTE_JUDGE_CMD` — external judge `cmd <ctx> <A.json> <B.json>` printing
+    `A`/`B` (used by tests and custom judges).
+
+### Companion: which consultants earn a seat
+
+`roster_audit.sh` (above) answers *who to keep*; calibration answers *how much
+each is worth per axis*. Together they make the roster data-driven: audit to
+prune redundant consultants, calibrate to score the survivors, then enable
+`ENABLE_CAPABILITY_WEIGHTING` / `ENABLE_CAPABILITY_ROUTING` to act on the
+measured scores.
 
 ## Timeout per Category
 

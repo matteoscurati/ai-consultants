@@ -786,6 +786,9 @@ jq -n \
     --arg orch_shape "${ORCH_SHAPE:-fixed}" \
     --argjson complexity "${QUERY_COMPLEXITY:-5}" \
     --arg intent "${QUERY_INTENT:-advise}" \
+    --arg cap_axis "$(get_category_axis "$QUESTION_CATEGORY" 2>/dev/null || echo "")" \
+    --argjson cap_weighting "${ENABLE_CAPABILITY_WEIGHTING:-false}" \
+    --argjson cap_routing "${ENABLE_CAPABILITY_ROUTING:-false}" \
     '{
         optimization_settings: {
             cache_enabled: $cache_enabled,
@@ -800,6 +803,11 @@ jq -n \
             shape: $orch_shape,
             complexity: $complexity,
             intent: $intent
+        },
+        capability: {
+            weighting_enabled: $cap_weighting,
+            routing_enabled: $cap_routing,
+            axis: $cap_axis
         },
         quality_metrics: {
             consensus_score: $consensus,
