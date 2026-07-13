@@ -60,17 +60,32 @@ test_calibrate() {
     assert_eq "1" "$(_f '.samples.Gemini.intelligence_n')"             "Gemini intelligence sampled once"
 }
 
-# A consultation with no peer-review data must not be usable -> exit 1.
-test_no_peer_exit() {
+# No peer-review data but cost present -> COST is still measured, exit 0 (the
+# axis that only needs tokens_used is not thrown away with the peer axes).
+test_cost_only_no_peer() {
     local d="$TEST_TMPDIR/nopeer"; mkdir -p "$d"
     _cat "$d" ALGORITHM
-    _resp "$d" Gemini 1000; _resp "$d" Codex 1000
-    local out
-    out=$(bash "$SCRIPT_DIR/roster_calibrate.sh" --json "$d" 2>/dev/null; echo "rc=$?")
-    assert_match "rc=1" "$out" "no peer-review data -> exit 1"
+    _resp "$d" Gemini 1000; _resp "$d" Codex 10000
+    local json rc
+    json=$(bash "$SCRIPT_DIR/roster_calibrate.sh" --json "$d" 2>/dev/null)
+    rc=$?
+    assert_eq "0"  "$rc" "no peer but cost present -> exit 0 (cost still measured)"
+    assert_eq "10" "$(echo "$json" | jq -r '.measured_capabilities.Gemini.cost // "MISSING"')" "cheapest (Gemini 1000t) -> cost 10"
+    assert_eq "1"  "$(echo "$json" | jq -r '.measured_capabilities.Codex.cost // "MISSING"')"  "priciest (Codex 10000t) -> cost 1"
+    assert_eq "null" "$(echo "$json" | jq -r '.measured_capabilities.Gemini.intelligence')" "no peer -> intelligence absent (null)"
+}
+
+# Nothing usable at all (no peer AND no cost/token data) -> exit 1.
+test_no_data_exit() {
+    local d="$TEST_TMPDIR/nodata"; mkdir -p "$d"
+    _cat "$d" ALGORITHM
+    bash "$SCRIPT_DIR/roster_calibrate.sh" --json "$d" >/dev/null 2>&1
+    local rc=$?
+    assert_eq "1" "$rc" "no peer AND no cost -> exit 1"
 }
 
 run_test "Test 1: measured capabilities from peer-review + cost" test_calibrate
-run_test "Test 2: no peer-review data -> exit 1"                 test_no_peer_exit
+run_test "Test 2: no peer but cost -> cost-only, exit 0"        test_cost_only_no_peer
+run_test "Test 3: no usable data -> exit 1"                     test_no_data_exit
 
 test_summary "roster_calibrate"

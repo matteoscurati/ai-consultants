@@ -132,8 +132,14 @@ main() {
     done
 
     if [[ $used -eq 0 ]]; then
-        echo "roster_calibrate: no consultations with peer-review data found (run with ENABLE_PEER_REVIEW=true)" >&2
-        exit 1
+        # No peer-review data -> intelligence/taste can't be measured. But cost
+        # (from tokens_used) still can, so only abort when there is no cost data
+        # either; otherwise fall through and emit the cost axis alone.
+        if [[ ! -s "$cacc" ]]; then
+            echo "roster_calibrate: no usable data (peer-review empty AND no token metadata)" >&2
+            exit 1
+        fi
+        echo "roster_calibrate: no peer-review data — measuring COST only (intelligence/taste need reviewer responses; check peer-review output)" >&2
     fi
 
     # --- Aggregate quality per (consultant, axis): mean, rounded, clamped 1-10 ---

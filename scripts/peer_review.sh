@@ -156,7 +156,7 @@ run_consultant_review() {
             echo '{"error": "Unknown consultant for peer review"}' > "$output_file"
             return 1
             ;;
-    esac > "$output_file" 2>/dev/null
+    esac > "$output_file" 2>"${output_file%.json}.err"
 }
 
 # Extract JSON from response (may have text wrapper)
@@ -391,10 +391,17 @@ main() {
     # Wait for all reviews
     local success_count=0
     for i in "${!pids[@]}"; do
+        local reviewer="${reviewers[$i]}"
+        local review_file="$reviews_dir/review_${reviewer}.json"
+        local err_file="${review_file%.json}.err"
+        # Surface WHY a review failed instead of swallowing it (v2.18 diagnosability,
+        # applied to peer review): reuse get_consultant_error_reason on the captured
+        # stderr. A silently-empty review starves calibration's intelligence/taste.
+        local reason=""
+        if declare -f get_consultant_error_reason >/dev/null 2>&1; then
+            reason=$(get_consultant_error_reason "$err_file" 2>/dev/null || true)
+        fi
         if wait "${pids[$i]}" 2>/dev/null; then
-            local reviewer="${reviewers[$i]}"
-            local review_file="$reviews_dir/review_${reviewer}.json"
-
             if [[ -s "$review_file" ]]; then
                 # Try to extract and validate JSON
                 local extracted
@@ -405,11 +412,13 @@ main() {
                     log_success "  $reviewer: review completed"
                     ((success_count++)) || true
                 else
-                    log_warn "  $reviewer: invalid review format"
+                    log_warn "  $reviewer: invalid review format${reason:+ — $reason}"
                 fi
+            else
+                log_warn "  $reviewer: empty review${reason:+ — $reason}"
             fi
         else
-            log_warn "  ${reviewers[$i]}: review failed"
+            log_warn "  $reviewer: review failed${reason:+ — $reason}"
         fi
     done
 
