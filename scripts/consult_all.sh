@@ -36,6 +36,7 @@ source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/session.sh"
 source "$SCRIPT_DIR/lib/progress.sh"
 source "$SCRIPT_DIR/lib/costs.sh"
+source "$SCRIPT_DIR/lib/reliability.sh"
 source "$SCRIPT_DIR/lib/voting.sh"
 source "$SCRIPT_DIR/lib/routing.sh"
 source "$SCRIPT_DIR/lib/cache.sh"
@@ -557,9 +558,15 @@ for i in "${!PIDS[@]}"; do
             log_success "  $name: OK (cached)"
             RESULTS+=("$name:OK")
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
+                record_consultant_outcome "$name" success 2>/dev/null || true
+            fi
         else
             log_warn "  $name: Cache miss"
             RESULTS+=("$name:EMPTY")
+            if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
+                record_consultant_outcome "$name" fail 2>/dev/null || true
+            fi
         fi
         continue
     fi
@@ -570,6 +577,9 @@ for i in "${!PIDS[@]}"; do
             RESULTS+=("$name:OK")
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             update_progress "$name" 100 "success"
+            if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
+                record_consultant_outcome "$name" success 2>/dev/null || true
+            fi
 
             # Store in cache (v2.3)
             if is_cache_enabled; then
@@ -581,12 +591,18 @@ for i in "${!PIDS[@]}"; do
             _surface_consultant_error "$name" "$output_file"
             RESULTS+=("$name:EMPTY")
             update_progress "$name" 100 "failed"
+            if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
+                record_consultant_outcome "$name" fail 2>/dev/null || true
+            fi
         fi
     else
         log_error "  $name: Failed"
         _surface_consultant_error "$name" "$output_file"
         RESULTS+=("$name:FAILED")
         update_progress "$name" 100 "failed"
+        if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
+            record_consultant_outcome "$name" fail 2>/dev/null || true
+        fi
     fi
 done
 

@@ -143,7 +143,7 @@ The convergence trajectory and stop reason are recorded in `orchestration.json` 
 
 ## CLI/API Mode Switching (v2.6+)
 
-Five consultants support switching between CLI and API mode. When API mode is enabled, the CLI is not used.
+Five consultants support switching between CLI and API mode. **The default is the CLI** for every consultant that has one — API mode is opt-in (for CLI-less models or an explicit choice). When API mode is enabled, the CLI is not used.
 
 **Gemini auto-resolution (v2.15.1):** leave `GEMINI_USE_API` unset and the mode is chosen for you — API mode when `GEMINI_API_KEY` is present (no `agy` install or OAuth needed; ideal for `npx`), CLI mode (`agy`) otherwise. Set `GEMINI_USE_API` explicitly only to force a mode (an explicit value disables auto-detection).
 
@@ -175,20 +175,20 @@ ENABLE_CODEX=true
 ENABLE_MISTRAL=true
 ENABLE_KILO=true
 ENABLE_CURSOR=true
-ENABLE_AIDER=true
+ENABLE_AMP=true              # Amp CLI - The Systems Thinker
+ENABLE_KIMI=true             # Kimi CLI - The Eastern Sage
+ENABLE_QWEN3=true            # Qwen CLI/API - The Analyst
+ENABLE_CLAUDE=true           # Claude CLI - The Synthesizer (auto-excluded under Claude Code)
 
-# Opt-in consultants
-ENABLE_AMP=false             # Amp CLI - The Systems Thinker
-ENABLE_KIMI=false            # Kimi CLI - The Eastern Sage
-ENABLE_QWEN3=false           # Qwen CLI/API - The Analyst
-ENABLE_CLAUDE=false          # Claude CLI - The Synthesizer
+# Off by default
+ENABLE_AIDER=false           # Aider CLI - The Pair Programmer
 ENABLE_OLLAMA=false          # Ollama - The Local Expert
-ENABLE_MINIMAX=false         # MiniMax API - The Pragmatic Optimizer
 
-# API-only consultants
+# API-only consultants (off by default - require API keys)
 ENABLE_GLM=false
 ENABLE_GROK=false
 ENABLE_DEEPSEEK=false
+ENABLE_MINIMAX=false
 ```
 
 ### Model Overrides

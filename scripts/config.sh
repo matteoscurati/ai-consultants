@@ -66,7 +66,11 @@ DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-${_AI_CONSULTANTS_XDG_CACHE}
 # When API mode is enabled, CLI mode is automatically disabled (mutual exclusivity).
 # 5 agents support switching: Gemini, Codex, Claude, Mistral, Qwen3
 
-# Mode switching (true = use API, false = use CLI)
+# Mode switching (true = API, false = CLI). DEFAULT IS CLI — when a consultant
+# has a CLI, the tool uses it; the CLIs are the primary transport (OAuth /
+# subscription, no API key needed). API mode is opt-in only: for CLI-less models
+# (GLM/Grok/DeepSeek/MiniMax are API-only anyway) or an explicit per-run user
+# choice. Set a switch to true (with its API key) to force API for that agent.
 # GEMINI_USE_API is intentionally NOT defaulted here: it is auto-resolved in the
 # Gemini configuration section below (needs GEMINI_API_KEY / GEMINI_CMD), so an
 # explicit unset must remain distinguishable from an explicit "false".
@@ -299,9 +303,9 @@ ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
 ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 ENABLE_AIDER="${ENABLE_AIDER:-false}"
-ENABLE_AMP="${ENABLE_AMP:-false}"        # Amp Code (v2.8)
+ENABLE_AMP="${ENABLE_AMP:-true}"         # Amp Code (v2.8)
 ENABLE_KIMI="${ENABLE_KIMI:-true}"       # Kimi Code (v2.9)
-ENABLE_CLAUDE="${ENABLE_CLAUDE:-false}"  # Auto-disabled when invoked by Claude Code
+ENABLE_CLAUDE="${ENABLE_CLAUDE:-true}"   # Auto-disabled when invoked by Claude Code
 
 # API-based consultants (disabled by default - require API keys)
 ENABLE_QWEN3="${ENABLE_QWEN3:-true}"
@@ -439,6 +443,13 @@ WARN_AT_COST="${WARN_AT_COST:-0.50}"
 # File for cumulative tracking. v2.13: defaults to $XDG_DATA_HOME/ai-consultants/
 # (persistent across reboots; this is user data, not cache).
 COST_TRACKING_FILE="${COST_TRACKING_FILE:-${_AI_CONSULTANTS_XDG_DATA}/costs.json}"
+
+# --- Reliability Tracking (foundation for a future self-tuning roster) ---
+# Enable per-consultant success/failure recording (opt-in default: ON)
+ENABLE_RELIABILITY_TRACKING="${ENABLE_RELIABILITY_TRACKING:-true}"
+
+# File for cumulative per-consultant reliability tracking (same XDG data dir as costs)
+RELIABILITY_FILE="${RELIABILITY_FILE:-${_AI_CONSULTANTS_XDG_DATA}/reliability.json}"
 
 # --- Budget Enforcement (v2.4) ---
 # Enable budget limit enforcement (opt-in, default OFF)

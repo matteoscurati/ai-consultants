@@ -285,7 +285,7 @@ curl -fsSL https://ampcode.com/install.sh | bash
 ```
 
 **Environment Variables:**
-- `ENABLE_AMP` - Enable Amp consultant (default: false)
+- `ENABLE_AMP` - Enable Amp consultant (default: true)
 - `AMP_CMD` - CLI command (default: amp)
 - `AMP_TIMEOUT` - Timeout in seconds (default: 180)
 - `AMP_API_KEY` - API key for authentication
@@ -326,7 +326,7 @@ Qwen3 now supports CLI/API mode switching using the qwen-code CLI.
 export QWEN3_USE_API=false
 ./scripts/consult_all.sh "question"
 
-# API mode (default, preserves v2.6 behavior)
+# API mode (opt-in)
 export QWEN3_USE_API=true
 export QWEN3_API_KEY="your-dashscope-key"
 ./scripts/consult_all.sh "question"
@@ -649,7 +649,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `INVOKING_AGENT` | unknown | Agent invoking the skill (for self-exclusion) |
-| `ENABLE_CLAUDE` | false | Enable Claude consultant |
+| `ENABLE_CLAUDE` | true | Enable Claude consultant (auto-excluded under Claude Code) |
 | `ENABLE_DEBATE` | false | Enable Multi-Agent Debate |
 | `DEBATE_ROUNDS` | 1 | Number of debate rounds |
 | `ENABLE_SYNTHESIS` | true | Auto-synthesis of responses |
@@ -678,9 +678,9 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `CAPABILITY_DEFAULT` | 5 | Fallback capability for a missing consultant/axis (v2.20) |
 | `ENABLE_BUDGET_LIMIT` | false | Budget enforcement (v2.4, opt-in) |
 | `BUDGET_ACTION` | warn | Action on budget exceeded: warn/stop (v2.4) |
-| `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
+| `QWEN3_USE_API` | true | Use DashScope API instead of qwen CLI (v2.7) |
 | `QWEN3_CMD` | qwen | Qwen CLI command (v2.7) |
-| `ENABLE_KIMI` | false | Enable Kimi consultant (v2.9) |
+| `ENABLE_KIMI` | true | Enable Kimi consultant (v2.9) |
 | `KIMI_CMD` | kimi | Kimi CLI command (v2.9) |
 | `KIMI_MODEL` | kimi-code/kimi-for-coding | Kimi model (v2.9) |
 | `ENABLE_MINIMAX` | false | Enable MiniMax consultant (v2.10) |
