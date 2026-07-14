@@ -264,7 +264,8 @@ test_config_sh_xdg_defaults() {
     out=$(XDG_CACHE_HOME="$tmp/c" XDG_STATE_HOME="$tmp/s" XDG_DATA_HOME="$tmp/d" \
         bash -c '
             unset DEFAULT_OUTPUT_DIR_BASE CACHE_DIR SESSION_DIR COST_TRACKING_FILE \
-                  RATE_LIMIT_DIR CHUNK_TEMP_DIR
+                  RATE_LIMIT_DIR CHUNK_TEMP_DIR \
+                  _AI_CONSULTANTS_XDG_CACHE _AI_CONSULTANTS_XDG_STATE _AI_CONSULTANTS_XDG_DATA
             source scripts/config.sh
             echo "$DEFAULT_OUTPUT_DIR_BASE"
             echo "$CACHE_DIR"
