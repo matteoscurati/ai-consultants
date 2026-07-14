@@ -611,6 +611,11 @@ The **shape** is chosen per question (or pinned via `ORCHESTRATION_MODE`):
 
 Set `ORCHESTRATION_MODE=fixed` for the classic fixed-round pipeline.
 
+Consensus is measured lexically by default; set `ENABLE_STANCE_CONSENSUS=true`
+(opt-in, v2.21) to have the panel pick from a shared set of enumerated stance
+options and score agreement by exact match instead — see
+[references/configuration.md](references/configuration.md#semantic-consensus-v221-opt-in).
+
 With peer review:
 ```
 Responses -> Anonymize -> Peer Ranking -> De-anonymize -> Peer Scores

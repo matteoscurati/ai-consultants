@@ -97,6 +97,7 @@ Query is classified, then sent to consultants in parallel. Responses are scored,
 | **Smart Routing** | Auto-select best consultants per question type | `ENABLE_SMART_ROUTING` |
 | **Cost Tracking** | Track API usage costs | `ENABLE_COST_TRACKING` |
 | **Panic Mode** | Auto-add rigor when uncertainty detected | `ENABLE_PANIC_MODE` |
+| **Stance Consensus** | Panel picks from enumerated stances; agreement by exact match (opt-in, v2.21) | `ENABLE_STANCE_CONSENSUS` |
 
 ## Configuration
 
@@ -136,6 +137,10 @@ Diagnose and fix issues:
 ./scripts/doctor.sh --json       # JSON output
 ./scripts/doctor.sh --live       # Real ping per consultant — catches installed-but-unauthenticated CLIs
 ```
+
+Keep the consultant CLIs current with `ai-consultants update-clis` (`--dry-run` to
+preview, `--only <cli>` to target one) — it detects how each CLI was installed
+(brew/npm/uv/pipx/curl/self-update) and updates it.
 
 When a consultant fails during a consultation, the run prints the captured reason (e.g. "CLI not found", "401 Unauthorized"). The run is also **graded** MET/DEGRADED/FAILED by how many responded (`QUORUM_MIN`), with a "Diagnosed Failures" section in the report. Set `ENABLE_HEALTH_GATE=true` to ping consultants and drop the dead ones *before* the run.
 

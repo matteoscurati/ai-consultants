@@ -630,6 +630,7 @@ ENABLE_ADVERSARIAL_VERIFY="${ENABLE_ADVERSARIAL_VERIFY:-true}"
 # per run; degrades gracefully to the cluster consensus if generation fails.
 ENABLE_STANCE_CONSENSUS="${ENABLE_STANCE_CONSENSUS:-false}"
 STANCE_MAX_OPTIONS="${STANCE_MAX_OPTIONS:-5}"
+STANCE_TIMEOUT="${STANCE_TIMEOUT:-60}"   # seconds for the stance-generation call (guards a hang)
 
 # =============================================================================
 # QUORUM GRADING (v2.19.0)

@@ -141,6 +141,29 @@ agrees on the first pass.
 The convergence trajectory and stop reason are recorded in `orchestration.json` /
 `optimization_metrics.json`. Every round still respects `MAX_SESSION_COST` / budget limits.
 
+## Semantic Consensus (v2.21+, opt-in)
+
+By default the consensus score (which drives `CONVERGENCE_TARGET_CONSENSUS`) is a
+**lexical cluster**: the largest group of consultants whose free-text `approach`
+fields are similar (single-linkage over Jaccard). That can't tell that two
+differently-phrased answers actually AGREE ("Commit the lockfile" vs "Always keep
+package-lock in git").
+
+`ENABLE_STANCE_CONSENSUS=true` adds an exact-matchable signal: one extra LLM call
+enumerates a small set of mutually-exclusive **stance options** for the question,
+each consultant is asked to pick exactly one verbatim, and consensus becomes the
+plurality stance's share of the **panel** (consultants that answered but emitted no
+stance count against agreement). It degrades to the lexical cluster whenever fewer
+than two stances are emitted or generation fails, so it is always safe to enable.
+
+```bash
+ENABLE_STANCE_CONSENSUS=false   # opt-in; adds ~1 LLM call per run
+STANCE_MAX_OPTIONS=5            # max stance options generated per question
+STANCE_TIMEOUT=60              # seconds for the stance-generation call (guards a hang)
+```
+
+The generated options are written to `stance_options.json` in the output dir.
+
 ## CLI/API Mode Switching (v2.6+)
 
 Six consultants support switching between CLI and API mode. **The default is the CLI** for every consultant that has one — API mode is opt-in (for CLI-less models or an explicit choice). When API mode is enabled, the CLI is not used.
