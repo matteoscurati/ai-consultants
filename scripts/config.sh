@@ -64,12 +64,12 @@ DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-${_AI_CONSULTANTS_XDG_CACHE}
 # =============================================================================
 # For agents that support both CLI and API mode, set USE_API=true to use API mode.
 # When API mode is enabled, CLI mode is automatically disabled (mutual exclusivity).
-# 5 agents support switching: Gemini, Codex, Claude, Mistral, Qwen3
+# 6 agents support switching: Gemini, Codex, Claude, Mistral, Qwen3, MiniMax
 
 # Mode switching (true = API, false = CLI). DEFAULT IS CLI — when a consultant
 # has a CLI, the tool uses it; the CLIs are the primary transport (OAuth /
 # subscription, no API key needed). API mode is opt-in only: for CLI-less models
-# (GLM/Grok/DeepSeek/MiniMax are API-only anyway) or an explicit per-run user
+# (GLM/Grok/DeepSeek are API-only anyway) or an explicit per-run user
 # choice. Set a switch to true (with its API key) to force API for that agent.
 # GEMINI_USE_API is intentionally NOT defaulted here: it is auto-resolved in the
 # Gemini configuration section below (needs GEMINI_API_KEY / GEMINI_CMD), so an
@@ -78,6 +78,10 @@ CODEX_USE_API="${CODEX_USE_API:-false}"
 CLAUDE_USE_API="${CLAUDE_USE_API:-false}"
 MISTRAL_USE_API="${MISTRAL_USE_API:-false}"
 QWEN3_USE_API="${QWEN3_USE_API:-false}"  # Default false to use qwen CLI
+# MINIMAX_USE_API is intentionally NOT defaulted here: it is auto-resolved in the
+# MiniMax configuration section below (needs MINIMAX_API_KEY), so an explicit
+# unset stays distinguishable from an explicit "false" (back-compat for pre-v2.21
+# API-only MiniMax users -- see the rationale at the resolve block).
 
 # API endpoints for CLI-switchable agents
 GEMINI_API_URL="${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models}"
@@ -219,14 +223,36 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # API key: Set DEEPSEEK_API_KEY environment variable
 
 # =============================================================================
-# MINIMAX CONFIGURATION - The Pragmatic Optimizer (API-based, v2.10)
+# MINIMAX CONFIGURATION - The Pragmatic Optimizer (CLI/API, v2.10; CLI via mmx v2.21)
 # =============================================================================
 
+MINIMAX_CMD="${MINIMAX_CMD:-mmx}"
 MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M2.7}"
 MINIMAX_TIMEOUT_SECONDS="${MINIMAX_TIMEOUT:-180}"
 MINIMAX_API_URL="${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}"
 MINIMAX_FORMAT="${MINIMAX_FORMAT:-openai}"
-# API key: Set MINIMAX_API_KEY environment variable
+# CLI mode (default) uses the mmx CLI (npm i -g mmx-cli; auth: mmx auth login).
+# API mode (MINIMAX_USE_API=true) uses MINIMAX_API_KEY against MINIMAX_API_URL.
+#
+# Auto-resolve the MiniMax transport when the user hasn't pinned MINIMAX_USE_API.
+# Unlike Gemini, the mmx CLI IS npm-installable, so CLI is the genuine default
+# (per the CLI-first principle). This block exists purely for BACK-COMPAT: before
+# v2.21 MiniMax was API-only, so a working pre-v2.21 config necessarily had
+# MINIMAX_API_KEY and no mmx. Defaulting such a user to CLI would break MiniMax on
+# upgrade (mmx not found). So when the mode is unset:
+#   - MINIMAX_API_KEY present -> API mode (preserves the pre-v2.21 API-only user;
+#                                a set key is itself the "explicit user choice")
+#   - otherwise               -> CLI mode (mmx; the new default)
+# An explicit MINIMAX_USE_API=true/false is always honored. Idempotent across
+# re-sourcing via the "${MINIMAX_USE_API+x}" set-vs-unset guard.
+if [[ -z "${MINIMAX_USE_API+x}" ]]; then
+    if [[ -n "${MINIMAX_API_KEY:-}" ]]; then
+        MINIMAX_USE_API=true
+    else
+        MINIMAX_USE_API=false
+    fi
+fi
+export MINIMAX_USE_API
 
 # =============================================================================
 # AMP CONFIGURATION - The Systems Thinker (v2.8)
@@ -289,7 +315,7 @@ ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi"
 CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "Ollama")
 
 # API-only consultants (use HTTP API directly, no CLI available)
-API_CONSULTANTS=("GLM" "Grok" "DeepSeek" "MiniMax")
+API_CONSULTANTS=("GLM" "Grok" "DeepSeek")
 
 # =============================================================================
 # ENABLED CONSULTANTS
@@ -302,17 +328,17 @@ ENABLE_CODEX="${ENABLE_CODEX:-true}"
 ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
 ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
-ENABLE_AIDER="${ENABLE_AIDER:-false}"
 ENABLE_AMP="${ENABLE_AMP:-true}"         # Amp Code (v2.8)
 ENABLE_KIMI="${ENABLE_KIMI:-true}"       # Kimi Code (v2.9)
 ENABLE_CLAUDE="${ENABLE_CLAUDE:-true}"   # Auto-disabled when invoked by Claude Code
+ENABLE_QWEN3="${ENABLE_QWEN3:-true}"     # qwen-code CLI (v2.7); API opt-in
+ENABLE_MINIMAX="${ENABLE_MINIMAX:-true}" # mmx CLI (v2.21); API opt-in
+ENABLE_AIDER="${ENABLE_AIDER:-false}"    # Aider CLI (off by default)
 
-# API-based consultants (disabled by default - require API keys)
-ENABLE_QWEN3="${ENABLE_QWEN3:-true}"
+# API-only consultants (disabled by default - require API keys)
 ENABLE_GLM="${ENABLE_GLM:-false}"
 ENABLE_GROK="${ENABLE_GROK:-false}"
 ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
-ENABLE_MINIMAX="${ENABLE_MINIMAX:-false}"
 
 # Local model support via Ollama (disabled by default)
 ENABLE_OLLAMA="${ENABLE_OLLAMA:-false}"

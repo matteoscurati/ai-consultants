@@ -55,6 +55,7 @@ Usage:
   ai-consultants --preset <name> "question"   Use a configuration preset
   ai-consultants --strategy <name> "question" Use a synthesis strategy
   ai-consultants doctor [--fix] [--json]      Run diagnostics
+  ai-consultants update-clis [--dry-run]      Check & update installed consultant CLIs
   ai-consultants init [--force]               Scaffold ~/.config/ai-consultants/{config.sh,.env}
   ai-consultants install                      Install slash commands to ~/.claude/commands/
   ai-consultants version                      Show version
@@ -77,6 +78,10 @@ EOF
   doctor)
     shift
     exec "$SCRIPTS_DIR/doctor.sh" "$@"
+    ;;
+  update-clis|update)
+    shift
+    exec "$SCRIPTS_DIR/update_clis.sh" "$@"
     ;;
   init)
     shift

@@ -358,14 +358,18 @@ curl -L code.kimi.com/install.sh | bash
 
 Verify: `kimi --version`
 
-### MiniMax (API-only) - v2.10
+### MiniMax (CLI via mmx) - v2.21
 
-MiniMax requires an API key — no CLI installation needed.
+MiniMax runs via the `mmx` CLI by default (CLI-first, OAuth). Install and sign in:
 
 ```bash
-export MINIMAX_API_KEY="your-key"
-export ENABLE_MINIMAX=true
+npm install -g mmx-cli
+mmx auth login          # OAuth (browser); or: mmx auth login --api-key <key>
 ```
+
+API mode is opt-in: set `MINIMAX_USE_API=true` with `MINIMAX_API_KEY`.
+
+Verify: `mmx --version`
 
 ---
 
@@ -521,7 +525,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"
 
 ## CLI/API Mode Switching (v2.6+)
 
-Five consultants can switch between CLI mode (using local CLI tools) and API mode (direct API calls): **Gemini, Codex, Claude, Mistral, and Qwen3**.
+Six consultants can switch between CLI mode (using local CLI tools) and API mode (direct API calls): **Gemini, Codex, Claude, Mistral, Qwen3, and MiniMax**.
 
 ### Why Use API Mode?
 

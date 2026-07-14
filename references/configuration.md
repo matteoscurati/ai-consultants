@@ -143,7 +143,7 @@ The convergence trajectory and stop reason are recorded in `orchestration.json` 
 
 ## CLI/API Mode Switching (v2.6+)
 
-Five consultants support switching between CLI and API mode. **The default is the CLI** for every consultant that has one — API mode is opt-in (for CLI-less models or an explicit choice). When API mode is enabled, the CLI is not used.
+Six consultants support switching between CLI and API mode. **The default is the CLI** for every consultant that has one — API mode is opt-in (for CLI-less models or an explicit choice). When API mode is enabled, the CLI is not used.
 
 **Gemini auto-resolution (v2.15.1):** leave `GEMINI_USE_API` unset and the mode is chosen for you — API mode when `GEMINI_API_KEY` is present (no `agy` install or OAuth needed; ideal for `npx`), CLI mode (`agy`) otherwise. Set `GEMINI_USE_API` explicitly only to force a mode (an explicit value disables auto-detection).
 
@@ -154,6 +154,7 @@ CODEX_USE_API=false          # Use OpenAI API instead of codex CLI
 CLAUDE_USE_API=false         # Use Anthropic API instead of claude CLI
 MISTRAL_USE_API=false        # Use Mistral API instead of vibe CLI
 QWEN3_USE_API=false          # Use qwen CLI (default) or DashScope API
+MINIMAX_USE_API=false        # Use mmx CLI (default) or MiniMax API
 ```
 
 ### API Keys
@@ -165,6 +166,7 @@ QWEN3_USE_API=false          # Use qwen CLI (default) or DashScope API
 | Claude | `ANTHROPIC_API_KEY` | Anthropic API key |
 | Mistral | `MISTRAL_API_KEY` | Mistral API key |
 | Qwen3 | `QWEN3_API_KEY` | DashScope API key |
+| MiniMax | `MINIMAX_API_KEY` | MiniMax API key (API mode only; the mmx CLI uses OAuth) |
 
 ## Consultant Toggles and Models
 
@@ -178,6 +180,7 @@ ENABLE_CURSOR=true
 ENABLE_AMP=true              # Amp CLI - The Systems Thinker
 ENABLE_KIMI=true             # Kimi CLI - The Eastern Sage
 ENABLE_QWEN3=true            # Qwen CLI/API - The Analyst
+ENABLE_MINIMAX=true          # MiniMax CLI/API (mmx) - The Pragmatic Optimizer
 ENABLE_CLAUDE=true           # Claude CLI - The Synthesizer (auto-excluded under Claude Code)
 
 # Off by default
@@ -188,7 +191,6 @@ ENABLE_OLLAMA=false          # Ollama - The Local Expert
 ENABLE_GLM=false
 ENABLE_GROK=false
 ENABLE_DEEPSEEK=false
-ENABLE_MINIMAX=false
 ```
 
 ### Model Overrides

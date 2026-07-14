@@ -42,11 +42,12 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 | **Kimi** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis |
 | **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
+| **MiniMax** | `mmx` | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 | **Ollama** | `ollama` | The Local Expert | Privacy-first, zero cost |
 
-**API-only consultants**: GLM (The Methodologist), Grok (The Provocateur), DeepSeek (The Code Specialist), MiniMax (The Pragmatic Optimizer)
+**API-only consultants**: GLM (The Methodologist), Grok (The Provocateur), DeepSeek (The Code Specialist)
 
-**CLI/API Mode**: Gemini, Codex, Claude, Mistral, and Qwen can switch between CLI and API mode via `*_USE_API` environment variables. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise.
+**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 

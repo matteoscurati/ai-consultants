@@ -38,6 +38,7 @@ ai-consultants/
 │   ├── consult_all.sh          # Main orchestrator - entry point
 │   ├── config.sh               # Centralized configuration
 │   ├── doctor.sh               # Diagnostic and auto-fix tool (v2.2)
+│   ├── update_clis.sh          # Check/update installed consultant CLIs (v2.21)
 │   ├── peer_review.sh          # Anonymous peer review (v2.2)
 │   ├── roster_audit.sh         # Roster uncorrelated-value audit (v2.20)
 │   ├── roster_calibrate.sh     # Measured capability calibration, Tier A (v2.20)
@@ -342,7 +343,7 @@ npm install -g @qwen-code/qwen-code@latest
 ## v2.6 Features
 
 ### CLI/API Mode Switching
-Five consultants can now switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3**.
+Six consultants can now switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3, MiniMax**.
 
 When API mode is enabled for an agent, CLI mode is disabled (mutual exclusivity).
 
@@ -379,6 +380,7 @@ New environment variables in `config.sh`:
 | `CLAUDE_USE_API` | false | Use Anthropic API instead of claude CLI |
 | `MISTRAL_USE_API` | false | Use Mistral API instead of vibe CLI |
 | `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
+| `MINIMAX_USE_API` | false | Use MiniMax API instead of the mmx CLI (v2.21) |
 | `GEMINI_API_URL` | https://generativelanguage.googleapis.com/v1beta/models | Google AI endpoint |
 | `CODEX_API_URL` | https://api.openai.com/v1/chat/completions | OpenAI endpoint |
 | `CLAUDE_API_URL` | https://api.anthropic.com/v1/messages | Anthropic endpoint |
@@ -676,15 +678,19 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_CAPABILITY_ROUTING` | false | Capability-aware panel composition (v2.20, opt-in) |
 | `CAPABILITY_WEIGHT_STRENGTH` | 10 | Vote-weight modulation: conf*(S+cap)/S (v2.20) |
 | `CAPABILITY_DEFAULT` | 5 | Fallback capability for a missing consultant/axis (v2.20) |
+| `ENABLE_STANCE_CONSENSUS` | false | Enumerated-stance exact-match consensus (v2.21, opt-in; +1 LLM call/run) |
+| `STANCE_MAX_OPTIONS` | 5 | Max stance options generated per question (v2.21) |
 | `ENABLE_BUDGET_LIMIT` | false | Budget enforcement (v2.4, opt-in) |
 | `BUDGET_ACTION` | warn | Action on budget exceeded: warn/stop (v2.4) |
-| `QWEN3_USE_API` | true | Use DashScope API instead of qwen CLI (v2.7) |
+| `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
 | `QWEN3_CMD` | qwen | Qwen CLI command (v2.7) |
 | `ENABLE_KIMI` | true | Enable Kimi consultant (v2.9) |
 | `KIMI_CMD` | kimi | Kimi CLI command (v2.9) |
 | `KIMI_MODEL` | kimi-code/kimi-for-coding | Kimi model (v2.9) |
-| `ENABLE_MINIMAX` | false | Enable MiniMax consultant (v2.10) |
-| `MINIMAX_API_KEY` | - | MiniMax API key (v2.10) |
+| `ENABLE_MINIMAX` | true | Enable MiniMax consultant (v2.10; CLI via mmx v2.21) |
+| `MINIMAX_USE_API` | false | Use MiniMax API instead of the mmx CLI (v2.21) |
+| `MINIMAX_CMD` | mmx | MiniMax CLI command (v2.21) |
+| `MINIMAX_API_KEY` | - | MiniMax API key (API mode only) (v2.10) |
 | `MINIMAX_MODEL` | MiniMax-M2.7 | MiniMax model (v2.10) |
 
 ## External Dependencies
@@ -699,6 +705,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `kimi` CLI - Kimi Code (v2.9)
 - `claude` CLI - Claude (v2.2, also used for synthesis)
 - `qwen` CLI - Qwen via qwen-code (v2.7, optional)
+- `mmx` CLI - MiniMax via mmx-cli (v2.21, optional; `npm i -g mmx-cli`, auth `mmx auth login`)
 - `ollama` CLI - Local models (v2.2)
 - `jq` - JSON parsing
 

@@ -580,6 +580,8 @@ ai-consultants doctor --json                                   # JSON for automa
 ai-consultants doctor --live                                   # Real ping per consultant — catches installed-but-unauthenticated CLIs
 ai-consultants doctor --suggest-config                         # Print recommended ENABLE_* based on detected CLIs
 ai-consultants doctor --suggest-preset --question "..."        # Recommend preset + strategy for a question
+ai-consultants update-clis                                     # Check & update every installed consultant CLI
+ai-consultants update-clis --dry-run                           # Preview: each CLI's install method + update command
 ```
 
 > When a consultant fails mid-consultation, the run surfaces the captured reason (e.g. `CLI not found`, `401 Unauthorized`) instead of a bare "Failed", so you can tell *not installed* from *not authenticated* from *transient*.

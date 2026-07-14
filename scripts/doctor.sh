@@ -225,7 +225,7 @@ check_cli_consultant() {
     fi
 
     # Skip the CLI install check when the consultant runs in API mode. For the
-    # 5 switchable agents (Gemini, Codex, Claude, Mistral, Qwen3) a missing CLI
+    # 6 switchable agents (Gemini, Codex, Claude, Mistral, Qwen3, MiniMax) a missing CLI
     # is irrelevant once API mode is on -- the API key is validated separately
     # by check_api_mode. This matters most for Gemini, which auto-resolves to
     # API mode whenever GEMINI_API_KEY is set (the npm-friendly path).
@@ -273,6 +273,7 @@ check_cli_consultants() {
     check_cli_consultant "Kimi" "$KIMI_CMD" "curl -L code.kimi.com/install.sh | bash" "KIMI"
     check_cli_consultant "Claude" "$CLAUDE_CMD" "See https://docs.anthropic.com/claude-code" "CLAUDE"
     check_cli_consultant "Qwen" "$QWEN3_CMD" "npm install -g @qwen-code/qwen-code@latest" "QWEN3"
+    check_cli_consultant "MiniMax" "$MINIMAX_CMD" "npm install -g mmx-cli" "MINIMAX"
 }
 
 # =============================================================================
@@ -315,7 +316,7 @@ check_api_mode_switching() {
     local has_api_mode=false
 
     # Check switchable consultants
-    for agent in GEMINI CODEX CLAUDE MISTRAL QWEN3; do
+    for agent in GEMINI CODEX CLAUDE MISTRAL QWEN3 MINIMAX; do
         local enabled_var="ENABLE_${agent}"
         local use_api_var="${agent}_USE_API"
         local is_enabled="${!enabled_var:-false}"
@@ -333,6 +334,7 @@ check_api_mode_switching() {
         check_api_mode "Claude" "CLAUDE_USE_API" "ANTHROPIC_API_KEY" "ENABLE_CLAUDE"
         check_api_mode "Mistral" "MISTRAL_USE_API" "MISTRAL_API_KEY" "ENABLE_MISTRAL"
         check_api_mode "Qwen3" "QWEN3_USE_API" "QWEN3_API_KEY" "ENABLE_QWEN3"
+        check_api_mode "MiniMax" "MINIMAX_USE_API" "MINIMAX_API_KEY" "ENABLE_MINIMAX"
     else
         _print "  ○ All switchable consultants using CLI mode"
     fi
@@ -391,7 +393,6 @@ check_api_consultants() {
     check_api_consultant "GLM" "GLM_API_KEY" "GLM_API_URL" "ENABLE_GLM"
     check_api_consultant "Grok" "GROK_API_KEY" "GROK_API_URL" "ENABLE_GROK"
     check_api_consultant "DeepSeek" "DEEPSEEK_API_KEY" "DEEPSEEK_API_URL" "ENABLE_DEEPSEEK"
-    check_api_consultant "MiniMax" "MINIMAX_API_KEY" "MINIMAX_API_URL" "ENABLE_MINIMAX"
 }
 
 # =============================================================================
@@ -800,6 +801,7 @@ suggest_configuration() {
         "ENABLE_KIMI:${KIMI_CMD:-kimi}"
         "ENABLE_CLAUDE:${CLAUDE_CMD:-claude}"
         "ENABLE_QWEN3:${QWEN3_CMD:-qwen}"
+        "ENABLE_MINIMAX:${MINIMAX_CMD:-mmx}"
         "ENABLE_OLLAMA:ollama"
     )
 
@@ -821,7 +823,6 @@ suggest_configuration() {
         "ENABLE_GLM:GLM_API_KEY"
         "ENABLE_GROK:GROK_API_KEY"
         "ENABLE_DEEPSEEK:DEEPSEEK_API_KEY"
-        "ENABLE_MINIMAX:MINIMAX_API_KEY"
     )
     for entry in "${api_consultants[@]}"; do
         local flag="${entry%%:*}"
@@ -888,6 +889,7 @@ _count_available_consultants() {
         "KIMI|ENABLE_KIMI|${KIMI_CMD:-kimi}"
         "CLAUDE|ENABLE_CLAUDE|${CLAUDE_CMD:-claude}"
         "QWEN3|ENABLE_QWEN3|${QWEN3_CMD:-qwen}"
+        "MINIMAX|ENABLE_MINIMAX|${MINIMAX_CMD:-mmx}"
         "OLLAMA|ENABLE_OLLAMA|ollama"
     )
     for entry in "${entries[@]}"; do
@@ -905,7 +907,6 @@ _count_available_consultants() {
         "GLM|ENABLE_GLM|GLM_API_KEY"
         "GROK|ENABLE_GROK|GROK_API_KEY"
         "DEEPSEEK|ENABLE_DEEPSEEK|DEEPSEEK_API_KEY"
-        "MINIMAX|ENABLE_MINIMAX|MINIMAX_API_KEY"
     )
     for entry in "${api_entries[@]}"; do
         IFS='|' read -r name flag key <<<"$entry"

@@ -344,6 +344,45 @@ test_gemini_explicit_true_without_key() {
     assert_eq "true" "$val" "explicit GEMINI_USE_API=true is honored without a key"
 }
 
+# MiniMax transport auto-resolution (v2.21): back-compat for pre-v2.21 API-only
+# users -- a set MINIMAX_API_KEY keeps them on the API path instead of the new
+# mmx CLI default they never installed. Mirrors the Gemini resolution.
+test_minimax_auto_api_with_key() {
+    local val
+    val=$(unset MINIMAX_USE_API; MINIMAX_API_KEY=mmxTESTKEY bash -c '
+        source scripts/config.sh
+        echo "$MINIMAX_USE_API"
+    ')
+    assert_eq "true" "$val" "MINIMAX_USE_API auto-resolves to true when MINIMAX_API_KEY is set (back-compat)"
+}
+
+test_minimax_auto_cli_without_key() {
+    local val
+    val=$(unset MINIMAX_USE_API MINIMAX_API_KEY; bash -c '
+        source scripts/config.sh
+        echo "$MINIMAX_USE_API"
+    ')
+    assert_eq "false" "$val" "MINIMAX_USE_API auto-resolves to false (mmx CLI) when no MINIMAX_API_KEY"
+}
+
+test_minimax_explicit_false_wins_over_key() {
+    local val
+    val=$(MINIMAX_USE_API=false MINIMAX_API_KEY=mmxTESTKEY bash -c '
+        source scripts/config.sh
+        echo "$MINIMAX_USE_API"
+    ')
+    assert_eq "false" "$val" "explicit MINIMAX_USE_API=false wins even with a key present"
+}
+
+test_minimax_explicit_true_without_key() {
+    local val
+    val=$(unset MINIMAX_API_KEY; MINIMAX_USE_API=true bash -c '
+        source scripts/config.sh
+        echo "$MINIMAX_USE_API"
+    ')
+    assert_eq "true" "$val" "explicit MINIMAX_USE_API=true is honored without a key"
+}
+
 run_test "Test 12: get_xdg_dir honors XDG_*_HOME"        test_xdg_dir_honors_env
 run_test "Test 13: get_xdg_dir falls back to ~/.cache"   test_xdg_dir_falls_back_to_home
 run_test "Test 14: get_xdg_dir distroless /tmp fallback" test_xdg_dir_distroless_fallback
@@ -355,5 +394,9 @@ run_test "Test 19: Gemini auto-API with key (v2.15.1)"   test_gemini_auto_api_wi
 run_test "Test 20: Gemini auto-CLI without key (v2.15.1)" test_gemini_auto_cli_without_key
 run_test "Test 21: Gemini explicit false wins (v2.15.1)" test_gemini_explicit_false_wins_over_key
 run_test "Test 22: Gemini explicit true honored (v2.15.1)" test_gemini_explicit_true_without_key
+run_test "Test 23: MiniMax auto-API with key (v2.21)"    test_minimax_auto_api_with_key
+run_test "Test 24: MiniMax auto-CLI without key (v2.21)" test_minimax_auto_cli_without_key
+run_test "Test 25: MiniMax explicit false wins (v2.21)"  test_minimax_explicit_false_wins_over_key
+run_test "Test 26: MiniMax explicit true honored (v2.21)" test_minimax_explicit_true_without_key
 
 test_summary "user_config"
