@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.21.0] - 2026-07-14
+
+### Added
+- **CLI-first transport (now the default principle).** Any consultant that ships a CLI uses it by default; API mode is opt-in — for CLI-less models or an explicit `*_USE_API=true`. Amp and Claude are enabled by default.
+- **MiniMax via the `mmx` CLI.** MiniMax was API-only; it now runs through the `mmx` CLI by default. `MINIMAX_USE_API` auto-resolves to API mode only when `MINIMAX_API_KEY` is set, so a pre-2.21 API-only setup keeps working on upgrade.
+- **`ai-consultants update-clis`.** For each CLI-backed consultant, detect how its CLI was installed (brew formula/cask, npm, uv, pipx, pip, self-updating binary, curl installer) and update it via the matching method. `--dry-run` and `--only <cli>` supported.
+- **Stance-based semantic consensus** (opt-in, `ENABLE_STANCE_CONSENSUS`). One LLM call enumerates a small set of mutually-exclusive stance options for the question; each consultant picks one verbatim; consensus becomes the plurality stance's share of the panel — exact-match agreement, immune to paraphrasing. Degrades to the lexical cluster on any failure. Tunables: `STANCE_MAX_OPTIONS`, `STANCE_TIMEOUT`.
+- **Reliability tracking**, a `scripts/release.sh` version-bump automation, and an offline end-to-end integration test.
+
+### Fixed
+- **CLI adapters** (surfaced by a full-panel smoke test): Gemini (`agy -p "$QUERY"`, not the broken `-p -`), Kimi (`--output-format stream-json` + a hardened extractor), and Kilo (strip the ```json fence) now return structured responses instead of degrading to the unstructured fallback.
+- **Metadata pollution** in voting / synthesis / peer-review: pipeline files (`voting.json`, `orchestration.json`, `stance_options.json`, …) are filtered out of every responses-dir glob, so they can no longer become phantom votes, peer-review reviewees, or synthesis inputs. Consensus is the largest agreeing cluster (single-linkage over Jaccard).
+- **Orchestration**: a lexical "stalled" is relabeled "stable" when the panel's own per-round signal says positions stopped moving (now `set -e`-safe on a malformed round summary); a debate round's refined stance is validated before it is grafted.
+- **GLM and DeepSeek personas were transposed at runtime** — each consultant ran under the other's persona name and prompt.
+- **Calibration**: diagnosable peer-review failures + cost-only calibration path.
+
+### Changed
+- `npm test` now runs 18 suites. The v2.21 changeset was hardened by a multi-agent `/code-review max` pass.
+
 ## [2.20.0] - 2026-07-12
 
 ### Added

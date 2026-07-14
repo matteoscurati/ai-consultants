@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 15 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.20.0
+**Version**: 2.21.0
 
 ## Distribution
 
@@ -841,6 +841,15 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.21.0
+- **CLI-first transport (principle).** Every `*_USE_API` defaults `false`; a consultant with a CLI always uses it, API is opt-in (CLI-less model or explicit choice). `ENABLE_AMP`/`ENABLE_CLAUDE` default true.
+- **MiniMax via `mmx` CLI** (was API-only). `query_minimax.sh` runs `mmx text chat --non-interactive …` in CLI mode; `config.sh` adds `MINIMAX_CMD` + auto-resolves `MINIMAX_USE_API` (API iff `MINIMAX_API_KEY` set — back-compat), drops MiniMax from `API_CONSULTANTS`; `doctor.sh` treats it as switchable.
+- **`scripts/update_clis.sh`** (+ `ai-consultants update-clis`): per CLI-backed consultant, `detect_method` (brew formula/cask, npm, uv, pipx, pip, self-update, curl installer) → update. `--dry-run`, `--only`.
+- **Stance consensus** (opt-in, `ENABLE_STANCE_CONSENSUS`): new `lib/stance.sh` (`generate_stance_options` — one synthesizer call wrapped in `run_with_timeout`; `_stance_clean`; `build_stance_prompt`). `consult_all.sh` generates the shared set → `stance_options.json` + exports `STANCE_OPTIONS_PROMPT`; injected via `personas.sh` (CLI) + `api_query.sh` (API). `voting.sh::calculate_consensus_score` scores the plurality stance over the PANEL size (not the count of emitted stances). `STANCE_MAX_OPTIONS`, `STANCE_TIMEOUT`.
+- **Smoke-test reliability**: `query_gemini.sh` (`agy -p "$QUERY"`), `query_kimi.sh` (`stream-json` + `_kimi_extract_content`), `query_kilo.sh` (de-fence). Shared `_is_consultant_response_file` metadata filter in `common.sh`, applied across `voting.sh`/`synthesize.sh`/`peer_review.sh`/`reflection.sh`. `orchestration.sh` stalled→stable relabel (set -e-safe) + debate-round promote validation.
+- **Persona fix**: `_AGENT_DEFAULT_PERSONAS` mapped `GLM|17`/`DEEPSEEK|7` (each got the other's persona) → `GLM|7`/`DEEPSEEK|17`.
+- **Dev/reliability**: reliability tracking + Amp/Claude default-on; offline e2e test; `scripts/release.sh` version-bump automation; calibration fixes (diagnosable peer-review failures + cost-only path); `test_user_config.sh` XDG test made hermetic (unset the exported `_AI_CONSULTANTS_XDG_*` intermediates). `npm test` = 18 suites. Hardened by a `/code-review max` pass.
 
 ### v2.20.0
 - **Capability axes (borrowed from the delegation-kit cost/intelligence/taste table).** `references/affinity.json` → v1.1: new `capabilities` (per-consultant {intelligence, taste, cost}, 1-10), `category_axis` (category → the quality axis it stresses: taste for API_DESIGN/ARCHITECTURE/CODE_REVIEW/GENERAL, intelligence otherwise), `capability_default`. New `lib/routing.sh::get_capability` / `get_category_axis` (cached like `get_affinity`).
