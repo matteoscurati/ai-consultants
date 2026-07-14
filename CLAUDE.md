@@ -60,6 +60,7 @@ ai-consultants/
 │       ├── voting.sh           # Voting/consensus + confidence intervals
 │       ├── routing.sh          # Smart routing + cost-aware routing
 │       ├── orchestration.sh    # Dynamic orchestration planner + shapes (v2.16)
+│       ├── stance.sh           # Stance-based semantic consensus (v2.21, opt-in)
 │       ├── session.sh          # Session management
 │       ├── costs.sh            # Cost tracking + response limits
 │       ├── cache.sh            # Semantic caching (v2.3)

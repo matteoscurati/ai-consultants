@@ -364,9 +364,16 @@ build_query_with_persona() {
     local query="$2"
     local system_prompt=$(build_system_prompt "$consultant")
 
+    # Stance addendum (v2.21): when ENABLE_STANCE_CONSENSUS generated options,
+    # consult_all exports STANCE_OPTIONS_PROMPT so every consultant picks the same
+    # enumerated stance -> exact-match consensus. Empty (no-op) otherwise.
+    local stance_block=""
+    [[ -n "${STANCE_OPTIONS_PROMPT:-}" ]] && stance_block="${STANCE_OPTIONS_PROMPT}
+
+"
     echo "# System Instructions
 ${system_prompt}
 
-# User Query
+${stance_block}# User Query
 ${query}"
 }

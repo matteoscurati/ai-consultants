@@ -299,6 +299,21 @@ chmod 700 "$DEFAULT_OUTPUT_DIR_BASE"
 mkdir -p "$OUTPUT_DIR"
 chmod 700 "$OUTPUT_DIR"
 
+# --- Stance options (v2.21, opt-in): generate a shared enumerated stance set so
+# every consultant picks the same one -> exact-match consensus. Fully graceful:
+# on any failure STANCE_OPTIONS_PROMPT stays empty and consensus uses the cluster.
+if [[ "${ENABLE_STANCE_CONSENSUS:-false}" == "true" ]]; then
+    source "$SCRIPT_DIR/lib/stance.sh"
+    STANCE_OPTIONS=$(generate_stance_options "$QUERY" 2>/dev/null || echo "[]")
+    echo "$STANCE_OPTIONS" > "$OUTPUT_DIR/stance_options.json" 2>/dev/null || true
+    if STANCE_OPTIONS_PROMPT=$(build_stance_prompt "$STANCE_OPTIONS" 2>/dev/null); then
+        export STANCE_OPTIONS_PROMPT
+        log_info "Stance consensus: $(echo "$STANCE_OPTIONS" | jq -r 'length' 2>/dev/null || echo '?') options generated"
+    else
+        log_warn "Stance consensus: no usable options — falling back to lexical cluster consensus"
+    fi
+fi
+
 log_info "Output: $OUTPUT_DIR"
 log_info "Question: ${QUERY:0:80}$([ ${#QUERY} -gt 80 ] && echo '...')"
 if [[ ${#FILES[@]} -gt 0 ]]; then
