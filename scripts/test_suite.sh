@@ -585,6 +585,16 @@ test_persona_resolution() {
     result=$(get_persona_name "MiniMax")
     assert_equals "The Pragmatic Optimizer" "$result" "MiniMax persona name is The Pragmatic Optimizer"
 
+    # Regression: GLM and DeepSeek default personas were transposed in
+    # _AGENT_DEFAULT_PERSONAS (GLM|17, DEEPSEEK|7) — each resolved to the OTHER's
+    # persona at runtime. GLM must own catalog 7 (The Methodologist) and DeepSeek
+    # catalog 17 (The Code Specialist).
+    result=$(get_persona_name "GLM")
+    assert_equals "The Methodologist" "$result" "GLM persona name is The Methodologist (not swapped with DeepSeek)"
+
+    result=$(get_persona_name "DeepSeek")
+    assert_equals "The Code Specialist" "$result" "DeepSeek persona name is The Code Specialist (not swapped with GLM)"
+
     # Unknown consultant gets fallback
     result=$(get_persona "TotallyUnknown")
     assert_contains "AI consultant" "$result" "unknown consultant gets generic fallback persona"
