@@ -413,7 +413,10 @@ judge_all_responses() {
     local total_count=0
 
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" && "$(basename "$f")" != "voting.json" && "$(basename "$f")" != "synthesis.json" && "$(basename "$f")" != "judge_report.json" ]]; then
+        # Shared metadata filter (common.sh): also excludes orchestration.json,
+        # panic_diagnosis.json, optimization_metrics.json, stance_options.json,
+        # which this loop previously judged as if they were consultant answers.
+        if _is_consultant_response_file "$f"; then
             local evaluation
             evaluation=$(judge_response "$f")
 

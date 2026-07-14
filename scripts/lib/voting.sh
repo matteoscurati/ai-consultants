@@ -46,6 +46,9 @@ _effective_vote_weight() {
     echo $(( confidence * (strength + cap) / strength ))
 }
 
+# _is_consultant_response_file (shared) lives in common.sh -- it gates every
+# response-dir glob below so pipeline metadata files aren't counted as votes.
+
 # Calculate the weighted average of confidence scores
 # Usage: calculate_weighted_average <json_responses_dir>
 calculate_weighted_average() {
@@ -54,7 +57,7 @@ calculate_weighted_average() {
     local weighted_sum=0
 
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" ]]; then
+        if _is_consultant_response_file "$f"; then
             local confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
             weighted_sum=$((weighted_sum + confidence))
             total_weight=$((total_weight + 1))
@@ -163,29 +166,47 @@ calculate_consensus_score() {
         return
     fi
 
-    # Calculate pairwise Jaccard similarity
-    local similar_pairs=0
-    local total_pairs=0
-    local threshold=20  # Jaccard >= 0.20 means approaches are similar (lowered from 30 to account for verbose names)
+    # Consensus = size of the LARGEST cluster of mutually-similar approaches
+    # (Jaccard >= threshold), as a percentage of all approaches. This asks
+    # "does a majority agree?" rather than "is the whole panel mutually similar?"
+    # -- the latter is structurally capped low whenever any single consultant
+    # dissents (its cross-pairs count against every agreeing pair). Threshold is
+    # deliberately low: independently-phrased short approach labels share little
+    # vocabulary even when they mean the same thing (a bag-of-words limit; the
+    # robust fix is a controlled-vocabulary stance field, tracked separately).
+    local threshold=15
 
+    # Agglomerate: for each similar pair, merge their clusters (relabel). O(n^3)
+    # but n is tiny (<= panel size), so no Union-Find is needed at this scale.
+    local -a cluster
     local i j
+    for ((i=0; i<total; i++)); do cluster[i]=$i; done
     for ((i=0; i<total; i++)); do
         for ((j=i+1; j<total; j++)); do
-            total_pairs=$((total_pairs + 1))
             local sim
             sim=$(_jaccard_similarity "${keyword_sets[$i]}" "${keyword_sets[$j]}")
             if [[ $sim -ge $threshold ]]; then
-                similar_pairs=$((similar_pairs + 1))
+                local ci=${cluster[$i]} cj=${cluster[$j]} k
+                if [[ $ci -ne $cj ]]; then
+                    for ((k=0; k<total; k++)); do
+                        [[ ${cluster[$k]} -eq $cj ]] && cluster[$k]=$ci
+                    done
+                fi
             fi
         done
     done
 
-    # Score = percentage of pairs that are similar
-    if [[ $total_pairs -gt 0 ]]; then
-        echo $((similar_pairs * 100 / total_pairs))
-    else
-        echo 100
-    fi
+    # Largest cluster size / total, as a percentage. Cluster labels are indices
+    # 0..total-1, so a plain indexed array suffices (bash 3.2 has no assoc arrays).
+    local -a csize
+    for ((i=0; i<total; i++)); do csize[i]=0; done
+    local maxc=0 lbl
+    for ((i=0; i<total; i++)); do
+        lbl=${cluster[$i]}
+        csize[$lbl]=$(( csize[$lbl] + 1 ))
+        [[ ${csize[$lbl]} -gt $maxc ]] && maxc=${csize[$lbl]}
+    done
+    echo $(( maxc * 100 / total ))
 }
 
 # Determine the consensus level from a score
@@ -222,7 +243,7 @@ calculate_weighted_recommendation() {
 
     # Collect weights for each approach
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" ]]; then
+        if _is_consultant_response_file "$f"; then
             local consultant approach confidence current_weight current_supporters weight
             consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
@@ -279,7 +300,7 @@ get_dissenters() {
     local dissenters=()
 
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" ]]; then
+        if _is_consultant_response_file "$f"; then
             local consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             local approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
 
@@ -304,7 +325,7 @@ calculate_final_score() {
     _cap_axis=$(_voting_capability_axis)
 
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" ]]; then
+        if _is_consultant_response_file "$f"; then
             local consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             local approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
             local confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
@@ -350,7 +371,7 @@ simple_majority_vote() {
     map_clear "MAJORITY_VOTES"
 
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" ]]; then
+        if _is_consultant_response_file "$f"; then
             local approach current_votes
             approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
             current_votes=$(map_get "MAJORITY_VOTES" "$approach")
@@ -390,7 +411,7 @@ calculate_confidence_stddev() {
 
     # Collect all confidence scores
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" ]]; then
+        if _is_consultant_response_file "$f"; then
             local score=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
             scores+=("$score")
             sum=$((sum + score))

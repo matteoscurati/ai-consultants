@@ -88,6 +88,13 @@ LATENCY_MS=$((END_TIME - START_TIME))
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 if [[ $exit_code -eq 0 && -n "${CONTENT:-}" ]]; then
+    # Some Kilo replies (esp. debate rounds asking for JSON) wrap the JSON in a
+    # ```json fence; the ANSI/fence sed above only drops a bare ``` line, so a
+    # language-tagged opening fence survives and breaks the JSON check below.
+    # Strip it centrally with the shared helper (same one used for agy/Gemini;
+    # no-ops when the text already parses as JSON, so it's safe on every path).
+    CONTENT=$(strip_json_fence "$CONTENT")
+
     # Check if Kilo returned valid JSON (unlikely but handle it)
     if echo "$CONTENT" | jq -e '.response.summary' > /dev/null 2>&1; then
         echo "$CONTENT" > "$TEMP_OUTPUT"

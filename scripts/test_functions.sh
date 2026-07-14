@@ -231,6 +231,20 @@ test_get_consultant_error_reason() {
     assert_equal "[GLM] All 2 attempts failed: 401 Unauthorized" "$(get_consultant_error_reason "$ef")" \
         "surfaces the embedded auth reason"
 
+    # Real .err from run_query: log_error prepends "[HH:MM:SS] [LEVEL] [Name]
+    # All N attempts failed:" -- strip that boilerplate, keep the CLI's own error.
+    printf '[12:54:32] [ERROR] [Amp] All 2 attempts failed: Error: Out of credits\n' > "$ef"
+    assert_equal "Error: Out of credits" "$(get_consultant_error_reason "$ef")" \
+        "strips the log-prefix boilerplate, keeps the real reason"
+
+    # Timeout with no CLI stderr: the "All N attempts failed" boilerplate carries
+    # no trailing reason, so stripping it must NOT empty the result -- fall back to
+    # the surviving Timeout line (else a plain timeout mis-reports as "CLI missing/
+    # unauth", resurrecting the v2.18.0 class).
+    printf '[12:00:00] [WARN] [Kimi] Timeout after 180s\n[12:03:00] [WARN] [Kimi] Timeout after 180s\n[12:03:00] [ERROR] [Kimi] All 3 attempts failed\n' > "$ef"
+    assert_equal "[12:03:00] [WARN] [Kimi] Timeout after 180s" "$(get_consultant_error_reason "$ef")" \
+        "empty-after-strip falls back to the surviving timeout line, not empty"
+
     # Only orchestration noise (incl. a 'timeout: 180s' header) -> no reason, not
     # a mis-picked status line.
     printf '[07:24:43] [INFO] Consulting Kimi (timeout: 180s, max retry: 2)...\n' > "$ef"
@@ -243,6 +257,29 @@ test_get_consultant_error_reason() {
     assert_equal "" "$(get_consultant_error_reason "/nonexistent/path.err")" "missing err file -> empty reason"
 
     rm -f "$ef"
+}
+
+test_kimi_extract_content() {
+    echo -e "\n${C_YELLOW}Testing _kimi_extract_content() stream-json parsing${C_RESET}"
+    local sf; sf=$(mktemp)
+
+    # Single assistant message, string content; the meta resume line is dropped.
+    printf '%s\n' '{"role":"assistant","content":"{\"a\":1}"}' '{"role":"meta","content":"resume hint"}' > "$sf"
+    assert_equal '{"a":1}' "$(_kimi_extract_content "$sf")" "string content extracted, meta line dropped"
+
+    # Block-array content ([{type,text},...]) is flattened to its text.
+    printf '%s\n' '{"role":"assistant","content":[{"type":"text","text":"HELLO"}]}' > "$sf"
+    assert_equal "HELLO" "$(_kimi_extract_content "$sf")" "block-array content flattened"
+
+    # Multiple assistant lines (streaming deltas) -> the LAST wins.
+    printf '%s\n' '{"role":"assistant","content":"first"}' '{"role":"assistant","content":"LAST"}' > "$sf"
+    assert_equal "LAST" "$(_kimi_extract_content "$sf")" "last assistant message wins"
+
+    # No assistant line -> empty (caller keeps raw output for its fallback path).
+    printf '%s\n' '{"role":"meta","content":"only meta"}' > "$sf"
+    assert_equal "" "$(_kimi_extract_content "$sf")" "no assistant line -> empty"
+
+    rm -f "$sf"
 }
 
 test_render_diagnosed_failure() {

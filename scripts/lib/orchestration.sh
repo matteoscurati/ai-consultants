@@ -160,11 +160,21 @@ _apply_debate_round() {
         consultant=$(basename "$f" .json)
         [[ -f "$responses_dir/${consultant}.json" ]] || continue
         if [[ "$promote" == "true" ]]; then
-            jq -s '.[0] * {
-                response: (.[1].response // .[0].response),
-                confidence: (.[1].confidence // .[0].confidence),
-                debate: (.[1].debate // .[0].debate)
-            }' \
+            # Promote the round's post-debate .response/.confidence ONLY when it is
+            # a well-formed updated stance. A consultant can answer a debate prompt
+            # with a non-conforming/fenced reply (e.g. a bare {"debate":{...}} blob)
+            # that process_consultant_response turns into a fallback envelope
+            # (approach "unknown" or a "```json..." leak); grafting that would
+            # corrupt the consultant's answer and poison voting/synthesis. In that
+            # case keep the prior round's response so one bad debate turn can't.
+            jq -s '
+                (.[1].response.approach // "") as $a
+                | (($a | length) > 0 and $a != "unknown" and ($a | test("```") | not)) as $ok
+                | .[0] * {
+                    response:   (if $ok then .[1].response else .[0].response end),
+                    confidence: (if $ok then (.[1].confidence // .[0].confidence) else .[0].confidence end),
+                    debate:     (.[1].debate // .[0].debate)
+                }' \
                 "$responses_dir/${consultant}.json" "$f" \
                 > "$responses_dir/${consultant}.json.tmp" 2>/dev/null && \
                 mv "$responses_dir/${consultant}.json.tmp" "$responses_dir/${consultant}.json"
@@ -238,6 +248,24 @@ run_convergence_loop() {
     done
 
     trajectory="$trajectory]"
+
+    # A lexical "stalled" (the consensus score stopped moving) is misleading when
+    # the panel's OWN per-round signal says positions are stable -- nobody changed
+    # their mind, i.e. they already agree; they didn't "fail to converge". Prefer
+    # that signal (debate_round.sh writes position_changes/stability per round).
+    if [[ "$stop_reason" == "stalled" ]]; then
+        local rs="$responses_dir/round_${rounds_run}/round_summary.json"
+        if [[ -f "$rs" ]]; then
+            # `|| true`: a malformed/truncated round_summary.json makes jq exit
+            # non-zero; without the guard these bare assignments would abort the
+            # whole consultation under `set -e` for a purely cosmetic relabel.
+            local pos_changes stability
+            pos_changes=$(jq -r '.position_changes // empty' "$rs" 2>/dev/null || true)
+            stability=$(jq -r '.stability // empty' "$rs" 2>/dev/null || true)
+            [[ "$pos_changes" == "0" || "$stability" == "stable" ]] && stop_reason="stable"
+        fi
+    fi
+
     _write_convergence_meta "$responses_dir" "$trajectory" "$stop_reason" "$rounds_run" "$shape"
     log_info "  Convergence stopped: ${stop_reason} (final consensus ${prev_score}, ${rounds_run} round(s))"
 }

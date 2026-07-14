@@ -26,7 +26,7 @@ generate_fallback_synthesis() {
     local consultants_json="[]"
 
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" ]]; then
+        if _is_consultant_response_file "$f"; then
             local conf=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
             local name=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             total_confidence=$((total_confidence + conf))
@@ -111,9 +111,14 @@ COMBINED_RESPONSES=""
 CONSULTANTS=()
 CONFIDENCE_SCORES=()
 
-# Use process substitution to handle filenames with spaces correctly
+# Use process substitution to handle filenames with spaces correctly.
+# Cap at SYNTH_MAX *real* responses -- applied AFTER the metadata filter so
+# pipeline metadata (voting/orchestration/stance_options...) can't steal a slot
+# from a genuine consultant answer.
+SYNTH_MAX="${SYNTH_MAX:-10}"
+SYNTH_COLLECTED=0
 while IFS= read -r response_file; do
-    if [[ -f "$response_file" && -s "$response_file" ]]; then
+    if _is_consultant_response_file "$response_file"; then
         CONSULTANT=$(jq -r '.consultant // "unknown"' "$response_file" 2>/dev/null)
         CONFIDENCE=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
 
@@ -145,8 +150,10 @@ $(cat "$response_file")
 ---
 "
         fi
+        SYNTH_COLLECTED=$((SYNTH_COLLECTED + 1))
+        [[ "$SYNTH_COLLECTED" -ge "$SYNTH_MAX" ]] && break
     fi
-done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null | head -10)
+done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null)
 
 NUM_CONSULTANTS=${#CONSULTANTS[@]}
 log_info "Found $NUM_CONSULTANTS responses to synthesize"
@@ -296,7 +303,7 @@ SYNTH_CLI=$(resolve_synthesis_cli 2>/dev/null || echo "")
 
 if [[ -n "$SYNTH_CLI" ]]; then
     log_info "Running synthesis with $SYNTH_CLI..."
-    build_synthesis_args "$SYNTH_CLI"
+    build_synthesis_args "$SYNTH_CLI" "$SYNTHESIS_PROMPT"
     echo "$SYNTHESIS_PROMPT" | "${SYNTHESIS_ARGS[@]}" > "$TEMP_OUTPUT" 2>/dev/null
     exit_code=$?
 else

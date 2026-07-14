@@ -929,6 +929,41 @@ build_error_response() {
 # fallback-only: if the input already parses as JSON it is returned unchanged
 # (a real fence makes the text invalid JSON, so the gate reliably detects it).
 # Usage: cleaned=$(strip_json_fence "$raw")
+# Extract the model's response from kimi's --output-format stream-json output
+# (JSONL, one object per line). The real answer is the LAST {"role":"assistant"}
+# line's .content; the {"role":"meta",...} session-resume line is dropped. Handles
+# .content as a string OR a block-array ([{type,text},...]); tolerates non-object
+# and non-JSON lines. Echoes the content (empty if none, so the caller keeps the
+# raw output for its fallback path).
+# Usage: content=$(_kimi_extract_content <stream-json-file>)
+_kimi_extract_content() {
+    jq -sRr '
+        [ splits("\n") | fromjson? | select(type=="object" and .role=="assistant") | .content ] | last as $c
+        | if   $c == null          then ""
+          elif ($c|type) == "array"  then ($c | map(if type=="object" then (.text // .content // "") else tostring end) | join(""))
+          elif ($c|type) == "string" then $c
+          else ($c | tostring) end
+    ' "$1" 2>/dev/null
+}
+
+# consult_all.sh writes non-consultant pipeline metadata (orchestration.json,
+# panic_diagnosis.json, voting.json, synthesis.json, optimization_metrics.json,
+# stance_options.json) into the SAME dir as per-consultant responses. None carry .consultant /
+# .response.approach, so an unfiltered glob turns them into phantom "unknown"
+# votes / peer-review reviewees / synthesis inputs. Every loop that globs the
+# responses dir for consultant data must gate on this. Shared by voting.sh,
+# peer_review.sh, synthesize.sh.
+_is_consultant_response_file() {
+    local f="$1"
+    [[ -f "$f" && -s "$f" ]] || return 1
+    # ${f##*/} is an in-process basename (no fork) -- this runs in hot voting loops.
+    case "${f##*/}" in
+        orchestration.json|panic_diagnosis.json|voting.json|synthesis.json|optimization_metrics.json|stance_options.json)
+            return 1 ;;
+    esac
+    return 0
+}
+
 # Extract a concise, ANSI-stripped failure reason from a consultant's captured
 # stderr (.err) file, for surfacing WHY a consultant produced no output (auth
 # error, CLI not installed, transient init failure, ...) instead of a bare
@@ -949,6 +984,22 @@ get_consultant_error_reason() {
     # Prefer a line that names an actual error; else the last remaining line.
     line=$(printf '%s\n' "$cleaned" | grep -iE 'error|fail|not found|no such|denied|unauthor|invalid|timed? ?out|missing|command not found|exit code' | tail -1)
     [[ -z "$line" ]] && line=$(printf '%s\n' "$cleaned" | tail -1)
+    # Strip our own log_error() wrapper boilerplate ("[HH:MM:SS] [LEVEL] [Consultant]
+    # All N attempts failed:") so only the underlying CLI error remains -- the
+    # consultant name is already a separate report column and the retry count
+    # carries no diagnostic signal. Anchored on the full shape (only ever emitted
+    # together by run_query's final log_error) so it stays generic + non-regressing.
+    line=$(printf '%s' "$line" | sed -E 's/^\[[0-9]{2}:[0-9]{2}:[0-9]{2}\] \[(DEBUG|INFO|WARN|ERROR)\] \[[^]]+\] All [0-9]+ attempts failed:?[[:space:]]*//')
+    # If stripping the "All N attempts failed:" boilerplate emptied the line (a
+    # bare timeout / no-stderr summary carries no trailing reason), fall back to
+    # the last real line that ISN'T that boilerplate -- otherwise a plain timeout
+    # surfaces as empty -> the "CLI missing/unauth" mis-attribution (v2.18.0 class).
+    if [[ -z "$line" ]]; then
+        line=$(printf '%s\n' "$cleaned" \
+            | grep -ivE '\] \[[^]]+\] All [0-9]+ attempts failed' \
+            | grep -iE 'error|fail|not found|no such|denied|unauthor|invalid|timed? ?out|missing|command not found|exit code' \
+            | tail -1)
+    fi
     printf '%s' "$line" | cut -c1-200
 }
 
@@ -1163,9 +1214,10 @@ resolve_synthesis_cli() {
 
 # Build synthesis command arguments for a resolved CLI type.
 # Sets the global SYNTHESIS_ARGS array directly (no eval needed).
-# Usage: build_synthesis_args <cli_type>
+# Usage: build_synthesis_args <cli_type> [prompt]   (prompt only used by agy)
 build_synthesis_args() {
     local cli_type="$1"
+    local prompt="${2:-}"   # agy takes the prompt inline (-p arg); others read stdin
 
     case "$cli_type" in
         claude)
@@ -1174,10 +1226,11 @@ build_synthesis_args() {
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;
         gemini)
-            # agy needs -p - to read the piped prompt non-interactively; without
-            # it the CLI launches its interactive session and synthesis hangs /
-            # produces nothing. Mirrors query_gemini.sh's invocation.
-            SYNTHESIS_ARGS=("${GEMINI_CMD:-agy}" "-p" "-")
+            # agy's -p takes the prompt as its ARGUMENT value; it does NOT read
+            # stdin and "-" is not a stdin sentinel. A prior `-p -` made agy answer
+            # a literal "-" with a generic greeting -> unparseable synthesis ->
+            # manual_review. Pass the prompt directly, mirroring query_gemini.sh.
+            SYNTHESIS_ARGS=("${GEMINI_CMD:-agy}" "-p" "$prompt")
             local model="${SYNTHESIS_MODEL:-${GEMINI_MODEL:-}}"
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;

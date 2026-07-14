@@ -66,7 +66,7 @@ create_mapping() {
     local index=0
 
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" ]]; then
+        if _is_consultant_response_file "$f"; then
             local consultant
             consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             local anon_id
@@ -301,7 +301,7 @@ main() {
     # Count available responses
     local response_count=0
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" && "$(basename "$f")" != "voting.json" && "$(basename "$f")" != "synthesis.json" ]]; then
+        if _is_consultant_response_file "$f"; then
             ((response_count++)) || true
         fi
     done
@@ -332,7 +332,7 @@ main() {
     local anonymous_content=""
 
     for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" && "$(basename "$f")" != "voting.json" && "$(basename "$f")" != "synthesis.json" ]]; then
+        if _is_consultant_response_file "$f"; then
             local consultant
             consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             local anon_id

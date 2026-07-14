@@ -68,16 +68,21 @@ else
     check_command "$GEMINI_CMD" "Antigravity CLI" "curl -fsSL https://antigravity.google/cli/install.sh | bash" || exit 1
 
     # agy prints the model's response as plain text -- there is no CLI envelope
-    # to unwrap (unlike the old Gemini CLI's --output-format json). The persona
-    # instruction forces the model to emit our JSON schema, though some models
-    # (e.g. the default Gemini 3.1 Pro) wrap it in a ```json markdown fence;
-    # process_consultant_response strips that fence centrally. agy uses --model
-    # (no -m short alias).
-    echo "$FULL_QUERY" | run_query \
+    # to unwrap. The persona instruction forces the model to emit our JSON schema
+    # (some models wrap it in a ```json markdown fence; process_consultant_response
+    # strips it centrally).
+    # NOTE: agy's -p/--print/--prompt takes the prompt as its ARGUMENT value -- it
+    # does NOT read stdin, and "-" is not a stdin sentinel. A prior `-p -` shipped
+    # silently broken: agy answered a literal "-" with a generic greeting (exit 0,
+    # so no error surfaced -> fallback envelope). The prompt therefore rides as the
+    # -p argument. agy has --model (no -m alias) and no read-from-file flag, so a
+    # very large FULL_QUERY goes through argv (ARG_MAX-bounded; fine for normal
+    # contexts). stdin is /dev/null (agy ignores it; run_query's cat needs an EOF).
+    run_query \
         "Gemini" \
         "$TEMP_OUTPUT" \
         "$GEMINI_TIMEOUT_SECONDS" \
-        "$GEMINI_CMD" -p - --model "$GEMINI_MODEL"
+        "$GEMINI_CMD" -p "$FULL_QUERY" --model "$GEMINI_MODEL" </dev/null
 
     exit_code=$?
 fi

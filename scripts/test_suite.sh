@@ -430,6 +430,7 @@ test_api_mode_helpers() {
     # Default is CLI mode (all *_USE_API default to false)
     assert_exit_code_failure "Gemini defaults to CLI mode" is_api_mode "Gemini"
     assert_exit_code_failure "Claude defaults to CLI mode" is_api_mode "Claude"
+    assert_exit_code_failure "MiniMax defaults to CLI mode" is_api_mode "MiniMax"
 
     # Test get_api_key_var mapping
     local result

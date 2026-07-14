@@ -41,15 +41,35 @@ TEMP_OUTPUT=$(mktemp)
 # Check CLI prerequisite
 check_command "$KIMI_CMD" "Kimi CLI" "curl -L code.kimi.com/install.sh | bash" || exit 1
 
-# Kimi CLI uses --quiet (equivalent to --print --output-format text --final-message-only)
-# and --input-format text for piped stdin
-echo "$FULL_QUERY" | run_query \
+# Kimi takes the prompt as the -p argument (it does NOT read stdin). The old
+# `--quiet --input-format text` were NOT real flags on kimi 0.23.6 — commander
+# rejected them ("unknown option --quiet") and Kimi never ran.
+# Output format matters: `--output-format text` interleaves the model's
+# chain-of-thought (each line bulleted "• ") and a "To resume this session:"
+# footer with the actual answer, which breaks the JSON-envelope gate. stream-json
+# instead emits one JSON object per line, so the real response is the assistant
+# line's .content (extracted below). (-y/--yolo is rejected alongside -p, and kimi
+# already declines tools for advisory questions, so no auto-approve flag is used.)
+run_query \
     "Kimi" \
     "$TEMP_OUTPUT" \
     "$KIMI_TIMEOUT_SECONDS" \
-    "$KIMI_CMD" --quiet --input-format text
+    "$KIMI_CMD" -p "$FULL_QUERY" --output-format stream-json </dev/null
 
 exit_code=$?
+
+# Extract the model's response from the stream-json output: the
+# {"role":"assistant","content":...} line's .content is our JSON envelope (as a
+# string); drop kimi's {"role":"meta",...} session-resume line. -R + fromjson?
+# tolerates any non-JSON line. process_consultant_response then de-fences + parses.
+if [[ -s "$TEMP_OUTPUT" ]]; then
+    # Take the LAST assistant message's .content (robust to streaming deltas /
+    # multiple lines), tolerate non-object or non-JSON lines, and flatten a
+    # block-array content ([{type,text},...]) -- so a stream-json schema variant
+    # can't silently drop us to a persona-less confidence-5 fallback stub.
+    kimi_content=$(_kimi_extract_content "$TEMP_OUTPUT")
+    [[ -n "$kimi_content" ]] && printf '%s' "$kimi_content" > "$TEMP_OUTPUT"
+fi
 
 # --- Calculate latency ---
 END_TIME=$(get_timestamp_ms)
