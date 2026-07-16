@@ -125,14 +125,13 @@ test_suggest_json_output() {
 }
 
 # MED 6: count<2 short-circuits to install hint regardless of category.
-# Hermetic: simulate count=0 by disabling all enable flags (Ollama/API keys
-# are off by default; CLIs are gated by ENABLE_* in the new counter).
+# Hermetic: simulate count=0 by disabling all enable flags.
 test_suggest_low_count_short_circuits() {
     local out
     out=$(ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false \
-        ENABLE_KILO=false ENABLE_CURSOR=false ENABLE_AIDER=false \
-        ENABLE_AMP=false ENABLE_KIMI=false ENABLE_CLAUDE=false \
-        ENABLE_QWEN3=false ENABLE_OLLAMA=false \
+        ENABLE_CURSOR=false \
+        ENABLE_KIMI=false ENABLE_CLAUDE=false \
+        ENABLE_QWEN3=false \
         ENABLE_GLM=false ENABLE_GROK=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
         "$DOCTOR" --suggest-preset --question "How can I prevent SQL injection?" 2>/dev/null)
     assert_match 'install more CLIs' "$out" "count<2 short-circuits to install hint"
@@ -169,26 +168,20 @@ test_config_sh_aborts_without_xdg_helper() {
     assert_eq "1" "$rc" "config.sh exits 1 when get_xdg_dir is missing"
 }
 
-# HIGH 3: count gates on ENABLE_* flags. With Ollama explicitly disabled,
-# count must drop by at least 1 (assuming Ollama is installed on the host).
-# Skip the test if Ollama isn't installed (count would be unaffected).
+# HIGH 3: count gates on ENABLE_* flags. Use the shell builtin `true` as a
+# hermetic stand-in for Cursor so the test does not depend on host CLIs.
 test_count_respects_enable_flags() {
-    if ! command -v ollama >/dev/null 2>&1; then
-        ((checked++)) || true
-        echo -e "  ${C_GREEN}PASS${C_RESET}: skipped (ollama not installed; gating not observable)"
-        return 0
-    fi
     local count_with count_without
-    count_with=$(ENABLE_OLLAMA=true "$DOCTOR" --suggest-preset --question "test" --json \
+    count_with=$(CURSOR_CMD=true ENABLE_CURSOR=true "$DOCTOR" --suggest-preset --question "test" --json \
         2>/dev/null | jq -r '.consultants_available')
-    count_without=$(ENABLE_OLLAMA=false "$DOCTOR" --suggest-preset --question "test" --json \
+    count_without=$(CURSOR_CMD=true ENABLE_CURSOR=false "$DOCTOR" --suggest-preset --question "test" --json \
         2>/dev/null | jq -r '.consultants_available')
     if (( count_with > count_without )); then
         ((checked++)) || true
-        echo -e "  ${C_GREEN}PASS${C_RESET}: ENABLE_OLLAMA=false drops count ($count_with -> $count_without)"
+        echo -e "  ${C_GREEN}PASS${C_RESET}: ENABLE_CURSOR=false drops count ($count_with -> $count_without)"
     else
         ((failed++)) || true
-        echo -e "  ${C_RED}FAIL${C_RESET}: ENABLE_OLLAMA gating ignored (with=$count_with, without=$count_without)"
+        echo -e "  ${C_RED}FAIL${C_RESET}: ENABLE_CURSOR gating ignored (with=$count_with, without=$count_without)"
     fi
 }
 
@@ -260,5 +253,43 @@ test_json_includes_schema_version_and_command() {
 run_test "Test 13: self-exclusion drops count (HIGH fix)"  test_self_exclusion_reduces_count
 run_test "Test 14: --json preflights jq (MED fix)"         test_json_preflights_jq
 run_test "Test 15: --json schema_version + recommended_command (round-2)" test_json_includes_schema_version_and_command
+
+# Main doctor JSON mode must suppress human-readable sections without returning
+# non-zero from the print helper. A false `[[ ... ]] && echo` under `set -e`
+# previously aborted at print_header and emitted no JSON at all.
+test_main_json_output() {
+    local tmp out rc=0
+    tmp=$(mktemp -d)
+    out=$(HOME="$tmp" \
+        XDG_CONFIG_HOME="$tmp/config" \
+        XDG_CACHE_HOME="$tmp/cache" \
+        XDG_STATE_HOME="$tmp/state" \
+        XDG_DATA_HOME="$tmp/data" \
+        "$DOCTOR" --json 2>/dev/null) || rc=$?
+    rm -rf "$tmp"
+
+    if echo "$out" | jq empty 2>/dev/null; then
+        ((checked++)) || true
+        echo -e "  ${C_GREEN}PASS${C_RESET}: main --json output is valid JSON"
+    else
+        ((failed++)) || true
+        echo -e "  ${C_RED}FAIL${C_RESET}: main --json output is not valid JSON: $out"
+        return 0
+    fi
+
+    local version status total empty_entries
+    version=$(echo "$out" | jq -r '.doctor.version')
+    status=$(echo "$out" | jq -r '.doctor.status')
+    total=$(echo "$out" | jq -r '.doctor.checks.total')
+    empty_entries=$(echo "$out" | jq \
+        '[.doctor.issues[], .doctor.warnings[] | select(.description == "")] | length')
+    assert_match '^[0-9]+\.[0-9]+\.[0-9]+$' "$version" "main --json includes doctor version"
+    assert_match '^(healthy|degraded|unhealthy)$' "$status" "main --json includes doctor status"
+    assert_match '^[1-9][0-9]*$' "$total" "main --json includes completed checks"
+    assert_eq "0" "$empty_entries" "main --json does not synthesize empty issue/warning entries"
+    assert_match '^(0|1)$' "$rc" "main --json exit code reflects health without aborting"
+}
+
+run_test "Test 16: main --json emits a complete diagnostic" test_main_json_output
 
 test_summary "doctor"

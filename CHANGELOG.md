@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.21.1] - 2026-07-16
+
+### Changed
+- **Kimi now runs on K3.** The default and every quality tier use the `kimi-code/k3` alias. The query adapter now passes `--model "$KIMI_MODEL"` explicitly, so the configured project model is actually used instead of silently inheriting the user's Kimi CLI default.
+- **The supported panel is now 11 consultants.** Kilo, Aider, Amp, and Ollama have been removed from the runtime roster, presets, routing, personas, doctor/preflight checks, debate and synthesis paths, CLI updater, configuration surfaces, tests, and current documentation. Their query adapters are no longer shipped in the npm package.
+
+### Removed
+- **Kilo** (`kilocode`, `ENABLE_KILO`, `KILO_*`).
+- **Aider** (`aider`, `ENABLE_AIDER`, `AIDER_*`).
+- **Amp** (`amp`, `ENABLE_AMP`, `AMP_*`).
+- **Ollama** (`ollama`, `ENABLE_OLLAMA`, `OLLAMA_*`, including the `local` preset).
+
+Existing environments may keep obsolete variables safely, but they are ignored. Remove them from user configuration; use one of the remaining 11 consultants instead.
+
 ## [2.21.0] - 2026-07-14
 
 ### Added

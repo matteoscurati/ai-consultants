@@ -44,7 +44,6 @@ test_detect() {
     detect_method vibe   __absent__; assert_eq "uv"        "$DETECT_METHOD" "vibe -> uv"
     detect_method agy    __absent__; assert_eq "installer" "$DETECT_METHOD" "agy -> installer"
     detect_method agent  __absent__; assert_eq "installer" "$DETECT_METHOD" "cursor -> installer"
-    detect_method amp    __absent__; assert_eq "self"      "$DETECT_METHOD" "amp -> self-update"
 
     # Nothing owns it and there is no self/installer/manual path -> unknown.
     _NPM_LS=""; _BREW_CASK_LS=""; _UV_LS=""

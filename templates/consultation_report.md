@@ -56,11 +56,11 @@
 
 ## Consultant Comparison
 
-| Aspect | Gemini | Codex | Mistral | Kilo |
+| Aspect | Gemini | Codex | Mistral | Cursor |
 |--------|--------|-------|---------|------|
-| **Persona** | The Architect | The Pragmatist | The Devil's Advocate | The Innovator |
-| **Approach** | {{GEMINI_APPROACH}} | {{CODEX_APPROACH}} | {{MISTRAL_APPROACH}} | {{KILO_APPROACH}} |
-| **Confidence** | {{GEMINI_CONFIDENCE}}/10 | {{CODEX_CONFIDENCE}}/10 | {{MISTRAL_CONFIDENCE}}/10 | {{KILO_CONFIDENCE}}/10 |
+| **Persona** | The Architect | The Pragmatist | The Devil's Advocate | The Integrator |
+| **Approach** | {{GEMINI_APPROACH}} | {{CODEX_APPROACH}} | {{MISTRAL_APPROACH}} | {{CURSOR_APPROACH}} |
+| **Confidence** | {{GEMINI_CONFIDENCE}}/10 | {{CODEX_CONFIDENCE}}/10 | {{MISTRAL_CONFIDENCE}}/10 | {{CURSOR_CONFIDENCE}}/10 |
 
 ### Consensus Levels
 
@@ -205,36 +205,36 @@
 
 ---
 
-### Kilo - The Innovator
+### Cursor - The Integrator
 
-**Confidence:** {{KILO_CONFIDENCE}}/10
+**Confidence:** {{CURSOR_CONFIDENCE}}/10
 
-**Approach:** {{KILO_APPROACH}}
+**Approach:** {{CURSOR_APPROACH}}
 
 **Summary:**
-> {{KILO_SUMMARY}}
+> {{CURSOR_SUMMARY}}
 
-{{#IF KILO_CODE}}
+{{#IF CURSOR_CODE}}
 **Code:**
-```{{KILO_LANGUAGE}}
-{{KILO_CODE}}
+```{{CURSOR_LANGUAGE}}
+{{CURSOR_CODE}}
 ```
 {{/IF}}
 
 **Pros:**
-{{#EACH KILO_PROS}}
+{{#EACH CURSOR_PROS}}
 - {{.}}
 {{/EACH}}
 
 **Cons:**
-{{#EACH KILO_CONS}}
+{{#EACH CURSOR_CONS}}
 - {{.}}
 {{/EACH}}
 
 <details>
 <summary>Full Response</summary>
 
-{{KILO_DETAILED}}
+{{CURSOR_DETAILED}}
 
 </details>
 
@@ -274,7 +274,7 @@
 | `{{OUTPUT_DIR}}/gemini.json` | Gemini response |
 | `{{OUTPUT_DIR}}/codex.json` | Codex response |
 | `{{OUTPUT_DIR}}/mistral.json` | Mistral response |
-| `{{OUTPUT_DIR}}/kilo.json` | Kilo response |
+| `{{OUTPUT_DIR}}/cursor.json` | Cursor response |
 | `{{OUTPUT_DIR}}/voting.json` | Voting report |
 | `{{OUTPUT_DIR}}/synthesis.json` | Automatic synthesis |
 
@@ -310,10 +310,10 @@
 </details>
 
 <details>
-<summary>Kilo Raw JSON</summary>
+<summary>Cursor Raw JSON</summary>
 
 ```json
-{{KILO_RAW}}
+{{CURSOR_RAW}}
 ```
 
 </details>

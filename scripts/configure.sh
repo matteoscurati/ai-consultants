@@ -39,16 +39,16 @@ NON_INTERACTIVE=false
 OUTPUT_FILE="$PROJECT_ROOT/.env"
 
 # CLI Agents: name|command|install_hint|persona
-CLI_AGENT_NAMES=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider")
-CLI_AGENT_CMDS=("agy" "codex" "vibe" "kilocode" "agent" "aider")
-CLI_AGENT_HINTS=("curl -fsSL https://antigravity.google/cli/install.sh | bash" "npm install -g @openai/codex" "pip install mistral-vibe" "npm install -g @kilocode/cli" "See: https://cursor.com/" "pip install aider-chat")
-CLI_AGENT_PERSONAS=("The Architect" "The Pragmatist" "The Devil's Advocate" "The Innovator" "The Integrator" "The Pair Programmer")
+CLI_AGENT_NAMES=("Gemini" "Codex" "Mistral" "Cursor")
+CLI_AGENT_CMDS=("agy" "codex" "vibe" "agent")
+CLI_AGENT_HINTS=("curl -fsSL https://antigravity.google/cli/install.sh | bash" "npm install -g @openai/codex" "pip install mistral-vibe" "See: https://cursor.com/")
+CLI_AGENT_PERSONAS=("The Architect" "The Pragmatist" "The Devil's Advocate" "The Integrator")
 
 # API Agents: name|key_var|api_url|model|persona
 API_AGENT_NAMES=("Qwen3" "GLM" "Grok" "DeepSeek")
 API_AGENT_KEY_VARS=("QWEN3_API_KEY" "GLM_API_KEY" "GROK_API_KEY" "DEEPSEEK_API_KEY")
 API_AGENT_URLS=("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation" "https://api.z.ai/api/coding/paas/v4/chat/completions" "https://api.x.ai/v1/chat/completions" "https://api.deepseek.com/v1/chat/completions")
-API_AGENT_MODELS=("qwen-max" "glm-4" "grok-4.20-0309-reasoning" "deepseek-reasoner")
+API_AGENT_MODELS=("qwen3.7-max" "glm-5.2" "grok-4.5" "deepseek-v4-pro")
 API_AGENT_PERSONAS=("The Analyst" "The Methodologist" "The Provocateur" "The Code Specialist")
 
 # State arrays (parallel to CLI_AGENT_NAMES)
@@ -751,32 +751,29 @@ HEADER
 # MODEL CONFIGURATION
 # =============================================================================
 
-GEMINI_MODEL=gemini-2.5-pro
+GEMINI_MODEL=Gemini 3.1 Pro (High)
 GEMINI_TIMEOUT=180
 
-CODEX_MODEL=
+CODEX_MODEL=gpt-5.5
 CODEX_TIMEOUT=180
 
+MISTRAL_MODEL=mistral-large-3
 MISTRAL_TIMEOUT=180
 
-KILO_TIMEOUT=180
-
+CURSOR_MODEL=composer-2.5
 CURSOR_TIMEOUT=180
 
-AIDER_MODEL=
-AIDER_TIMEOUT=180
-
 # API models
-QWEN3_MODEL=qwen-max
+QWEN3_MODEL=qwen3.7-max
 QWEN3_TIMEOUT=180
 
-GLM_MODEL=glm-4
+GLM_MODEL=glm-5.2
 GLM_TIMEOUT=180
 
-GROK_MODEL=grok-4.20-0309-reasoning
+GROK_MODEL=grok-4.5
 GROK_TIMEOUT=180
 
-DEEPSEEK_MODEL=deepseek-reasoner
+DEEPSEEK_MODEL=deepseek-v4-pro
 DEEPSEEK_TIMEOUT=180
 
 # =============================================================================

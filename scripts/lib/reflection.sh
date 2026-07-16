@@ -71,7 +71,6 @@ _exec_consultant() {
         Gemini)  echo "$prompt" | "$GEMINI_CMD" -p - --model "$GEMINI_MODEL" 2>/dev/null ;;
         Codex)   "$CODEX_CMD" exec --skip-git-repo-check "$prompt" 2>/dev/null ;;
         Mistral) "$MISTRAL_CMD" --prompt "$prompt" --auto-approve 2>/dev/null ;;
-        Kilo)    "$KILO_CMD" --auto --json "$prompt" 2>/dev/null ;;
         *)       return 1 ;;
     esac
 }

@@ -233,7 +233,7 @@ test_get_consultant_error_reason() {
 
     # Real .err from run_query: log_error prepends "[HH:MM:SS] [LEVEL] [Name]
     # All N attempts failed:" -- strip that boilerplate, keep the CLI's own error.
-    printf '[12:54:32] [ERROR] [Amp] All 2 attempts failed: Error: Out of credits\n' > "$ef"
+    printf '[12:54:32] [ERROR] [Cursor] All 2 attempts failed: Error: Out of credits\n' > "$ef"
     assert_equal "Error: Out of credits" "$(get_consultant_error_reason "$ef")" \
         "strips the log-prefix boilerplate, keeps the real reason"
 
@@ -303,6 +303,26 @@ test_grade_quorum() {
     assert_equal "FAILED"   "$(grade_quorum 1 4 2)" "below min -> FAILED"
     assert_equal "MET"      "$(grade_quorum 2 2 2)" "exactly min and all responded -> MET"
     assert_equal "FAILED"   "$(grade_quorum 0 3 2)" "zero responses -> FAILED"
+}
+
+test_run_query_failure_diagnostic() {
+    echo -e "\n${C_YELLOW}Testing run_query() failure diagnostics${C_RESET}"
+    local dir logs rc
+    dir=$(mktemp -d)
+
+    if logs=$(MAX_RETRIES=1 RETRY_DELAY_SECONDS=0 run_query \
+        "Probe" "$dir/output" 5 bash -c 'echo "401 invalid key" >&2; exit 7' \
+        </dev/null 2>&1); then
+        rc=0
+    else
+        rc=$?
+    fi
+
+    assert_equal "1" "$rc" "failed command returns failure after retry handling"
+    assert_contains "Error (code: 7): 401 invalid key" "$logs" "underlying CLI error is logged"
+    assert_contains "All 1 attempts failed: 401 invalid key" "$logs" "final diagnostic preserves the cause"
+
+    rm -rf "$dir"
 }
 
 test_ping_consultant() {

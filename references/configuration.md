@@ -8,6 +8,10 @@ Configuration sources, in order of precedence (highest wins):
 4. **`config.sh` defaults** — the `${VAR:-default}` fallbacks
 5. **Hardcoded defaults** in individual scripts
 
+For goal-oriented, copy-paste configurations, start with
+[`docs/RECIPES.md`](../docs/RECIPES.md). This file is the variable reference;
+[`scripts/config.sh`](../scripts/config.sh) is the executable source of truth.
+
 ## User Config Dir (v2.12+)
 
 Persistent overrides live in `~/.config/ai-consultants/`. The directory and starter files are scaffolded by:
@@ -100,12 +104,32 @@ AST extractors are dedicated for **Python, JavaScript, TypeScript, Bash, Go**. O
 ## Core Features
 
 ```bash
-ENABLE_DEBATE=true           # Multi-agent debate
+ENABLE_PERSONA=true          # Give each consultant its configured role
 ENABLE_SYNTHESIS=true        # Automatic synthesis
+SYNTHESIS_CMD=claude         # CLI used to synthesize the panel
+ENABLE_DEBATE=false          # Multi-agent debate
+DEBATE_ROUNDS=1              # Used by ORCHESTRATION_MODE=fixed
 ENABLE_PEER_REVIEW=false     # Anonymous peer review
-ENABLE_PANIC_MODE=auto       # Auto-rigor for uncertainty
+PEER_REVIEW_MIN_RESPONSES=3  # Minimum panel size for peer review
+ENABLE_REFLECTION=false      # Generate -> critique -> refine
+REFLECTION_CYCLES=1
+ENABLE_PANIC_MODE=auto       # auto | always | never
 ENABLE_SMART_ROUTING=false   # Category-based consultant selection
 ENABLE_COST_TRACKING=true    # Track API usage costs
+```
+
+`SYNTHESIS_CMD` may be `claude`, `codex`, `gemini`, `cursor`, `mistral`,
+`kimi`, `qwen3`, or `minimax`. The invoking agent is excluded automatically;
+set `INVOKING_AGENT` only for direct integrations that need to declare their
+host explicitly.
+
+Panic mode adds rigor when confidence is low or uncertainty language appears:
+
+```bash
+ENABLE_PANIC_MODE=auto          # auto | always | never
+PANIC_CONFIDENCE_THRESHOLD=5    # trigger below this average confidence
+PANIC_EXTRA_DEBATE_ROUNDS=1     # additional rounds after a trigger
+PANIC_KEYWORDS='uncertain|maybe|not sure|possibly|unclear|depends'
 ```
 
 ## Dynamic Orchestration (v2.16+)
@@ -120,6 +144,9 @@ CONVERGENCE_MAX_ROUNDS=4             # hard cap on debate rounds
 CONVERGENCE_TARGET_CONSENSUS=75      # consensus score (0-100) that counts as converged
 CONVERGENCE_STALL_EPSILON=5          # min per-round gain; below it the loop stops "stalled"
 ENABLE_ADVERSARIAL_VERIFY=true       # adversarial shape forces a critique round + peer review
+ENABLE_DEBATE_OPTIMIZATION=true      # skip optional debate when answers already agree
+DEBATE_CONFIDENCE_SPREAD_THRESHOLD=2 # activate debate above this confidence spread
+DEBATE_USE_SUMMARIES=true            # pass summaries instead of full answers to later rounds
 ```
 
 **Shapes** (auto-selected, or force one via `ORCHESTRATION_MODE=<shape>`):
@@ -164,6 +191,19 @@ STANCE_TIMEOUT=60              # seconds for the stance-generation call (guards 
 
 The generated options are written to `stance_options.json` in the output dir.
 
+## Classification and Smart Routing
+
+```bash
+ENABLE_CLASSIFICATION=true      # Classify every question before routing
+CLASSIFICATION_MODE=pattern     # pattern (fast) | llm (more accurate, costs a call)
+ENABLE_SMART_ROUTING=false      # Select consultants using the affinity matrix
+MIN_AFFINITY=7                  # Minimum category score, from 1 to 10
+```
+
+The bundled matrix lives in [`references/affinity.json`](affinity.json). Set
+`AFFINITY_FILE` or place `affinity.json` in the user config directory to
+override it.
+
 ## CLI/API Mode Switching (v2.6+)
 
 Six consultants support switching between CLI and API mode. **The default is the CLI** for every consultant that has one — API mode is opt-in (for CLI-less models or an explicit choice). When API mode is enabled, the CLI is not used.
@@ -190,6 +230,9 @@ MINIMAX_USE_API=false        # Use mmx CLI (default) or MiniMax API
 | Mistral | `MISTRAL_API_KEY` | Mistral API key |
 | Qwen3 | `QWEN3_API_KEY` | DashScope API key |
 | MiniMax | `MINIMAX_API_KEY` | MiniMax API key (API mode only; the mmx CLI uses OAuth) |
+| GLM | `GLM_API_KEY` | Required when `ENABLE_GLM=true` |
+| Grok | `GROK_API_KEY` | Required when `ENABLE_GROK=true` |
+| DeepSeek | `DEEPSEEK_API_KEY` | Required when `ENABLE_DEEPSEEK=true` |
 
 ## Consultant Toggles and Models
 
@@ -198,17 +241,11 @@ MINIMAX_USE_API=false        # Use mmx CLI (default) or MiniMax API
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_MISTRAL=true
-ENABLE_KILO=true
 ENABLE_CURSOR=true
-ENABLE_AMP=true              # Amp CLI - The Systems Thinker
 ENABLE_KIMI=true             # Kimi CLI - The Eastern Sage
 ENABLE_QWEN3=true            # Qwen CLI/API - The Analyst
 ENABLE_MINIMAX=true          # MiniMax CLI/API (mmx) - The Pragmatic Optimizer
 ENABLE_CLAUDE=true           # Claude CLI - The Synthesizer (auto-excluded under Claude Code)
-
-# Off by default
-ENABLE_AIDER=false           # Aider CLI - The Pair Programmer
-ENABLE_OLLAMA=false          # Ollama - The Local Expert
 
 # API-only consultants (off by default - require API keys)
 ENABLE_GLM=false
@@ -223,18 +260,17 @@ GEMINI_MODEL=Gemini 3.1 Pro (High)   # agy CLI display name; API mode uses GEMIN
 CODEX_MODEL=gpt-5.5
 CLAUDE_MODEL=claude-opus-4-8
 MISTRAL_MODEL=mistral-large-3
-KILO_MODEL=auto
 CURSOR_MODEL=composer-2.5
-AIDER_MODEL=qwen3-coder:free
-AMP_MODEL=amp
-KIMI_MODEL=kimi-code/kimi-for-coding
+KIMI_MODEL=kimi-code/k3
 QWEN3_MODEL=qwen3.7-max
 GLM_MODEL=glm-5.2
-GROK_MODEL=grok-4.3
+GROK_MODEL=grok-4.5
 DEEPSEEK_MODEL=deepseek-v4-pro
 MINIMAX_MODEL=MiniMax-M2.7
-OLLAMA_MODEL=hf.co/prithivMLmods/VibeThinker-3B-GGUF
 ```
+
+`KIMI_MODEL` is passed directly to `kimi --model`, so `kimi-code/k3` overrides
+any older default stored in the user's Kimi CLI configuration.
 
 ## Model Quality Tiers (v2.5)
 
@@ -244,15 +280,6 @@ source scripts/config.sh
 apply_model_tier "premium"   # Latest flagship models
 apply_model_tier "standard"  # Good quality at reasonable cost
 apply_model_tier "economy"   # Optimized for speed and low cost
-```
-
-## Ollama (Local Models)
-
-```bash
-ENABLE_OLLAMA=true
-OLLAMA_MODEL=hf.co/prithivMLmods/VibeThinker-3B-GGUF
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_TIMEOUT=300
 ```
 
 ## Budget Management (v2.4)
@@ -270,9 +297,27 @@ ENABLE_SEMANTIC_CACHE=true   # Cache responses by query fingerprint
 CACHE_TTL_HOURS=24           # Cache expiration
 ENABLE_RESPONSE_LIMITS=false # Limit output tokens by category
 ENABLE_COST_AWARE_ROUTING=false  # Route simple queries to cheaper models
-ENABLE_DEBATE_OPTIMIZATION=false # Skip debate if all agree
+ENABLE_DEBATE_OPTIMIZATION=true  # Skip optional debate if all agree
 ENABLE_COMPACT_REPORT=true   # Summaries only in reports
 ```
+
+`ENABLE_DEBATE_OPTIMIZATION` defaults to `true`; set it to `false` only when
+every configured fixed debate round must run.
+
+## Health Gate, Quorum, and Retries
+
+```bash
+ENABLE_HEALTH_GATE=false     # Ping each selected consultant before Round 1
+HEALTH_GATE_TIMEOUT=30       # Maximum seconds for each parallel ping
+QUORUM_MIN=2                 # Fewer successful responses => failed quorum
+QUORUM_ACTION=warn           # warn | stop
+MAX_RETRIES=2
+RETRY_DELAY_SECONDS=5
+```
+
+The health gate adds one small call per selected consultant. It drops dead or
+unauthenticated consultants before the full query; `QUORUM_ACTION=stop` aborts
+when the remaining panel is smaller than `QUORUM_MIN`.
 
 ## Capability-Aware Routing & Voting (v2.20+)
 
@@ -299,9 +344,12 @@ RETRY_DELAY_SECONDS=5
 GEMINI_TIMEOUT=240
 CODEX_TIMEOUT=180
 MISTRAL_TIMEOUT=180
-KILO_TIMEOUT=180
 CURSOR_TIMEOUT=180
-AMP_TIMEOUT=180
 KIMI_TIMEOUT=180
-OLLAMA_TIMEOUT=300           # Longer for local inference
+CLAUDE_TIMEOUT=240
+QWEN3_TIMEOUT=180
+MINIMAX_TIMEOUT=180
+GLM_TIMEOUT=180
+GROK_TIMEOUT=180
+DEEPSEEK_TIMEOUT=180
 ```

@@ -13,11 +13,9 @@ AI Consultants follows the open [Agent Skills standard](https://agentskills.io),
 | **Claude Code** | `~/.claude/skills/` | ✅ Native |
 | **OpenAI Codex CLI** | `~/.codex/skills/` | ✅ Compatible |
 | **Gemini CLI** | `~/.gemini/skills/` | ✅ Compatible |
-| **Kilo Code** | Via agentskills | ✅ Compatible |
 | **GitHub Copilot** | Via SkillPort | ✅ Via AGENTS.md |
 | **Cursor** | Via SkillPort | ✅ Via SkillPort |
 | **Windsurf** | Via SkillPort | ✅ Via SkillPort |
-| **Aider** | Via AGENTS.md | ✅ Via AGENTS.md |
 
 ---
 
@@ -155,7 +153,7 @@ skillport list                    # Should show ai-consultants
 skillport show ai-consultants
 ```
 
-SkillPort also generates `AGENTS.md` for agents that use that format (Copilot, Cursor, Aider).
+SkillPort also generates `AGENTS.md` for agents that use that format (Copilot and Cursor).
 
 ---
 
@@ -177,7 +175,7 @@ git clone https://github.com/matteoscurati/ai-consultants.git ~/.{agent}/skills/
 | File | Purpose |
 |------|---------|
 | `SKILL.md` | Primary skill specification (agentskills.io format) |
-| `AGENTS.md` | Alternative discovery format (Copilot/Cursor/Aider) |
+| `AGENTS.md` | Alternative discovery format (Copilot/Cursor) |
 | `scripts/` | Executable scripts for consultations |
 
 ---
@@ -280,30 +278,12 @@ export MISTRAL_API_KEY="your-key"
 
 Get API key: [Mistral Console](https://console.mistral.ai/api-keys/)
 
-### Kilo CLI (The Innovator)
-
-```bash
-npm install -g @kilocode/cli
-
-# Authentication
-kilocode auth login
-```
-
 ### Cursor CLI (The Integrator)
 
 ```bash
 curl https://cursor.com/install -fsS | bash
 
 # Uses Cursor subscription - no additional key needed
-```
-
-### Aider CLI (The Pair Programmer)
-
-```bash
-pip install aider-chat
-
-# Authentication
-export OPENAI_API_KEY="sk-your-key"  # Or other provider
 ```
 
 ### Claude CLI (The Synthesizer) - v2.2
@@ -333,30 +313,21 @@ Get API key: [Alibaba Cloud DashScope](https://dashscope.console.aliyun.com/)
 
 **CLI/API Mode**: Qwen3 defaults to CLI mode (`QWEN3_USE_API=false`). Set to `true` to use the DashScope API.
 
-### Amp CLI (The Systems Thinker) - v2.8
-
-```bash
-# One-liner installation
-curl -fsSL https://ampcode.com/install.sh | bash
-
-# Verify installation
-amp --version
-
-# Authentication
-export AMP_API_KEY="your-amp-key"
-```
-
-Get API key: [Amp Code](https://ampcode.com)
-
-**Usage**: Amp CLI uses `-x` flag for non-interactive execution (required for script integration).
-
-### Kimi CLI (The Eastern Sage) - v2.9
+### Kimi K3 via Kimi Code CLI (The Eastern Sage) - v2.21.1
 
 ```bash
 curl -L code.kimi.com/install.sh | bash
 ```
 
 Verify: `kimi --version`
+
+AI Consultants pins K3 for every consultation, independently of the model in
+your user-level Kimi configuration:
+
+```bash
+export KIMI_MODEL=kimi-code/k3
+./scripts/query_kimi.sh "Review this API boundary"
+```
 
 ### MiniMax (CLI via mmx) - v2.21
 
@@ -373,117 +344,6 @@ Verify: `mmx --version`
 
 ---
 
-## Ollama (Local Models) - v2.2
-
-Run consultations 100% locally with zero API cost and full privacy.
-
-### Installation
-
-**macOS/Linux:**
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-**macOS (Homebrew):**
-```bash
-brew install ollama
-```
-
-**Verify installation:**
-```bash
-ollama --version
-```
-
-### Start Server
-
-Ollama needs a running server:
-
-```bash
-# Start in background
-ollama serve &
-
-# Or start manually before consultation
-ollama serve
-```
-
-### Pull Models
-
-```bash
-# Recommended for general use
-ollama pull llama3.2
-
-# For code-specific tasks
-ollama pull codellama
-ollama pull deepseek-coder
-
-# Smaller/faster options
-ollama pull mistral
-ollama pull hf.co/prithivMLmods/VibeThinker-3B-GGUF
-```
-
-### Configuration
-
-**Environment variables:**
-```bash
-# Enable Ollama consultant
-export ENABLE_OLLAMA=true
-
-# Choose model (default: hf.co/prithivMLmods/VibeThinker-3B-GGUF)
-export OLLAMA_MODEL=hf.co/prithivMLmods/VibeThinker-3B-GGUF
-
-# Server URL (default: localhost)
-export OLLAMA_HOST=http://localhost:11434
-
-# Timeout (default: 300s - longer for local inference)
-export OLLAMA_TIMEOUT=300
-```
-
-### Usage
-
-**Bash:**
-```bash
-# Use local preset (Ollama only)
-./scripts/consult_all.sh --preset local "Your question"
-
-# Add Ollama to other presets
-ENABLE_OLLAMA=true ./scripts/consult_all.sh --preset balanced "Question"
-```
-
-### Multi-Model Local
-
-Query multiple local models:
-
-```bash
-export OLLAMA_MODELS="llama3.2,codellama,mistral"
-./scripts/consult_all.sh --preset local "Question"
-```
-
-### Troubleshooting Ollama
-
-**Server not running:**
-```bash
-# Check if running
-curl http://localhost:11434/api/tags
-
-# Start server
-ollama serve
-```
-
-**Model not found:**
-```bash
-# List available models
-ollama list
-
-# Pull missing model
-ollama pull llama3.2
-```
-
-**Slow inference:**
-- Use smaller models (`mistral`, `qwen2.5-coder:7b`)
-- Increase timeout: `OLLAMA_TIMEOUT=600`
-
----
-
 ## Self-Exclusion (v2.2)
 
 When AI Consultants is invoked from a specific AI agent, that agent is automatically excluded from the consultant panel to prevent self-consultation.
@@ -492,14 +352,13 @@ When AI Consultants is invoked from a specific AI agent, that agent is automatic
 
 | Invoking Agent | Excluded Consultant | Other Consultants |
 |----------------|---------------------|-------------------|
-| Claude Code | Claude | Gemini, Codex, Mistral, Kilo, Cursor, Amp, Qwen, etc. |
-| Codex CLI | Codex | Claude, Gemini, Mistral, Kilo, Cursor, Amp, Qwen, etc. |
-| Gemini CLI | Gemini | Claude, Codex, Mistral, Kilo, Cursor, Amp, Qwen, etc. |
-| Cursor | Cursor | Claude, Gemini, Codex, Mistral, Kilo, Amp, Qwen, etc. |
-| Amp CLI | Amp | Claude, Gemini, Codex, Mistral, Kilo, Cursor, Qwen, etc. |
-| Qwen CLI | Qwen3 | Claude, Gemini, Codex, Mistral, Kilo, Cursor, Amp, etc. |
+| Claude Code | Claude | Gemini, Codex, Mistral, Cursor, Qwen, etc. |
+| Codex CLI | Codex | Claude, Gemini, Mistral, Cursor, Qwen, etc. |
+| Gemini CLI | Gemini | Claude, Codex, Mistral, Cursor, Qwen, etc. |
+| Cursor | Cursor | Claude, Gemini, Codex, Mistral, Qwen, etc. |
+| Qwen CLI | Qwen3 | Claude, Gemini, Codex, Mistral, Cursor, etc. |
 | Kimi CLI | Kimi | All except Kimi |
-| Bash (direct) | None | All enabled consultants (up to 15) |
+| Bash (direct) | None | All enabled consultants (up to 11) |
 
 ### Automatic Detection
 
@@ -588,10 +447,9 @@ Presets let you quickly configure how many consultants to use.
 | Preset | Consultants | Use Case |
 |--------|-------------|----------|
 | `minimal` | 2 (Gemini + Codex) | Quick, cheap |
-| `balanced` | 4 (+ Mistral + Kilo) | Standard |
-| `thorough` | 5 (+ Cursor) | Comprehensive |
-| `high-stakes` | All + debate | Critical decisions |
-| `local` | Ollama only | Privacy |
+| `balanced` | 4 (+ Mistral + Cursor) | Standard |
+| `thorough` | 4 | Comprehensive |
+| `high-stakes` | Expanded panel + debate | Critical decisions |
 | `security` | Security-focused + debate | Security reviews |
 | `cost-capped` | Budget-friendly | Low cost |
 
@@ -648,6 +506,51 @@ DEFAULT_STRATEGY=risk_averse
 
 ---
 
+## Ready-to-run configurations
+
+These examples can be prefixed to one command or saved in
+`~/.config/ai-consultants/.env`.
+
+### Dynamic debate
+
+```bash
+ENABLE_DEBATE=true \
+ORCHESTRATION_MODE=converge \
+CONVERGENCE_MAX_ROUNDS=4 \
+CONVERGENCE_TARGET_CONSENSUS=75 \
+ai-consultants --strategy risk_averse \
+  "Should this service use an event log or mutable relational state?"
+```
+
+### Fixed two-round debate
+
+```bash
+ENABLE_DEBATE=true \
+ORCHESTRATION_MODE=fixed \
+DEBATE_ROUNDS=2 \
+ENABLE_DEBATE_OPTIMIZATION=false \
+ai-consultants "Review this migration plan" docs/migration.md@PRIMARY
+```
+
+### Security gate with a required quorum
+
+```bash
+ENABLE_DEBATE=true \
+ORCHESTRATION_MODE=adversarial \
+ENABLE_PEER_REVIEW=true \
+ENABLE_HEALTH_GATE=true \
+QUORUM_MIN=3 \
+QUORUM_ACTION=stop \
+ai-consultants --preset security --strategy security_first \
+  "Find authentication bypasses" src/auth.ts@PRIMARY
+```
+
+More scenarios—including tournament, exhaustive audit, CLI-only, hybrid API,
+hard-budget, semantic-consensus, and large-context runs—are in
+[`docs/RECIPES.md`](RECIPES.md).
+
+---
+
 ## Environment Configuration
 
 ### Using .env file
@@ -659,15 +562,12 @@ cp .env.example .env
 Edit `.env`:
 
 ```bash
-# Enable/disable consultants (15 available)
+# Enable/disable consultants (11 available)
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_CLAUDE=false    # Auto-excluded when invoked from Claude Code
 ENABLE_MISTRAL=false
-ENABLE_KILO=false
 ENABLE_CURSOR=false
-ENABLE_AIDER=false
-ENABLE_AMP=false       # v2.8: The Systems Thinker
 ENABLE_QWEN3=false     # v2.7: The Analyst (CLI/API)
 ENABLE_GLM=false
 ENABLE_GROK=false
@@ -675,17 +575,15 @@ ENABLE_DEEPSEEK=false
 ENABLE_KIMI=true
 ENABLE_MINIMAX=true
 MINIMAX_API_KEY=your-key
-ENABLE_OLLAMA=true
 
 # Self-exclusion (v2.2)
 INVOKING_AGENT=unknown  # Set automatically by slash commands
 
 # API Keys
-GOOGLE_API_KEY=your-key
+GEMINI_API_KEY=your-key
 OPENAI_API_KEY=sk-your-key
 MISTRAL_API_KEY=your-key
 ANTHROPIC_API_KEY=sk-ant-your-key
-AMP_API_KEY=your-amp-key
 QWEN3_API_KEY=your-dashscope-key
 
 # CLI/API Mode Switching (v2.6+)
@@ -695,18 +593,20 @@ CODEX_USE_API=false
 CLAUDE_USE_API=false
 MISTRAL_USE_API=false
 QWEN3_USE_API=false    # Default: CLI mode
+MINIMAX_USE_API=false  # Default: mmx CLI mode
 
 # Defaults (v2.8)
 DEFAULT_PRESET=balanced
 DEFAULT_STRATEGY=majority
 
-# Ollama
-OLLAMA_MODEL=hf.co/prithivMLmods/VibeThinker-3B-GGUF
-
 # Features
 ENABLE_DEBATE=false
 ENABLE_SYNTHESIS=true
 ENABLE_PANIC_MODE=auto
+ORCHESTRATION_MODE=auto
+ENABLE_HEALTH_GATE=false
+QUORUM_MIN=2
+QUORUM_ACTION=warn
 
 # Budget (v2.4)
 ENABLE_BUDGET_LIMIT=false
@@ -725,22 +625,15 @@ Example configurations:
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_MISTRAL=false
-ENABLE_KILO=false
+ENABLE_CURSOR=false
 ```
 
-**OpenAI + Local:**
+**OpenAI + Anthropic:**
 ```bash
 ENABLE_CODEX=true
-ENABLE_OLLAMA=true
+ENABLE_CLAUDE=true
 ENABLE_GEMINI=false
 ENABLE_MISTRAL=false
-```
-
-**Local only:**
-```bash
-ENABLE_OLLAMA=true
-OLLAMA_MODELS="llama3.2,codellama"
-# All others false
 ```
 
 ---
@@ -756,7 +649,6 @@ OLLAMA_MODELS="llama3.2,codellama"
 Checks:
 - CLI tools installed
 - API keys configured
-- Ollama server running
 - Configuration valid
 
 **Auto-fix issues:**
@@ -775,9 +667,7 @@ Expected output:
 [OK] jq installed
 [OK] Gemini CLI installed and authenticated
 [OK] Codex CLI installed and authenticated
-[OK] Ollama server running
-
-Status: Ready (3/4 consultants available)
+Status: Ready
 ```
 
 ### Setup Wizard (Bash)
@@ -828,14 +718,13 @@ Increase timeout in `.env`:
 ```bash
 GEMINI_TIMEOUT=300
 CODEX_TIMEOUT=300
-OLLAMA_TIMEOUT=600  # Local models need more time
 ```
 
 ### "Less than 2 consultants" error
 
 Either:
 1. Install another CLI
-2. Enable Ollama for local inference
+2. Configure an API-backed consultant
 3. Run `./scripts/doctor.sh --fix`
 
 ### Claude Code Issues

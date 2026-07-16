@@ -155,14 +155,6 @@ check_consultants() {
         echo "        Install: pip install mistral-vibe"
     fi
 
-    # Kilo
-    if check_cli "Kilo" "$KILO_CMD" "npm install -g @kilocode/cli"; then
-        status_ok "Kilo CLI installed"
-    else
-        status_warn "Kilo CLI not found"
-        echo "        Install: npm install -g @kilocode/cli"
-    fi
-
     # Cursor
     if check_cli "Cursor" "$CURSOR_CMD" "curl https://cursor.com/install -fsS | bash"; then
         status_ok "Cursor CLI installed"
@@ -209,16 +201,6 @@ test_authentication() {
         status_skip "Mistral (not installed)"
     fi
 
-    # Kilo
-    if test_cli_auth "Kilo" "$KILO_CMD" "--version"; then
-        status_ok "Kilo authenticated"
-    elif [[ "$(map_get "CLI_STATUS" "Kilo")" == "installed" ]]; then
-        status_fail "Kilo auth failed"
-        echo "        Run: kilocode auth login"
-    else
-        status_skip "Kilo (not installed)"
-    fi
-
     # Cursor
     if test_cli_auth "Cursor" "$CURSOR_CMD" "--help"; then
         status_ok "Cursor authenticated"
@@ -240,13 +222,11 @@ generate_config() {
     local gemini_enabled="false"
     local codex_enabled="false"
     local mistral_enabled="false"
-    local kilo_enabled="false"
     local cursor_enabled="false"
 
     [[ "$(map_get "CLI_AUTH_STATUS" "Gemini")" == "authenticated" ]] && gemini_enabled="true"
     [[ "$(map_get "CLI_AUTH_STATUS" "Codex")" == "authenticated" ]] && codex_enabled="true"
     [[ "$(map_get "CLI_AUTH_STATUS" "Mistral")" == "authenticated" ]] && mistral_enabled="true"
-    [[ "$(map_get "CLI_AUTH_STATUS" "Kilo")" == "authenticated" ]] && kilo_enabled="true"
     [[ "$(map_get "CLI_AUTH_STATUS" "Cursor")" == "authenticated" ]] && cursor_enabled="true"
 
     echo "  Based on your setup, recommended settings:"
@@ -254,7 +234,6 @@ generate_config() {
     echo -e "  ${BOLD}ENABLE_GEMINI=${gemini_enabled}${RESET}"
     echo -e "  ${BOLD}ENABLE_CODEX=${codex_enabled}${RESET}"
     echo -e "  ${BOLD}ENABLE_MISTRAL=${mistral_enabled}${RESET}"
-    echo -e "  ${BOLD}ENABLE_KILO=${kilo_enabled}${RESET}"
     echo -e "  ${BOLD}ENABLE_CURSOR=${cursor_enabled}${RESET}"
     echo ""
 
@@ -270,7 +249,7 @@ generate_config() {
         return
     fi
 
-    echo -e "  ${GREEN}${BOLD}Status: $AVAILABLE_COUNT/5 consultants ready${RESET}"
+    echo -e "  ${GREEN}${BOLD}Status: $AVAILABLE_COUNT/4 consultants ready${RESET}"
     echo ""
 
     # Ask to save
@@ -279,7 +258,7 @@ generate_config() {
     SAVE_CONFIG="${SAVE_CONFIG:-Y}"
 
     if [[ "$SAVE_CONFIG" =~ ^[Yy]$ ]]; then
-        save_env_file "$gemini_enabled" "$codex_enabled" "$mistral_enabled" "$kilo_enabled" "$cursor_enabled"
+        save_env_file "$gemini_enabled" "$codex_enabled" "$mistral_enabled" "$cursor_enabled"
     fi
 }
 
@@ -287,8 +266,7 @@ save_env_file() {
     local gemini="$1"
     local codex="$2"
     local mistral="$3"
-    local kilo="$4"
-    local cursor="$5"
+    local cursor="$4"
 
     local env_file="$PROJECT_ROOT/.env"
 
@@ -310,7 +288,6 @@ save_env_file() {
 ENABLE_GEMINI=$gemini
 ENABLE_CODEX=$codex
 ENABLE_MISTRAL=$mistral
-ENABLE_KILO=$kilo
 ENABLE_CURSOR=$cursor
 
 # Features

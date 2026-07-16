@@ -13,8 +13,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install ShellCheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -y shellcheck jq
 
       - name: Bash syntax check
         run: |
@@ -31,10 +36,8 @@ jobs:
         run: |
           shellcheck -S warning -x -e SC1091,SC1090,SC2034,SC2155 scripts/*.sh scripts/lib/*.sh
 
-      - name: Run test suite
-        run: |
-          chmod +x scripts/test_suite.sh
-          bash scripts/test_suite.sh
+      - name: Run full test suite
+        run: npm test
 
       - name: Preflight health check (informational)
         continue-on-error: true

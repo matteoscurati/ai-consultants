@@ -32,8 +32,6 @@ npm install -g @openai/codex
 # Mistral Vibe
 pip install mistral-vibe
 
-# Kilo Code
-npm install -g kilocode
 ```
 
 ### Verify Setup
@@ -163,7 +161,7 @@ ENABLE_SMART_ROUTING=true \
   ./scripts/consult_all.sh "Review this code" file.py
 
 # Test single consultant
-ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false ENABLE_KILO=false \
+ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false ENABLE_CURSOR=false \
   ./scripts/consult_all.sh "Quick syntax question"
 ```
 
@@ -187,7 +185,7 @@ jsonschema -i output.json scripts/lib/schema.json
 - `refactor/` - Refactoring without new features
 
 Examples:
-- `feature/add-ollama-support`
+- `feature/add-consultant-support`
 - `fix/timeout-handling`
 - `docs/update-readme`
 
@@ -196,10 +194,10 @@ Examples:
 Use clear and concise messages:
 
 ```
-Add support for Ollama as consultant
+Add support for a new consultant
 
-- New script query_ollama.sh
-- Updated config.sh with ENABLE_OLLAMA
+- New query adapter
+- Updated config.sh with the consultant toggle
 - Updated documentation
 ```
 

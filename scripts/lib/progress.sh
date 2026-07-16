@@ -131,7 +131,7 @@ render_progress_line() {
 # Render all progress bars
 # Usage: render_all_progress
 render_all_progress() {
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor")
+    local consultants=("Gemini" "Codex" "Mistral" "Cursor" "Kimi")
 
     echo ""
     echo "  Progress:"
@@ -211,7 +211,7 @@ show_summary() {
     echo ""
 
     # Details per consultant
-    for c in Gemini Codex Mistral Kilo Cursor; do
+    for c in Gemini Codex Mistral Cursor Kimi; do
         local status
         status=$(map_get "PROGRESS_STATUS" "$c")
         if [[ -n "$status" ]]; then

@@ -15,7 +15,7 @@
 # Usage: ./consult_all.sh [options] "Your question" [file1] [file2] ...
 #
 # Options:
-#   --preset <name>      Use a configuration preset (minimal, balanced, thorough, high-stakes, local, security, cost-capped)
+#   --preset <name>      Use a configuration preset (minimal, balanced, thorough, high-stakes, security, cost-capped)
 #   --strategy <name>    Synthesis strategy (majority, risk_averse, security_first, cost_capped, compare_only)
 #   --list-presets       List available presets
 #   --list-strategies    List available synthesis strategies
@@ -85,7 +85,6 @@ Options:
                          max_quality  - All + premium models + debate + reflection
                          medium       - 4 models + standard models + light debate
                          fast         - 2 models + economy models, no debate
-                         local        - Ollama only, full privacy
                          security     - Security-focused + debate
                          cost-capped  - Budget-conscious options
 
@@ -365,7 +364,7 @@ else
 
     # All enabled consultants - use a compact loop
     # Order matches ALL_CONSULTANTS in config.sh for consistency
-    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KILO:Kilo CURSOR:Cursor AIDER:Aider AMP:Amp KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek MINIMAX:MiniMax OLLAMA:Ollama"
+    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral CURSOR:Cursor KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek MINIMAX:MiniMax"
     for _entry in $_consultant_map; do
         _flag="${_entry%%:*}"
         _name="${_entry#*:}"

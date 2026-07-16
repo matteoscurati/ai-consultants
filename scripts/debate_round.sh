@@ -275,14 +275,8 @@ run_debate_round() {
                 Mistral)
                     "$SCRIPT_DIR/query_mistral.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
-                Kilo)
-                    "$SCRIPT_DIR/query_kilo.sh" "$debate_prompt" "" "$output_file" > /dev/null
-                    ;;
                 Cursor)
                     "$SCRIPT_DIR/query_cursor.sh" "$debate_prompt" "" "$output_file" > /dev/null
-                    ;;
-                Aider)
-                    "$SCRIPT_DIR/query_aider.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Claude)
                     "$SCRIPT_DIR/query_claude.sh" "$debate_prompt" "" "$output_file" > /dev/null
@@ -298,12 +292,6 @@ run_debate_round() {
                     ;;
                 DeepSeek)
                     "$SCRIPT_DIR/query_deepseek.sh" "$debate_prompt" "" "$output_file" > /dev/null
-                    ;;
-                Ollama)
-                    "$SCRIPT_DIR/query_ollama.sh" "$debate_prompt" "" "$output_file" > /dev/null
-                    ;;
-                Amp)
-                    "$SCRIPT_DIR/query_amp.sh" "$debate_prompt" "" "$output_file" > /dev/null
                     ;;
                 Kimi)
                     "$SCRIPT_DIR/query_kimi.sh" "$debate_prompt" "" "$output_file" > /dev/null

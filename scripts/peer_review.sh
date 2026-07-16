@@ -150,7 +150,6 @@ run_consultant_review() {
         Gemini)  echo "$prompt" | run_with_timeout "$timeout" "$GEMINI_CMD" -p - --model "$GEMINI_MODEL" ;;
         Codex)   run_with_timeout "$timeout" "$CODEX_CMD" exec --skip-git-repo-check "$prompt" ;;
         Mistral) run_with_timeout "$timeout" "$MISTRAL_CMD" --prompt "$prompt" --auto-approve ;;
-        Kilo)    run_with_timeout "$timeout" "$KILO_CMD" --auto --json "$prompt" ;;
         Cursor)  run_with_timeout "$timeout" "$CURSOR_CMD" "$prompt" ;;
         *)
             echo '{"error": "Unknown consultant for peer review"}' > "$output_file"
@@ -371,7 +370,6 @@ main() {
     [[ "$ENABLE_GEMINI" == "true" ]] && command -v "$GEMINI_CMD" &>/dev/null && reviewers+=("Gemini")
     [[ "$ENABLE_CODEX" == "true" ]] && command -v "$CODEX_CMD" &>/dev/null && reviewers+=("Codex")
     [[ "$ENABLE_MISTRAL" == "true" ]] && command -v "$MISTRAL_CMD" &>/dev/null && reviewers+=("Mistral")
-    [[ "$ENABLE_KILO" == "true" ]] && command -v "$KILO_CMD" &>/dev/null && reviewers+=("Kilo")
     [[ "$ENABLE_CURSOR" == "true" ]] && command -v "$CURSOR_CMD" &>/dev/null && reviewers+=("Cursor")
 
     if [[ ${#reviewers[@]} -lt 2 ]]; then

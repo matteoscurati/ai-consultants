@@ -7,10 +7,9 @@ Read this file when the user asks about presets, strategies, bash usage, best pr
 | Preset | Consultants | Use Case |
 |--------|-------------|----------|
 | `minimal` | 2 (Gemini + Codex) | Quick questions |
-| `balanced` | 4 (+Mistral +Kilo) | Standard use |
-| `thorough` | 5 (+Cursor) | Comprehensive |
+| `balanced` | 4 (+Mistral +Cursor) | Standard use |
+| `thorough` | 4 | Comprehensive |
 | `high-stakes` | All + debate | Critical decisions |
-| `local` | Ollama only | Full privacy |
 | `security` | Security-focused | +Debate |
 | `cost-capped` | Budget-friendly | Low cost |
 
@@ -35,9 +34,6 @@ cd ~/.claude/skills/ai-consultants
 # With strategy
 ./scripts/consult_all.sh --strategy risk_averse "Security question"
 
-# With local model
-./scripts/consult_all.sh --preset local "Private question"
-
 # With file context — paths trigger AST optimization (v2.14+)
 ./scripts/consult_all.sh "Review the auth flow" src/auth.ts src/session.ts
 
@@ -57,7 +53,7 @@ See `references/configuration.md` § "Context Handoff (v2.14+)" for `QUESTION_CA
 ### Security
 
 - **Never** include credentials in queries
-- Use `--preset local` for sensitive code
+- Review and redact sensitive code before sending it to any external consultant
 
 ### Effective Queries
 

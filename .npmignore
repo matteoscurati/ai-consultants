@@ -10,7 +10,9 @@
 
 # Development artifacts
 test_output/
-scripts/test_functions.sh
+scripts/test_*.sh
+scripts/test_fixtures/
+scripts/lib/test_helpers.sh
 *.log
 *.tmp
 *.tgz

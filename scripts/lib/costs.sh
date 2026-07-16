@@ -19,7 +19,7 @@ COST_RATES_FILE="${COST_RATES_FILE:-$_COSTS_SCRIPT_DIR/../../docs/cost_rates.jso
 #
 # The match is CASE-INSENSITIVE: callers lowercase the model name, but several
 # rate keys are mixed-case (agy display names like "Gemini 3.1 Pro (High)", the
-# Ollama "hf.co/.../VibeThinker-3B-GGUF" path). An exact-case jq lookup on a
+# display-name model IDs). An exact-case jq lookup on a
 # lowercased model would miss those keys and silently fall through to
 # default_rate — mis-billing free/local and Gemini models. Downcasing both sides
 # fixes it generally (lowercase keys like minimax-m2.7/gpt-5.5 still match).
@@ -148,7 +148,6 @@ get_input_cost_per_1k() {
         mistral-large)    echo "0.004" ;;
         mistral-medium)   echo "0.0027" ;;
         mistral-small)    echo "0.001" ;;
-        kilo)             echo "0.002" ;;
         cursor)           echo "0.005" ;;
         # Qwen3 models (Alibaba DashScope)
         qwen-max)         echo "0.004" ;;
@@ -195,7 +194,6 @@ get_output_cost_per_1k() {
         mistral-large)    echo "0.012" ;;
         mistral-medium)   echo "0.0081" ;;
         mistral-small)    echo "0.003" ;;
-        kilo)             echo "0.006" ;;
         cursor)           echo "0.015" ;;
         # Qwen3 models (Alibaba DashScope)
         qwen-max)         echo "0.012" ;;

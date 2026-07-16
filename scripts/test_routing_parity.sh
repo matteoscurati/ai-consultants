@@ -45,18 +45,18 @@ assert_score() {
 
 # Format below: one line per category, columns in fixed order matching
 # known_consultants in references/affinity.json.
-order=(Gemini Codex Mistral Kilo Cursor Aider Amp Kimi Claude Qwen3 GLM Grok DeepSeek MiniMax)
+order=(Gemini Codex Mistral Cursor Kimi Claude Qwen3 GLM Grok DeepSeek MiniMax)
 
-#                  Gem Cdx Mst Kil Crs Aid Amp Kim Cld Qw3 GLM Grk DSk MnM
-golden_CODE_REVIEW=(7 10  8   9   9   9   7   7   8   8   8   7   10  8)
-golden_BUG_DEBUG=(  7 10  9   8   9   9   8   6   7   8   8   7   9   8)
-golden_ARCHITECTURE=(10 6  8   9   8   6   10  9   9   7   7   9   7   7)
-golden_ALGORITHM=(  9  8  7   8   7   7   7   8   7   9   7   8   10  8)
-golden_SECURITY=(   9  9 10   8   8   7   8   7   8   7   8   8   8   7)
-golden_QUICK_SYNTAX=(10 8 5   6   7   8   5   5   6   7   6   5   9   8)
-golden_DATABASE=(   8  9  7   7   8   7   7   7   7   9   7   6   9   8)
-golden_API_DESIGN=(10  9  7   8   9   7   9   8   8   7   8   8   8   8)
-golden_TESTING=(    7 10  9   7   9   9   8   6   7   8  10   7   8   7)
+#                  Gem Cdx Mst Crs Kim Cld Qw3 GLM Grk DSk MnM
+golden_CODE_REVIEW=(7 10  8   9   7   8   8   8   7   10  8)
+golden_BUG_DEBUG=(  7 10  9   9   6   7   8   8   7   9   8)
+golden_ARCHITECTURE=(10 6  8   8   9   9   7   7   9   7   7)
+golden_ALGORITHM=(  9  8  7   7   8   7   9   7   8   10  8)
+golden_SECURITY=(   9  9 10   8   7   8   7   8   8   8   7)
+golden_QUICK_SYNTAX=(10 8 5   7   5   6   7   6   5   9   8)
+golden_DATABASE=(   8  9  7   8   7   7   9   7   6   9   8)
+golden_API_DESIGN=(10  9  7   9   8   8   7   8   8   8   8)
+golden_TESTING=(    7 10  9   9   6   7   8  10   7   8   7)
 
 check_category() {
     local category="$1"
@@ -69,7 +69,7 @@ check_category() {
     done
 }
 
-echo "Golden parity: 9 categories x 14 consultants"
+echo "Golden parity: 9 categories x 11 consultants"
 check_category CODE_REVIEW   "${golden_CODE_REVIEW[@]}"
 check_category BUG_DEBUG     "${golden_BUG_DEBUG[@]}"
 check_category ARCHITECTURE  "${golden_ARCHITECTURE[@]}"

@@ -173,8 +173,15 @@ run_query() {
         log_debug "[$consultant_name] Attempt $attempt of $MAX_RETRIES..."
 
         # Execute the command with timeout, passing stdin
-        echo "$stdin_content" | run_with_timeout "$timeout_seconds" "${cmd[@]}" > "$output_file" 2> "$error_file"
-        local exit_code=$?
+        # Keep failures inside an explicit conditional. Without this guard,
+        # callers running with `set -e` can exit here before retry handling and
+        # the final diagnostic are emitted (observed with Cursor and Qwen).
+        local exit_code
+        if echo "$stdin_content" | run_with_timeout "$timeout_seconds" "${cmd[@]}" > "$output_file" 2> "$error_file"; then
+            exit_code=0
+        else
+            exit_code=$?
+        fi
 
         if [[ $exit_code -eq 0 ]]; then
             # Verify that the output is not empty
@@ -267,8 +274,8 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP KIMI CLAUDE QWEN3"
-KNOWN_API_AGENTS="GLM GROK DEEPSEEK MINIMAX"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 MINIMAX"
+KNOWN_API_AGENTS="GLM GROK DEEPSEEK"
 KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE REFLECTION CLASSIFICATION SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
 
 # Check if an agent name is a known predefined agent
@@ -415,11 +422,9 @@ get_self_consultant_name() {
         codex|codex_cli|codexcli)       echo "CODEX" ;;
         gemini|gemini_cli|geminicli)    echo "GEMINI" ;;
         mistral|vibe|mistral_vibe)      echo "MISTRAL" ;;
-        kilo|kilocode|kilo_code)        echo "KILO" ;;
-        amp|amp_code|ampcode)           echo "AMP" ;;
         kimi|kimi_code|kimicode)        echo "KIMI" ;;
         qwen|qwen3|qwen_code|qwencode)  echo "QWEN3" ;;
-        cursor|aider)                   to_upper "$invoking" ;;
+        cursor)                         echo "CURSOR" ;;
         *)                              echo "" ;;
     esac
 }
@@ -514,7 +519,7 @@ validate_consultant_name() {
     upper=$(to_upper "$name")
 
     # Check against known agents
-    local valid_agents="GEMINI CODEX MISTRAL KILO CURSOR AIDER AMP KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX OLLAMA"
+    local valid_agents="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX"
     for agent in $valid_agents; do
         if [[ "$upper" == "$agent" ]]; then
             return 0
@@ -1129,7 +1134,7 @@ is_consultant_enabled() {
     # Get default based on consultant type
     local default="true"
     case "$name_upper" in
-        AIDER|AMP|KIMI|CLAUDE|QWEN3|GLM|GROK|DEEPSEEK|MINIMAX|OLLAMA)
+        GLM|GROK|DEEPSEEK)
             default="false"
             ;;
     esac
@@ -1162,22 +1167,19 @@ _consultant_to_cli() {
         GEMINI)  echo "gemini" ;;
         CODEX)   echo "codex" ;;
         MISTRAL) echo "mistral" ;;
-        KILO)    echo "kilo" ;;
-        AMP)     echo "amp" ;;
         KIMI)    echo "kimi" ;;
         QWEN3)   echo "qwen" ;;
         CURSOR)  echo "cursor" ;;
-        AIDER)   echo "aider" ;;
         *)       echo "" ;;
     esac
 }
 
 # Resolve which CLI to use for synthesis.
 # Avoids using the invoking agent's CLI (self-consultation prevention).
-# Walks a fallback chain: configured SYNTHESIS_CMD → gemini → codex → claude → ollama
+# Walks a fallback chain: configured SYNTHESIS_CMD → gemini → codex → claude.
 #
 # Usage: SYNTH_CLI=$(resolve_synthesis_cli)
-# Returns: CLI type name (gemini, codex, claude, ollama) or empty string on failure
+# Returns: CLI type name (gemini, codex, claude) or empty string on failure
 resolve_synthesis_cli() {
     # Reuse get_self_consultant_name for complete alias coverage
     local avoid_cmd
@@ -1194,13 +1196,12 @@ resolve_synthesis_cli() {
 
     # 2. Walk fallback chain: pick first available CLI that isn't the invoking agent
     local candidate cmd
-    for candidate in gemini codex claude ollama; do
+    for candidate in gemini codex claude; do
         [[ "$candidate" == "$avoid_cmd" ]] && continue
         case "$candidate" in
             gemini) cmd="${GEMINI_CMD:-agy}" ;;
             codex)  cmd="${CODEX_CMD:-codex}" ;;
             claude) cmd="${CLAUDE_CMD:-claude}" ;;
-            ollama) cmd="ollama" ;;
         esac
         if command -v "$cmd" &>/dev/null; then
             echo "$candidate"
@@ -1236,9 +1237,6 @@ build_synthesis_args() {
             ;;
         codex)
             SYNTHESIS_ARGS=("${CODEX_CMD:-codex}" "--quiet" "--full-auto")
-            ;;
-        ollama)
-            SYNTHESIS_ARGS=("ollama" "run" "${OLLAMA_MODEL:-llama3.2}")
             ;;
         *)
             log_warn "Unknown synthesis CLI type: $cli_type"

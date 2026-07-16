@@ -1,6 +1,6 @@
 {
-  "version": "2.21.0",
-  "updated": "2026-06-24",
+  "version": "2.21.1",
+  "updated": "2026-07-16",
   "models": {
     "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
     "_comment_premium": "Premium tier models - Jun 2026 (v2.17.0)",
@@ -41,9 +41,9 @@
       "input": 0.0005,
       "output": 0.002
     },
-    "grok-4.3": {
-      "input": 0.00125,
-      "output": 0.0025
+    "grok-4.5": {
+      "input": 0.002,
+      "output": 0.006
     },
     "qwen3.6-plus": {
       "input": 0.000325,
@@ -61,13 +61,14 @@
       "input": 0.00025,
       "output": 0.001
     },
-    "kimi-code/kimi-for-coding": {
+    "kimi-code/k3": {
       "input": 0.0005,
       "output": 0.002
     },
-    "amp": {
-      "input": 0.005,
-      "output": 0.015
+    "_comment_kimi_legacy": "Legacy Kimi alias retained only for historical and pinned-response cost lookup; v2.21.1 defaults to kimi-code/k3.",
+    "kimi-code/kimi-for-coding": {
+      "input": 0.0005,
+      "output": 0.002
     },
     "nvidia/nemotron-3-super-120b-a12b:free": {
       "input": 0.00,
@@ -248,10 +249,6 @@
       "input": 0.0008,
       "output": 0.0032
     },
-    "kilo": {
-      "input": 0.002,
-      "output": 0.006
-    },
     "cursor": {
       "input": 0.005,
       "output": 0.015
@@ -320,21 +317,9 @@
       "input": 0.0012,
       "output": 0.006
     },
-    "qwen3-coder:free": {
-      "input": 0,
-      "output": 0
-    },
-    "hf.co/prithivMLmods/VibeThinker-3B-GGUF": {
-      "input": 0,
-      "output": 0
-    },
-    "llama3.3": {
-      "input": 0,
-      "output": 0
-    },
-    "llama3.2": {
-      "input": 0,
-      "output": 0
+    "grok-4.3": {
+      "input": 0.00125,
+      "output": 0.0025
     }
   },
   "consultant_fallbacks": {
@@ -345,15 +330,11 @@
     "mistral": "mistral-large-3",
     "deepseek": "deepseek-v4-pro",
     "glm": "glm-5.2",
-    "grok": "grok-4.3",
+    "grok": "grok-4.5",
     "qwen3": "qwen3.7-max",
-    "aider": "qwen3-coder:free",
-    "kilo": "auto",
     "cursor": "composer-2.5",
-    "amp": "amp",
-    "kimi": "kimi-code/kimi-for-coding",
-    "minimax": "minimax-m2.7",
-    "ollama": "hf.co/prithivMLmods/VibeThinker-3B-GGUF"
+    "kimi": "kimi-code/k3",
+    "minimax": "minimax-m2.7"
   },
   "model_tiers": {
     "_comment": "Model tiers for apply_model_tier() function",
@@ -364,15 +345,11 @@
       "mistral": "mistral-large-3",
       "deepseek": "deepseek-v4-pro",
       "glm": "glm-5.2",
-      "grok": "grok-4.3",
+      "grok": "grok-4.5",
       "qwen3": "qwen3.7-max",
-      "aider": "qwen3-coder:free",
-      "kilo": "auto",
       "cursor": "composer-2.5",
-      "amp": "amp",
-      "kimi": "kimi-code/kimi-for-coding",
-      "minimax": "minimax-m2.7",
-      "ollama": "hf.co/prithivMLmods/VibeThinker-3B-GGUF"
+      "kimi": "kimi-code/k3",
+      "minimax": "minimax-m2.7"
     },
     "standard": {
       "claude": "claude-sonnet-4-6",
@@ -383,13 +360,9 @@
       "glm": "glm-5.2",
       "grok": "grok-4.1-fast",
       "qwen3": "qwen3.6-35b-a3b",
-      "aider": "gpt-5.4",
-      "kilo": "auto",
       "cursor": "composer-2",
-      "amp": "amp",
-      "kimi": "kimi-code/kimi-for-coding",
-      "minimax": "minimax-m2.7",
-      "ollama": "llama3.3"
+      "kimi": "kimi-code/k3",
+      "minimax": "minimax-m2.7"
     },
     "economy": {
       "claude": "claude-haiku-4-5",
@@ -400,13 +373,9 @@
       "glm": "glm-4-flash",
       "grok": "grok-4.1-fast",
       "qwen3": "qwen3-32b",
-      "aider": "gpt-5.4-nano",
-      "kilo": "auto",
       "cursor": "gemini-3-flash",
-      "amp": "amp",
-      "kimi": "kimi-code/kimi-for-coding",
-      "minimax": "minimax-m2.5",
-      "ollama": "llama3.2"
+      "kimi": "kimi-code/k3",
+      "minimax": "minimax-m2.5"
     }
   },
   "default_rate": {

@@ -29,7 +29,7 @@ customization possible without editing bash.
 |----------|-----------|-----|
 | CODE_REVIEW | Codex (10), DeepSeek (10) | Code-specialist personas |
 | BUG_DEBUG | Codex (10) | Pragmatic debugger |
-| ARCHITECTURE | Gemini (10), Amp (10) | Big-picture design |
+| ARCHITECTURE | Gemini (10), Kimi (9) | Big-picture design |
 | ALGORITHM | DeepSeek (10) | Algorithm specialist |
 | SECURITY | Mistral (10) | Devil's Advocate persona |
 | QUICK_SYNTAX | Gemini (10) | Fast turnaround |
@@ -367,7 +367,7 @@ get_affinity "SECURITY" "Mistral"  # → 10
 select_consultants "SECURITY" 7    # → All enabled consultants
 
 # Check recommendation
-is_recommended "SECURITY" "Kilo" 7 && echo "Recommended"
+is_recommended "SECURITY" "Claude" 7 && echo "Recommended"
 
 # Get timeout
 get_category_timeout "ARCHITECTURE"  # → 240

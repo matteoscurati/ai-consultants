@@ -45,7 +45,6 @@ skillport show ai-consultants
 - **Automatic synthesis** with weighted recommendations
 - **Multi-agent debate** for controversial decisions
 - **Anonymous peer review** for unbiased evaluation
-- **Local model support** via Ollama
 
 ## Requirements
 

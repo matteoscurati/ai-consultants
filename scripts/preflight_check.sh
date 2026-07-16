@@ -2,8 +2,8 @@
 # preflight_check.sh - DEPRECATED since v2.10.9
 #
 # This script has been superseded by doctor.sh, which performs the same
-# checks plus additional ones (CLI/API mode switching, Ollama, synthesis,
-# all 15 consultants, structured fix suggestions).
+# checks plus additional ones (CLI/API mode switching, synthesis,
+# all supported consultants, structured fix suggestions).
 #
 # This wrapper preserves backward compatibility by translating flags and
 # delegating to doctor.sh. It will be removed in a future major release.

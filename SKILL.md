@@ -1,14 +1,14 @@
 ---
 name: ai-consultants
-description: Consult Gemini CLI, Codex CLI, Mistral Vibe, Kilo CLI, Cursor, Claude, Amp, Kimi, Qwen, MiniMax, and Ollama as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
+description: Consult Gemini, Codex, Mistral Vibe, Cursor, Claude, Kimi, Qwen, MiniMax, GLM, Grok, and DeepSeek as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
 license: MIT
 compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
   author: matteoscurati
-  version: 2.21.0
+  version: 2.21.1
 ---
 
-# AI Consultants v2.21.0 - AI Expert Panel
+# AI Consultants v2.21.1 - AI Expert Panel
 
 **A harness for every question.** Convene a panel of AI "consultants" for coding questions — and let the engine pick *how* they deliberate: a quick read, a convergence loop, an adversarial refutation gate, a tournament, or an exhaustive sweep. Each consultant has a **configurable persona** that shapes its analysis.
 
@@ -35,15 +35,11 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 | **Google Gemini** | `agy` | The Architect | Design patterns, scalability |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Edge cases, vulnerabilities |
-| **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional |
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
-| **Aider** | `aider` | The Pair Programmer | Collaborative coding |
-| **Amp** | `amp` | The Systems Thinker | System design, interactions |
-| **Kimi** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
+| **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis |
 | **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
 | **MiniMax** | `mmx` | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
-| **Ollama** | `ollama` | The Local Expert | Privacy-first, zero cost |
 
 **API-only consultants**: GLM (The Methodologist), Grok (The Provocateur), DeepSeek (The Code Specialist)
 
@@ -110,7 +106,7 @@ ENABLE_PANIC_MODE=auto       # Auto-rigor for uncertainty
 ENABLE_BUDGET_LIMIT=false    # Budget enforcement (v2.4)
 ```
 
-Enable opt-in consultants: `ENABLE_AMP`, `ENABLE_KIMI`, `ENABLE_QWEN3`, `ENABLE_CLAUDE`, `ENABLE_OLLAMA`, `ENABLE_MINIMAX`.
+Enable opt-in consultants: `ENABLE_KIMI`, `ENABLE_QWEN3`, `ENABLE_CLAUDE`, `ENABLE_MINIMAX`.
 
 CLI/API switching: `GEMINI_USE_API`, `CODEX_USE_API`, `CLAUDE_USE_API`, `MISTRAL_USE_API`, `QWEN3_USE_API`.
 
@@ -161,6 +157,7 @@ Run `./scripts/doctor.sh` to diagnose issues, or `./scripts/doctor.sh --fix` to 
 
 - [Reference Details](references/details.md) - Presets, strategies, best practices, limitations
 - [Full Configuration](references/configuration.md) - All environment variables, models, tiers, timeouts
+- [Configuration Recipes](docs/RECIPES.md) - Copy-paste workflows for debate, routing, budgets, and transport
 - [Setup Guide](docs/SETUP.md) - Installation, authentication
 - [Cost Rates](docs/COST_RATES.md) - Model pricing
 - [Smart Routing](docs/SMART_ROUTING.md) - Category routing

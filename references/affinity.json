@@ -6,53 +6,53 @@
   "general_score": 8,
   "capability_default": 5,
   "known_consultants": [
-    "Gemini", "Codex", "Mistral", "Kilo", "Cursor", "Aider",
-    "Amp", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"
+    "Gemini", "Codex", "Mistral", "Cursor", "Kimi",
+    "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"
   ],
   "categories": {
     "CODE_REVIEW": {
-      "Gemini": 7, "Codex": 10, "Mistral": 8, "Kilo": 9, "Cursor": 9, "Aider": 9,
-      "Amp": 7, "Kimi": 7, "Claude": 8, "Qwen3": 8, "GLM": 8, "Grok": 7,
+      "Gemini": 7, "Codex": 10, "Mistral": 8, "Cursor": 9,
+      "Kimi": 7, "Claude": 8, "Qwen3": 8, "GLM": 8, "Grok": 7,
       "DeepSeek": 10, "MiniMax": 8
     },
     "BUG_DEBUG": {
-      "Gemini": 7, "Codex": 10, "Mistral": 9, "Kilo": 8, "Cursor": 9, "Aider": 9,
-      "Amp": 8, "Kimi": 6, "Claude": 7, "Qwen3": 8, "GLM": 8, "Grok": 7,
+      "Gemini": 7, "Codex": 10, "Mistral": 9, "Cursor": 9,
+      "Kimi": 6, "Claude": 7, "Qwen3": 8, "GLM": 8, "Grok": 7,
       "DeepSeek": 9, "MiniMax": 8
     },
     "ARCHITECTURE": {
-      "Gemini": 10, "Codex": 6, "Mistral": 8, "Kilo": 9, "Cursor": 8, "Aider": 6,
-      "Amp": 10, "Kimi": 9, "Claude": 9, "Qwen3": 7, "GLM": 7, "Grok": 9,
+      "Gemini": 10, "Codex": 6, "Mistral": 8, "Cursor": 8,
+      "Kimi": 9, "Claude": 9, "Qwen3": 7, "GLM": 7, "Grok": 9,
       "DeepSeek": 7, "MiniMax": 7
     },
     "ALGORITHM": {
-      "Gemini": 9, "Codex": 8, "Mistral": 7, "Kilo": 8, "Cursor": 7, "Aider": 7,
-      "Amp": 7, "Kimi": 8, "Claude": 7, "Qwen3": 9, "GLM": 7, "Grok": 8,
+      "Gemini": 9, "Codex": 8, "Mistral": 7, "Cursor": 7,
+      "Kimi": 8, "Claude": 7, "Qwen3": 9, "GLM": 7, "Grok": 8,
       "DeepSeek": 10, "MiniMax": 8
     },
     "SECURITY": {
-      "Gemini": 9, "Codex": 9, "Mistral": 10, "Kilo": 8, "Cursor": 8, "Aider": 7,
-      "Amp": 8, "Kimi": 7, "Claude": 8, "Qwen3": 7, "GLM": 8, "Grok": 8,
+      "Gemini": 9, "Codex": 9, "Mistral": 10, "Cursor": 8,
+      "Kimi": 7, "Claude": 8, "Qwen3": 7, "GLM": 8, "Grok": 8,
       "DeepSeek": 8, "MiniMax": 7
     },
     "QUICK_SYNTAX": {
-      "Gemini": 10, "Codex": 8, "Mistral": 5, "Kilo": 6, "Cursor": 7, "Aider": 8,
-      "Amp": 5, "Kimi": 5, "Claude": 6, "Qwen3": 7, "GLM": 6, "Grok": 5,
+      "Gemini": 10, "Codex": 8, "Mistral": 5, "Cursor": 7,
+      "Kimi": 5, "Claude": 6, "Qwen3": 7, "GLM": 6, "Grok": 5,
       "DeepSeek": 9, "MiniMax": 8
     },
     "DATABASE": {
-      "Gemini": 8, "Codex": 9, "Mistral": 7, "Kilo": 7, "Cursor": 8, "Aider": 7,
-      "Amp": 7, "Kimi": 7, "Claude": 7, "Qwen3": 9, "GLM": 7, "Grok": 6,
+      "Gemini": 8, "Codex": 9, "Mistral": 7, "Cursor": 8,
+      "Kimi": 7, "Claude": 7, "Qwen3": 9, "GLM": 7, "Grok": 6,
       "DeepSeek": 9, "MiniMax": 8
     },
     "API_DESIGN": {
-      "Gemini": 10, "Codex": 9, "Mistral": 7, "Kilo": 8, "Cursor": 9, "Aider": 7,
-      "Amp": 9, "Kimi": 8, "Claude": 8, "Qwen3": 7, "GLM": 8, "Grok": 8,
+      "Gemini": 10, "Codex": 9, "Mistral": 7, "Cursor": 9,
+      "Kimi": 8, "Claude": 8, "Qwen3": 7, "GLM": 8, "Grok": 8,
       "DeepSeek": 8, "MiniMax": 8
     },
     "TESTING": {
-      "Gemini": 7, "Codex": 10, "Mistral": 9, "Kilo": 7, "Cursor": 9, "Aider": 9,
-      "Amp": 8, "Kimi": 6, "Claude": 7, "Qwen3": 8, "GLM": 10, "Grok": 7,
+      "Gemini": 7, "Codex": 10, "Mistral": 9, "Cursor": 9,
+      "Kimi": 6, "Claude": 7, "Qwen3": 8, "GLM": 10, "Grok": 7,
       "DeepSeek": 8, "MiniMax": 7
     }
   },
@@ -60,10 +60,7 @@
     "Gemini":   { "intelligence": 8, "taste": 8, "cost": 6 },
     "Codex":    { "intelligence": 8, "taste": 5, "cost": 4 },
     "Mistral":  { "intelligence": 6, "taste": 6, "cost": 6 },
-    "Kilo":     { "intelligence": 6, "taste": 6, "cost": 6 },
     "Cursor":   { "intelligence": 6, "taste": 7, "cost": 6 },
-    "Aider":    { "intelligence": 6, "taste": 5, "cost": 9 },
-    "Amp":      { "intelligence": 7, "taste": 7, "cost": 5 },
     "Kimi":     { "intelligence": 6, "taste": 6, "cost": 6 },
     "Claude":   { "intelligence": 7, "taste": 8, "cost": 5 },
     "Qwen3":    { "intelligence": 7, "taste": 5, "cost": 8 },

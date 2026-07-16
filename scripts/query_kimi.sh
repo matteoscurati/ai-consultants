@@ -4,7 +4,7 @@
 # Usage: ./query_kimi.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   KIMI_MODEL     - Model identifier (default: kimi-code/kimi-for-coding)
+#   KIMI_MODEL     - Kimi CLI model alias (default: kimi-code/k3)
 #   KIMI_TIMEOUT   - Timeout in seconds (default: 180)
 #   ENABLE_PERSONA - Enable "The Eastern Sage" persona (default: true)
 
@@ -50,11 +50,14 @@ check_command "$KIMI_CMD" "Kimi CLI" "curl -L code.kimi.com/install.sh | bash" |
 # instead emits one JSON object per line, so the real response is the assistant
 # line's .content (extracted below). (-y/--yolo is rejected alongside -p, and kimi
 # already declines tools for advisory questions, so no auto-approve flag is used.)
+# Pass --model explicitly: KIMI_MODEL is a project-level override, while the
+# CLI otherwise falls back to the user's config.toml and may silently use an
+# older alias.
 run_query \
     "Kimi" \
     "$TEMP_OUTPUT" \
     "$KIMI_TIMEOUT_SECONDS" \
-    "$KIMI_CMD" -p "$FULL_QUERY" --output-format stream-json </dev/null
+    "$KIMI_CMD" --model "$KIMI_MODEL" -p "$FULL_QUERY" --output-format stream-json </dev/null
 
 exit_code=$?
 

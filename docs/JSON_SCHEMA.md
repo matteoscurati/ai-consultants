@@ -207,7 +207,7 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
 ### consultant
 
 ```
-"Gemini" | "Codex" | "Mistral" | "Kilo" | "Cursor" | "Aider" | "Amp" | "Kimi" | "Claude" | "Qwen3" | "GLM" | "Grok" | "DeepSeek" | "MiniMax" | "Ollama"
+"Gemini" | "Codex" | "Mistral" | "Cursor" | "Kimi" | "Claude" | "Qwen3" | "GLM" | "Grok" | "DeepSeek" | "MiniMax"
 ```
 
 ### persona

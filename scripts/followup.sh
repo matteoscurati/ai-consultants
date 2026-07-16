@@ -143,9 +143,6 @@ case "$MODE" in
             Mistral|mistral)
                 "$SCRIPT_DIR/query_mistral.sh" "$FOLLOW_UP_CONTEXT" "" "$FOLLOW_UP_DIR/mistral.json"
                 ;;
-            Kilo|kilo)
-                "$SCRIPT_DIR/query_kilo.sh" "$FOLLOW_UP_CONTEXT" "" "$FOLLOW_UP_DIR/kilo.json"
-                ;;
             *)
                 log_error "Unknown consultant: $TARGET_CONSULTANT"
                 exit 1

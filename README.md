@@ -1,8 +1,8 @@
-# AI Consultants v2.21.0
+# AI Consultants v2.21.1
 
-> **A harness for every question.** A panel of up to 15 frontier models that writes its own playbook per question — fan out, debate to convergence, cross-examine under adversarial review, or run a tournament — and checks its work before it reaches you.
+> **A harness for every question.** A panel of up to 11 frontier models that writes its own playbook per question — fan out, debate to convergence, cross-examine under adversarial review, or run a tournament — and checks its work before it reaches you.
 
-[![Version](https://img.shields.io/badge/version-2.21.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.21.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -20,11 +20,11 @@
   - [OpenAI Codex CLI](#openai-codex-cli)
   - [Gemini CLI](#gemini-cli)
   - [Cursor / Copilot / Windsurf](#cursor--copilot--windsurf-via-skillport)
-  - [Aider](#aider)
   - [Standalone Bash](#standalone-bash)
 - [Consultants](#consultants)
 - [Quality Tiers](#quality-tiers)
 - [Configuration](#configuration)
+  - [Configuration Recipes](#configuration-recipes)
 - [How It Works](#how-it-works)
 - [Best Practices](#best-practices)
 - [Documentation](#documentation)
@@ -42,9 +42,8 @@ Instead of running a fixed script, it classifies your question, picks an orchest
 - **Dynamic orchestration** — the engine chooses the strategy per question: a quick read, a convergence loop, an adversarial refutation gate, a tournament of approaches, or an exhaustive sweep
 - **Convergence, not fixed rounds** — debate iterates until the panel actually agrees (or provably won't), instead of a hardcoded count
 - **Self-checking** — security answers are stress-tested by consultants trying to refute them before anything reaches you
-- **15 frontier models** with distinct personas (Architect, Pragmatist, Devil's Advocate, …)
+- **11 supported consultants** with distinct personas (Architect, Pragmatist, Devil's Advocate, …)
 - **Confidence-weighted synthesis** — one recommendation, with the dissent and the path it took surfaced so you know how much to trust it
-- **Local + private** — runs fully offline via Ollama when you need it
 
 ---
 
@@ -174,8 +173,8 @@ For CLI-based consultants, you'll also need:
 
 | Dependency | Required for |
 |------------|--------------|
-| **Node.js 18+** | Gemini CLI, Codex CLI, Kilo CLI |
-| **Python 3.8+** | Mistral Vibe CLI, Aider |
+| **Node.js 18+** | Gemini CLI, Codex CLI, Qwen CLI, MiniMax CLI |
+| **Python 3.8+** | Mistral Vibe CLI |
 
 ```bash
 # macOS
@@ -321,37 +320,6 @@ skillport status ai-consultants
 
 ---
 
-### Aider
-
-> **Status:** ✅ Via AGENTS.md
-
-**Installation:**
-
-```bash
-git clone https://github.com/matteoscurati/ai-consultants.git
-cd ai-consultants
-# Aider reads AGENTS.md for skill instructions
-```
-
-**Usage:**
-
-Reference the skill in your Aider session:
-
-```
-/add AGENTS.md
-# Then ask: "Use ai-consultants to review my code"
-```
-
-**Self-Exclusion:** When using Aider as the invoking agent, set `INVOKING_AGENT=aider`.
-
-**Verify:**
-
-```bash
-./scripts/doctor.sh
-```
-
----
-
 ### Standalone Bash
 
 > **Status:** ✅ Direct execution
@@ -410,28 +378,22 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Google Gemini** | `agy` | The Architect | Design patterns, scalability, enterprise |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, quick wins, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Problems, edge cases, vulnerabilities |
-| **Kilo Code** | `kilocode` | The Innovator | Creativity, unconventional approaches |
 | **Cursor** | `agent` | The Integrator | Full-stack perspective |
-| **Aider** | `aider` | The Pair Programmer | Collaborative coding |
-| **Amp** | `amp` | The Systems Thinker | System design, interactions, emergent behavior |
-| **Kimi** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
+| **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis, connecting ideas |
+| **Qwen3** | `qwen` | The Analyst | Data-driven analysis |
+| **MiniMax** | `mmx` | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
-### API-Based Consultants
+Qwen3 and MiniMax can switch from their CLI to API transport. Gemini, Codex,
+Claude, and Mistral are also CLI/API switchable.
+
+### API-Only Consultants
 
 | Consultant | Default Model | Persona | Focus |
 |------------|---------------|---------|-------|
-| **Qwen3** | qwen3.7-max | The Analyst | Data-driven analysis |
 | **GLM** | glm-5.2 | The Methodologist | Structured approaches |
-| **Grok** | grok-4.3 | The Provocateur | Challenge conventions |
+| **Grok** | grok-4.5 | The Provocateur | Challenge conventions |
 | **DeepSeek** | deepseek-v4-pro | The Code Specialist | Algorithms, code generation |
-| **MiniMax** | MiniMax-M2.7 | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
-
-### Local Consultants
-
-| Consultant | Default Model | Persona | Focus |
-|------------|---------------|---------|-------|
-| **Ollama** | hf.co/prithivMLmods/VibeThinker-3B-GGUF | The Local Expert | Privacy-first, zero API cost |
 
 ### Installing Consultant CLIs
 
@@ -441,17 +403,21 @@ At least 2 consultant CLIs are required:
 curl -fsSL https://antigravity.google/cli/install.sh | bash  # Gemini (Antigravity CLI: agy)
 npm install -g @openai/codex           # Codex
 pip install mistral-vibe               # Mistral
-npm install -g @kilocode/cli           # Kilo
 curl https://cursor.com/install -fsS | bash  # Cursor
 
 # Optional CLI-based consultants
-curl -fsSL https://ampcode.com/install.sh | bash  # Amp
-curl -L code.kimi.com/install.sh | bash            # Kimi
+curl -L code.kimi.com/install.sh | bash            # Kimi K3
 npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
+npm install -g mmx-cli                       # MiniMax
 
-# For local inference (optional)
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2
+```
+
+Kimi is pinned to K3 for every consultation, even if the user's Kimi CLI has a
+different default model:
+
+```bash
+KIMI_MODEL=kimi-code/k3 ai-consultants \
+  "Review this API design from a holistic perspective"
 ```
 
 ---
@@ -464,10 +430,9 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 | Preset | Tier | Agents | Debate | Reflection | Use Case |
 |--------|------|--------|--------|------------|----------|
-| `max_quality` | Premium | 7 (all) | 3 rounds | 2 cycles + peer review | Critical decisions |
+| `max_quality` | Premium | 8 | 3 rounds | 2 cycles + peer review | Critical decisions |
 | `medium` | Standard | 4 | 1 round | No | General questions |
 | `fast` | Economy | 2 | No | No | Quick checks |
-| `local` | Economy | 1 (Ollama) | No | No | Full privacy |
 
 ### Models by Tier
 
@@ -480,11 +445,10 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 | Cursor | composer-2.5 | composer-2 | gemini-3-flash |
 | DeepSeek | deepseek-v4-pro | deepseek-v4-flash | deepseek-v4-flash |
 | GLM | glm-5.2 | glm-5.2 | glm-4-flash |
-| Grok | grok-4.3 | grok-4.1-fast | grok-4.1-fast |
+| Grok | grok-4.5 | grok-4.1-fast | grok-4.1-fast |
 | Qwen3 | qwen3.7-max | qwen3.6-35b-a3b | qwen3-32b |
-| Aider | qwen3-coder:free | gpt-5.4 | gpt-5.4-nano |
+| Kimi | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
 | MiniMax | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
-| Ollama | hf.co/prithivMLmods/VibeThinker-3B-GGUF | llama3.3 | llama3.2 |
 
 ### Usage
 
@@ -515,14 +479,13 @@ Choose how many consultants to use:
 
 | Preset | Consultants | Tier | Use Case |
 |--------|-------------|------|----------|
-| `max_quality` | 7 (all) + debate + reflection | Premium | Critical decisions |
+| `max_quality` | 8 + debate + reflection | Premium | Critical decisions |
 | `medium` | 4 + light debate | Standard | General questions |
 | `fast` | 2 | Economy | Quick checks |
 | `minimal` | 2 (Gemini + Codex) | Default | Quick questions, low cost |
-| `balanced` | 4 (+ Mistral + Kilo) | Default | Standard consultations |
-| `thorough` | 5 (+ Cursor) | Default | Comprehensive analysis |
-| `high-stakes` | All + debate | Default | Critical decisions |
-| `local` | Ollama only | Economy | Full privacy |
+| `balanced` | 4 (+ Mistral + Cursor) | Default | Standard consultations |
+| `thorough` | 4 | Default | Comprehensive analysis |
+| `high-stakes` | Expanded panel + debate | Default | Critical decisions |
 | `security` | Security-focused + debate | Default | Security reviews |
 | `cost-capped` | Budget-conscious | Default | Minimal API costs |
 
@@ -560,21 +523,67 @@ $EDITOR ~/.config/ai-consultants/.env
 For ad-hoc overrides without persisting, the most common knobs:
 
 ```bash
-DEFAULT_PRESET=balanced      # minimal | balanced | thorough | high-stakes | fast | local | security
+DEFAULT_PRESET=balanced      # minimal | balanced | thorough | high-stakes | fast | security
 DEFAULT_STRATEGY=majority    # majority | risk_averse | security_first | cost_capped | compare_only
 ENABLE_DEBATE=true           # Multi-agent debate (auto-skipped when consensus is high since v2.13)
-ENABLE_OLLAMA=true           # Enable local Ollama consultant
 MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=true to enforce)
+KIMI_MODEL=kimi-code/k3      # Pin the Kimi consultant to K3
 ```
 
-Full reference (~150 vars): [`references/configuration.md`](references/configuration.md). For category-aware preset suggestions: `ai-consultants doctor --suggest-preset --question "..."`.
+Full reference: [`references/configuration.md`](references/configuration.md). Copy-paste workflows: [`docs/RECIPES.md`](docs/RECIPES.md). For category-aware preset suggestions: `ai-consultants doctor --suggest-preset --question "..."`.
+
+### Configuration Recipes
+
+**Dynamic debate until convergence:**
+
+```bash
+ENABLE_DEBATE=true \
+ORCHESTRATION_MODE=converge \
+CONVERGENCE_MAX_ROUNDS=4 \
+CONVERGENCE_TARGET_CONSENSUS=75 \
+ai-consultants --strategy risk_averse \
+  "Event log or mutable relational state for this service?"
+```
+
+**Repeatable two-round review:**
+
+```bash
+ENABLE_DEBATE=true \
+ORCHESTRATION_MODE=fixed \
+DEBATE_ROUNDS=2 \
+ENABLE_DEBATE_OPTIMIZATION=false \
+ai-consultants "Review this migration plan" docs/migration.md@PRIMARY
+```
+
+**Security review with adversarial verification:**
+
+```bash
+ENABLE_DEBATE=true \
+ORCHESTRATION_MODE=adversarial \
+ENABLE_PEER_REVIEW=true \
+ai-consultants --preset security --strategy security_first \
+  "Find authentication bypasses" src/auth.ts@PRIMARY
+```
+
+**Live health gate plus hard quorum:**
+
+```bash
+ENABLE_HEALTH_GATE=true \
+QUORUM_MIN=3 \
+QUORUM_ACTION=stop \
+ai-consultants "Make a release recommendation"
+```
+
+See [13 complete recipes](docs/RECIPES.md) for fast, high-stakes, tournament,
+exhaustive audit, budget-capped, CLI-only, hybrid API, semantic-consensus, and
+large-context workflows.
 
 ### Doctor Command
 
 Diagnose, suggest, and fix:
 
 ```bash
-ai-consultants doctor                                          # 22 health checks (CLI installed?)
+ai-consultants doctor                                          # Installation and configuration checks
 ai-consultants doctor --fix                                    # Auto-fix common issues
 ai-consultants doctor --json                                   # JSON for automation
 ai-consultants doctor --live                                   # Real ping per consultant — catches installed-but-unauthenticated CLIs
@@ -596,7 +605,7 @@ Classify -> Plan shape -> Fan out -> Deliberate & converge -> Synthesize
  category   orchestration  Gemini (8)    convergence loop /
  complexity    shape       Codex (7)     adversarial gate /
  intent                    Mistral (6)   tournament / exhaustive
-                           Kilo (9)
+                           Cursor (9)
 ```
 
 The **shape** is chosen per question (or pinned via `ORCHESTRATION_MODE`):
@@ -630,7 +639,7 @@ Each consultation generates:
 ├── gemini.json          # Individual responses
 ├── codex.json           #   with confidence scores
 ├── mistral.json
-├── kilo.json
+├── cursor.json
 ├── voting.json          # Consensus calculation
 ├── synthesis.json       # Weighted recommendation
 ├── report.md            # Human-readable report
@@ -660,7 +669,7 @@ Each consultation generates:
 ### Security
 
 - **Never** include credentials or API keys in queries
-- Use `--preset local` for sensitive code
+- Review and redact sensitive code before sending it to any external consultant
 - Files in `/tmp` are automatically cleaned up
 
 ---
@@ -668,6 +677,7 @@ Each consultation generates:
 ## Documentation
 
 - [Setup Guide](docs/SETUP.md) - Installation, authentication, Claude Code setup
+- [Configuration Recipes](docs/RECIPES.md) - Copy-paste workflows for debate, routing, budgets, and transport
 - [Cost Rates](docs/COST_RATES.md) - Model pricing and budgets
 - [Smart Routing](docs/SMART_ROUTING.md) - Category-based routing
 - [JSON Schema](docs/JSON_SCHEMA.md) - Output format specification
@@ -677,6 +687,11 @@ Each consultation generates:
 ---
 
 ## Changelog
+
+### v2.21.1
+
+- **Kimi K3**: Kimi now defaults to `kimi-code/k3`, and the adapter passes the model explicitly with `--model`.
+- **Focused 11-consultant roster**: Kilo, Aider, Amp, and Ollama were removed end-to-end, including their adapters and configuration variables. See the [v2.21.1 release note](docs/releases/v2.21.1.md) for migration guidance.
 
 ### v2.15.1
 

@@ -1009,15 +1009,11 @@ test_cost_per1k_contract() {
     assert_equals "0.030000" "$(estimate_query_cost claude-opus-4-8 1000 1000)"  "opus 1k+1k = 0.03 (regression: pre-fix was 30)"
     assert_equals "0.006000" "$(estimate_query_cost claude-haiku-4-5 1000 1000)" "haiku 1k+1k = 0.006"
 
-    # v2.17.0: cost lookup must be CASE-INSENSITIVE. Mixed-case rate keys (agy
-    # display names, the Ollama hf.co path) previously missed and fell to
-    # default_rate, mis-billing free/local + Gemini. These would all read 0.005
-    # (the default) under the pre-fix exact-case lookup.
-    assert_equals "0" "$(get_input_cost_per_1k 'hf.co/prithivMLmods/VibeThinker-3B-GGUF')" "Ollama VibeThinker input resolves to 0 (case-insensitive)"
-    assert_equals "0" "$(get_output_cost_per_1k 'hf.co/prithivMLmods/VibeThinker-3B-GGUF')" "Ollama VibeThinker output resolves to 0"
+    # Cost lookup must be case-insensitive for display-name model IDs.
     assert_equals "0.002" "$(get_input_cost_per_1k 'Gemini 3.1 Pro (High)')"  "Gemini 3.1 Pro input resolves (not default_rate)"
     assert_equals "0.012" "$(get_output_cost_per_1k 'Gemini 3.1 Pro (High)')" "Gemini 3.1 Pro output resolves (not default_rate)"
-    assert_equals "0" "$(estimate_query_cost 'hf.co/prithivMLmods/VibeThinker-3B-GGUF' 1000 1000)" "local Ollama model is free (0), not default-priced"
+    assert_equals "0.002" "$(get_input_cost_per_1k 'grok-4.5')" "Grok 4.5 input rate is 2 USD/MTok"
+    assert_equals "0.006" "$(get_output_cost_per_1k 'grok-4.5')" "Grok 4.5 output rate is 6 USD/MTok"
 
     if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
 }
@@ -1408,10 +1404,10 @@ test_consultant_selection() {
 
     local result
 
-    # ARCHITECTURE with min_affinity 9 should include Gemini and Amp (score 10)
+    # ARCHITECTURE with min_affinity 9 should include Gemini (10) and Kimi (9)
     result=$(select_consultants "ARCHITECTURE" 9 20)
     assert_contains "Gemini" "$result" "Gemini selected for ARCHITECTURE (affinity 10)"
-    assert_contains "Amp" "$result" "Amp selected for ARCHITECTURE (affinity 10)"
+    assert_contains "Kimi" "$result" "Kimi selected for ARCHITECTURE (affinity 9)"
 
     # QUICK_SYNTAX with min_affinity 9 should include Gemini (10) and DeepSeek (9)
     result=$(select_consultants "QUICK_SYNTAX" 9 20)
@@ -1512,7 +1508,9 @@ test_model_for_tier() {
     assert_equals "Gemini 3.5 Flash (Low)" "$(get_model_for_tier "gemini" "economy")" "gemini economy is Gemini 3.5 Flash (Low) (agy)"
     assert_equals "MiniMax-M2.7"           "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M2.7"
     assert_equals "MiniMax-M2.5"           "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M2.5"
-    assert_equals "auto"                  "$(get_model_for_tier "kilo" "premium")"   "kilo always returns auto"
+    assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "premium")"    "kimi premium is K3"
+    assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "standard")"   "kimi standard is K3"
+    assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "economy")"    "kimi economy is K3"
     # v2.17.0 model refresh
     assert_equals "gpt-5.5"               "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-5.5"
     assert_equals "gpt-5.4"               "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.4"
@@ -1520,18 +1518,15 @@ test_model_for_tier() {
     assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "premium")"   "cursor premium is composer-2.5"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
     assert_equals "glm-5.2"               "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.2"
+    assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.5"
     assert_equals "grok-4.1-fast"         "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.1-fast"
     assert_equals "qwen3.7-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.7-max"
-    assert_equals "qwen3-coder:free"      "$(get_model_for_tier "aider" "premium")"    "aider premium is qwen3-coder:free"
-    assert_equals "hf.co/prithivMLmods/VibeThinker-3B-GGUF" "$(get_model_for_tier "ollama" "premium")" "ollama premium is VibeThinker GGUF"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
     assert_equals "composer-2"            "$(get_model_for_tier "cursor" "standard")"   "cursor standard is composer-2"
     assert_equals "gemini-3-flash"        "$(get_model_for_tier "cursor" "economy")"    "cursor economy is gemini-3-flash"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-v4-flash"
     assert_equals "glm-5.2"               "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.2"
     assert_equals "grok-4.1-fast"         "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.1-fast"
-    assert_equals "gpt-5.4"               "$(get_model_for_tier "aider" "standard")"    "aider standard is gpt-5.4"
-    assert_equals "gpt-5.4-nano"          "$(get_model_for_tier "aider" "economy")"     "aider economy is gpt-5.4-nano"
 
     # Unknown tier returns empty
     assert_equals "" "$(get_model_for_tier "claude" "mythical")" "unknown tier returns empty"
@@ -1575,7 +1570,7 @@ test_consultant_list_completeness() {
     suite "integration: ALL_CONSULTANTS completeness"
 
     local count=${#ALL_CONSULTANTS[@]}
-    assert_equals "15" "$count" "ALL_CONSULTANTS has 15 entries"
+    assert_equals "11" "$count" "ALL_CONSULTANTS has 11 entries"
 
     # Verify key consultants are present
     local all_str="${ALL_CONSULTANTS[*]}"
@@ -1583,8 +1578,10 @@ test_consultant_list_completeness() {
     assert_contains "Claude" "$all_str" "Claude in ALL_CONSULTANTS"
     assert_contains "MiniMax" "$all_str" "MiniMax in ALL_CONSULTANTS"
     assert_contains "Kimi" "$all_str" "Kimi in ALL_CONSULTANTS"
-    assert_contains "Amp" "$all_str" "Amp in ALL_CONSULTANTS"
-    assert_contains "Ollama" "$all_str" "Ollama in ALL_CONSULTANTS"
+    assert_not_contains "Amp" "$all_str" "Amp removed from ALL_CONSULTANTS"
+    assert_not_contains "Kilo" "$all_str" "Kilo removed from ALL_CONSULTANTS"
+    assert_not_contains "Aider" "$all_str" "Aider removed from ALL_CONSULTANTS"
+    assert_not_contains "Ollama" "$all_str" "Ollama removed from ALL_CONSULTANTS"
 }
 
 # =============================================================================

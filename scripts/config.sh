@@ -156,29 +156,12 @@ MISTRAL_TIMEOUT_SECONDS="${MISTRAL_TIMEOUT:-180}"
 MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
 
 # =============================================================================
-# KILO CONFIGURATION - The Innovator
-# =============================================================================
-
-KILO_MODEL="${KILO_MODEL:-auto}"
-KILO_TIMEOUT_SECONDS="${KILO_TIMEOUT:-180}"
-KILO_WORKSPACE="${KILO_WORKSPACE:-$(pwd)}"
-KILO_CMD="${KILO_CMD:-kilocode}"
-
-# =============================================================================
 # CURSOR CONFIGURATION - The Integrator
 # =============================================================================
 
 CURSOR_MODEL="${CURSOR_MODEL:-composer-2.5}"
 CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
 CURSOR_CMD="${CURSOR_CMD:-agent}"
-
-# =============================================================================
-# AIDER CONFIGURATION - The Pair Programmer
-# =============================================================================
-
-AIDER_MODEL="${AIDER_MODEL:-qwen3-coder:free}"
-AIDER_TIMEOUT_SECONDS="${AIDER_TIMEOUT:-180}"
-AIDER_CMD="${AIDER_CMD:-aider}"
 
 # =============================================================================
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
@@ -206,7 +189,7 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 # GROK CONFIGURATION - The Provocateur (API-based)
 # =============================================================================
 
-GROK_MODEL="${GROK_MODEL:-grok-4.3}"
+GROK_MODEL="${GROK_MODEL:-grok-4.5}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
@@ -254,21 +237,12 @@ if [[ -z "${MINIMAX_USE_API+x}" ]]; then
 fi
 export MINIMAX_USE_API
 
-# =============================================================================
-# AMP CONFIGURATION - The Systems Thinker (v2.8)
-# =============================================================================
-
-AMP_MODEL="${AMP_MODEL:-amp}"
-AMP_TIMEOUT_SECONDS="${AMP_TIMEOUT:-180}"
-AMP_CMD="${AMP_CMD:-amp}"
 # CLI installation: curl -fsSL https://ampcode.com/install.sh | bash
-# API key: Set AMP_API_KEY environment variable for authentication
-
 # =============================================================================
 # KIMI CONFIGURATION - The Eastern Sage (v2.9)
 # =============================================================================
 
-KIMI_MODEL="${KIMI_MODEL:-kimi-code/kimi-for-coding}"
+KIMI_MODEL="${KIMI_MODEL:-kimi-code/k3}"
 KIMI_TIMEOUT_SECONDS="${KIMI_TIMEOUT:-180}"
 KIMI_CMD="${KIMI_CMD:-kimi}"
 # CLI installation: curl -L code.kimi.com/install.sh | bash
@@ -282,37 +256,16 @@ CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 
 # =============================================================================
-# OLLAMA CONFIGURATION - The Local Expert (v2.2)
-# =============================================================================
-
-# Default model for local inference (premium: hf.co/prithivMLmods/VibeThinker-3B-GGUF)
-OLLAMA_MODEL="${OLLAMA_MODEL:-hf.co/prithivMLmods/VibeThinker-3B-GGUF}"
-# Alternative models: llama3.3, llama3.2, codellama, mistral, deepseek-coder
-
-# Ollama server URL (default: local)
-OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
-
-# Timeout for local inference (longer than API due to local hardware)
-OLLAMA_TIMEOUT="${OLLAMA_TIMEOUT:-300}"
-
-# Temperature for generation
-OLLAMA_TEMPERATURE="${OLLAMA_TEMPERATURE:-0.7}"
-
-# Comma-separated list of models to query (for multi-model local consultations)
-# Example: OLLAMA_MODELS="llama3.2,codellama,mistral"
-OLLAMA_MODELS="${OLLAMA_MODELS:-}"
-
-# =============================================================================
 # CANONICAL CONSULTANT LIST
 # =============================================================================
 # This is the single source of truth for all available consultants.
 # Use this array when iterating over consultants programmatically.
 
 # All available consultants (ordered by typical usage)
-ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax" "Ollama")
+ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
 
 # CLI-based consultants (use CLI tools, some support CLI/API switching)
-CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "Ollama")
+CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "MiniMax")
 
 # API-only consultants (use HTTP API directly, no CLI available)
 API_CONSULTANTS=("GLM" "Grok" "DeepSeek")
@@ -326,22 +279,16 @@ API_CONSULTANTS=("GLM" "Grok" "DeepSeek")
 ENABLE_GEMINI="${ENABLE_GEMINI:-true}"
 ENABLE_CODEX="${ENABLE_CODEX:-true}"
 ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
-ENABLE_KILO="${ENABLE_KILO:-true}"
 ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
-ENABLE_AMP="${ENABLE_AMP:-true}"         # Amp Code (v2.8)
 ENABLE_KIMI="${ENABLE_KIMI:-true}"       # Kimi Code (v2.9)
 ENABLE_CLAUDE="${ENABLE_CLAUDE:-true}"   # Auto-disabled when invoked by Claude Code
 ENABLE_QWEN3="${ENABLE_QWEN3:-true}"     # qwen-code CLI (v2.7); API opt-in
 ENABLE_MINIMAX="${ENABLE_MINIMAX:-true}" # mmx CLI (v2.21); API opt-in
-ENABLE_AIDER="${ENABLE_AIDER:-false}"    # Aider CLI (off by default)
 
 # API-only consultants (disabled by default - require API keys)
 ENABLE_GLM="${ENABLE_GLM:-false}"
 ENABLE_GROK="${ENABLE_GROK:-false}"
 ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
-
-# Local model support via Ollama (disabled by default)
-ENABLE_OLLAMA="${ENABLE_OLLAMA:-false}"
 
 # =============================================================================
 # INVOKING AGENT DETECTION (v2.2)
@@ -349,7 +296,7 @@ ENABLE_OLLAMA="${ENABLE_OLLAMA:-false}"
 
 # Agent that invoked this skill - used for self-exclusion to prevent
 # an agent from consulting itself.
-# Values: claude, codex, gemini, cursor, mistral, kilo, aider, or "unknown"
+# Values: claude, codex, gemini, cursor, mistral, kimi, qwen3, or "unknown"
 # Example: INVOKING_AGENT=claude ./scripts/consult_all.sh "question"
 INVOKING_AGENT="${INVOKING_AGENT:-unknown}"
 
@@ -382,7 +329,7 @@ SYNTHESIS_CMD="${SYNTHESIS_CMD:-claude}"
 # =============================================================================
 
 # Default preset to use when no --preset flag is provided
-# Options: minimal, balanced, thorough, high-stakes, local, security, cost-capped
+# Options: minimal, balanced, thorough, high-stakes, security, cost-capped
 # Leave empty to use individual ENABLE_* settings
 DEFAULT_PRESET="${DEFAULT_PRESET:-}"
 
@@ -711,7 +658,7 @@ fi
 
 # Get model name for a specific consultant and tier (single source of truth)
 # Usage: get_model_for_tier <consultant> <tier>
-# Returns: model name, or empty string if no model override (e.g., Kilo)
+# Returns: model name, or empty string for an unknown consultant/tier.
 get_model_for_tier() {
     local consultant="$1"
     local tier="${2:-premium}"
@@ -727,14 +674,10 @@ get_model_for_tier() {
                 cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.2" ;;
-                grok)     echo "grok-4.3" ;;
+                grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3.7-max" ;;
-                aider)    echo "qwen3-coder:free" ;;
-                amp)      echo "amp" ;;
-                ollama)   echo "hf.co/prithivMLmods/VibeThinker-3B-GGUF" ;;
-                kimi)     echo "kimi-code/kimi-for-coding" ;;
+                kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
-                kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -749,12 +692,8 @@ get_model_for_tier() {
                 glm)      echo "glm-5.2" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-4.1-fast" ;;
                 qwen3)    echo "qwen3.6-35b-a3b" ;;  # Open-weight MoE (35B total, 3B active)
-                aider)    echo "gpt-5.4" ;;
-                amp)      echo "amp" ;;  # Same model (no tiers)
-                ollama)   echo "llama3.3" ;;
-                kimi)     echo "kimi-code/kimi-for-coding" ;;
+                kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
-                kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -769,12 +708,8 @@ get_model_for_tier() {
                 glm)      echo "glm-4-flash" ;;
                 grok)     echo "grok-4.1-fast" ;;
                 qwen3)    echo "qwen3-32b" ;;
-                aider)    echo "gpt-5.4-nano" ;;
-                amp)      echo "amp" ;;  # Same model (no tiers)
-                ollama)   echo "llama3.2" ;;
-                kimi)     echo "kimi-code/kimi-for-coding" ;;
+                kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.5" ;;
-                kilo)     echo "auto" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -801,7 +736,7 @@ apply_model_tier() {
             ;;
     esac
 
-    local consultants="claude gemini codex mistral cursor deepseek glm grok qwen3 minimax aider amp kimi ollama"
+    local consultants="claude gemini codex mistral cursor deepseek glm grok qwen3 minimax kimi"
     for c in $consultants; do
         local model
         model=$(get_model_for_tier "$c" "$tier")
@@ -821,9 +756,9 @@ apply_model_tier() {
 
 # Presets allow quick configuration for different use cases:
 #   minimal      - 2 models (fast, cheap): Gemini + Codex
-#   balanced     - 4 models (good coverage): + Mistral + Kilo
-#   thorough     - 5 models (comprehensive): + Cursor
-#   high-stakes  - All models + debate (maximum rigor)
+#   balanced     - 4 models (good coverage): + Mistral + Cursor
+#   thorough     - 4 models (comprehensive)
+#   high-stakes  - Broad premium panel + debate (maximum rigor)
 #
 # Quality Tiers (v2.5):
 #   max_quality  - All consultants + premium models + debate + reflection
@@ -835,10 +770,9 @@ apply_model_tier() {
 # Helper: Disable all consultants
 _disable_all_consultants() {
     export ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false
-    export ENABLE_KILO=false ENABLE_CURSOR=false ENABLE_AIDER=false
-    export ENABLE_AMP=false ENABLE_KIMI=false ENABLE_CLAUDE=false
+    export ENABLE_CURSOR=false ENABLE_KIMI=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
-    export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false ENABLE_OLLAMA=false
+    export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
     export ENABLE_DEBATE=false ENABLE_REFLECTION=false
 }
 
@@ -856,23 +790,17 @@ apply_preset() {
             ;;
         balanced)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_KILO=true
+            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
             ;;
         thorough)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_KILO=true ENABLE_CURSOR=true
+            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
             ;;
         high-stakes)
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
-            export ENABLE_KILO=true ENABLE_CURSOR=true ENABLE_AIDER=true
+            export ENABLE_CURSOR=true ENABLE_CLAUDE=true
             export ENABLE_DEBATE=true DEBATE_ROUNDS=2
             export ENABLE_REFLECTION=true REFLECTION_CYCLES=1
-            ;;
-        local)
-            # Local inference with Ollama - use economy tier for speed
-            apply_model_tier "economy"
-            export ENABLE_OLLAMA=true
-            export OLLAMA_MODELS="${OLLAMA_MODELS:-llama3.2,codellama}"
             ;;
         security)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
@@ -880,7 +808,8 @@ apply_preset() {
             export ENABLE_DEBATE=true DEBATE_ROUNDS=2
             ;;
         cost-capped)
-            export ENABLE_GEMINI=true ENABLE_MISTRAL=true ENABLE_OLLAMA=true
+            apply_model_tier "economy"
+            export ENABLE_GEMINI=true ENABLE_MISTRAL=true ENABLE_QWEN3=true
             export MAX_SESSION_COST=0.10
             ;;
         # --- Quality Tier Presets (v2.5) ---
@@ -888,8 +817,8 @@ apply_preset() {
             # Maximum quality - all premium models + all features
             apply_model_tier "premium"
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
-            export ENABLE_KILO=true ENABLE_CURSOR=true ENABLE_AIDER=true
-            export ENABLE_CLAUDE=true
+            export ENABLE_CURSOR=true ENABLE_KIMI=true
+            export ENABLE_CLAUDE=true ENABLE_QWEN3=true ENABLE_MINIMAX=true
             export ENABLE_DEBATE=true DEBATE_ROUNDS=3
             export ENABLE_REFLECTION=true REFLECTION_CYCLES=2
             export ENABLE_PEER_REVIEW=true
@@ -898,7 +827,7 @@ apply_preset() {
             # Balanced quality - standard models, good coverage
             apply_model_tier "standard"
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_KILO=true
+            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
             export ENABLE_DEBATE=true DEBATE_ROUNDS=1
             ;;
         fast)
@@ -910,7 +839,7 @@ apply_preset() {
             ;;
         *)
             echo "Unknown preset: $preset" >&2
-            echo "Available presets: minimal, balanced, thorough, high-stakes, local, security, cost-capped, max_quality, medium, fast" >&2
+            echo "Available presets: minimal, balanced, thorough, high-stakes, security, cost-capped, max_quality, medium, fast" >&2
             return 1
             ;;
     esac
@@ -930,10 +859,9 @@ Quality Tiers (v2.5):
 
 Use Cases:
   minimal      2 models (Gemini + Codex) - Fast, cheap
-  balanced     4 models (+ Mistral + Kilo) - Good coverage [DEFAULT]
-  thorough     5 models (+ Cursor) - Comprehensive analysis
-  high-stakes  All models + debate - Maximum rigor for critical decisions
-  local        Ollama only - Full privacy, no API calls
+  balanced     4 models (+ Mistral + Cursor) - Good coverage [DEFAULT]
+  thorough     4 models - Comprehensive analysis
+  high-stakes  Broad premium panel + debate - Maximum rigor for critical decisions
   security     Security-focused models + debate - For security reviews
   cost-capped  Budget-conscious options - Minimal API costs
 
@@ -945,4 +873,4 @@ EOF
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="2.21.0"
+AI_CONSULTANTS_VERSION="2.21.1"

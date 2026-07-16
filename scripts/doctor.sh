@@ -136,7 +136,9 @@ check_fail() {
 
 # Print only in non-JSON mode
 _print() {
-    [[ "$JSON_OUTPUT" != "true" ]] && echo "$@"
+    if [[ "$JSON_OUTPUT" != "true" ]]; then
+        echo "$@"
+    fi
 }
 
 print_header() {
@@ -266,10 +268,7 @@ check_cli_consultants() {
     check_cli_consultant "Gemini" "$GEMINI_CMD" "curl -fsSL https://antigravity.google/cli/install.sh | bash" "GEMINI"
     check_cli_consultant "Codex" "$CODEX_CMD" "npm install -g @openai/codex" "CODEX"
     check_cli_consultant "Mistral Vibe" "$MISTRAL_CMD" "pip install mistral-vibe" "MISTRAL"
-    check_cli_consultant "Kilo" "$KILO_CMD" "npm install -g @kilocode/cli" "KILO"
     check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR"
-    check_cli_consultant "Aider" "$AIDER_CMD" "pip install aider-chat" "AIDER"
-    check_cli_consultant "Amp" "$AMP_CMD" "curl -fsSL https://ampcode.com/install.sh | bash" "AMP"
     check_cli_consultant "Kimi" "$KIMI_CMD" "curl -L code.kimi.com/install.sh | bash" "KIMI"
     check_cli_consultant "Claude" "$CLAUDE_CMD" "See https://docs.anthropic.com/claude-code" "CLAUDE"
     check_cli_consultant "Qwen" "$QWEN3_CMD" "npm install -g @qwen-code/qwen-code@latest" "QWEN3"
@@ -404,7 +403,7 @@ check_configuration() {
 
     # Count enabled consultants using a compact loop
     local enabled_count=0
-    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KILO ENABLE_CURSOR ENABLE_AIDER ENABLE_AMP ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX ENABLE_OLLAMA"
+    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_CURSOR ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX"
     for flag in $consultant_flags; do
         [[ "${!flag:-false}" == "true" ]] && { ((enabled_count++)) || true; }
     done
@@ -600,47 +599,6 @@ check_synthesis() {
 }
 
 # =============================================================================
-# CHECK: Ollama (Local Models)
-# =============================================================================
-
-check_ollama() {
-    print_section "Checking Local Model Support (Ollama)"
-
-    local enable_ollama="${ENABLE_OLLAMA:-false}"
-
-    if command -v ollama &> /dev/null; then
-        local ollama_version
-        ollama_version=$(ollama --version 2>/dev/null | head -1 || echo "unknown")
-        _print "  ✓ Ollama: $ollama_version"
-        check_pass
-
-        # Check if server is running
-        if curl -s http://localhost:11434/api/tags &>/dev/null; then
-            _print "  ✓ Ollama server: running"
-            check_pass
-
-            # List available models
-            if [[ "$VERBOSE" == "true" ]]; then
-                local models
-                models=$(curl -s http://localhost:11434/api/tags 2>/dev/null | jq -r '.models[].name' 2>/dev/null | head -5 | tr '\n' ', ' || echo "none")
-                _print "  ○ Available models: ${models%,}"
-            fi
-        else
-            _print "  △ Ollama server: not running"
-            add_warning "ollama" "Ollama installed but server not running"
-        fi
-    else
-        if [[ "$enable_ollama" == "true" ]]; then
-            _print "  ✗ Ollama: enabled but not installed"
-            add_issue "ollama" "Ollama enabled but not installed" "curl -fsSL https://ollama.com/install.sh | sh"
-            check_fail
-        else
-            _print "  ○ Ollama: not installed (optional)"
-        fi
-    fi
-}
-
-# =============================================================================
 # SUMMARY AND FIXES
 # =============================================================================
 
@@ -648,24 +606,28 @@ print_summary() {
     if [[ "$JSON_OUTPUT" == "true" ]]; then
         # Build issues array
         local issues_json="[]"
-        for issue in "${ISSUES[@]:-}"; do
-            IFS='|' read -r category description fix <<< "$issue"
-            issues_json=$(echo "$issues_json" | jq \
-                --arg cat "$category" \
-                --arg desc "$description" \
-                --arg fix "$fix" \
-                '. + [{"category": $cat, "description": $desc, "fix": $fix}]')
-        done
+        if (( ${#ISSUES[@]} > 0 )); then
+            for issue in "${ISSUES[@]}"; do
+                IFS='|' read -r category description fix <<< "$issue"
+                issues_json=$(echo "$issues_json" | jq \
+                    --arg cat "$category" \
+                    --arg desc "$description" \
+                    --arg fix "$fix" \
+                    '. + [{"category": $cat, "description": $desc, "fix": $fix}]')
+            done
+        fi
 
         # Build warnings array
         local warnings_json="[]"
-        for warning in "${WARNINGS[@]:-}"; do
-            IFS='|' read -r category description <<< "$warning"
-            warnings_json=$(echo "$warnings_json" | jq \
-                --arg cat "$category" \
-                --arg desc "$description" \
-                '. + [{"category": $cat, "description": $desc}]')
-        done
+        if (( ${#WARNINGS[@]} > 0 )); then
+            for warning in "${WARNINGS[@]}"; do
+                IFS='|' read -r category description <<< "$warning"
+                warnings_json=$(echo "$warnings_json" | jq \
+                    --arg cat "$category" \
+                    --arg desc "$description" \
+                    '. + [{"category": $cat, "description": $desc}]')
+            done
+        fi
 
         jq -n \
             --argjson total "$TOTAL_CHECKS" \
@@ -794,15 +756,11 @@ suggest_configuration() {
         "ENABLE_GEMINI:${GEMINI_CMD:-agy}"
         "ENABLE_CODEX:${CODEX_CMD:-codex}"
         "ENABLE_MISTRAL:${MISTRAL_CMD:-vibe}"
-        "ENABLE_KILO:${KILO_CMD:-kilocode}"
         "ENABLE_CURSOR:${CURSOR_CMD:-agent}"
-        "ENABLE_AIDER:${AIDER_CMD:-aider}"
-        "ENABLE_AMP:${AMP_CMD:-amp}"
         "ENABLE_KIMI:${KIMI_CMD:-kimi}"
         "ENABLE_CLAUDE:${CLAUDE_CMD:-claude}"
         "ENABLE_QWEN3:${QWEN3_CMD:-qwen}"
         "ENABLE_MINIMAX:${MINIMAX_CMD:-mmx}"
-        "ENABLE_OLLAMA:ollama"
     )
 
     local available_count=0
@@ -876,21 +834,16 @@ _count_available_consultants() {
     # name_upper | flag | command (uppercase pre-baked to match
     # get_self_consultant_name's output, so no per-iteration to_upper subshell).
     # ENABLE_<NAME> defaults are owned by config.sh — we deliberately do NOT
-    # duplicate them here to avoid the drift trap (e.g. config.sh sets
-    # ENABLE_AIDER=false, contradicting any local "default true" claim).
+    # duplicate them here to avoid drift from config.sh defaults.
     local entries=(
         "GEMINI|ENABLE_GEMINI|${GEMINI_CMD:-agy}"
         "CODEX|ENABLE_CODEX|${CODEX_CMD:-codex}"
         "MISTRAL|ENABLE_MISTRAL|${MISTRAL_CMD:-vibe}"
-        "KILO|ENABLE_KILO|${KILO_CMD:-kilocode}"
         "CURSOR|ENABLE_CURSOR|${CURSOR_CMD:-agent}"
-        "AIDER|ENABLE_AIDER|${AIDER_CMD:-aider}"
-        "AMP|ENABLE_AMP|${AMP_CMD:-amp}"
         "KIMI|ENABLE_KIMI|${KIMI_CMD:-kimi}"
         "CLAUDE|ENABLE_CLAUDE|${CLAUDE_CMD:-claude}"
         "QWEN3|ENABLE_QWEN3|${QWEN3_CMD:-qwen}"
         "MINIMAX|ENABLE_MINIMAX|${MINIMAX_CMD:-mmx}"
-        "OLLAMA|ENABLE_OLLAMA|ollama"
     )
     for entry in "${entries[@]}"; do
         IFS='|' read -r name flag cmd <<<"$entry"
@@ -1112,10 +1065,10 @@ check_live_consultants() {
     # name|enable-flag — mirrors consult_all's selection set.
     local entries=(
         "Gemini|ENABLE_GEMINI"   "Codex|ENABLE_CODEX"   "Mistral|ENABLE_MISTRAL"
-        "Kilo|ENABLE_KILO"       "Cursor|ENABLE_CURSOR" "Aider|ENABLE_AIDER"
-        "Amp|ENABLE_AMP"         "Kimi|ENABLE_KIMI"     "Claude|ENABLE_CLAUDE"
+        "Cursor|ENABLE_CURSOR"    "Kimi|ENABLE_KIMI"
+        "Claude|ENABLE_CLAUDE"
         "Qwen3|ENABLE_QWEN3"     "GLM|ENABLE_GLM"       "Grok|ENABLE_GROK"
-        "DeepSeek|ENABLE_DEEPSEEK" "MiniMax|ENABLE_MINIMAX" "Ollama|ENABLE_OLLAMA"
+        "DeepSeek|ENABLE_DEEPSEEK" "MiniMax|ENABLE_MINIMAX"
     )
 
     local live_pass=0 live_fail=0 e name flagvar lower out err reason rc
@@ -1162,7 +1115,6 @@ main() {
     check_configuration
     check_routing
     check_synthesis
-    check_ollama
     attempt_fixes
     print_summary
 

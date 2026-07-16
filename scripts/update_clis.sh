@@ -35,15 +35,11 @@ _CLI_ENTRIES=(
     "Gemini|GEMINI_CMD|agy"
     "Codex|CODEX_CMD|codex"
     "Mistral|MISTRAL_CMD|vibe"
-    "Kilo|KILO_CMD|kilocode"
     "Cursor|CURSOR_CMD|agent"
-    "Aider|AIDER_CMD|aider"
-    "Amp|AMP_CMD|amp"
     "Kimi|KIMI_CMD|kimi"
     "Claude|CLAUDE_CMD|claude"
     "Qwen3|QWEN3_CMD|qwen"
     "MiniMax|MINIMAX_CMD|mmx"
-    "Ollama|OLLAMA_CMD|ollama"
 )
 
 # Cached global package listings (filled once by _load_caches; tests may set them
@@ -66,15 +62,11 @@ _cli_meta() {
         agy)      INSTALLER="curl -fsSL https://antigravity.google/cli/install.sh | bash" ;;
         codex)    NPM_PKG="@openai/codex"; BREW_CASK="codex" ;;
         vibe)     PIP_PKG="mistral-vibe" ;;
-        kilocode) NPM_PKG="@kilocode/cli" ;;
         agent)    INSTALLER="curl https://cursor.com/install -fsS | bash" ;;
-        aider)    PIP_PKG="aider-chat" ;;
-        amp)      SELF_SUB="update";  INSTALLER="curl -fsSL https://ampcode.com/install.sh | bash" ;;
         kimi)     SELF_SUB="upgrade"; INSTALLER="curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash" ;;
         claude)   BREW_CASK="claude-code@latest"; NPM_PKG="@anthropic-ai/claude-code"; SELF_SUB="update" ;;
         qwen)     NPM_PKG="@qwen-code/qwen-code" ;;
         mmx)      NPM_PKG="mmx-cli"; SELF_SUB="update" ;;
-        ollama)   BREW_FORMULA="ollama"; INSTALLER="curl -fsSL https://ollama.com/install.sh | sh" ;;
     esac
 }
 

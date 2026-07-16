@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-AI Consultants is a multi-model AI deliberation system that queries up to 15 AI consultants (Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Ollama) to obtain diverse perspectives on coding problems.
+AI Consultants is a multi-model AI deliberation system that queries up to 11 AI consultants (Gemini, Codex, Mistral, Cursor, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.21.0
+**Version**: 2.21.1
 
 ## Distribution
 
@@ -47,7 +47,6 @@ ai-consultants/
 │   ├── install.sh              # One-liner installer (v2.2)
 │   ├── query_*.sh              # Wrapper for each consultant
 │   ├── query_claude.sh         # Claude consultant (v2.2)
-│   ├── query_ollama.sh         # Local model support (v2.2)
 │   ├── synthesize.sh           # Auto-synthesis of responses
 │   ├── debate_round.sh         # Multi-Agent Debate
 │   ├── classify_question.sh    # Question classifier
@@ -73,6 +72,7 @@ ai-consultants/
 ├── docs/
 │   ├── releases/             # Release notes (one per version)
 │   ├── SETUP.md              # Installation guide
+│   ├── RECIPES.md            # Copy-paste workflow configurations
 │   ├── COST_RATES.md         # Model pricing
 │   ├── SMART_ROUTING.md      # Affinity matrix
 │   └── JSON_SCHEMA.md        # Output schema
@@ -200,9 +200,8 @@ Functions in `lib/common.sh`:
 
 # Use Case Presets
 ./scripts/consult_all.sh --preset minimal "question"    # Gemini + Codex
-./scripts/consult_all.sh --preset balanced "question"   # + Mistral + Kilo
+./scripts/consult_all.sh --preset balanced "question"   # + Mistral + Cursor
 ./scripts/consult_all.sh --preset high-stakes "question" # All + debate
-./scripts/consult_all.sh --preset local "question"      # Ollama only
 ```
 
 Presets are defined in `config.sh` via `apply_preset()` function.
@@ -224,17 +223,6 @@ Strategies are implemented in `synthesize.sh` via `get_strategy_instructions()`.
 ./scripts/doctor.sh --json       # JSON output
 ./scripts/doctor.sh --verbose    # Detailed output
 ```
-
-### Ollama Local Models
-```bash
-ENABLE_OLLAMA=true ./scripts/consult_all.sh "question"
-OLLAMA_MODEL=codellama ./scripts/consult_all.sh "question"
-```
-
-Configuration in `config.sh`:
-- `OLLAMA_MODEL` - Model to use (default: hf.co/prithivMLmods/VibeThinker-3B-GGUF)
-- `OLLAMA_HOST` - Server URL (default: http://localhost:11434)
-- `OLLAMA_TIMEOUT` - Timeout in seconds (default: 300)
 
 ### Panic Button Mode
 Automatically adds rigor when uncertainty detected:
@@ -270,30 +258,6 @@ Functions in `lib/reflection.sh`:
 - `heuristic_overconfidence_check()` - Fast fallback without LLM
 - `judge_all_responses()` - Batch evaluation
 
-## v2.8 Features
-
-### Amp CLI Support
-Amp Code is now supported as a CLI-based consultant with "The Systems Thinker" persona.
-
-```bash
-# Enable Amp consultant
-export ENABLE_AMP=true
-./scripts/consult_all.sh "question"
-```
-
-**CLI Installation:**
-```bash
-curl -fsSL https://ampcode.com/install.sh | bash
-```
-
-**Environment Variables:**
-- `ENABLE_AMP` - Enable Amp consultant (default: true)
-- `AMP_CMD` - CLI command (default: amp)
-- `AMP_TIMEOUT` - Timeout in seconds (default: 180)
-- `AMP_API_KEY` - API key for authentication
-
-**Persona:** The Systems Thinker - Focuses on holistic system design, component interactions, and emergent behaviors.
-
 ## v2.9 Features
 
 ### Kimi CLI Support
@@ -314,7 +278,7 @@ curl -L code.kimi.com/install.sh | bash
 - `ENABLE_KIMI` - Enable Kimi consultant (default: false)
 - `KIMI_CMD` - CLI command (default: kimi)
 - `KIMI_TIMEOUT` - Timeout in seconds (default: 180)
-- `KIMI_MODEL` - Model identifier (default: kimi-code/kimi-for-coding)
+- `KIMI_MODEL` - Kimi CLI model alias (default: kimi-code/k3; passed explicitly with `--model`)
 
 **Persona:** The Eastern Sage - Focuses on holistic understanding, balance of perspectives, and wisdom from diverse viewpoints.
 
@@ -468,13 +432,10 @@ All consultants now use premium models by default:
 | Cursor | composer-2.5 |
 | DeepSeek | deepseek-v4-pro |
 | GLM | glm-5.2 |
-| Grok | grok-4.3 |
+| Grok | grok-4.5 |
 | Qwen3 | qwen3.7-max |
-| Kimi | kimi-code/kimi-for-coding |
-| Aider | qwen3-coder:free |
+| Kimi | kimi-code/k3 |
 | MiniMax | MiniMax-M2.7 |
-| Kilo | auto |
-| Ollama | hf.co/prithivMLmods/VibeThinker-3B-GGUF |
 
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
 
@@ -628,6 +589,12 @@ REPORT_MAX_JSON_LINES=50         # Max JSON lines in full report
 ## Testing
 
 ```bash
+# Full regression suite (required before committing/releasing)
+npm test
+
+# ShellCheck lint
+npm run lint
+
 # Full diagnostic
 ./scripts/doctor.sh
 
@@ -661,8 +628,6 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `MAX_SESSION_COST` | 1.00 | Max budget ($) |
 | `ENABLE_PANIC_MODE` | auto | Panic mode trigger (v2.2) |
 | `PANIC_CONFIDENCE_THRESHOLD` | 5 | Panic threshold (v2.2) |
-| `ENABLE_OLLAMA` | false | Local model support (v2.2) |
-| `OLLAMA_MODEL` | hf.co/prithivMLmods/VibeThinker-3B-GGUF | Ollama model (v2.17 default) |
 | `CLAUDE_MODEL` | claude-opus-4-8 | Claude model (v2.5) |
 | `GEMINI_MODEL` | Gemini 3.1 Pro (High) | Gemini agy CLI model (v2.15) |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
@@ -673,7 +638,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `CACHE_TTL_HOURS` | 24 | Cache expiration in hours (v2.3) |
 | `ENABLE_RESPONSE_LIMITS` | false | Response token limits (v2.3, opt-in) |
 | `ENABLE_COST_AWARE_ROUTING` | false | Cost-based model routing (v2.3) |
-| `ENABLE_DEBATE_OPTIMIZATION` | false | Skip debate if all agree (v2.3, opt-in) |
+| `ENABLE_DEBATE_OPTIMIZATION` | true | Skip debate if all agree; SECURITY and ARCHITECTURE remain mandatory (default since v2.13) |
 | `ENABLE_COMPACT_REPORT` | true | Compact report format (v2.3) |
 | `ENABLE_CAPABILITY_WEIGHTING` | false | Capability-weighted voting (v2.20, opt-in) |
 | `ENABLE_CAPABILITY_ROUTING` | false | Capability-aware panel composition (v2.20, opt-in) |
@@ -687,7 +652,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `QWEN3_CMD` | qwen | Qwen CLI command (v2.7) |
 | `ENABLE_KIMI` | true | Enable Kimi consultant (v2.9) |
 | `KIMI_CMD` | kimi | Kimi CLI command (v2.9) |
-| `KIMI_MODEL` | kimi-code/kimi-for-coding | Kimi model (v2.9) |
+| `KIMI_MODEL` | kimi-code/k3 | Kimi CLI model alias |
 | `ENABLE_MINIMAX` | true | Enable MiniMax consultant (v2.10; CLI via mmx v2.21) |
 | `MINIMAX_USE_API` | false | Use MiniMax API instead of the mmx CLI (v2.21) |
 | `MINIMAX_CMD` | mmx | MiniMax CLI command (v2.21) |
@@ -699,15 +664,11 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `agy` CLI - Antigravity CLI (Gemini consultant; successor to the deprecated Gemini CLI, v2.15)
 - `codex` CLI - OpenAI Codex
 - `vibe` CLI - Mistral Vibe
-- `kilocode` CLI - Kilo Code
 - `agent` CLI - Cursor
-- `aider` CLI - Aider
-- `amp` CLI - Amp Code (v2.8)
 - `kimi` CLI - Kimi Code (v2.9)
 - `claude` CLI - Claude (v2.2, also used for synthesis)
 - `qwen` CLI - Qwen via qwen-code (v2.7, optional)
 - `mmx` CLI - MiniMax via mmx-cli (v2.21, optional; `npm i -g mmx-cli`, auth `mmx auth login`)
-- `ollama` CLI - Local models (v2.2)
 - `jq` - JSON parsing
 
 ## Error Handling and Retry
@@ -727,13 +688,12 @@ RETRY_DELAY_SECONDS=10
 # Per-consultant timeout
 GEMINI_TIMEOUT=240
 CODEX_TIMEOUT=180
-OLLAMA_TIMEOUT=300  # Longer for local inference
 ```
 
 ## Extended Documentation
 
 For detailed information, see:
-- [docs/SETUP.md](docs/SETUP.md) - Installation, authentication, Ollama setup
+- [docs/SETUP.md](docs/SETUP.md) - Installation and authentication
 - [docs/COST_RATES.md](docs/COST_RATES.md) - Rates and budget management
 - [docs/SMART_ROUTING.md](docs/SMART_ROUTING.md) - Affinity matrix and routing
 - [docs/JSON_SCHEMA.md](docs/JSON_SCHEMA.md) - Complete output schema
@@ -741,8 +701,8 @@ For detailed information, see:
 ## Development Notes
 
 - Scripts in `lib/` are libraries, not standalone executables
-- Output goes to `/tmp/ai_consultations/TIMESTAMP/`
-- Session state in `/tmp/ai_consultants_sessions/`
+- Output goes to `$XDG_CACHE_HOME/ai-consultants/consultations/TIMESTAMP/` (normally `~/.cache/ai-consultants/consultations/`)
+- Session state lives in `$XDG_STATE_HOME/ai-consultants/sessions/` (normally `~/.local/state/ai-consultants/sessions/`)
 - All timeouts are configurable in `config.sh`
 - Consultants can be disabled individually (`ENABLE_GEMINI=false`, etc.)
 - Use `.env.example` as template for environment configuration
@@ -841,6 +801,12 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.21.1
+- **Kimi upgraded to K3.** `KIMI_MODEL` now defaults to `kimi-code/k3`; premium, standard, and economy tiers all resolve to the same K3 alias.
+- **Model selection is now real, not metadata-only.** `query_kimi.sh` passes `--model "$KIMI_MODEL"` to the CLI, overriding a stale user-level Kimi default. A dedicated offline regression test captures the CLI arguments and validates response metadata; a live K3 smoke test returned a structured response with confidence 10.
+- **Roster reduced from 15 to 11 supported consultants.** Kilo, Aider, Amp, and Ollama were removed end-to-end: canonical/default lists, presets, routing and personas, debate/synthesis/reflection, doctor/preflight, updater, configuration/wizard, schemas, tests, docs, and their four query adapters. `ENABLE_KILO`/`KILO_*`, `ENABLE_AIDER`/`AIDER_*`, `ENABLE_AMP`/`AMP_*`, `ENABLE_OLLAMA`/`OLLAMA_*`, and the Ollama-only `local` preset are obsolete and ignored.
+- **Documentation and release surfaces synced.** README, SKILL, `.env.example`, setup/configuration/recipes, cost catalog, changelog, release note, npm metadata, and the showcase site all identify Kimi K3. Version bumped to 2.21.1.
 
 ### v2.21.0
 - **CLI-first transport (principle).** Every `*_USE_API` defaults `false`; a consultant with a CLI always uses it, API is opt-in (CLI-less model or explicit choice). `ENABLE_AMP`/`ENABLE_CLAUDE` default true.

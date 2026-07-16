@@ -184,7 +184,7 @@ select_consultants() {
     local max_consultants="${3:-8}"
 
     # Include all consultants (order matches ALL_CONSULTANTS in config.sh)
-    local consultants=("Gemini" "Codex" "Mistral" "Kilo" "Cursor" "Aider" "Amp" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
+    local consultants=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
     local selected=()
     local scores=()
 

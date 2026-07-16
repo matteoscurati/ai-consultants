@@ -1,14 +1,16 @@
 {
   "name": "ai-consultants",
-  "version": "2.21.0",
-  "description": "A harness for every question - a panel of up to 15 AI models that picks its own deliberation strategy per question (convergence, adversarial verification, tournament) and checks its work before answering",
+  "version": "2.21.1",
+  "description": "A harness for every question - a panel of up to 11 AI models that picks its own deliberation strategy per question (convergence, adversarial verification, tournament) and checks its work before answering",
   "bin": {
     "ai-consultants": "bin/ai-consultants"
   },
   "files": [
     "bin/",
     "scripts/",
-    "!scripts/test_functions.sh",
+    "!scripts/test_*.sh",
+    "!scripts/test_fixtures/",
+    "!scripts/lib/test_helpers.sh",
     "templates/",
     ".claude/commands/",
     "SKILL.md",
