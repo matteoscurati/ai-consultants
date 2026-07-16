@@ -23,6 +23,13 @@ DOCTOR="$SCRIPT_DIR/doctor.sh"
 # shellcheck source=lib/test_helpers.sh
 source "$SCRIPT_DIR/lib/test_helpers.sh"
 
+# Keep preset recommendations independent from whichever consultant CLIs happen
+# to be installed on the developer machine or the GitHub runner. `true` is a
+# portable executable stand-in; these tests exercise selection/counting only and
+# never invoke the consultants. Tests that need count=0 disable every ENABLE_*.
+export GEMINI_CMD=true CODEX_CMD=true MISTRAL_CMD=true CURSOR_CMD=true
+export KIMI_CMD=true CLAUDE_CMD=true QWEN3_CMD=true MINIMAX_CMD=true
+
 # Each test invokes `doctor.sh --suggest-preset` with a different question
 # and asserts both the recommended preset/strategy and the reasoning text.
 

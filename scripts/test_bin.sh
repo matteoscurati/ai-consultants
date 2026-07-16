@@ -70,7 +70,10 @@ test_init_chmod_600_on_env() {
     local cfg="$TMP/init1"
     AI_CONSULTANTS_CONFIG_DIR="$cfg" "$BIN" init >/dev/null 2>&1
     local perms
-    perms=$(stat -f '%Lp' "$cfg/.env" 2>/dev/null || stat -c '%a' "$cfg/.env" 2>/dev/null || echo "?")
+    # GNU stat accepts `-f` with different semantics (filesystem report) and
+    # exits successfully, so probing the BSD form first pollutes the result on
+    # Linux. Try GNU `-c` first; macOS/BSD rejects it and falls back to `-f`.
+    perms=$(stat -c '%a' "$cfg/.env" 2>/dev/null || stat -f '%Lp' "$cfg/.env" 2>/dev/null || echo "?")
     assert_eq "600" "$perms" ".env created with chmod 600 (contains API keys)"
 }
 
