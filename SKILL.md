@@ -100,13 +100,16 @@ Query is classified, then sent to consultants in parallel. Responses are scored,
 All settings use environment variables. Key toggles:
 
 ```bash
+ai-consultants configure     # Auto-detect CLIs/API keys and persist all settings
 ENABLE_DEBATE=true           # Multi-agent debate
 ENABLE_SYNTHESIS=true        # Automatic synthesis
 ENABLE_PANIC_MODE=auto       # Auto-rigor for uncertainty
 ENABLE_BUDGET_LIMIT=false    # Budget enforcement (v2.4)
 ```
 
-Enable opt-in consultants: `ENABLE_KIMI`, `ENABLE_QWEN3`, `ENABLE_CLAUDE`, `ENABLE_MINIMAX`.
+Use `ai-consultants configure --show-parameters` for the exact accepted keys,
+`--set KEY=VALUE` for repeatable automation, or `--advanced` to review all of
+them interactively.
 
 CLI/API switching: `GEMINI_USE_API`, `CODEX_USE_API`, `CLAUDE_USE_API`, `MISTRAL_USE_API`, `QWEN3_USE_API`.
 

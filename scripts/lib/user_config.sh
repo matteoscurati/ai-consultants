@@ -124,14 +124,16 @@ _apply_env_file() {
             continue
         fi
 
-        # Strip optional surrounding quotes
+        # Strip optional surrounding quotes. For unquoted values, remove an
+        # inline comment only when it is preceded by whitespace; this keeps
+        # URL fragments and literal # characters intact.
         if [[ "$value" =~ ^\".*\"$ ]] || [[ "$value" =~ ^\'.*\'$ ]]; then
             value="${value:1:${#value}-2}"
+        else
+            value=$(printf '%s' "$value" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')
         fi
 
-        # Strip trailing whitespace and an inline comment if value is unquoted
-        # (we already stripped quotes if present)
-        # Note: we intentionally do NOT do shell expansion here for safety.
+        # We intentionally do NOT do shell expansion here for safety.
         export "$key=$value"
     done < "$file"
 }

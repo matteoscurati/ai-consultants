@@ -55,13 +55,14 @@ Usage:
   ai-consultants --preset <name> "question"   Use a configuration preset
   ai-consultants --strategy <name> "question" Use a synthesis strategy
   ai-consultants doctor [--fix] [--json]      Run diagnostics
+  ai-consultants configure [options]          Auto-configure all persistent settings
   ai-consultants update-clis [--dry-run]      Check & update installed consultant CLIs
   ai-consultants init [--force]               Scaffold ~/.config/ai-consultants/{config.sh,.env}
   ai-consultants install                      Install slash commands to ~/.claude/commands/
   ai-consultants version                      Show version
   ai-consultants help                         Show this help
 
-Presets:   minimal, balanced, thorough, high-stakes, local, security, cost-capped,
+Presets:   minimal, balanced, thorough, high-stakes, security, cost-capped,
            max_quality, medium, fast
 
 Strategies: majority, risk_averse, security_first, cost_capped, compare_only
@@ -70,6 +71,7 @@ Examples:
   npx ai-consultants "How to optimize this SQL query?"
   npx ai-consultants --preset balanced "Redis or Memcached?"
   npx ai-consultants doctor --fix
+  npx ai-consultants configure --set DEFAULT_PRESET=balanced
 
 Documentation: https://github.com/matteoscurati/ai-consultants
 EOF
@@ -78,6 +80,10 @@ EOF
   doctor)
     shift
     exec "$SCRIPTS_DIR/doctor.sh" "$@"
+    ;;
+  configure|config)
+    shift
+    exec "$SCRIPTS_DIR/configure.sh" "$@"
     ;;
   update-clis|update)
     shift

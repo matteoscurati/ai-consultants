@@ -12,6 +12,56 @@ For goal-oriented, copy-paste configurations, start with
 [`docs/RECIPES.md`](../docs/RECIPES.md). This file is the variable reference;
 [`scripts/config.sh`](../scripts/config.sh) is the executable source of truth.
 
+## Automatic Configurator
+
+The public configurator detects all 11 supported consultants, chooses CLI or API
+transport from the available CLI binaries and credentials, and writes the
+persistent XDG configuration:
+
+```bash
+ai-consultants configure
+```
+
+It preserves existing custom values and secrets, refreshes `ENABLE_*` flags from
+detected availability, creates a timestamped backup, writes the result with mode
+`600`, and warns when fewer than two consultants are usable. Pin an availability
+decision with a final `--set ENABLE_<NAME>=true|false` override.
+Automatically chosen `*_USE_API` modes are stored with an
+`# ai-consultants:auto` marker and are recalculated on later runs. Remove the
+marker or use an environment variable/`--set` to pin a transport explicitly.
+It never performs a billed authentication probe; use `ai-consultants doctor
+--live` when you explicitly want a live provider check.
+
+```bash
+# Guided consultant and transport review
+ai-consultants configure --interactive
+
+# Review every supported persistent parameter
+ai-consultants configure --advanced
+
+# Fully automated, repeatable configuration
+ai-consultants configure \
+  --set DEFAULT_PRESET=security \
+  --set ENABLE_DEBATE=true \
+  --set ORCHESTRATION_MODE=adversarial \
+  --set ENABLE_HEALTH_GATE=true \
+  --set QUORUM_ACTION=stop
+
+# Discover the exact accepted keys or preview without exposing secrets
+ai-consultants configure --show-parameters
+ai-consultants configure --dry-run
+```
+
+`--set KEY=VALUE` is repeatable and fails closed for unknown or removed keys.
+Use the hidden interactive credential prompts (or exported environment variables)
+for API keys; command-line arguments may be visible in shell history and process
+inspection.
+The exhaustive parameter contract is [`.env.example`](../.env.example); the
+configurator derives its accepted keys from that template, while
+[`scripts/config.sh`](../scripts/config.sh) remains the runtime source of truth.
+A regression test fails when a persistent runtime default is missing from the
+configurator.
+
 ## User Config Dir (v2.12+)
 
 Persistent overrides live in `~/.config/ai-consultants/`. The directory and starter files are scaffolded by:
@@ -20,6 +70,9 @@ Persistent overrides live in `~/.config/ai-consultants/`. The directory and star
 ai-consultants init           # creates the dir + .env + config.sh
 ai-consultants init --force   # overwrites existing files
 ```
+
+`init` only scaffolds files for manual editing. Prefer `configure` when you want
+automatic detection and a ready-to-use panel.
 
 Search order for the directory:
 

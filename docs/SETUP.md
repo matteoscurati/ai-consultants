@@ -1,4 +1,4 @@
-# Setup Guide - AI Consultants v2.10
+# Setup Guide - AI Consultants v2.21.1
 
 This guide walks you through installing and configuring AI Consultants for various AI coding agents.
 
@@ -32,7 +32,17 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 This installs to `~/.claude/skills/ai-consultants/` and makes slash commands available in Claude Code.
 
-### Step 2: Verify Installation
+### Step 2: Configure the Available Consultants
+
+```bash
+ai-consultants configure
+```
+
+This detects installed CLIs and available API keys for the complete 11-agent
+roster, selects CLI/API transport, and saves a private persistent configuration
+under `~/.config/ai-consultants/`.
+
+### Step 3: Verify Installation
 
 ```bash
 ./scripts/doctor.sh --fix
@@ -40,7 +50,7 @@ This installs to `~/.claude/skills/ai-consultants/` and makes slash commands ava
 
 You should see at least 2 consultants marked as available.
 
-### Step 3: Your First Consultation
+### Step 4: Your First Consultation
 
 ```
 /ai-consultants:consult "What's the best way to structure a REST API?"
@@ -60,9 +70,10 @@ AI Consultants provides 3 slash commands:
 | `/ai-consultants:debate` | Run consultation with multi-round debate |
 | `/ai-consultants:help` | Show all commands and usage |
 
-Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
-
-All settings are saved to `~/.claude/skills/ai-consultants/.env`.
+Configuration can be managed with `ai-consultants configure`, including presets,
+strategies, features, personas, API keys, transports, models, timeouts, budgets,
+and advanced optimization controls. Settings are saved to the XDG user config
+directory, normally `~/.config/ai-consultants/.env`.
 
 ---
 
@@ -552,6 +563,41 @@ hard-budget, semantic-consensus, and large-context runs—are in
 ---
 
 ## Environment Configuration
+
+### Automatic configuration (recommended)
+
+```bash
+# Detect the full roster and write ~/.config/ai-consultants/.env
+ai-consultants configure
+
+# Set any supported parameter non-interactively
+ai-consultants configure \
+  --set DEFAULT_PRESET=balanced \
+  --set ENABLE_DEBATE=true
+
+# Guided or exhaustive review
+ai-consultants configure --interactive
+ai-consultants configure --advanced
+
+# Parameter discovery and safe preview
+ai-consultants configure --show-parameters
+ai-consultants configure --dry-run
+```
+
+Existing custom values and credentials are preserved automatically;
+availability-derived `ENABLE_*` flags are refreshed and can be pinned with
+`--set`. Unless `--force` is supplied, the previous file is retained as a
+timestamped mode-600 backup.
+Automatically selected `*_USE_API` modes carry an `# ai-consultants:auto`
+marker, so rerunning the command can react to installed or removed CLIs and new
+credentials. Unmarked modes, environment values, and `--set` remain user pins.
+The configurator uses the complete [`.env.example`](../.env.example) contract,
+so advanced parameters are also accepted through repeatable `--set KEY=VALUE`
+arguments.
+
+Do not place API keys in `--set` arguments: command lines can be retained in
+shell history or observed by other local processes. Use `--interactive`,
+`--advanced`, or exported environment variables for credentials.
 
 ### Using .env file
 

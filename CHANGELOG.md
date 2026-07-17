@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [Unreleased]
+
+### Added
+- **`ai-consultants configure`.** The public automatic configurator detects the complete 11-consultant roster, selects CLI/API transports, preserves existing settings and secrets, writes private XDG configuration with backups, and accepts every persistent parameter through repeatable `--set KEY=VALUE` arguments or an exhaustive `--advanced` review.
+
+### Fixed
+- The npm package now includes the full `.env.example`, so `init` no longer falls back to a partial five-setting template.
+- Gemini API setup now consistently uses the runtime-supported `GEMINI_API_KEY`; `.env` inline comments are parsed correctly, and the starter template no longer pins obsolete `/tmp` storage paths.
+- Repeatable `--set` values now participate in transport detection with final precedence, including intentional empty values. Auto-selected transports carry provenance so later runs can adapt when CLIs or credentials change without overriding user-authored pins.
+- Existing `export KEY=value` settings survive rewrites, `.env.example` is safely sourceable, and `--dry-run` no longer creates the persistent config directory while redacting credentials.
+- The stale v2.0 setup wizard now forwards to the maintained configurator instead of advertising removed consultants and incomplete authentication checks.
+- `configure --interactive` no longer exits without saving the moment you press Enter to keep a value.
+- `configure --advanced` no longer writes wrong values: each prompt was reading the next parameter's name instead of your answer.
+- `init` followed by `configure` no longer disables Codex, Claude, Mistral, and Qwen3 when only an API key is available — the starter template's transport switches are commented out, so auto-detection stays in charge until you deliberately set one. An installed CLI still takes precedence over an API key.
+- Configuration backups can no longer overwrite each other when two runs land in the same second.
+
 ## [2.21.1] - 2026-07-16
 
 ### Changed

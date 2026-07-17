@@ -513,12 +513,41 @@ Control how responses are combined:
 
 ### Environment Variables
 
-**Most users only need:**
+**Automatic configuration (recommended):**
 
 ```bash
-ai-consultants init           # creates ~/.config/ai-consultants/{config.sh,.env}
-$EDITOR ~/.config/ai-consultants/.env
+# Detect installed CLIs and available API keys, then write the persistent config
+ai-consultants configure
+
+# Review the consultant selection and transports interactively
+ai-consultants configure --interactive
+
+# Set any persistent parameter without opening an editor
+ai-consultants configure \
+  --set DEFAULT_PRESET=balanced \
+  --set ENABLE_DEBATE=true \
+  --set ORCHESTRATION_MODE=converge
+
+# Inspect the complete machine-readable parameter surface
+ai-consultants configure --show-parameters
 ```
+
+The configurator covers every persistent setting in `scripts/config.sh`, plus
+credentials, persona overrides, transport controls, advanced context knobs, and
+calibration commands. Existing custom values and secrets are preserved, while
+`ENABLE_*` flags are refreshed from detected availability (and can be pinned
+with `--set`). Rewrites create a private timestamped backup. Use `--advanced` to
+review every parameter or `--dry-run` to preview a redacted result.
+Auto-selected `*_USE_API` values are marked `# ai-consultants:auto`, allowing a
+later run to adapt when a CLI or credential changes. Environment variables,
+`--set`, and unmarked values remain explicit user choices.
+
+Enter credentials through `--interactive`/`--advanced` or export them before the
+run; avoid passing API keys through `--set`, where the shell may retain them in
+history or expose them in the process list.
+
+For a manual starter template instead, run `ai-consultants init` and edit
+`~/.config/ai-consultants/.env`.
 
 For ad-hoc overrides without persisting, the most common knobs:
 
@@ -759,7 +788,7 @@ Each consultation generates:
 
 - **Claude consultant**: New consultant with "The Synthesizer" persona
 - **Self-exclusion**: Invoking agent automatically excluded from panel
-- **Presets**: Quick configuration with `--preset minimal/balanced/high-stakes/local`
+- **Presets**: Quick configuration with `--preset minimal/balanced/high-stakes/security`
 - **Doctor command**: Diagnostic and auto-fix tool
 - **Synthesis strategies**: `--strategy majority/risk_averse/security_first/compare_only`
 - **Confidence intervals**: Statistical confidence ranges (e.g., "8 +/- 1.2")

@@ -384,6 +384,39 @@ test_minimax_explicit_true_without_key() {
     assert_eq "true" "$val" "explicit MINIMAX_USE_API=true is honored without a key"
 }
 
+test_env_inline_comments() {
+    local cfg="$TMP/inline_comments"
+    mkdir -p "$cfg"
+    printf '%s\n' \
+        'ENABLE_KIMI=true       # Kimi K3' \
+        'GROK_API_URL=https://api.example.test/v1#fragment' \
+        > "$cfg/.env"
+    local out
+    out=$(AI_CONSULTANTS_CONFIG_DIR="$cfg" bash -c '
+        source scripts/lib/user_config.sh
+        load_user_config
+        printf "%s|%s" "$ENABLE_KIMI" "$GROK_API_URL"
+    ')
+    assert_eq "true|https://api.example.test/v1#fragment" "$out" \
+        "unquoted inline comments are stripped without damaging URL fragments"
+}
+
+test_env_example_is_sourceable_and_loader_compatible() {
+    local out cfg="$TMP/env_example"
+    out=$(bash -c 'set -e; source .env.example; printf "%s|%s" "$GEMINI_MODEL" "$PANIC_KEYWORDS"')
+    assert_eq "Gemini 3.1 Pro (High)|uncertain|maybe|not sure|possibly|unclear|depends|hard to say|difficult to determine" \
+        "$out" ".env.example is safely sourceable"
+    mkdir -p "$cfg"
+    cp .env.example "$cfg/.env"
+    out=$(AI_CONSULTANTS_CONFIG_DIR="$cfg" bash -c '
+        source scripts/lib/user_config.sh
+        load_user_config
+        printf "%s|%s" "$GEMINI_MODEL" "$PANIC_KEYWORDS"
+    ')
+    assert_eq "Gemini 3.1 Pro (High)|uncertain|maybe|not sure|possibly|unclear|depends|hard to say|difficult to determine" \
+        "$out" "custom loader preserves quoted template semantics"
+}
+
 run_test "Test 12: get_xdg_dir honors XDG_*_HOME"        test_xdg_dir_honors_env
 run_test "Test 13: get_xdg_dir falls back to ~/.cache"   test_xdg_dir_falls_back_to_home
 run_test "Test 14: get_xdg_dir distroless /tmp fallback" test_xdg_dir_distroless_fallback
@@ -399,5 +432,7 @@ run_test "Test 23: MiniMax auto-API with key (v2.21)"    test_minimax_auto_api_w
 run_test "Test 24: MiniMax auto-CLI without key (v2.21)" test_minimax_auto_cli_without_key
 run_test "Test 25: MiniMax explicit false wins (v2.21)"  test_minimax_explicit_false_wins_over_key
 run_test "Test 26: MiniMax explicit true honored (v2.21)" test_minimax_explicit_true_without_key
+run_test "Test 27: .env inline comment parsing"            test_env_inline_comments
+run_test "Test 28: sourceable canonical .env template"      test_env_example_is_sourceable_and_loader_compatible
 
 test_summary "user_config"

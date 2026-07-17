@@ -1,1092 +1,408 @@
-#!/bin/bash
-# configure.sh - Interactive configuration wizard for AI Consultants v2.0
-#
-# Detects available CLI agents, allows selection and API configuration,
-# ensures minimum 2 agents are enabled, and saves configuration to .env
-#
-# Usage: ./configure.sh [--non-interactive] [--output FILE]
-#
-# Options:
-#   --non-interactive   Skip prompts, detect and auto-enable available agents
-#   --output FILE       Output file (default: .env in project root)
-
+#!/usr/bin/env bash
+# configure.sh - Automatic and interactive persistent configuration
 set -euo pipefail
+umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TEMPLATE_FILE="$PROJECT_ROOT/.env.example"
 
-# Load common utilities if available
-if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
-    source "$SCRIPT_DIR/lib/common.sh"
-else
-    # Fallback logging functions
-    log_info() { echo "[INFO] $*"; }
-    log_success() { echo "[OK] $*"; }
-    log_warn() { echo "[WARN] $*"; }
-    log_error() { echo "[ERROR] $*" >&2; }
-fi
+# shellcheck source=lib/user_config.sh
+source "$SCRIPT_DIR/lib/user_config.sh"
 
-# Load personas library for persona catalog
-if [[ -f "$SCRIPT_DIR/lib/personas.sh" ]]; then
-    source "$SCRIPT_DIR/lib/personas.sh"
-fi
+MODE="auto"
+ADVANCED=false
+DRY_RUN=false
+FORCE=false
+SHOW_PARAMETERS=false
+OUTPUT_FILE=""
+SET_KEYS=()
+SET_VALUES=()
 
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
+usage() {
+    cat <<'EOF'
+Usage: ai-consultants configure [options]
 
-NON_INTERACTIVE=false
-OUTPUT_FILE="$PROJECT_ROOT/.env"
+Detect installed CLIs and available API keys, then write a complete persistent
+configuration. Existing custom values and secrets are preserved; ENABLE_* flags
+are refreshed from the detected availability unless overridden with --set.
 
-# CLI Agents: name|command|install_hint|persona
-CLI_AGENT_NAMES=("Gemini" "Codex" "Mistral" "Cursor")
-CLI_AGENT_CMDS=("agy" "codex" "vibe" "agent")
-CLI_AGENT_HINTS=("curl -fsSL https://antigravity.google/cli/install.sh | bash" "npm install -g @openai/codex" "pip install mistral-vibe" "See: https://cursor.com/")
-CLI_AGENT_PERSONAS=("The Architect" "The Pragmatist" "The Devil's Advocate" "The Integrator")
+Options:
+  --auto, --non-interactive  Configure from detected CLIs and API keys (default)
+  --interactive             Review consultant selection interactively
+  --advanced                Review every supported parameter interactively
+  --set KEY=VALUE           Override any supported parameter (repeatable)
+  --output FILE             Write to FILE instead of the user config .env
+  --dry-run                 Print the generated config without writing it
+  --force                   Overwrite without creating a timestamped backup
+  --show-parameters         List every parameter accepted by --set
+  -h, --help                Show this help
 
-# API Agents: name|key_var|api_url|model|persona
-API_AGENT_NAMES=("Qwen3" "GLM" "Grok" "DeepSeek")
-API_AGENT_KEY_VARS=("QWEN3_API_KEY" "GLM_API_KEY" "GROK_API_KEY" "DEEPSEEK_API_KEY")
-API_AGENT_URLS=("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation" "https://api.z.ai/api/coding/paas/v4/chat/completions" "https://api.x.ai/v1/chat/completions" "https://api.deepseek.com/v1/chat/completions")
-API_AGENT_MODELS=("qwen3.7-max" "glm-5.2" "grok-4.5" "deepseek-v4-pro")
-API_AGENT_PERSONAS=("The Analyst" "The Methodologist" "The Provocateur" "The Code Specialist")
+Examples:
+  ai-consultants configure
+  ai-consultants configure --set DEFAULT_PRESET=balanced --set ENABLE_DEBATE=true
+  ai-consultants configure --interactive
+  ai-consultants configure --advanced
+EOF
+}
 
-# State arrays (parallel to CLI_AGENT_NAMES)
-CLI_DETECTED=()      # "installed" or "missing"
-CLI_ENABLED=()       # "true" or "false"
-
-# State arrays (parallel to API_AGENT_NAMES)
-API_ENABLED=()       # "true" or "false"
-API_KEYS_VALUES=()   # actual API key values
-
-# Custom CLI agents
-CUSTOM_NAMES=()
-CUSTOM_CMDS=()
-CUSTOM_PERSONAS=()
-
-# Custom API agents
-CUSTOM_API_NAMES=()
-CUSTOM_API_URLS=()
-CUSTOM_API_KEYS=()
-CUSTOM_API_MODELS=()
-CUSTOM_API_PERSONAS=()
-CUSTOM_API_FORMATS=()  # "openai" or "qwen"
-
-# Persona assignments (maps agent name to persona ID)
-# Parallel arrays for CLI and API agents
-CLI_PERSONA_IDS=()     # persona ID for each CLI agent
-API_PERSONA_IDS=()     # persona ID for each API agent
-CUSTOM_PERSONA_IDS=()  # persona ID for each custom CLI agent
-CUSTOM_API_PERSONA_IDS=()  # persona ID for each custom API agent
-
-# Initialize state arrays
-# Default persona IDs: 1=Architect, 2=Pragmatist, 3=Devil's Advocate, 4=Innovator, 5=Integrator, 16=Pair Programmer
-CLI_DEFAULT_PERSONA_IDS=(1 2 3 4 5 16)
-for i in "${!CLI_AGENT_NAMES[@]}"; do
-    CLI_DETECTED+=("missing")
-    CLI_ENABLED+=("false")
-    CLI_PERSONA_IDS+=("${CLI_DEFAULT_PERSONA_IDS[$i]}")
-done
-
-# Default persona IDs: 6=Analyst, 7=Methodologist, 8=Provocateur, 17=Code Specialist
-API_DEFAULT_PERSONA_IDS=(6 7 8 17)
-for i in "${!API_AGENT_NAMES[@]}"; do
-    API_ENABLED+=("false")
-    API_KEYS_VALUES+=("")
-    API_PERSONA_IDS+=("${API_DEFAULT_PERSONA_IDS[$i]}")
-done
-
-# =============================================================================
-# ARGUMENT PARSING
-# =============================================================================
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --non-interactive)
-            NON_INTERACTIVE=true
-            shift
-            ;;
+        --auto|--non-interactive) MODE="auto"; shift ;;
+        --interactive) MODE="interactive"; shift ;;
+        --advanced) MODE="interactive"; ADVANCED=true; shift ;;
+        --dry-run) DRY_RUN=true; shift ;;
+        --force) FORCE=true; shift ;;
+        --show-parameters) SHOW_PARAMETERS=true; shift ;;
         --output)
+            [[ $# -ge 2 ]] || die "--output requires a file path"
             OUTPUT_FILE="$2"
             shift 2
             ;;
-        -h|--help)
-            echo "Usage: $0 [--non-interactive] [--output FILE]"
-            echo ""
-            echo "Interactive configuration wizard for AI Consultants."
-            echo ""
-            echo "Options:"
-            echo "  --non-interactive   Auto-detect and enable available agents"
-            echo "  --output FILE       Output file (default: .env)"
-            exit 0
+        --set)
+            [[ $# -ge 2 ]] || die "--set requires KEY=VALUE"
+            [[ "$2" == *=* ]] || die "--set requires KEY=VALUE"
+            SET_KEYS+=("${2%%=*}")
+            SET_VALUES+=("${2#*=}")
+            shift 2
             ;;
-        *)
+        --set=*)
+            assignment="${1#--set=}"
+            [[ "$assignment" == *=* ]] || die "--set requires KEY=VALUE"
+            SET_KEYS+=("${assignment%%=*}")
+            SET_VALUES+=("${assignment#*=}")
             shift
             ;;
+        -h|--help) usage; exit 0 ;;
+        *) die "unknown option: $1" ;;
     esac
 done
 
-# =============================================================================
-# UTILITIES
-# =============================================================================
+[[ -r "$TEMPLATE_FILE" ]] || die "configuration template not found: $TEMPLATE_FILE"
 
-# Normalize name to uppercase (removes spaces and hyphens)
-to_upper() {
-    echo "$1" | tr '[:lower:]' '[:upper:]' | tr -d ' -'
+list_parameters() {
+    sed -nE 's/^[[:space:]]*#?[[:space:]]*([A-Z][A-Z0-9_]*)=.*/\1/p' "$TEMPLATE_FILE" | sort -u
 }
 
-# Print a header box
-print_header() {
-    local title="$1"
-    local width=60
-    echo ""
-    printf '╔'; printf '═%.0s' $(seq 1 $width); printf '╗\n'
-    printf "║ %-$((width-1))s║\n" "$title"
-    printf '╚'; printf '═%.0s' $(seq 1 $width); printf '╝\n'
-    echo ""
+is_supported_parameter() {
+    local wanted="$1" key
+    while IFS= read -r key; do
+        [[ "$key" == "$wanted" ]] && return 0
+    done < <(list_parameters)
+    return 1
 }
 
-# Print a section divider
-print_section() {
-    local title="$1"
-    echo ""
-    echo "─── $title ───"
-    echo ""
-}
+if [[ "$SHOW_PARAMETERS" == "true" ]]; then
+    list_parameters
+    exit 0
+fi
 
-# Emit a section header to .env file
-# Usage: emit_env_section "SECTION TITLE" [file]
-emit_env_section() {
-    local title="$1"
-    local file="${2:-$OUTPUT_FILE}"
-    {
-        echo ""
-        echo "# ============================================================================="
-        echo "# $title"
-        echo "# ============================================================================="
-        echo ""
-    } >> "$file"
-}
+if [[ -z "$OUTPUT_FILE" ]]; then
+    USER_CONFIG_DIR=$(get_user_config_dir 2>/dev/null || true)
+    [[ -n "$USER_CONFIG_DIR" ]] || die "cannot resolve the user config directory; set AI_CONSULTANTS_CONFIG_DIR"
+    OUTPUT_FILE="$USER_CONFIG_DIR/.env"
+fi
 
-# Prompt yes/no
-confirm() {
-    local prompt="$1"
-    local default="${2:-n}"
+for key in "${SET_KEYS[@]+"${SET_KEYS[@]}"}"; do
+    [[ "$key" =~ ^[A-Z][A-Z0-9_]*$ ]] || die "invalid parameter name: $key"
+    is_supported_parameter "$key" || die "unsupported parameter: $key (use --show-parameters)"
+done
 
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        [[ "$default" == "y" ]] && return 0 || return 1
-    fi
+if [[ -L "$OUTPUT_FILE" ]]; then
+    die "$OUTPUT_FILE is a symlink; refusing to write through it"
+fi
 
-    local yn
-    if [[ "$default" == "y" ]]; then
-        read -r -p "$prompt [Y/n]: " yn
-        yn=${yn:-y}
-    else
-        read -r -p "$prompt [y/N]: " yn
-        yn=${yn:-n}
-    fi
+OUTPUT_DIR="$(dirname "$OUTPUT_FILE")"
+if [[ -L "$OUTPUT_DIR" ]]; then
+    die "$OUTPUT_DIR is a symlink; set AI_CONSULTANTS_CONFIG_DIR to a real directory"
+fi
+if [[ "$DRY_RUN" == "true" ]]; then
+    WORK_FILE=$(mktemp "${TMPDIR:-/tmp}/ai-consultants-configure.XXXXXX")
+else
+    mkdir -p "$OUTPUT_DIR"
+    WORK_FILE=$(mktemp "${OUTPUT_FILE}.tmp.XXXXXX")
+fi
+trap 'rm -f "$WORK_FILE"' EXIT
+cp "$TEMPLATE_FILE" "$WORK_FILE"
+chmod 600 "$WORK_FILE"
 
-    [[ "$yn" =~ ^[Yy] ]] && return 0 || return 1
-}
-
-# Prompt for input with default
-prompt_input() {
-    local prompt="$1"
-    local default="${2:-}"
-
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        REPLY="$default"
-        return
-    fi
-
-    if [[ -n "$default" ]]; then
-        read -r -p "$prompt [$default]: " REPLY
-        REPLY=${REPLY:-$default}
-    else
-        read -r -p "$prompt: " REPLY
-    fi
-}
-
-# Prompt for secret (no echo)
-prompt_secret() {
-    local prompt="$1"
-
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        REPLY=""
-        return
-    fi
-
-    read -r -s -p "$prompt: " REPLY
-    echo ""
-}
-
-# =============================================================================
-# CLI AGENT DETECTION
-# =============================================================================
-
-detect_cli_agents() {
-    print_section "Detecting CLI Agents"
-
-    local found=0
-    for i in "${!CLI_AGENT_NAMES[@]}"; do
-        local name="${CLI_AGENT_NAMES[$i]}"
-        local cmd="${CLI_AGENT_CMDS[$i]}"
-        local persona="${CLI_AGENT_PERSONAS[$i]}"
-
-        if command -v "$cmd" &> /dev/null; then
-            CLI_DETECTED[i]="installed"
-            local version
-            version=$("$cmd" --version 2>/dev/null | head -1 || echo "detected")
-            echo "  [FOUND] $name ($persona) - $cmd"
-            ((found++)) || true
+read_value() {
+    local file="$1" wanted="$2" line key value found="" seen=false
+    [[ -r "$file" ]] || return 1
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        line="${line#"${line%%[![:space:]]*}"}"
+        if [[ "$line" =~ ^export[[:space:]]+ ]]; then
+            line="${line#export}"
+            line="${line#"${line%%[![:space:]]*}"}"
+        fi
+        [[ "$line" == *=* ]] || continue
+        key="${line%%=*}"
+        key="${key//[[:space:]]/}"
+        [[ "$key" == "$wanted" ]] || continue
+        value="${line#*=}"
+        if [[ "$value" =~ ^\".*\"$ ]] || [[ "$value" =~ ^\'.*\'$ ]]; then
+            value="${value:1:${#value}-2}"
         else
-            CLI_DETECTED[i]="missing"
-            echo "  [-----] $name ($persona) - not found"
+            value=$(printf '%s' "$value" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')
         fi
-    done
-
-    echo ""
-    echo "Found $found CLI agent(s) installed."
-    return 0
+        found="$value"
+        seen=true
+    done < "$file"
+    [[ "$seen" == "true" ]] || return 1
+    printf '%s' "$found"
 }
 
-# =============================================================================
-# CLI AGENT SELECTION
-# =============================================================================
-
-select_cli_agents() {
-    print_section "Select CLI Agents to Enable"
-
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        # Auto-enable all detected CLI agents
-        for i in "${!CLI_AGENT_NAMES[@]}"; do
-            if [[ "${CLI_DETECTED[$i]}" == "installed" ]]; then
-                CLI_ENABLED[i]="true"
-                log_info "Auto-enabled: ${CLI_AGENT_NAMES[$i]}"
+set_value() {
+    local key="$1" value="$2" tmp line replaced=false
+    [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] || die "$key cannot contain a newline"
+    tmp=$(mktemp "${WORK_FILE}.edit.XXXXXX")
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^[[:space:]]*#?[[:space:]]*${key}= ]]; then
+            if [[ "$replaced" == "false" ]]; then
+                printf '%s=%s\n' "$key" "$value" >> "$tmp"
+                replaced=true
             fi
-        done
-        return
-    fi
-
-    # Build list of detected agents
-    local detected_indices=()
-    for i in "${!CLI_AGENT_NAMES[@]}"; do
-        if [[ "${CLI_DETECTED[$i]}" == "installed" ]]; then
-            detected_indices+=("$i")
+            continue
         fi
-    done
-
-    if [[ ${#detected_indices[@]} -eq 0 ]]; then
-        echo "  No CLI agents detected. You can add custom ones or use API agents."
-        echo ""
-        if confirm "Add a custom CLI agent?"; then
-            add_custom_cli_agent
-        fi
-        return
+        printf '%s\n' "$line" >> "$tmp"
+    done < "$WORK_FILE"
+    if [[ "$replaced" == "false" ]]; then
+        printf '%s=%s\n' "$key" "$value" >> "$tmp"
     fi
-
-    # Pre-select all detected agents
-    for i in "${detected_indices[@]}"; do
-        CLI_ENABLED[i]="true"
-    done
-
-    local done_selecting=false
-    while [[ "$done_selecting" != "true" ]]; do
-        echo ""
-        echo "Available CLI agents (x = selected):"
-        local menu_idx=1
-        for i in "${detected_indices[@]}"; do
-            local name="${CLI_AGENT_NAMES[$i]}"
-            local persona="${CLI_AGENT_PERSONAS[$i]}"
-            local mark=" "
-            [[ "${CLI_ENABLED[$i]}" == "true" ]] && mark="x"
-            echo "  $menu_idx) [$mark] $name ($persona)"
-            ((menu_idx++)) || true
-        done
-        echo "  a) Select all"
-        echo "  n) Select none"
-        echo "  c) Add custom CLI agent"
-        echo "  d) Done"
-        echo ""
-
-        read -r -p "Choice: " choice
-
-        case "$choice" in
-            [1-9]|[1-9][0-9])
-                if [[ $choice -le ${#detected_indices[@]} ]]; then
-                    local idx="${detected_indices[$((choice-1))]}"
-                    if [[ "${CLI_ENABLED[$idx]}" == "true" ]]; then
-                        CLI_ENABLED[idx]="false"
-                    else
-                        CLI_ENABLED[idx]="true"
-                    fi
-                fi
-                ;;
-            a|A)
-                for i in "${detected_indices[@]}"; do
-                    CLI_ENABLED[i]="true"
-                done
-                ;;
-            n|N)
-                for i in "${detected_indices[@]}"; do
-                    CLI_ENABLED[i]="false"
-                done
-                ;;
-            c|C)
-                add_custom_cli_agent
-                ;;
-            d|D)
-                done_selecting=true
-                ;;
-        esac
-    done
+    mv "$tmp" "$WORK_FILE"
+    chmod 600 "$WORK_FILE"
 }
 
-# =============================================================================
-# CUSTOM CLI AGENT
-# =============================================================================
+AUTO_MARKER="# ai-consultants:auto"
 
-add_custom_cli_agent() {
-    print_section "Add Custom CLI Agent"
-
-    prompt_input "Agent name (e.g., 'Claude', 'GPT4All')" ""
-    local name="$REPLY"
-    [[ -z "$name" ]] && return
-
-    prompt_input "Command to execute (e.g., 'claude', 'gpt4all')" ""
-    local cmd="$REPLY"
-    [[ -z "$cmd" ]] && return
-
-    # Check if command exists
-    if ! command -v "$cmd" &> /dev/null; then
-        log_warn "Command '$cmd' not found in PATH."
-        if ! confirm "Add anyway?"; then
-            return
+is_auto_managed_value() {
+    local file="$1" key="$2" line normalized raw="" seen=false
+    [[ -r "$file" ]] || return 1
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        normalized="${line#"${line%%[![:space:]]*}"}"
+        if [[ "$normalized" =~ ^export[[:space:]]+ ]]; then
+            normalized="${normalized#export}"
+            normalized="${normalized#"${normalized%%[![:space:]]*}"}"
         fi
+        [[ "$normalized" == *=* ]] || continue
+        [[ "${normalized%%=*}" == "$key" ]] || continue
+        raw="$normalized"
+        seen=true
+    done < "$file"
+    [[ "$seen" == "true" && "$raw" == *"$AUTO_MARKER"* ]]
+}
+
+has_explicit_value() {
+    local key="$1" candidate
+    for candidate in "${SET_KEYS[@]+"${SET_KEYS[@]}"}"; do
+        [[ "$candidate" == "$key" ]] && return 0
+    done
+    [[ -n "${!key+x}" ]] && return 0
+    if [[ -f "$OUTPUT_FILE" ]] && read_value "$OUTPUT_FILE" "$key" >/dev/null 2>&1; then
+        is_auto_managed_value "$OUTPUT_FILE" "$key" || return 0
     fi
-
-    prompt_input "Persona/Role description" "Custom Agent"
-    local persona="$REPLY"
-
-    # Store custom agent
-    CUSTOM_NAMES+=("$name")
-    CUSTOM_CMDS+=("$cmd")
-    CUSTOM_PERSONAS+=("$persona")
-
-    log_success "Added custom CLI agent: $name ($cmd)"
+    return 1
 }
 
-# =============================================================================
-# CUSTOM API AGENT
-# =============================================================================
-
-add_custom_api_agent() {
-    print_section "Add Custom API Agent"
-
-    echo "Add any OpenAI-compatible or custom API endpoint."
-    echo ""
-
-    prompt_input "Agent name (e.g., 'OpenRouter', 'Groq', 'Together')" ""
-    local name="$REPLY"
-    [[ -z "$name" ]] && return
-
-    prompt_input "API endpoint URL (e.g., https://api.openrouter.ai/api/v1/chat/completions)" ""
-    local url="$REPLY"
-    [[ -z "$url" ]] && return
-
-    prompt_secret "API key"
-    local key="$REPLY"
-    [[ -z "$key" ]] && { log_warn "API key required"; return; }
-
-    prompt_input "Model name (e.g., 'gpt-4', 'anthropic/claude-3')" "gpt-4"
-    local model="$REPLY"
-
-    prompt_input "Persona/Role description" "External API Consultant"
-    local persona="$REPLY"
-
-    echo ""
-    echo "Response format:"
-    echo "  1) OpenAI-compatible (most APIs - recommended)"
-    echo "  2) Qwen/DashScope format"
-    read -r -p "Choice [1]: " format_choice
-    local format="openai"
-    [[ "$format_choice" == "2" ]] && format="qwen"
-
-    # Store custom API agent
-    CUSTOM_API_NAMES+=("$name")
-    CUSTOM_API_URLS+=("$url")
-    CUSTOM_API_KEYS+=("$key")
-    CUSTOM_API_MODELS+=("$model")
-    CUSTOM_API_PERSONAS+=("$persona")
-    CUSTOM_API_FORMATS+=("$format")
-
-    log_success "Added custom API agent: $name ($url)"
-}
-
-# =============================================================================
-# API AGENT CONFIGURATION
-# =============================================================================
-
-configure_api_agents() {
-    print_section "Configure API-Based Agents"
-
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        # Auto-enable API agents with existing keys
-        for i in "${!API_AGENT_NAMES[@]}"; do
-            local key_var="${API_AGENT_KEY_VARS[$i]}"
-            local existing_key="${!key_var:-}"
-            if [[ -n "$existing_key" ]]; then
-                API_ENABLED[i]="true"
-                API_KEYS_VALUES[i]="$existing_key"
-                log_info "Auto-enabled: ${API_AGENT_NAMES[$i]} (API key found)"
-            fi
-        done
-        # Also check for custom API agents via naming convention
-        # (e.g., CUSTOMAGENT_API_KEY, CUSTOMAGENT_API_URL, ENABLE_CUSTOMAGENT=true)
-        return
-    fi
-
-    echo "API-based agents require API keys but no CLI installation."
-    echo ""
-    echo "Predefined API agents:"
-    for i in "${!API_AGENT_NAMES[@]}"; do
-        local name="${API_AGENT_NAMES[$i]}"
-        local model="${API_AGENT_MODELS[$i]}"
-        local persona="${API_AGENT_PERSONAS[$i]}"
-        echo "  - $name ($persona) - Model: $model"
-    done
-    echo ""
-    echo "You can also add custom API agents (OpenRouter, Groq, Together, etc.)"
-    echo ""
-
-    if ! confirm "Configure API-based agents?"; then
-        return
-    fi
-
-    local done_api_config=false
-    while [[ "$done_api_config" != "true" ]]; do
-        echo ""
-        echo "API Agent Configuration:"
-        echo "  1) Configure predefined agents (Qwen3, GLM, Grok)"
-        echo "  2) Add custom API agent"
-        echo "  3) Done with API configuration"
-        echo ""
-
-        read -r -p "Choice [1-3]: " api_choice
-
-        case "$api_choice" in
-            1)
-                _configure_predefined_api_agents
-                ;;
-            2)
-                add_custom_api_agent
-                ;;
-            3|"")
-                done_api_config=true
-                ;;
-        esac
-    done
-}
-
-# Internal function to configure predefined API agents
-_configure_predefined_api_agents() {
-    for i in "${!API_AGENT_NAMES[@]}"; do
-        local name="${API_AGENT_NAMES[$i]}"
-        local key_var="${API_AGENT_KEY_VARS[$i]}"
-        local persona="${API_AGENT_PERSONAS[$i]}"
-
-        echo ""
-        if confirm "Enable $name ($persona)?"; then
-            # Check for existing key in environment
-            local existing_key="${!key_var:-}"
-
-            if [[ -n "$existing_key" ]]; then
-                local masked="${existing_key:0:8}...${existing_key: -4}"
-                echo "  Existing key found: $masked"
-                if confirm "  Use existing key?" "y"; then
-                    API_ENABLED[i]="true"
-                    API_KEYS_VALUES[i]="$existing_key"
-                    continue
-                fi
-            fi
-
-            # Prompt for new key
-            prompt_secret "  Enter $name API key ($key_var)"
-            local api_key="$REPLY"
-
-            if [[ -n "$api_key" ]]; then
-                API_ENABLED[i]="true"
-                API_KEYS_VALUES[i]="$api_key"
-                log_success "$name enabled"
-            else
-                log_warn "$name skipped (no API key)"
-            fi
+effective_input_value() {
+    local key="$1" value i
+    for ((i=${#SET_KEYS[@]}-1; i>=0; i--)); do
+        if [[ "${SET_KEYS[$i]}" == "$key" ]]; then
+            printf '%s' "${SET_VALUES[$i]}"
+            return 0
         fi
     done
-}
-
-# =============================================================================
-# VALIDATION
-# =============================================================================
-
-validate_configuration() {
-    print_section "Validating Configuration"
-
-    local cli_count=0
-    local api_count=0
-    local custom_cli_count=${#CUSTOM_NAMES[@]}
-    local custom_api_count=${#CUSTOM_API_NAMES[@]}
-
-    # Count enabled CLI agents
-    for i in "${!CLI_AGENT_NAMES[@]}"; do
-        if [[ "${CLI_ENABLED[$i]}" == "true" ]]; then
-            ((cli_count++)) || true
-        fi
-    done
-
-    # Count enabled predefined API agents
-    for i in "${!API_AGENT_NAMES[@]}"; do
-        if [[ "${API_ENABLED[$i]}" == "true" ]]; then
-            ((api_count++)) || true
-        fi
-    done
-
-    local total_cli=$((cli_count + custom_cli_count))
-    local total_api=$((api_count + custom_api_count))
-    local total_enabled=$((total_cli + total_api))
-
-    echo "Summary:"
-    echo "  CLI agents enabled: $total_cli (predefined: $cli_count, custom: $custom_cli_count)"
-    echo "  API agents enabled: $total_api (predefined: $api_count, custom: $custom_api_count)"
-    echo "  Total enabled: $total_enabled"
-    echo ""
-
-    # Validation: minimum 2 agents required
-    if [[ $total_enabled -lt 2 ]]; then
-        log_error "At least 2 agents must be enabled for AI Consultants to work."
-        echo ""
-        echo "The system requires multiple perspectives for:"
-        echo "  - Comparison and voting"
-        echo "  - Multi-Agent Debate"
-        echo "  - Consensus building"
-        echo ""
-
-        if [[ "$NON_INTERACTIVE" == "true" ]]; then
-            return 1
-        fi
-
-        echo "Options:"
-        echo "  1) Add custom CLI agent"
-        echo "  2) Configure API agents"
-        echo "  3) Abort configuration"
-        echo ""
-
-        read -r -p "Choice [1-3]: " choice
-
-        case "$choice" in
-            1)
-                add_custom_cli_agent
-                validate_configuration
-                return $?
-                ;;
-            2)
-                configure_api_agents
-                validate_configuration
-                return $?
-                ;;
-            *)
-                return 1
-                ;;
-        esac
-    else
-        log_success "Configuration valid: $total_enabled agents enabled"
+    if [[ -n "${!key+x}" ]]; then
+        printf '%s' "${!key}"
         return 0
     fi
+    if [[ -f "$OUTPUT_FILE" ]] && value=$(read_value "$OUTPUT_FILE" "$key"); then
+        printf '%s' "$value"
+        return 0
+    fi
+    read_value "$WORK_FILE" "$key"
 }
 
-# =============================================================================
-# SAVE CONFIGURATION
-# =============================================================================
-
-save_configuration() {
-    print_section "Saving Configuration"
-
-    # Backup existing .env if present
-    if [[ -f "$OUTPUT_FILE" ]]; then
-        local backup="${OUTPUT_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
-        cp "$OUTPUT_FILE" "$backup"
-        chmod 600 "$backup"  # Secure backup file too
-        log_info "Backed up existing config to: $backup"
-    fi
-
-    # Generate .env file with secure permissions
-    # Create file with restrictive permissions BEFORE writing secrets
-    touch "$OUTPUT_FILE"
-    chmod 600 "$OUTPUT_FILE"
-
-    cat > "$OUTPUT_FILE" << 'HEADER'
-# =============================================================================
-# AI Consultants v2.0 - Generated Configuration
-# =============================================================================
-# Generated by: ./scripts/configure.sh
-#
-# This file was auto-generated. You can edit it manually or re-run configure.sh
-#
-# Export variables before running:
-#   source .env && ./scripts/consult_all.sh "Your question"
-
-HEADER
-
-    # CLI Agents
-    emit_env_section "ENABLED CONSULTANTS"
-    echo "# CLI-based consultants" >> "$OUTPUT_FILE"
-
-    for i in "${!CLI_AGENT_NAMES[@]}"; do
-        local name_upper
-        name_upper=$(to_upper "${CLI_AGENT_NAMES[$i]}")
-        echo "ENABLE_${name_upper}=${CLI_ENABLED[$i]}" >> "$OUTPUT_FILE"
-    done
-
-    echo -e "\n# API-based consultants" >> "$OUTPUT_FILE"
-
-    for i in "${!API_AGENT_NAMES[@]}"; do
-        local name_upper
-        name_upper=$(to_upper "${API_AGENT_NAMES[$i]}")
-        echo "ENABLE_${name_upper}=${API_ENABLED[$i]}" >> "$OUTPUT_FILE"
-    done
-
-    # API Keys
-    emit_env_section "API KEYS"
-
-    for i in "${!API_AGENT_NAMES[@]}"; do
-        if [[ -n "${API_KEYS_VALUES[$i]}" ]]; then
-            local key_var="${API_AGENT_KEY_VARS[$i]}"
-            echo "${key_var}=${API_KEYS_VALUES[$i]}" >> "$OUTPUT_FILE"
-        fi
-    done
-
-    # Custom CLI agents
-    if [[ ${#CUSTOM_NAMES[@]} -gt 0 ]]; then
-        emit_env_section "CUSTOM CLI AGENTS"
-
-        for i in "${!CUSTOM_NAMES[@]}"; do
-            local var_upper
-            var_upper=$(to_upper "${CUSTOM_NAMES[$i]}")
-            {
-                echo "# Custom CLI agent: ${CUSTOM_NAMES[$i]} (${CUSTOM_PERSONAS[$i]})"
-                echo "${var_upper}_CMD=${CUSTOM_CMDS[$i]}"
-                echo "ENABLE_${var_upper}=true"
-            } >> "$OUTPUT_FILE"
-        done
-    fi
-
-    # Custom API agents
-    if [[ ${#CUSTOM_API_NAMES[@]} -gt 0 ]]; then
-        emit_env_section "CUSTOM API AGENTS"
-
-        for i in "${!CUSTOM_API_NAMES[@]}"; do
-            local var_upper
-            var_upper=$(to_upper "${CUSTOM_API_NAMES[$i]}")
-            {
-                echo "# Custom API agent: ${CUSTOM_API_NAMES[$i]}"
-                echo "# Persona: ${CUSTOM_API_PERSONAS[$i]}"
-                echo "${var_upper}_API_KEY=${CUSTOM_API_KEYS[$i]}"
-                echo "${var_upper}_API_URL=${CUSTOM_API_URLS[$i]}"
-                echo "${var_upper}_MODEL=${CUSTOM_API_MODELS[$i]}"
-                echo "${var_upper}_TIMEOUT=180"
-                echo "${var_upper}_FORMAT=${CUSTOM_API_FORMATS[$i]}"
-                echo "${var_upper}_PERSONA=\"${CUSTOM_API_PERSONAS[$i]}\""
-                echo "ENABLE_${var_upper}=true"
-                echo ""
-            } >> "$OUTPUT_FILE"
-        done
-    fi
-
-    # Persona assignments (only output non-default assignments)
-    emit_env_section "PERSONA ASSIGNMENTS"
-    {
-        echo "# Default personas are used unless overridden here"
-        echo "# Persona IDs: 1=Architect, 2=Pragmatist, 3=Devil's Advocate, 4=Innovator,"
-        echo "# 5=Integrator, 6=Analyst, 7=Methodologist, 8=Provocateur, 9=Mentor,"
-        echo "# 10=Optimizer, 11=Security Expert, 12=Minimalist, 13=DX Advocate,"
-        echo "# 14=Debugger, 15=Reviewer"
-        echo ""
-    } >> "$OUTPUT_FILE"
-
-    # Helper to write persona assignment if non-default
-    _write_persona_if_changed() {
-        local name_upper="$1" persona_id="$2" default_id="$3" custom_text="$4"
-        if [[ "$persona_id" == "0" && -n "$custom_text" ]]; then
-            echo "${name_upper}_PERSONA=\"$custom_text\"" >> "$OUTPUT_FILE"
-        elif [[ "$persona_id" != "$default_id" ]]; then
-            echo "${name_upper}_PERSONA_ID=$persona_id" >> "$OUTPUT_FILE"
-        fi
-    }
-
-    # CLI agent personas
-    for i in "${!CLI_AGENT_NAMES[@]}"; do
-        [[ "${CLI_ENABLED[$i]}" != "true" ]] && continue
-        _write_persona_if_changed "$(to_upper "${CLI_AGENT_NAMES[$i]}")" \
-            "${CLI_PERSONA_IDS[$i]}" "${CLI_DEFAULT_PERSONA_IDS[$i]}" "${CLI_AGENT_PERSONAS[$i]:-}"
-    done
-
-    # API agent personas
-    for i in "${!API_AGENT_NAMES[@]}"; do
-        [[ "${API_ENABLED[$i]}" != "true" ]] && continue
-        _write_persona_if_changed "$(to_upper "${API_AGENT_NAMES[$i]}")" \
-            "${API_PERSONA_IDS[$i]}" "${API_DEFAULT_PERSONA_IDS[$i]}" "${API_AGENT_PERSONAS[$i]:-}"
-    done
-
-    # Custom CLI agent personas
-    for i in "${!CUSTOM_NAMES[@]}"; do
-        [[ ${#CUSTOM_PERSONA_IDS[@]} -le $i ]] && continue
-        _write_persona_if_changed "$(to_upper "${CUSTOM_NAMES[$i]}")" \
-            "${CUSTOM_PERSONA_IDS[$i]}" "1" "${CUSTOM_PERSONAS[$i]:-}"
-    done
-
-    # Default configuration from template
-    cat >> "$OUTPUT_FILE" << 'DEFAULTS'
-
-# =============================================================================
-# MODEL CONFIGURATION
-# =============================================================================
-
-GEMINI_MODEL=Gemini 3.1 Pro (High)
-GEMINI_TIMEOUT=180
-
-CODEX_MODEL=gpt-5.5
-CODEX_TIMEOUT=180
-
-MISTRAL_MODEL=mistral-large-3
-MISTRAL_TIMEOUT=180
-
-CURSOR_MODEL=composer-2.5
-CURSOR_TIMEOUT=180
-
-# API models
-QWEN3_MODEL=qwen3.7-max
-QWEN3_TIMEOUT=180
-
-GLM_MODEL=glm-5.2
-GLM_TIMEOUT=180
-
-GROK_MODEL=grok-4.5
-GROK_TIMEOUT=180
-
-DEEPSEEK_MODEL=deepseek-v4-pro
-DEEPSEEK_TIMEOUT=180
-
-# =============================================================================
-# FEATURES
-# =============================================================================
-
-ENABLE_PERSONA=true
-ENABLE_SYNTHESIS=true
-SYNTHESIS_CMD=claude
-
-ENABLE_DEBATE=false
-DEBATE_ROUNDS=1
-
-ENABLE_REFLECTION=false
-REFLECTION_CYCLES=1
-
-# =============================================================================
-# SMART ROUTING
-# =============================================================================
-
-ENABLE_CLASSIFICATION=true
-CLASSIFICATION_MODE=pattern
-ENABLE_SMART_ROUTING=false
-MIN_AFFINITY=7
-
-# =============================================================================
-# COST & SESSION
-# =============================================================================
-
-ENABLE_COST_TRACKING=true
-MAX_SESSION_COST=1.00
-WARN_AT_COST=0.50
-
-SESSION_DIR=/tmp/ai_consultants_sessions
-SESSION_CLEANUP_DAYS=7
-
-# =============================================================================
-# OTHER
-# =============================================================================
-
-ENABLE_PROGRESS_BARS=true
-ENABLE_EARLY_TERMINATION=true
-ENABLE_PREFLIGHT=false
-MAX_RETRIES=2
-RETRY_DELAY_SECONDS=5
-LOG_LEVEL=INFO
-DEFAULTS
-
-    log_success "Configuration saved to: $OUTPUT_FILE"
-    echo ""
-    echo "To use this configuration:"
-    echo "  source $OUTPUT_FILE && ./scripts/consult_all.sh \"Your question\""
+set_auto_value() {
+    set_value "$1" "$2 $AUTO_MARKER"
 }
 
-# =============================================================================
-# PERSONA CONFIGURATION
-# =============================================================================
-
-configure_personas() {
-    print_section "Configure Personas"
-
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        log_info "Using default personas (non-interactive mode)"
-        return
+# Merge existing persistent values first, then current environment overrides.
+while IFS= read -r key; do
+    if [[ -f "$OUTPUT_FILE" ]] && value=$(read_value "$OUTPUT_FILE" "$key"); then
+        set_value "$key" "$value"
     fi
-
-    echo "Each agent can have a different persona that shapes its response style."
-    echo "Default personas are pre-configured, but you can customize them."
-    echo ""
-
-    if ! confirm "Customize agent personas?" "n"; then
-        return
+    if [[ -n "${!key+x}" ]]; then
+        set_value "$key" "${!key}"
     fi
+done < <(list_parameters)
 
-    local done_personas=false
-    while [[ "$done_personas" != "true" ]]; do
-        echo ""
-        echo "Enabled agents and their personas:"
-        echo ""
+configure_cli_only() {
+    local enable_key="$1" cmd_key="$2" cmd enabled=false
+    cmd=$(effective_input_value "$cmd_key")
+    command -v "$cmd" >/dev/null 2>&1 && enabled=true
+    set_value "$enable_key" "$enabled"
+}
 
-        local menu_idx=1
-        local agent_list=()  # Track: "type|index" (e.g., "cli|0", "api|2")
-
-        # List CLI agents
-        for i in "${!CLI_AGENT_NAMES[@]}"; do
-            if [[ "${CLI_ENABLED[$i]}" == "true" ]]; then
-                local name="${CLI_AGENT_NAMES[$i]}"
-                local persona_id="${CLI_PERSONA_IDS[$i]}"
-                local persona_name
-                persona_name=$(get_persona_by_id "$persona_id" "name" 2>/dev/null || echo "Unknown")
-                printf "  %2s) %-12s - %s\n" "$menu_idx" "$name" "$persona_name"
-                agent_list+=("cli|$i")
-                ((menu_idx++)) || true
-            fi
-        done
-
-        # List API agents
-        for i in "${!API_AGENT_NAMES[@]}"; do
-            if [[ "${API_ENABLED[$i]}" == "true" ]]; then
-                local name="${API_AGENT_NAMES[$i]}"
-                local persona_id="${API_PERSONA_IDS[$i]}"
-                local persona_name
-                persona_name=$(get_persona_by_id "$persona_id" "name" 2>/dev/null || echo "Unknown")
-                printf "  %2s) %-12s - %s\n" "$menu_idx" "$name" "$persona_name"
-                agent_list+=("api|$i")
-                ((menu_idx++)) || true
-            fi
-        done
-
-        # List custom CLI agents
-        for i in "${!CUSTOM_NAMES[@]}"; do
-            local name="${CUSTOM_NAMES[$i]}"
-            local persona_id="${CUSTOM_PERSONA_IDS[$i]:-1}"
-            local persona_name
-            persona_name=$(get_persona_by_id "$persona_id" "name" 2>/dev/null || echo "Custom")
-            printf "  %2s) %-12s - %s (custom)\n" "$menu_idx" "$name" "$persona_name"
-            agent_list+=("custom_cli|$i")
-            ((menu_idx++)) || true
-        done
-
-        # List custom API agents
-        for i in "${!CUSTOM_API_NAMES[@]}"; do
-            local name="${CUSTOM_API_NAMES[$i]}"
-            local persona_id="${CUSTOM_API_PERSONA_IDS[$i]:-1}"
-            local persona_name
-            persona_name=$(get_persona_by_id "$persona_id" "name" 2>/dev/null || echo "Custom")
-            printf "  %2s) %-12s - %s (custom API)\n" "$menu_idx" "$name" "$persona_name"
-            agent_list+=("custom_api|$i")
-            ((menu_idx++)) || true
-        done
-
-        echo ""
-        echo "   d) Done with persona configuration"
-        echo ""
-
-        read -r -p "Select agent to change persona (or 'd' for done): " choice
-
-        if [[ "$choice" == "d" || "$choice" == "D" ]]; then
-            done_personas=true
-            continue
-        fi
-
-        # Validate selection
-        if ! [[ "$choice" =~ ^[0-9]+$ ]] || [[ $choice -lt 1 ]] || [[ $choice -gt ${#agent_list[@]} ]]; then
-            log_warn "Invalid selection"
-            continue
-        fi
-
-        # Get selected agent info
-        local selected="${agent_list[$((choice-1))]}"
-        local agent_type="${selected%%|*}"
-        local agent_idx="${selected##*|}"
-
-        local agent_name
-        case "$agent_type" in
-            cli) agent_name="${CLI_AGENT_NAMES[$agent_idx]}" ;;
-            api) agent_name="${API_AGENT_NAMES[$agent_idx]}" ;;
-            custom_cli) agent_name="${CUSTOM_NAMES[$agent_idx]}" ;;
-            custom_api) agent_name="${CUSTOM_API_NAMES[$agent_idx]}" ;;
+configure_switchable() {
+    local enable_key="$1" cmd_key="$2" mode_key="$3" api_key="$4"
+    local cmd api_secret explicit_mode="" enabled=false mode=false
+    cmd=$(effective_input_value "$cmd_key")
+    api_secret=$(effective_input_value "$api_key" 2>/dev/null || true)
+    if has_explicit_value "$mode_key"; then
+        explicit_mode=$(effective_input_value "$mode_key" || true)
+        case "$explicit_mode" in
+            true|false) ;;
+            *) echo "Warning: ignoring invalid $mode_key=$explicit_mode (expected true or false)" >&2; explicit_mode="" ;;
         esac
+    fi
 
-        # Show persona selection menu
-        _select_persona_for_agent "$agent_type" "$agent_idx" "$agent_name"
-    done
+    if [[ "$explicit_mode" == "true" ]]; then
+        mode=true
+        [[ -n "$api_secret" ]] && enabled=true
+    elif [[ "$explicit_mode" == "false" ]]; then
+        mode=false
+        command -v "$cmd" >/dev/null 2>&1 && enabled=true
+    elif command -v "$cmd" >/dev/null 2>&1; then
+        mode=false
+        enabled=true
+    elif [[ -n "$api_secret" ]]; then
+        mode=true
+        enabled=true
+    fi
 
-    log_success "Persona configuration complete"
+    if [[ -n "$explicit_mode" ]]; then
+        set_value "$mode_key" "$mode"
+    else
+        set_auto_value "$mode_key" "$mode"
+    fi
+    set_value "$enable_key" "$enabled"
 }
 
-# Internal: Select a persona for a specific agent
-_select_persona_for_agent() {
-    local agent_type="$1"
-    local agent_idx="$2"
-    local agent_name="$3"
+configure_api_only() {
+    local enable_key="$1" api_key="$2" secret
+    secret=$(effective_input_value "$api_key" 2>/dev/null || true)
+    if [[ -n "$secret" ]]; then
+        set_value "$enable_key" true
+    else
+        set_value "$enable_key" false
+    fi
+}
 
-    echo ""
-    echo "Select persona for $agent_name:"
-    echo ""
+run_auto_detection() {
+    # CLI-first auto-detection. An explicitly configured *_USE_API value wins.
+    configure_switchable ENABLE_GEMINI GEMINI_CMD GEMINI_USE_API GEMINI_API_KEY
+    configure_switchable ENABLE_CODEX CODEX_CMD CODEX_USE_API OPENAI_API_KEY
+    configure_switchable ENABLE_MISTRAL MISTRAL_CMD MISTRAL_USE_API MISTRAL_API_KEY
+    configure_cli_only ENABLE_CURSOR CURSOR_CMD
+    configure_cli_only ENABLE_KIMI KIMI_CMD
+    configure_switchable ENABLE_CLAUDE CLAUDE_CMD CLAUDE_USE_API ANTHROPIC_API_KEY
+    configure_switchable ENABLE_QWEN3 QWEN3_CMD QWEN3_USE_API QWEN3_API_KEY
+    configure_switchable ENABLE_MINIMAX MINIMAX_CMD MINIMAX_USE_API MINIMAX_API_KEY
+    configure_api_only ENABLE_GLM GLM_API_KEY
+    configure_api_only ENABLE_GROK GROK_API_KEY
+    configure_api_only ENABLE_DEEPSEEK DEEPSEEK_API_KEY
+}
 
-    # Get current persona ID
-    local current_id
-    case "$agent_type" in
-        cli) current_id="${CLI_PERSONA_IDS[$agent_idx]}" ;;
-        api) current_id="${API_PERSONA_IDS[$agent_idx]}" ;;
-        custom_cli) current_id="${CUSTOM_PERSONA_IDS[$agent_idx]:-1}" ;;
-        custom_api) current_id="${CUSTOM_API_PERSONA_IDS[$agent_idx]:-1}" ;;
-    esac
+run_auto_detection
 
-    # Display persona catalog
-    echo "$PERSONA_CATALOG" | grep -v '^$' | while IFS='|' read -r id name var desc; do
-        local marker="  "
-        [[ "$id" == "$current_id" ]] && marker="* "
-        printf "  %s%2s) %-22s - %s\n" "$marker" "$id" "$name" "$desc"
+prompt_value() {
+    local key="$1" current reply
+    current=$(read_value "$WORK_FILE" "$key" || true)
+    if [[ "$key" == *_API_KEY ]]; then
+        read -r -s -p "$key [keep current]: " reply
+        echo ""
+        if [[ -n "$reply" ]]; then
+            set_value "$key" "$reply"
+        fi
+    else
+        read -r -p "$key [$current]: " reply
+        if [[ -n "$reply" ]]; then
+            set_value "$key" "$reply"
+        fi
+    fi
+}
+
+if [[ "$MODE" == "interactive" ]]; then
+    read -r -p "Configure or update API credentials? [y/N]: " configure_keys
+    if [[ "$configure_keys" =~ ^[Yy]$ ]]; then
+        for key in GEMINI_API_KEY OPENAI_API_KEY MISTRAL_API_KEY ANTHROPIC_API_KEY QWEN3_API_KEY MINIMAX_API_KEY GLM_API_KEY GROK_API_KEY DEEPSEEK_API_KEY; do
+            prompt_value "$key"
+        done
+        # Re-evaluate transports now that new credentials are available.
+        run_auto_detection
+    fi
+
+    echo "Detected configuration (press Enter to keep each value):"
+    for key in ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_CURSOR ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX; do
+        prompt_value "$key"
+    done
+    for key in GEMINI_USE_API CODEX_USE_API MISTRAL_USE_API CLAUDE_USE_API QWEN3_USE_API MINIMAX_USE_API; do
+        prompt_value "$key"
     done
 
-    echo ""
-    echo "   c) Enter custom persona text"
-    echo ""
-
-    read -r -p "Choice [$current_id]: " persona_choice
-    persona_choice="${persona_choice:-$current_id}"
-
-    if [[ "$persona_choice" == "c" || "$persona_choice" == "C" ]]; then
-        prompt_input "Enter custom persona description" ""
-        local custom_text="$REPLY"
-        if [[ -n "$custom_text" ]]; then
-            # For custom text, we store it differently - use ID 0 to indicate custom
-            case "$agent_type" in
-                cli)
-                    CLI_PERSONA_IDS[agent_idx]="0"
-                    CLI_AGENT_PERSONAS[agent_idx]="$custom_text"
-                    ;;
-                api)
-                    API_PERSONA_IDS[agent_idx]="0"
-                    API_AGENT_PERSONAS[agent_idx]="$custom_text"
-                    ;;
-                custom_cli)
-                    CUSTOM_PERSONA_IDS[agent_idx]="0"
-                    CUSTOM_PERSONAS[agent_idx]="$custom_text"
-                    ;;
-                custom_api)
-                    CUSTOM_API_PERSONA_IDS[agent_idx]="0"
-                    CUSTOM_API_PERSONAS[agent_idx]="$custom_text"
-                    ;;
+    if [[ "$ADVANCED" == "true" ]]; then
+        echo ""
+        echo "Advanced review: every supported persistent parameter"
+        # Read the parameter list on fd 3, not stdin (fd 0) — prompt_value's
+        # nested `read -r -p` needs the real stdin for the interactive reply;
+        # redirecting the loop itself on fd 0 would make it consume the next
+        # parameter name as the user's answer instead.
+        while IFS= read -r key <&3; do
+            case "$key" in
+                ENABLE_GEMINI|ENABLE_CODEX|ENABLE_MISTRAL|ENABLE_CURSOR|ENABLE_KIMI|ENABLE_CLAUDE|ENABLE_QWEN3|ENABLE_GLM|ENABLE_GROK|ENABLE_DEEPSEEK|ENABLE_MINIMAX|GEMINI_USE_API|CODEX_USE_API|MISTRAL_USE_API|CLAUDE_USE_API|QWEN3_USE_API|MINIMAX_USE_API|GEMINI_API_KEY|OPENAI_API_KEY|MISTRAL_API_KEY|ANTHROPIC_API_KEY|QWEN3_API_KEY|MINIMAX_API_KEY|GLM_API_KEY|GROK_API_KEY|DEEPSEEK_API_KEY) continue ;;
             esac
-            log_success "$agent_name: Custom persona set"
-        fi
-        return
+            prompt_value "$key"
+        done 3< <(list_parameters)
     fi
+fi
 
-    # Validate persona ID selection
-    if [[ "$persona_choice" =~ ^[0-9]+$ ]] && [[ $persona_choice -ge 1 ]] && [[ $persona_choice -le 15 ]]; then
-        case "$agent_type" in
-            cli) CLI_PERSONA_IDS[agent_idx]="$persona_choice" ;;
-            api) API_PERSONA_IDS[agent_idx]="$persona_choice" ;;
-            custom_cli)
-                # Ensure array is large enough
-                while [[ ${#CUSTOM_PERSONA_IDS[@]} -le $agent_idx ]]; do
-                    CUSTOM_PERSONA_IDS+=("1")
-                done
-                CUSTOM_PERSONA_IDS[agent_idx]="$persona_choice"
-                ;;
-            custom_api)
-                while [[ ${#CUSTOM_API_PERSONA_IDS[@]} -le $agent_idx ]]; do
-                    CUSTOM_API_PERSONA_IDS+=("1")
-                done
-                CUSTOM_API_PERSONA_IDS[agent_idx]="$persona_choice"
-                ;;
-        esac
-        local new_name
-        new_name=$(get_persona_by_id "$persona_choice" "name")
-        log_success "$agent_name: Persona changed to $new_name"
-    else
-        log_warn "Invalid selection, keeping current persona"
-    fi
-}
+# Explicit command-line overrides have final precedence.
+for ((i=0; i<${#SET_KEYS[@]}; i++)); do
+    set_value "${SET_KEYS[$i]}" "${SET_VALUES[$i]}"
+done
 
-# =============================================================================
-# MAIN
-# =============================================================================
+enabled_count=0
+for key in ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_CURSOR ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX; do
+    [[ "$(read_value "$WORK_FILE" "$key" || true)" == "true" ]] && enabled_count=$((enabled_count + 1))
+done
 
-main() {
-    print_header "AI Consultants v2.0 - Configuration Wizard"
+if [[ "$DRY_RUN" == "true" ]]; then
+    # Never print secrets in dry-run output.
+    sed -E 's/^([A-Z][A-Z0-9_]*_API_KEY)=.*$/\1=<redacted>/' "$WORK_FILE"
+    echo "" >&2
+    echo "Detected $enabled_count usable consultant(s); no files written." >&2
+    exit 0
+fi
 
-    echo "This wizard will help you configure AI Consultants."
-    echo "You need at least 2 agents enabled (CLI or API-based)."
-    echo ""
+if [[ -f "$OUTPUT_FILE" && "$FORCE" != "true" ]]; then
+    # mktemp, not a bare timestamp: the name is only second-precise, so two runs
+    # landing in the same second would resolve to one path and the second cp
+    # would clobber the first run's backup. mktemp claims the name atomically,
+    # which also makes concurrent runs safe.
+    backup=$(mktemp "${OUTPUT_FILE}.backup.$(date +%Y%m%d_%H%M%S).XXXXXX")
+    cp "$OUTPUT_FILE" "$backup"
+    chmod 600 "$backup"
+    echo "Backup: $backup"
+fi
 
-    # Step 1: Detect CLI agents
-    detect_cli_agents
+mv "$WORK_FILE" "$OUTPUT_FILE"
+chmod 600 "$OUTPUT_FILE"
+trap - EXIT
 
-    # Step 2: Select CLI agents
-    select_cli_agents
-
-    # Step 3: Configure API agents
-    configure_api_agents
-
-    # Step 4: Configure personas
-    configure_personas
-
-    # Step 5: Validate (minimum 2 agents)
-    if ! validate_configuration; then
-        log_error "Configuration incomplete. At least 2 agents required."
-        exit 1
-    fi
-
-    # Step 6: Save
-    if [[ "$NON_INTERACTIVE" == "true" ]] || confirm "Save configuration to $OUTPUT_FILE?" "y"; then
-        save_configuration
-    else
-        log_warn "Configuration not saved."
-        exit 1
-    fi
-
-    print_header "Configuration Complete"
-
-    # Show summary
-    echo "Enabled agents:"
-    for i in "${!CLI_AGENT_NAMES[@]}"; do
-        [[ "${CLI_ENABLED[$i]}" == "true" ]] && echo "  [CLI] ${CLI_AGENT_NAMES[$i]}"
-    done
-    for name in ${CUSTOM_NAMES[@]+"${CUSTOM_NAMES[@]}"}; do echo "  [CLI] $name (custom)"; done
-    for i in "${!API_AGENT_NAMES[@]}"; do
-        [[ "${API_ENABLED[$i]}" == "true" ]] && echo "  [API] ${API_AGENT_NAMES[$i]}"
-    done
-    for name in ${CUSTOM_API_NAMES[@]+"${CUSTOM_API_NAMES[@]}"}; do echo "  [API] $name (custom)"; done
-
-    echo ""
-    echo "Next steps:"
-    echo "  1. Review and edit $OUTPUT_FILE if needed"
-    echo "  2. Run: source $OUTPUT_FILE"
-    echo "  3. Test: ./scripts/doctor.sh"
-    echo "  4. Start: ./scripts/consult_all.sh \"Your question\""
-    echo ""
-}
-
-main "$@"
+echo "Configuration saved to: $OUTPUT_FILE"
+echo "Enabled consultants: $enabled_count/11"
+if [[ $enabled_count -lt 2 ]]; then
+    echo "Warning: fewer than 2 consultants are currently usable." >&2
+    echo "Install another CLI or add an API key, then run configure again." >&2
+fi
+echo "Next: ai-consultants doctor"
