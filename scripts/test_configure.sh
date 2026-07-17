@@ -6,6 +6,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BIN="$PROJECT_ROOT/bin/ai-consultants"
 
+# No test here may inherit an ambient transport switch. config.sh auto-resolves
+# GEMINI_USE_API / MINIMAX_USE_API and *exports* them, and configure reads any
+# ambient value as a deliberate user pin (has_explicit_value) — so a caller that
+# sourced config.sh first would pin every transport and defeat auto-detection.
+# scripts/release.sh does exactly that: it sources lib/common.sh (-> config.sh)
+# before running `npm test`, so without this the suite passes from a clean shell
+# and fails only under the release gate. Unset here rather than per-invocation:
+# these are the only two parameters config.sh exports that configure consumes,
+# but the whole switchable set is cleared so a future auto-resolution (as
+# MINIMAX gained in v2.21) cannot silently reintroduce the hole. Same class as
+# the v2.21.0 test_user_config.sh hermeticity fix.
+unset GEMINI_USE_API CODEX_USE_API CLAUDE_USE_API \
+      MISTRAL_USE_API QWEN3_USE_API MINIMAX_USE_API
+
 # shellcheck source=lib/test_helpers.sh
 source "$SCRIPT_DIR/lib/test_helpers.sh"
 

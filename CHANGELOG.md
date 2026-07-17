@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
-## [Unreleased]
+## [2.22.0] - 2026-07-17
 
 ### Added
 - **`ai-consultants configure`.** The public automatic configurator detects the complete 11-consultant roster, selects CLI/API transports, preserves existing settings and secrets, writes private XDG configuration with backups, and accepts every persistent parameter through repeatable `--set KEY=VALUE` arguments or an exhaustive `--advanced` review.

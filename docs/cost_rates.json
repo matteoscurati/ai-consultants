@@ -1,5 +1,5 @@
 {
-  "version": "2.21.1",
+  "version": "2.22.0",
   "updated": "2026-07-16",
   "models": {
     "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",

@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 11 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.21.1
+**Version**: 2.22.0
 
 ## Distribution
 
@@ -802,7 +802,7 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 ## Changelog
 
-### Unreleased
+### v2.22.0
 - Added the public `ai-consultants configure` / `config` subcommand. Automatic mode detects every current consultant, uses CLI-first transport selection with API fallback when credentials are available, persists to the XDG user config directory, preserves custom values and secrets while refreshing availability-derived `ENABLE_*` flags, backs up rewrites, and keeps files at mode 600.
 - Replaced the stale 1,092-line v2.0 configurator with a compact implementation whose accepted parameter surface is derived from `.env.example`. `--set KEY=VALUE` supports repeatable automation and participates in detection, `--interactive` reviews credentials/transports/panel selection, `--advanced` reviews every parameter, `--show-parameters` exposes the contract, and side-effect-free `--dry-run` redacts secrets.
 - Added `test_configure.sh` (60 assertions) covering public routing, runtime-wide template parity, full-roster detection, API fallback, override precedence/empty values, transport provenance, advanced defaults, export preservation, dry-run isolation/redaction, symlink refusal, backups/permissions, and rejection of removed settings. The npm-pack smoke path now includes `.env.example` and exercises both `init` and `configure` from the installed tarball.
@@ -811,6 +811,7 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
   - **`--advanced` silently wrote garbage.** `done < <(list_parameters)` redirects fd 0 for the *whole loop body*, so `prompt_value`'s nested `read -r -p` consumed the parameter list instead of the terminal — each prompt took the *next parameter's name* as the user's answer (observed: `AFFINITY_FILE` ← `ANTHROPIC_API_KEY`). Fixed with the standard fd-separation idiom (`read … <&3` / `done 3< <(…)`).
   - **`init` then `configure` disabled four consultants.** `init` copies `.env.example` verbatim, and the template carried uncommented `CODEX_USE_API=false` / `CLAUDE_USE_API` / `MISTRAL_USE_API` / `QWEN3_USE_API`. `has_explicit_value` reads any unmarked value as a user pin, so `configure_switchable` took the explicit-`false` branch: with no CLI and a valid API key the consultant was disabled outright instead of resolving to API. Fixed in the *template*, not the provenance logic — the four switches are now commented out, matching the convention `GEMINI_USE_API`/`MINIMAX_USE_API` already established (commented = auto-resolve, uncommented = force). CLI-first is unaffected: an installed CLI still wins over a present key.
 - **Backup names are now collision-proof.** `${OUTPUT_FILE}.backup.$(date +%Y%m%d_%H%M%S)` is only second-precise, so two runs inside one second resolved to the same path and the second `cp` clobbered the first backup — losing the user's *original* config while keeping a machine-generated one. Now `mktemp "…backup.<ts>.XXXXXX"`, which claims the name atomically (also making concurrent runs safe). Note the collision is unreachable from a sequential test — a real run takes ~1-8s, longer than the granularity — so the regression test stubs `date` on `PATH` to freeze the clock; the backup line is the only `date` caller in this path.
+- **`test_configure.sh` made hermetic against an ambient config environment — `scripts/release.sh` could not run its own gate.** `config.sh` auto-resolves `GEMINI_USE_API`/`MINIMAX_USE_API` and **exports** them; `configure.sh::has_explicit_value` treats any ambient value as a deliberate user pin. `release.sh` sources `lib/common.sh` (→ `config.sh`) *before* running `npm test`, so the gate inherited pinned transports: Tests 4 and 11 failed under `release.sh` while passing from a clean shell — a "flaky" result that was in fact deterministic per-environment. The suite now `unset`s the whole switchable `*_USE_API` set at the top (one place, covering all 10 configure invocations; only the two auto-resolved ones actually leak today, but the set is cleared so a future auto-resolution — as MiniMax gained in v2.21 — cannot silently reopen it). Same class as the v2.21.0 `test_user_config.sh` fix. Verified green both from a clean shell and under `source lib/common.sh; npm test`. Latent since `test_configure.sh` was introduced; it never affected the shipped runtime, only the release gate.
 - Deprecated `setup_wizard.sh` to a compatibility forwarder. Corrected `GOOGLE_API_KEY` to `GEMINI_API_KEY`, removed legacy `/tmp` overrides from the starter template, completed advanced settings/persona coverage, and fixed safe parsing of unquoted `.env` inline comments.
 
 ### v2.21.1
