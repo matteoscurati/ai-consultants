@@ -164,8 +164,6 @@ ENABLE_DEBATE=false          # Multi-agent debate
 DEBATE_ROUNDS=1              # Used by ORCHESTRATION_MODE=fixed
 ENABLE_PEER_REVIEW=false     # Anonymous peer review
 PEER_REVIEW_MIN_RESPONSES=3  # Minimum panel size for peer review
-ENABLE_REFLECTION=false      # Generate -> critique -> refine
-REFLECTION_CYCLES=1
 ENABLE_PANIC_MODE=auto       # auto | always | never
 ENABLE_SMART_ROUTING=false   # Category-based consultant selection
 ENABLE_COST_TRACKING=true    # Track API usage costs

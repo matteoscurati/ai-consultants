@@ -428,9 +428,9 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 ### Tier Presets
 
-| Preset | Tier | Agents | Debate | Reflection | Use Case |
-|--------|------|--------|--------|------------|----------|
-| `max_quality` | Premium | 8 | 3 rounds | 2 cycles + peer review | Critical decisions |
+| Preset | Tier | Agents | Debate | Peer Review | Use Case |
+|--------|------|--------|--------|-------------|----------|
+| `max_quality` | Premium | 8 | 3 rounds | Yes | Critical decisions |
 | `medium` | Standard | 4 | 1 round | No | General questions |
 | `fast` | Economy | 2 | No | No | Quick checks |
 
@@ -479,7 +479,7 @@ Choose how many consultants to use:
 
 | Preset | Consultants | Tier | Use Case |
 |--------|-------------|------|----------|
-| `max_quality` | 8 + debate + reflection | Premium | Critical decisions |
+| `max_quality` | 8 + debate + peer review | Premium | Critical decisions |
 | `medium` | 4 + light debate | Standard | General questions |
 | `fast` | 2 | Economy | Quick checks |
 | `minimal` | 2 (Gemini + Codex) | Default | Quick questions, low cost |

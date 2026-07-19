@@ -102,14 +102,6 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 
 **Estimated cost:** $0.08 - $0.15
 
-### With Self-Reflection
-
-**Additional parameters:**
-- Critique + refinement cycle per consultant
-- ~500 additional tokens per cycle
-
-**Estimated cost:** $0.10 - $0.20
-
 ## Budget Management
 
 ### Configuration Variables
