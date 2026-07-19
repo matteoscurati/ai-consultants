@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [Unreleased]
+
+### Removed
+- **`ENABLE_REFLECTION` and `REFLECTION_CYCLES` are gone, along with `lib/reflection.sh`.** The self-reflection module was never sourced or called by any script, so neither setting had ever affected a consultation. The v2.16 dynamic orchestration engine covers the same ground: its `converge` and `adversarial` shapes run critique-refine driven by measured consensus rather than a fixed cycle count. **Action required if you set either key**: `ai-consultants configure` derives its accepted parameters from `.env.example`, so `--set ENABLE_REFLECTION=...` now exits non-zero instead of being accepted, and both keys are dropped (without warning) the next time an existing user `.env` is rewritten. Remove them from provisioning scripts and `.env` files. No runtime behavior changes — the flags controlled nothing.
+
+### Fixed
+- `test_user_config.sh` no longer fails against a real user configuration. The suite leaked `AI_CONSULTANTS_CONFIG_DIR` between tests and asserted on config variable names that an ambient environment can override, so `npm test` — and therefore the `release.sh` gate, which sources `config.sh` first — failed for anyone who had run `ai-consultants configure`.
+
+### Changed
+- Preset documentation now reflects what the presets actually pin. The tier tables no longer claim a fixed debate/peer-review depth per preset: under the default `ORCHESTRATION_MODE=auto` the planner chooses per question, and a `SECURITY` question runs peer review regardless of preset. `max_quality` is described as 8 of 11 consultants rather than "all".
+
 ## [2.22.0] - 2026-07-17
 
 ### Added

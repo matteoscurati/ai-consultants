@@ -193,7 +193,7 @@ Functions in `lib/common.sh`:
 ### Configuration Presets
 ```bash
 # Quality Tier Presets (v2.5)
-./scripts/consult_all.sh --preset max_quality "question"  # All + premium models + debate
+./scripts/consult_all.sh --preset max_quality "question"  # 8 of 11 consultants + premium models + peer review
 ./scripts/consult_all.sh --preset medium "question"       # 4 consultants + standard models
 ./scripts/consult_all.sh --preset fast "question"         # 2 consultants + economy models
 

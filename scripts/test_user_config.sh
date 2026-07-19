@@ -432,12 +432,19 @@ test_env_inline_comments() {
 
 test_env_example_is_sourceable_and_loader_compatible() {
     local out cfg="$TMP/env_example"
-    out=$(bash -c 'set -e; source .env.example; printf "%s|%s" "$GEMINI_MODEL" "$PANIC_KEYWORDS"')
+    # Same ambient-environment hazard as test_env_inline_comments: this asserts
+    # on real config var names, so an inherited export (release.sh sources
+    # config.sh -> load_user_config before `npm test`, and GEMINI_MODEL is a
+    # documented `configure --set` parameter) would be compared against the
+    # template instead of the template's own value. Unset in both subshells.
+    out=$(bash -c 'set -e; unset GEMINI_MODEL PANIC_KEYWORDS
+        source .env.example; printf "%s|%s" "$GEMINI_MODEL" "$PANIC_KEYWORDS"')
     assert_eq "Gemini 3.1 Pro (High)|uncertain|maybe|not sure|possibly|unclear|depends|hard to say|difficult to determine" \
         "$out" ".env.example is safely sourceable"
     mkdir -p "$cfg"
     cp .env.example "$cfg/.env"
     out=$(AI_CONSULTANTS_CONFIG_DIR="$cfg" bash -c '
+        unset GEMINI_MODEL PANIC_KEYWORDS
         source scripts/lib/user_config.sh
         load_user_config
         printf "%s|%s" "$GEMINI_MODEL" "$PANIC_KEYWORDS"
