@@ -82,7 +82,7 @@ Options:
                          balanced     - 4 models, good coverage
                          thorough     - 5 models, comprehensive
                          high-stakes  - All models + debate
-                         max_quality  - All + premium models + debate + peer review
+                         max_quality  - 8 of 11 consultants + premium models + peer review
                          medium       - 4 models + standard models + light debate
                          fast         - 2 models + economy models, no debate
                          security     - Security-focused + debate

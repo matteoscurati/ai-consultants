@@ -751,7 +751,7 @@ apply_model_tier() {
 #   high-stakes  - Broad premium panel + debate (maximum rigor)
 #
 # Quality Tiers (v2.5):
-#   max_quality  - All consultants + premium models + debate + peer review
+#   max_quality  - 8 of 11 consultants + premium models + peer review
 #   medium       - 4 consultants + standard models + light debate
 #   fast         - 2 consultants + economy models, no debate
 #
@@ -841,7 +841,7 @@ list_presets() {
 Available presets:
 
 Quality Tiers (v2.5):
-  max_quality  All consultants + premium models + debate + peer review
+  max_quality  8 of 11 consultants + premium models + peer review
   medium       4 consultants + standard models + light debate
   fast         2 consultants + economy models, no debate
 

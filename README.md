@@ -428,11 +428,19 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 ### Tier Presets
 
-| Preset | Tier | Agents | Debate | Peer Review | Use Case |
-|--------|------|--------|--------|-------------|----------|
-| `max_quality` | Premium | 8 | 3 rounds | Yes | Critical decisions |
-| `medium` | Standard | 4 | 1 round | No | General questions |
-| `fast` | Economy | 2 | No | No | Quick checks |
+| Preset | Tier | Agents | Use Case |
+|--------|------|--------|----------|
+| `max_quality` | Premium | 8 of 11 | Critical decisions |
+| `medium` | Standard | 4 | General questions |
+| `fast` | Economy | 2 | Quick checks |
+
+**Deliberation depth is not fixed by the preset.** Under the default
+`ORCHESTRATION_MODE=auto` the planner picks the shape per question, so the
+`DEBATE_ROUNDS` a preset pins applies only under `ORCHESTRATION_MODE=fixed`,
+and a `SECURITY`-classified question runs the adversarial shape — including a
+peer-review round — whatever preset you chose. `max_quality` additionally
+enables peer review outright; `medium` and `fast` do not *clear* it, so an
+enabled peer review carries into them.
 
 ### Models by Tier
 
@@ -479,8 +487,8 @@ Choose how many consultants to use:
 
 | Preset | Consultants | Tier | Use Case |
 |--------|-------------|------|----------|
-| `max_quality` | 8 + debate + peer review | Premium | Critical decisions |
-| `medium` | 4 + light debate | Standard | General questions |
+| `max_quality` | 8 of 11 (+ peer review) | Premium | Critical decisions |
+| `medium` | 4 | Standard | General questions |
 | `fast` | 2 | Economy | Quick checks |
 | `minimal` | 2 (Gemini + Codex) | Default | Quick questions, low cost |
 | `balanced` | 4 (+ Mistral + Cursor) | Default | Standard consultations |
