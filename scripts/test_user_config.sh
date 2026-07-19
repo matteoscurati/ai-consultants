@@ -22,10 +22,32 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# No test here may inherit an ambient transport switch. config.sh auto-resolves
+# GEMINI_USE_API / MINIMAX_USE_API and *exports* them, so a caller that sourced
+# config.sh first would pin them and defeat the auto-resolution the tests below
+# assert. scripts/release.sh does exactly that (sources lib/common.sh ->
+# config.sh before `npm test`). Same guard as test_configure.sh; the whole
+# switchable set is cleared so a future auto-resolution cannot silently
+# reintroduce the hole.
+unset GEMINI_USE_API CODEX_USE_API CLAUDE_USE_API \
+      MISTRAL_USE_API QWEN3_USE_API MINIMAX_USE_API
+
 # shellcheck source=lib/test_helpers.sh
 source "$SCRIPT_DIR/lib/test_helpers.sh"
 # shellcheck source=lib/user_config.sh
 source "$SCRIPT_DIR/lib/user_config.sh"
+
+TMP=$(mktemp -d -t ai_consultants_user_config_test.XXXXXX)
+trap 'rm -rf "$TMP"' EXIT
+
+# Hermetic default config dir: empty, so `source scripts/config.sh` in the
+# subshell tests below resolves pure defaults instead of reading the *real*
+# ~/.config/ai-consultants/.env. Without this the suite fails on any machine
+# where the user ran `ai-consultants configure` -- the v2.22.0 subcommand whose
+# whole job is to write that file (a pinned *_USE_API there made Tests 19/23
+# fail). Tests that exercise dir resolution still override it per-invocation.
+EMPTY_CONFIG_DIR="$TMP/no-user-config"
+mkdir -p "$EMPTY_CONFIG_DIR"
 
 # Reset cross-test state. run_test invokes this automatically via the
 # _reset_state hook in lib/test_helpers.sh.
@@ -34,10 +56,12 @@ _reset_state() {
     unset SIMPLE QUOTED PREEXISTING WITH_EXPORT EXPORTED INDENTED_KEY \
           VALID FROM_ENV COMPUTED FROM_XDG WHO_WINS WIN_VAR COUNTER
     unset XDG_CACHE_HOME XDG_STATE_HOME XDG_DATA_HOME 2>/dev/null || true
+    # Re-establish the hermetic dir every test: test_xdg_fallback unsets this
+    # in the suite's own shell (it must, to assert the XDG branch), and without
+    # restoring it here that unset leaks into every later test.
+    export AI_CONSULTANTS_CONFIG_DIR="$EMPTY_CONFIG_DIR"
 }
-
-TMP=$(mktemp -d -t ai_consultants_user_config_test.XXXXXX)
-trap 'rm -rf "$TMP"' EXIT
+export AI_CONSULTANTS_CONFIG_DIR="$EMPTY_CONFIG_DIR"
 
 # -----------------------------------------------------------------------------
 # Test 1: .env basic loading
@@ -393,6 +417,11 @@ test_env_inline_comments() {
         > "$cfg/.env"
     local out
     out=$(AI_CONSULTANTS_CONFIG_DIR="$cfg" bash -c '
+        # Unlike the other loader tests, this one asserts on *real* config var
+        # names, and load_user_config deliberately lets the environment win over
+        # the file. A caller that sourced config.sh first (release.sh does)
+        # exports both, so without this the file under test is never consulted.
+        unset ENABLE_KIMI GROK_API_URL
         source scripts/lib/user_config.sh
         load_user_config
         printf "%s|%s" "$ENABLE_KIMI" "$GROK_API_URL"
