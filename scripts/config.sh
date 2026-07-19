@@ -375,16 +375,6 @@ PANIC_EXTRA_DEBATE_ROUNDS="${PANIC_EXTRA_DEBATE_ROUNDS:-1}"
 PANIC_KEYWORDS="${PANIC_KEYWORDS:-uncertain|maybe|not sure|possibly|unclear|depends|hard to say|difficult to determine}"
 
 # =============================================================================
-# SELF-REFLECTION (v2.0)
-# =============================================================================
-
-# Enable auto-reflection (generate-critique-refine)
-ENABLE_REFLECTION="${ENABLE_REFLECTION:-false}"
-
-# Number of reflection cycles per response
-REFLECTION_CYCLES="${REFLECTION_CYCLES:-1}"
-
-# =============================================================================
 # SMART ROUTING (v2.0)
 # =============================================================================
 
@@ -761,7 +751,7 @@ apply_model_tier() {
 #   high-stakes  - Broad premium panel + debate (maximum rigor)
 #
 # Quality Tiers (v2.5):
-#   max_quality  - All consultants + premium models + debate + reflection
+#   max_quality  - All consultants + premium models + debate + peer review
 #   medium       - 4 consultants + standard models + light debate
 #   fast         - 2 consultants + economy models, no debate
 #
@@ -773,7 +763,7 @@ _disable_all_consultants() {
     export ENABLE_CURSOR=false ENABLE_KIMI=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
     export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
-    export ENABLE_DEBATE=false ENABLE_REFLECTION=false
+    export ENABLE_DEBATE=false
 }
 
 # Apply a preset configuration
@@ -800,7 +790,6 @@ apply_preset() {
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
             export ENABLE_CURSOR=true ENABLE_CLAUDE=true
             export ENABLE_DEBATE=true DEBATE_ROUNDS=2
-            export ENABLE_REFLECTION=true REFLECTION_CYCLES=1
             ;;
         security)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
@@ -820,7 +809,6 @@ apply_preset() {
             export ENABLE_CURSOR=true ENABLE_KIMI=true
             export ENABLE_CLAUDE=true ENABLE_QWEN3=true ENABLE_MINIMAX=true
             export ENABLE_DEBATE=true DEBATE_ROUNDS=3
-            export ENABLE_REFLECTION=true REFLECTION_CYCLES=2
             export ENABLE_PEER_REVIEW=true
             ;;
         medium)
@@ -834,7 +822,7 @@ apply_preset() {
             # Super fast - economy models, minimal consultants
             apply_model_tier "economy"
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_DEBATE=false ENABLE_REFLECTION=false
+            export ENABLE_DEBATE=false
             export ENABLE_COMPACT_REPORT=true
             ;;
         *)
@@ -853,7 +841,7 @@ list_presets() {
 Available presets:
 
 Quality Tiers (v2.5):
-  max_quality  All consultants + premium models + debate + reflection
+  max_quality  All consultants + premium models + debate + peer review
   medium       4 consultants + standard models + light debate
   fast         2 consultants + economy models, no debate
 

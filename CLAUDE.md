@@ -64,8 +64,7 @@ ai-consultants/
 │       ├── costs.sh            # Cost tracking + response limits
 │       ├── cache.sh            # Semantic caching (v2.3)
 │       ├── api_query.sh        # API mode query execution (v2.6)
-│       ├── progress.sh         # Progress bars
-│       └── reflection.sh       # Self-reflection + judge step
+│       └── progress.sh         # Progress bars
 ├── references/
 │   ├── configuration.md      # Full configuration reference
 │   └── details.md            # Presets, strategies, best practices
@@ -252,12 +251,6 @@ Process:
 3. Aggregate peer scores to identify strongest arguments
 4. De-anonymize in final report
 
-### Judge Step (Overconfidence Detection)
-Functions in `lib/reflection.sh`:
-- `judge_response()` - Evaluates single response for overconfidence
-- `heuristic_overconfidence_check()` - Fast fallback without LLM
-- `judge_all_responses()` - Batch evaluation
-
 ## v2.9 Features
 
 ### Kimi CLI Support
@@ -410,7 +403,7 @@ get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 Three new presets leverage the model tiers:
 
 ```bash
-# Maximum quality - all premium models + debate + reflection
+# Maximum quality - all premium models + debate + peer review
 ./scripts/consult_all.sh --preset max_quality "critical architecture decision"
 
 # Balanced quality - standard models, 4 consultants, light debate
