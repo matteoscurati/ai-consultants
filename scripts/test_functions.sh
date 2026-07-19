@@ -23,6 +23,7 @@ assert_equal() {
         echo -e "${C_RED}FAIL${C_RESET}: $message"
         echo -e "  ${C_BLUE}Expected${C_RESET}: $expected"
         echo -e "  ${C_BLUE}Actual${C_RESET}: $actual"
+        _ASSERT_FAILED=1
         return 1
     fi
     echo -e "${C_GREEN}PASS${C_RESET}: $message"
@@ -38,6 +39,7 @@ assert_not_equal() {
         echo -e "${C_RED}FAIL${C_RESET}: $message"
         echo -e "  ${C_BLUE}Should not be${C_RESET}: $not_expected"
         echo -e "  ${C_BLUE}But got${C_RESET}: $actual"
+        _ASSERT_FAILED=1
         return 1
     fi
     echo -e "${C_GREEN}PASS${C_RESET}: $message"
@@ -53,6 +55,7 @@ assert_contains() {
         echo -e "${C_RED}FAIL${C_RESET}: $message"
         echo -e "  ${C_BLUE}Expected to contain${C_RESET}: $expected_substring"
         echo -e "  ${C_BLUE}Actual${C_RESET}: $actual"
+        _ASSERT_FAILED=1
         return 1
     fi
     echo -e "${C_GREEN}PASS${C_RESET}: $message"
@@ -66,6 +69,7 @@ assert_success() {
     if ! eval "$command" >/dev/null 2>&1; then
         echo -e "${C_RED}FAIL${C_RESET}: $message"
         echo -e "  ${C_BLUE}Command failed${C_RESET}: $command"
+        _ASSERT_FAILED=1
         return 1
     fi
     echo -e "${C_GREEN}PASS${C_RESET}: $message"
@@ -79,6 +83,7 @@ assert_failure() {
     if eval "$command" >/dev/null 2>&1; then
         echo -e "${C_RED}FAIL${C_RESET}: $message"
         echo -e "  ${C_BLUE}Command should have failed${C_RESET}: $command"
+        _ASSERT_FAILED=1
         return 1
     fi
     echo -e "${C_GREEN}PASS${C_RESET}: $message"
@@ -354,6 +359,45 @@ EOF
     rm -rf "$dir"
 }
 
+test_known_feature_flags_in_sync() {
+    echo -e "\n${C_YELLOW}Testing KNOWN_FEATURE_FLAGS is in sync with config.sh${C_RESET}"
+
+    # _discover_custom_api_agents enrolls any ENABLE_X=true whose X is not in the
+    # registry (given an X_API_URL), so a flag that lands in config.sh without
+    # landing here becomes a phantom consultant. Derive the expected set from
+    # config.sh's top-level declarations rather than restating it, so this test
+    # fails on the next drift instead of aging into the same staleness.
+    local declared registry
+    declared=$(grep -oE '^ENABLE_[A-Z0-9_]+' "$SCRIPT_DIR/config.sh" | sed 's/^ENABLE_//' | sort -u)
+
+    # Consultant names are covered by KNOWN_CLI_AGENTS / KNOWN_API_AGENTS.
+    local agents
+    agents=$(printf '%s\n' $KNOWN_CLI_AGENTS $KNOWN_API_AGENTS | sort -u)
+    declared=$(comm -23 <(echo "$declared") <(echo "$agents"))
+
+    registry=$(printf '%s\n' $KNOWN_FEATURE_FLAGS | sort -u)
+
+    local missing stale
+    missing=$(comm -23 <(echo "$declared") <(echo "$registry") | tr '\n' ' ' | sed 's/ *$//')
+    stale=$(comm -13 <(echo "$declared") <(echo "$registry") | tr '\n' ' ' | sed 's/ *$//')
+
+    # run_tests scores a test by its exit status, which is that of the LAST
+    # command run — so a failing assertion followed by a passing one is counted
+    # as a pass. Accumulate explicitly instead of letting the final assertion
+    # decide. (Verified: without this, injecting an unregistered ENABLE_* into
+    # config.sh printed FAIL but still reported "All tests passed".)
+    local rc=0
+    assert_equal "" "$missing" "every config.sh ENABLE_* flag is in KNOWN_FEATURE_FLAGS" || rc=1
+    assert_equal "" "$stale"   "KNOWN_FEATURE_FLAGS has no entries absent from config.sh" || rc=1
+
+    # Behavioral spot-check: the flag the review found reachable as a phantom.
+    local peer_known=1
+    is_known_agent "PEER_REVIEW" && peer_known=0
+    assert_equal "0" "$peer_known" "is_known_agent recognizes PEER_REVIEW as a feature flag" || rc=1
+
+    return $rc
+}
+
 run_tests() {
     echo -e "${C_BLUE}=== Running Unit Tests ===${C_RESET}"
     
@@ -361,9 +405,21 @@ run_tests() {
     local failed=0
     local start_time=$(date +%s)
     
-    # Run all test functions
+    # Run all test functions.
+    #
+    # A test function's exit status is that of its LAST command, so a failing
+    # assertion followed by a passing one used to be scored as a pass: the FAIL
+    # line was printed, `failed` stayed 0, and the suite exited 0 — meaning
+    # `npm test` under-reported real regressions. 8 of the 13 test functions
+    # here run more than one assertion and were exposed to that. The assert_*
+    # helpers now set _ASSERT_FAILED on every failure path, so a test counts as
+    # failed if EITHER its exit status is non-zero OR any assertion inside it
+    # failed, whatever order they ran in.
     for test_func in $(declare -F | grep '^declare -f test_' | cut -d' ' -f3 | sort); do
-        if $test_func; then
+        _ASSERT_FAILED=0
+        local status=0
+        $test_func || status=$?
+        if [[ $status -eq 0 && $_ASSERT_FAILED -eq 0 ]]; then
             ((passed++)) || true
         else
             ((failed++)) || true

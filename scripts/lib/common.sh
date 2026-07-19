@@ -276,7 +276,21 @@ to_title() {
 # This list is used by discovery functions to identify custom agents
 KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 MINIMAX"
 KNOWN_API_AGENTS="GLM GROK DEEPSEEK"
-KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE CLASSIFICATION SMART_ROUTING COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT"
+
+# Every non-consultant ENABLE_* flag declared in config.sh. This is a denylist
+# guarding _discover_custom_api_agents (consult_all.sh): that function walks
+# `env`, and any ENABLE_X=true whose X is absent here is enrolled as a custom
+# consultant once an X_API_URL is also present. A flag missing from this list is
+# therefore a latent phantom-consultant bug, not a cosmetic omission -- it had
+# drifted 18 flags out of date before the pin below existed.
+# KEEP IN SYNC with the top-level ENABLE_* declarations in config.sh;
+# test_functions.sh::test_known_feature_flags_in_sync fails the build otherwise.
+KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS DEBATE CLASSIFICATION SMART_ROUTING \
+COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT ADVERSARIAL_VERIFY \
+AST_EXTRACTION BUDGET_LIMIT CAPABILITY_ROUTING CAPABILITY_WEIGHTING \
+COMPACT_REPORT COST_AWARE_ROUTING DEBATE_OPTIMIZATION HEALTH_GATE PANIC_MODE \
+PEER_REVIEW RELIABILITY_TRACKING RESPONSE_LIMITS SELECTIVE_CONTEXT \
+SEMANTIC_CACHE SEMANTIC_CHUNKING STANCE_CONSENSUS SYMBOL_COMPRESSION"
 
 # Check if an agent name is a known predefined agent
 # Usage: is_known_agent "AGENTNAME"
