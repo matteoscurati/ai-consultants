@@ -54,10 +54,26 @@ make_stub() {
     chmod +x "$TMP/bin/$1"
 }
 
+# Scrub the whole accepted-parameter surface, not just the secrets.
+# configure's has_explicit_value reads ANY ambient value as a deliberate user
+# pin, so every setting config.sh exports leaks into the invocations below. The
+# nine API keys were scrubbed but the settings were not, so with config.sh
+# sourced first -- scripts/release.sh does exactly that before `npm test` --
+# an exported DEFAULT_PRESET overrode the value the preservation tests write
+# into the file they are asserting on (Tests 6 and 10). Derived from configure's
+# own `--show-parameters` contract so the scrub set tracks the template rather
+# than drifting into the same staleness.
+CLEAN_ENV_ARGS=()
+while IFS= read -r _param; do
+    [[ -n "$_param" ]] && CLEAN_ENV_ARGS+=(-u "$_param")
+done < <("$BIN" configure --show-parameters)
+if [[ ${#CLEAN_ENV_ARGS[@]} -eq 0 ]]; then
+    echo "FATAL: could not read configure --show-parameters; env scrub would be a no-op" >&2
+    exit 1
+fi
+
 run_clean_configure() {
-    env -u GEMINI_API_KEY -u OPENAI_API_KEY -u ANTHROPIC_API_KEY \
-        -u MISTRAL_API_KEY -u QWEN3_API_KEY -u MINIMAX_API_KEY \
-        -u GLM_API_KEY -u GROK_API_KEY -u DEEPSEEK_API_KEY \
+    env "${CLEAN_ENV_ARGS[@]}" \
         PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$1" \
         "$BIN" configure "${@:2}"
 }

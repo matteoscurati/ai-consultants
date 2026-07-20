@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
-## [Unreleased]
+## [2.23.0] - 2026-07-20
 
 ### Removed
 - **`ENABLE_REFLECTION` and `REFLECTION_CYCLES` are gone, along with `lib/reflection.sh`.** The self-reflection module was never sourced or called by any script, so neither setting had ever affected a consultation. The v2.16 dynamic orchestration engine covers the same ground: its `converge` and `adversarial` shapes run critique-refine driven by measured consensus rather than a fixed cycle count. **Action required if you set either key**: `ai-consultants configure` derives its accepted parameters from `.env.example`, so `--set ENABLE_REFLECTION=...` now exits non-zero instead of being accepted, and both keys are dropped (without warning) the next time an existing user `.env` is rewritten. Remove them from provisioning scripts and `.env` files. No runtime behavior changes — the flags controlled nothing.
@@ -15,6 +15,7 @@ For longer-form release notes (rationale, upgrade guides, performance numbers), 
 ### Fixed
 - **`KNOWN_FEATURE_FLAGS` no longer enrolls feature flags as phantom consultants.** The registry that `_discover_custom_api_agents` uses to tell feature flags apart from custom API agents had drifted 18 flags out of date, so an `ENABLE_<FLAG>=true` paired with a `<FLAG>_API_URL` in the environment could be added to the panel as a consultant — `ENABLE_PEER_REVIEW` among them. All 27 non-consultant flags are now registered, and a test derives the expected set from `config.sh` so the next added flag fails the build instead of drifting silently.
 - **`test_functions.sh` was under-reporting failures.** A test function is scored by its exit status, i.e. that of its last command, so a failing assertion followed by a passing one printed `FAIL` yet counted as a pass and the suite still exited 0. 8 of 13 test functions ran more than one assertion and were exposed. The `assert_*` helpers now flag failures globally and the runner honors that flag, so `npm test` reflects what actually failed.
+- **The release gate could not go green.** `scripts/release.sh` sources `lib/common.sh` (and therefore `config.sh`) before running `npm test`, so the exported configuration leaked into two suites and failed them deterministically — meaning no release since 2.22.0 could pass its own gate. `test_user_config.sh` leaked `AI_CONSULTANTS_CONFIG_DIR` between tests and asserted on variable names an ambient environment overrides; `test_configure.sh` scrubbed the nine API keys but not the settings, so an exported `DEFAULT_PRESET` overrode the file its preservation tests assert on. Both suites now derive their isolation from the same contract they test against.
 - `test_user_config.sh` no longer fails against a real user configuration. The suite leaked `AI_CONSULTANTS_CONFIG_DIR` between tests and asserted on config variable names that an ambient environment can override, so `npm test` — and therefore the `release.sh` gate, which sources `config.sh` first — failed for anyone who had run `ai-consultants configure`.
 
 ### Changed

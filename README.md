@@ -1,8 +1,8 @@
-# AI Consultants v2.22.0
+# AI Consultants v2.23.0
 
 > **A harness for every question.** A panel of up to 11 frontier models that writes its own playbook per question — fan out, debate to convergence, cross-examine under adversarial review, or run a tournament — and checks its work before it reaches you.
 
-[![Version](https://img.shields.io/badge/version-2.22.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-2.23.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -724,6 +724,14 @@ Each consultation generates:
 ---
 
 ## Changelog
+
+### v2.23.0
+
+- **`ENABLE_REFLECTION` and `REFLECTION_CYCLES` removed.** The self-reflection module they controlled was never called by anything, so the settings had never affected a consultation — v2.16's `converge` and `adversarial` shapes already run critique-refine off measured consensus. **If you set either key**, remove it: `configure --set ENABLE_REFLECTION=...` now exits non-zero, and both keys are dropped when an existing `.env` is rewritten.
+- **The release gate works again.** Two test suites failed deterministically against any real user configuration, so no release since 2.22.0 could pass its own `npm test`.
+- **`npm test` no longer swallows failures.** A failing assertion followed by a passing one inside the same test function was counted as a pass, across 8 of 13 test functions.
+- **Feature flags can no longer be enrolled as consultants.** A registry that told feature flags apart from custom API agents was 18 entries out of date; it is now complete and pinned by a test.
+- **Preset tables corrected** — they described a debate and peer-review depth the code has not enforced since v2.16, and called `high-stakes`/`max_quality` "all consultants" when they enable 5 and 8 of 11. See the [v2.23.0 release note](docs/releases/v2.23.0.md).
 
 ### v2.22.0
 
