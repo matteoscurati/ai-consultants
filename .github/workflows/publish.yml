@@ -178,11 +178,21 @@ jobs:
             echo "Release $TAG already exists — leaving it untouched."
             exit 0
           fi
-          # The annotated tag's subject is the human-readable release title
-          # (e.g. "v2.23.0 — remove dead self-reflection module"); fall back to
-          # the bare tag for a lightweight tag.
-          title="$(git tag -l --format='%(contents:subject)' "$TAG")"
-          [ -n "$title" ] || title="$TAG"
+          # Title comes from the release note's "**Type:** <kind> — <summary>"
+          # line, not from the tag object. actions/checkout materialises the
+          # triggering tag ref pointing at the commit, so
+          # `git tag -l --format='%(contents:subject)'` returns the COMMIT
+          # subject on the runner while returning the tag subject locally — v2.24.0
+          # shipped titled "release: 2.24.0 — …" because of exactly that. The note
+          # is a file this step already reads and the previous step already
+          # validated, so parsing it is deterministic.
+          summary="$(sed -n 's/^\*\*Type:\*\* [^—]*— *//p' "$NOTE" | head -1)"
+          if [ -n "$summary" ]; then
+            title="$TAG — $summary"
+          else
+            echo "::warning::No '**Type:** <kind> — <summary>' line in $NOTE; titling the release with the bare tag"
+            title="$TAG"
+          fi
           gh release create "$TAG" \
             --verify-tag \
             --title "$title" \
