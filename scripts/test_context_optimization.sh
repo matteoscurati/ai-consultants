@@ -143,7 +143,7 @@ test_unknown_category_includes_tree() {
 # -----------------------------------------------------------------------------
 test_ast_extraction_python() {
     if ! command -v python3 >/dev/null 2>&1; then
-        echo "  ${C_YELLOW}SKIP${C_RESET}: python3 not available"
+        echo -e "  ${C_YELLOW}SKIP${C_RESET}: python3 not available"
         return 0
     fi
     # Force a low byte threshold so the file goes through the optimizer path
@@ -164,7 +164,7 @@ test_ast_extraction_python() {
 # -----------------------------------------------------------------------------
 test_optimize_code_file_python() {
     if ! command -v python3 >/dev/null 2>&1; then
-        echo "  ${C_YELLOW}SKIP${C_RESET}: python3 not available"
+        echo -e "  ${C_YELLOW}SKIP${C_RESET}: python3 not available"
         return 0
     fi
     # shellcheck source=lib/common.sh
@@ -211,7 +211,7 @@ test_chunking_json_shape() {
             assert_eq "valid_json" "invalid" "chunking output is not a valid JSON array"
         fi
     else
-        echo "  ${C_YELLOW}SKIP${C_RESET}: jq not available for JSON shape check"
+        echo -e "  ${C_YELLOW}SKIP${C_RESET}: jq not available for JSON shape check"
     fi
 }
 

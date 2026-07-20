@@ -53,8 +53,16 @@ unprotected=$( { \
       | grep -v '/test_set_e_safety.sh:' \
       || true)
 
-if [[ -z "$unprotected" ]]; then
-    echo -e "  ${C_GREEN}PASS${C_RESET}: zero unprotected ((var++)) occurrences"
+# A lint that scans nothing reports "zero occurrences" and passes. If the glob,
+# the path, or the --include ever breaks, this suite would go permanently green
+# while checking no files at all — the lint equivalent of a suite that runs no
+# assertions. Prove the corpus is non-empty before trusting an empty result.
+scanned=$(grep -rlE '.' "$PROJECT_ROOT/scripts/" --include='*.sh' 2>/dev/null | wc -l | tr -d ' ')
+if [[ "${scanned:-0}" -lt 10 ]]; then
+    echo -e "  ${C_RED}FAIL${C_RESET}: the lint corpus is only ${scanned:-0} file(s) — the scan is broken, not clean"
+    failed=1
+elif [[ -z "$unprotected" ]]; then
+    echo -e "  ${C_GREEN}PASS${C_RESET}: zero unprotected ((var++)) occurrences across $scanned scripts"
 else
     echo -e "  ${C_RED}FAIL${C_RESET}: found unprotected ((var++)) — must be suffixed with ' || true':"
     # shellcheck disable=SC2001  # multi-line indent via sed; param expansion is awkward

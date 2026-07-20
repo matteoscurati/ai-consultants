@@ -185,6 +185,25 @@ EOF
       exit 1
     fi
     mkdir -p "$COMMANDS_DST"
+
+    # Prune commands this project no longer ships, before copying the current
+    # set in. Copying alone leaves a removed command installed forever: the
+    # v2.10.0 consolidation dropped ten, and config-features among them still
+    # tells users to set ENABLE_REFLECTION, which v2.23.0 removed and
+    # `configure --set` now rejects. scripts/install.sh does the same for the
+    # curl | bash path — both entry points must prune or npx users keep them.
+    pruned=0
+    for f in "$COMMANDS_DST"/ai-consultants:*.md; do
+      [ -e "$f" ] || continue
+      if [ ! -f "$COMMANDS_SRC/$(basename "$f")" ]; then
+        rm -f "$f"
+        pruned=$((pruned + 1))
+      fi
+    done
+    if [ "$pruned" -gt 0 ]; then
+      echo "Pruned $pruned slash command(s) removed in a previous release"
+    fi
+
     copied=0
     for f in "$COMMANDS_SRC"/ai-consultants:*.md; do
       [ -f "$f" ] || continue

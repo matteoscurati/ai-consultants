@@ -91,6 +91,28 @@ jobs:
             echo "::error::Tag $TAG does not match package.json version $pkg_version"
             exit 1
           fi
+          # package.json is one of nine surfaces scripts/release.sh keeps in
+          # step. Checking only it lets a hand-bumped tag publish a package
+          # whose config.sh, SKILL.md and README still report the previous
+          # version — and npm forbids republishing a version to correct it.
+          # finalize.sh checks these client-side; a tag can bypass finalize.sh.
+          v="$pkg_version"
+          surface_failed=0
+          check_surface() { # <file> <fixed-string>
+            if ! grep -qF -- "$2" "$1"; then
+              echo "::error::$1 does not carry version $v (expected: $2)"
+              surface_failed=1
+            fi
+          }
+          check_surface scripts/config.sh    "AI_CONSULTANTS_VERSION=\"${v}\""
+          check_surface SKILL.md             "  version: ${v}"
+          check_surface SKILL.md             "# AI Consultants v${v} - AI Expert Panel"
+          check_surface README.md            "# AI Consultants v${v}"
+          check_surface README.md            "version-${v}-blue"
+          check_surface CLAUDE.md            "**Version**: ${v}"
+          check_surface docs/cost_rates.json "\"version\": \"${v}\""
+          check_surface docs/COST_RATES.md   "# Cost Rates - AI Consultants v${v}"
+          [ "$surface_failed" -eq 0 ] || exit 1
           note="docs/releases/v${pkg_version}.md"
           if [ ! -f "$note" ]; then
             echo "::error::Missing release note $note"

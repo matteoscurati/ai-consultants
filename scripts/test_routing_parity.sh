@@ -171,6 +171,13 @@ AFFINITY_FILE="$collision_file" AI_CONSULTANTS_CONFIG_DIR="$user_dir_test" \
     assert_score "BUG_DEBUG" "Z" 99   # collision_file value wins, NOT user-dir
 
 echo ""
+# This suite predates lib/test_helpers.sh and keeps its own counters, so it does
+# not inherit test_summary's zero-assertion guard. Same protection, inline: a
+# suite that asserted nothing is broken, not passing.
+if [[ $checked -eq 0 ]]; then
+    echo -e "${C_RED}routing parity: FAILED${C_RESET} (no assertions ran — the suite is broken)"
+    exit 1
+fi
 if [[ $failed -eq 0 ]]; then
     echo -e "${C_GREEN}routing parity: OK${C_RESET} ($checked checks passed)"
     exit 0

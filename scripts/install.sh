@@ -138,6 +138,51 @@ check_dependencies() {
     return 0
 }
 
+# Remove installed slash commands that this project no longer ships.
+#
+# The install step only copies files in, so a command deleted from the repo
+# would live in the user's commands directory forever. v2.10.0's command
+# consolidation dropped ten of them, and every install predating it still
+# carries all ten — including config-features, which instructs users to set
+# ENABLE_REFLECTION, a setting v2.23.0 removed and `configure --set` now
+# rejects with a non-zero exit.
+#
+# Scoped to this project's own "ai-consultants:*.md" namespace, so another
+# tool's commands are never considered. Within that namespace it removes
+# anything this repo does not ship — including a command the user authored
+# under the same prefix. That is the intended bound: the prefix is this
+# project's namespace, and there is no way to tell a user's file there from
+# one of ours that was deleted upstream.
+# Sets PRUNED_COUNT rather than echoing, so log output can't be mistaken for it.
+prune_removed_commands() {
+    local commands_dir="$1" repo_commands_dir="$2" installed
+    PRUNED_COUNT=0
+
+    [[ -d "$commands_dir" ]] || return 0
+
+    for installed in "$commands_dir"/ai-consultants:*.md; do
+        [[ -e "$installed" ]] || continue   # glob didn't match: nothing installed yet
+        if [[ ! -f "$repo_commands_dir/$(basename "$installed")" ]]; then
+            rm -f "$installed"
+            PRUNED_COUNT=$((PRUNED_COUNT + 1))
+        fi
+    done
+}
+
+# Test hook: `AI_CONSULTANTS_INSTALL_DEFINE_ONLY=1 source scripts/install.sh`
+# yields the functions above and nothing else.
+#
+# It sits HERE — above the argument parser and the uninstall block — because a
+# sourced script inherits the CALLER's positional parameters. With the guard
+# below them, `bash scripts/test_install.sh --uninstall` had install.sh parse
+# the suite's own flag and run the real uninstall: rm -rf on the user's
+# installed skill plus every ~/.claude/commands/ai-consultants*.md. Anything
+# added below this point must be safe to skip, and nothing above it may act.
+if [[ -n "${AI_CONSULTANTS_INSTALL_DEFINE_ONLY:-}" ]]; then
+    # shellcheck disable=SC2317  # exit fallback for script-mode load
+    return 0 2>/dev/null || exit 0
+fi
+
 # =============================================================================
 # ARGUMENT PARSING
 # =============================================================================
@@ -201,44 +246,6 @@ if [[ "$UNINSTALL_MODE" == "true" ]]; then
     echo ""
     log_success "AI Consultants uninstalled successfully"
     exit 0
-fi
-
-# Remove installed slash commands that this project no longer ships.
-#
-# The install step only copies files in, so a command deleted from the repo
-# would live in the user's commands directory forever. v2.10.0's command
-# consolidation dropped ten of them, and every install predating it still
-# carries all ten — including config-features, which instructs users to set
-# ENABLE_REFLECTION, a setting v2.23.0 removed and `configure --set` now
-# rejects with a non-zero exit.
-#
-# Scoped to this project's own "ai-consultants:*.md" namespace: it never
-# touches another tool's commands, and never removes one the repo still ships.
-# Sets PRUNED_COUNT rather than echoing, so log output can't be mistaken for it.
-prune_removed_commands() {
-    local commands_dir="$1" repo_commands_dir="$2" installed
-    PRUNED_COUNT=0
-
-    [[ -d "$commands_dir" ]] || return 0
-
-    for installed in "$commands_dir"/ai-consultants:*.md; do
-        [[ -e "$installed" ]] || continue   # glob didn't match: nothing installed yet
-        if [[ ! -f "$repo_commands_dir/$(basename "$installed")" ]]; then
-            rm -f "$installed"
-            PRUNED_COUNT=$((PRUNED_COUNT + 1))
-        fi
-    done
-}
-
-# =============================================================================
-# INSTALL / UPDATE
-# =============================================================================
-
-# Test hook: `AI_CONSULTANTS_INSTALL_DEFINE_ONLY=1 source scripts/install.sh`
-# yields the functions above without installing anything. Used by
-# scripts/test_install.sh; has no effect on a normal run or on curl | bash.
-if [[ -n "${AI_CONSULTANTS_INSTALL_DEFINE_ONLY:-}" ]]; then
-    return 0 2>/dev/null || exit 0
 fi
 
 print_header
