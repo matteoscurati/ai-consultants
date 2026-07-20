@@ -203,9 +203,43 @@ if [[ "$UNINSTALL_MODE" == "true" ]]; then
     exit 0
 fi
 
+# Remove installed slash commands that this project no longer ships.
+#
+# The install step only copies files in, so a command deleted from the repo
+# would live in the user's commands directory forever. v2.10.0's command
+# consolidation dropped ten of them, and every install predating it still
+# carries all ten — including config-features, which instructs users to set
+# ENABLE_REFLECTION, a setting v2.23.0 removed and `configure --set` now
+# rejects with a non-zero exit.
+#
+# Scoped to this project's own "ai-consultants:*.md" namespace: it never
+# touches another tool's commands, and never removes one the repo still ships.
+# Sets PRUNED_COUNT rather than echoing, so log output can't be mistaken for it.
+prune_removed_commands() {
+    local commands_dir="$1" repo_commands_dir="$2" installed
+    PRUNED_COUNT=0
+
+    [[ -d "$commands_dir" ]] || return 0
+
+    for installed in "$commands_dir"/ai-consultants:*.md; do
+        [[ -e "$installed" ]] || continue   # glob didn't match: nothing installed yet
+        if [[ ! -f "$repo_commands_dir/$(basename "$installed")" ]]; then
+            rm -f "$installed"
+            PRUNED_COUNT=$((PRUNED_COUNT + 1))
+        fi
+    done
+}
+
 # =============================================================================
 # INSTALL / UPDATE
 # =============================================================================
+
+# Test hook: `AI_CONSULTANTS_INSTALL_DEFINE_ONLY=1 source scripts/install.sh`
+# yields the functions above without installing anything. Used by
+# scripts/test_install.sh; has no effect on a normal run or on curl | bash.
+if [[ -n "${AI_CONSULTANTS_INSTALL_DEFINE_ONLY:-}" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
 
 print_header
 
@@ -260,6 +294,11 @@ if [[ "$INSTALL_COMMANDS" == "true" ]]; then
     log_info "Installing slash commands..."
 
     if [[ -d "$INSTALL_DIR/.claude/commands" ]]; then
+        prune_removed_commands "$COMMANDS_DIR" "$INSTALL_DIR/.claude/commands"
+        if [[ "$PRUNED_COUNT" -gt 0 ]]; then
+            log_info "Pruned $PRUNED_COUNT slash command(s) removed in a previous release"
+        fi
+
         cp "$INSTALL_DIR"/.claude/commands/*.md "$COMMANDS_DIR/" 2>/dev/null || true
         cmd_count=$(find "$INSTALL_DIR/.claude/commands" -maxdepth 1 -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
         log_success "Installed $cmd_count slash commands"

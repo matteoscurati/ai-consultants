@@ -72,6 +72,15 @@ run_test() {
 test_summary() {
     local suite="$1"
     echo ""
+    # A suite that asserted nothing is a broken suite, not a passing one.
+    # `run_test` takes "<name> <function>"; called with the function alone, the
+    # name absorbs it, `shift` empties the list, and `"$@"` runs nothing — the
+    # suite then reports OK having executed no test at all. Same family as the
+    # v2.23.0 fix to test_functions.sh, one level up.
+    if [[ $checked -eq 0 ]]; then
+        echo -e "${C_RED}${suite}: FAILED${C_RESET} (no assertions ran — check the run_test calls take \"<name>\" <function>)"
+        exit 1
+    fi
     if [[ $failed -eq 0 ]]; then
         echo -e "${C_GREEN}${suite}: OK${C_RESET} (${checked} checks passed)"
         exit 0
