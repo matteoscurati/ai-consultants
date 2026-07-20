@@ -719,15 +719,17 @@ Manual lint of the full repo: `npm run lint`. Bypass the hook: `git commit --no-
 
 Every version bump **must** include a release note in `docs/releases/v<VERSION>.md`. Use the template below.
 
+**The whole flow is automated by the `release` skill — run `/release <VERSION>`** (from this repo or the workspace root, where it is scoped as `ai-consultants:release`). It orchestrates the steps below and refuses to proceed when a surface is missing. `.claude/skills/release/references/surfaces.md` is the authoritative map of every surface; this section is the summary.
+
 ### Steps
 
-1. **Update version** in all files: `package.json`, `scripts/config.sh` (`AI_CONSULTANTS_VERSION`), `SKILL.md` (frontmatter + title), `README.md` (title + badge), `CLAUDE.md` (`**Version**`), `docs/cost_rates.json`, `docs/COST_RATES.md` (title)
-2. **Add `## Changelog` entry** in CLAUDE.md (developer-facing, long-form, rationale + line-level commentary)
-3. **Add `CHANGELOG.md` entry** at the top of `CHANGELOG.md` (Keep a Changelog format: `## [VERSION] - YYYY-MM-DD` with `### Added/Changed/Fixed/Removed/Deprecated/Security` subsections — user-facing, one-line bullets)
-4. **Create `docs/releases/v<VERSION>.md`** using the template below (highlights + upgrade guide — for GitHub releases / users)
-5. **Update workspace sync surfaces** if applicable: `aiconsultants.sh/index.html` (`softwareVersion` schema + badge), `../CLAUDE.md` workspace guide ("Latest at time of last sync" + Recent release line)
-6. **Run tests**: `npm test` must pass before committing
-7. **Commit, push**, and optionally create a GitHub release pointing to the release note
+1. **Preflight**: `.claude/skills/release/scripts/preflight.sh <VERSION>` — read-only gate on both repos (branch, cleanliness, origin sync, forward semver, free tag, tooling)
+2. **Bump the version**: `scripts/release.sh <VERSION>` — rewrites 9 anchored surfaces across 7 files (`package.json`, `scripts/config.sh`, `SKILL.md` ×2, `README.md` ×2, `CLAUDE.md`, `docs/cost_rates.json`, `docs/COST_RATES.md`), validates them, and runs `npm test` + `npm run lint`. Never commits, tags, or publishes.
+3. **Write the three changelogs** (hand-written — see "Why three changelog surfaces?" below): `CHANGELOG.md` entry at the top, `## Changelog` entry in this file, and `docs/releases/v<VERSION>.md`
+4. **Update workspace sync surfaces**: `../CLAUDE.md` workspace guide ("Latest at time of last sync" + Recent release line)
+5. **Finalize**: `.claude/skills/release/scripts/finalize.sh <VERSION> --message-file … --tag-message-file …` — re-verifies all 9 version surfaces *and* the 3 doc surfaces, re-runs the gate, then commits, creates the annotated tag, and pushes both
+6. **Publishing is automatic**: pushing the `v*` tag triggers `.github/workflows/publish.yml`, which re-runs the gate, verifies the tag matches `package.json`, publishes to npm via **Trusted Publishing (OIDC — no `NPM_TOKEN`)** with provenance, and creates the GitHub release from the release note. Both terminal steps are idempotent, so a failed run can be re-run after a fix — **never move or delete a pushed tag**, and never `npm publish` from a workstation.
+7. **Sync the showcase site last**: `.claude/skills/release/scripts/sync_site.sh <VERSION> --message-file …` waits for npm to actually serve the version, bumps `index.html` (`softwareVersion` schema + badge), then commits and pushes. Editorial copy (roster, feature cards, presets table, install commands) is hand-edited before running it. The wait enforces the npx timing rule: a subcommand advertised as `npx ai-consultants <cmd>` before publication does not error — `bin/` routes an unknown argument to `consult_all.sh`, starting a real **billable** consultation.
 
 **Why three changelog surfaces?** They serve different audiences:
 - `CLAUDE.md ## Changelog` — what the *next maintainer* needs (file/line references, rationale, latent bugs uncovered)
