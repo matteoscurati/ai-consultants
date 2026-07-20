@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.24.0] - 2026-07-20
+
+### Fixed
+- **Installing or updating now removes slash commands this project no longer ships.** Both entry points only ever copied commands in, so one deleted upstream stayed in `~/.claude/commands` forever. The v2.10.0 command consolidation dropped ten of them, which means every installation predating it still carries all ten — and they remain invocable. One is actively wrong: `ai-consultants:config-features` instructs you to set `ENABLE_REFLECTION`, which v2.23.0 removed and `ai-consultants configure --set` now rejects with a non-zero exit. Both `scripts/install.sh` (the `curl | bash` path) and `ai-consultants install` (the npx path) now prune before copying, and report how many they removed.
+
+### Changed
+- **The prune removes any `ai-consultants:*.md` this project does not ship — including one you wrote yourself under that prefix.** There is no way to distinguish a command you authored in this namespace from one of ours that was deleted upstream. If you have custom commands, rename them out of the `ai-consultants:` prefix before upgrading. Commands belonging to other tools are never considered.
+- `scripts/release.sh` is no longer included in the npm package. It is maintainer-only version-bump automation, is not routed by `bin/ai-consultants`, and nothing shipped invokes it.
+
 ## [2.23.0] - 2026-07-20
 
 ### Removed
