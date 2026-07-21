@@ -1631,6 +1631,16 @@ test_consultant_selection() {
 
     local result
 
+    # These assertions are about AFFINITY ranking, so the consultants they name
+    # must be explicitly enabled. select_consultants now honors ENABLE_* (it
+    # previously returned disabled consultants, which could then be queried and
+    # billed), and ENABLE_DEEPSEEK defaults to false — so without these pins the
+    # DeepSeek assertion passes only for someone whose user config happens to
+    # enable it, and fails in CI. Same per-environment determinism as the
+    # v2.23.0 release-gate bug.
+    local _saved_ds="${ENABLE_DEEPSEEK:-}" _saved_gm="${ENABLE_GEMINI:-}" _saved_km="${ENABLE_KIMI:-}"
+    export ENABLE_DEEPSEEK=true ENABLE_GEMINI=true ENABLE_KIMI=true
+
     # ARCHITECTURE with min_affinity 9 should include Gemini (10) and Kimi (9)
     result=$(select_consultants "ARCHITECTURE" 9 20)
     assert_contains "Gemini" "$result" "Gemini selected for ARCHITECTURE (affinity 10)"
@@ -1640,6 +1650,15 @@ test_consultant_selection() {
     result=$(select_consultants "QUICK_SYNTAX" 9 20)
     assert_contains "Gemini" "$result" "Gemini selected for QUICK_SYNTAX (affinity 10)"
     assert_contains "DeepSeek" "$result" "DeepSeek selected for QUICK_SYNTAX (affinity 9)"
+
+    # ...and the eligibility filter itself: a disabled consultant must not be
+    # returned however high its affinity.
+    ENABLE_DEEPSEEK=false result=$(ENABLE_DEEPSEEK=false select_consultants "QUICK_SYNTAX" 9 20)
+    assert_not_contains "DeepSeek" "$result" "disabled DeepSeek is not selected despite affinity 9"
+
+    if [[ -n "$_saved_ds" ]]; then export ENABLE_DEEPSEEK="$_saved_ds"; else unset ENABLE_DEEPSEEK; fi
+    if [[ -n "$_saved_gm" ]]; then export ENABLE_GEMINI="$_saved_gm"; else unset ENABLE_GEMINI; fi
+    if [[ -n "$_saved_km" ]]; then export ENABLE_KIMI="$_saved_km"; else unset ENABLE_KIMI; fi
 
     # Limit max consultants
     result=$(select_consultants "GENERAL" 1 3)
