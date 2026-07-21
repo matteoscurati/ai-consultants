@@ -1,5 +1,5 @@
 {
-  "version": "2.24.0",
+  "version": "2.25.0",
   "updated": "2026-07-16",
   "models": {
     "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
@@ -320,8 +320,16 @@
     "grok-4.3": {
       "input": 0.00125,
       "output": 0.0025
+    },
+    "_comment_unpriced": "Credit-billed models: drawn from a prepaid subscription pool, with no published per-token price. Rated 0 so the estimator does not fabricate a figure - an absent model would otherwise fall through to default_rate (0.005/0.015) and be reported as a confident, wrong number. Every entry here must also be listed in unpriced_models, which is what makes the session report disclose the exclusion instead of implying the model was free.",
+    "qwen3.8-max-preview": {
+      "input": 0,
+      "output": 0
     }
   },
+  "unpriced_models": [
+    "qwen3.8-max-preview"
+  ],
   "consultant_fallbacks": {
     "_comment": "Premium defaults - Updated Jun 2026 (v2.17.0)",
     "claude": "claude-opus-4-8",

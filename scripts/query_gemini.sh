@@ -54,14 +54,21 @@ if is_api_mode "gemini"; then
 
     # API mode addresses the Google AI endpoint, which needs an API model ID
     # (not an agy display name like "Gemini 3.1 Pro (High)").
-    run_api_mode_query \
-        "$CONSULTANT_NAME" \
-        "$GEMINI_API_MODEL" \
-        "$FULL_QUERY" \
-        "$TEMP_OUTPUT" \
-        "$GEMINI_TIMEOUT_SECONDS"
-
-    exit_code=$?
+    # Keep the failure inside an explicit conditional: a bare call whose
+    # function returns non-zero aborts the script under `set -e` before
+    # exit_code is read, so no error-response envelope is ever written and
+    # the output file is left empty. Same guard run_query uses.
+    if run_api_mode_query \
+            "$CONSULTANT_NAME" \
+            "$GEMINI_API_MODEL" \
+            "$FULL_QUERY" \
+            "$TEMP_OUTPUT" \
+            "$GEMINI_TIMEOUT_SECONDS"; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
+warn_effort_ignored_in_cli "Gemini"
 else
     # --- CLI Mode (Antigravity CLI: agy) ---
     log_api_mode_status "gemini"
@@ -101,7 +108,7 @@ PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 # strips), so extracting ".response" here would strip a level. The old Gemini
 # CLI wrapped output in {"response": "..."} and needed that argument.
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS"
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"
 
 cat "$OUTPUT_FILE"
 exit $exit_code

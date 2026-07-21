@@ -22,6 +22,9 @@ OUTPUT_FILE="${3:-/tmp/cursor_response.json}"
 # --- Configuration ---
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Cursor"
+
+# API-mode-only knob; say so rather than ignoring it silently (see common.sh).
+warn_effort_ignored_in_cli "Cursor"
 MODEL_USED="${CURSOR_MODEL:-cursor}"
 
 # --- Check prerequisites ---
@@ -66,7 +69,7 @@ LATENCY_MS=$((END_TIME - START_TIME))
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS"
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"
 
 cat "$OUTPUT_FILE"
 exit $exit_code

@@ -174,24 +174,74 @@ build_qwen_request() {
         }'
 }
 
+# Validate a reasoning-effort value, echoing it lowercased.
+# Usage: validate_reasoning_effort <value> <consultant_name>
+# Returns 0 and echoes the normalized value, or returns 1 and echoes nothing.
+#
+# Deliberately fails instead of falling back to a default: silently ignoring a
+# requested effort level would make the knob a no-op the user cannot detect.
+# (get_api_format does fall back, because there a correct per-agent default
+# exists; here the only "default" would be discarding the user's request.)
+#
+# The accepted set is the provider's own enum, read off a live 400 from the
+# Qwen Cloud Token Plan endpoint (2026-07-21):
+#   'reasoning_effort' must be one of: 'none', 'minimal', 'low', 'medium',
+#   'high', 'xhigh', 'max'
+# Note this is WIDER than the low|high|xhigh that the public write-ups for
+# qwen3.8-max-preview all reported — 'minimal', 'medium' and 'max' are accepted
+# by the model too. Taken from the API rather than from documentation for
+# exactly that reason.
+#
+# The per-MODEL subset is deliberately NOT enforced here: encoding per-model
+# facts in shell is what produced the stale-model bugs this release also fixes,
+# and the same builder serves GLM/Grok/DeepSeek/MiniMax. An unsupported
+# combination is rejected by the provider with a 400 that run_api_query
+# surfaces without retrying — e.g. 'none' on qwen3.8-max-preview returns "The
+# value of the enable_thinking parameter is restricted to True", which is a
+# model fact, not a syntax error.
+validate_reasoning_effort() {
+    local value="$1"
+    local consultant="${2:-consultant}"
+
+    value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
+
+    case "$value" in
+        none|minimal|low|medium|high|xhigh|max)
+            echo "$value"
+            return 0
+            ;;
+        *)
+            log_error "[$consultant] Invalid reasoning effort '$1' (expected: none|minimal|low|medium|high|xhigh|max)"
+            return 1
+            ;;
+    esac
+}
+
 # Build request body for OpenAI-compatible APIs (GLM, Grok, Codex API mode, Mistral API mode)
-# Usage: build_openai_request <prompt> <model> [max_tokens]
+# Usage: build_openai_request <prompt> <model> [max_tokens] [reasoning_effort]
+#
+# reasoning_effort is optional and additive: when empty the object is
+# byte-identical to what this function produced before the parameter existed,
+# which matters because six consultants share this builder.
 build_openai_request() {
     local prompt="$1"
     local model="${2:-gpt-4}"
     local max_tokens="${3:-4096}"
+    local reasoning_effort="${4:-}"
 
     jq -n \
         --arg model "$model" \
         --arg prompt "$prompt" \
         --argjson max_tokens "$max_tokens" \
+        --arg effort "$reasoning_effort" \
         '{
             model: $model,
             messages: [
                 { role: "user", content: $prompt }
             ],
             max_tokens: $max_tokens
-        }'
+        }
+        + (if $effort == "" then {} else { reasoning_effort: $effort } end)'
 }
 
 # Build request body for Anthropic API (Claude API mode)
@@ -334,8 +384,46 @@ extract_token_usage() {
             ;;
     esac
 
+    [[ "$input_tokens"  =~ ^[0-9]+$ ]] || input_tokens=0
+    [[ "$output_tokens" =~ ^[0-9]+$ ]] || output_tokens=0
+
     local total=$((input_tokens + output_tokens))
     echo "$total"
+}
+
+# Same extraction, but preserving the provider's prompt/completion split.
+# Usage: extract_token_split <response_json> <format>  ->  "<input> <output>"
+#
+# The split is what cost actually depends on: output rates run 3-6x input rates
+# and consultations are large-context/short-reply, so collapsing to a total and
+# re-splitting it 60/40 overstates API-mode cost several-fold - while still
+# being labeled "measured".
+extract_token_split() {
+    local response="$1"
+    local format="${2:-openai}"
+
+    local input_tokens=0
+    local output_tokens=0
+
+    case "$format" in
+        qwen|anthropic)
+            input_tokens=$(echo "$response" | jq -r '.usage.input_tokens // 0' 2>/dev/null)
+            output_tokens=$(echo "$response" | jq -r '.usage.output_tokens // 0' 2>/dev/null)
+            ;;
+        google_ai)
+            input_tokens=$(echo "$response" | jq -r '.usageMetadata.promptTokenCount // 0' 2>/dev/null)
+            output_tokens=$(echo "$response" | jq -r '.usageMetadata.candidatesTokenCount // 0' 2>/dev/null)
+            ;;
+        *)  # openai format (default)
+            input_tokens=$(echo "$response" | jq -r '.usage.prompt_tokens // 0' 2>/dev/null)
+            output_tokens=$(echo "$response" | jq -r '.usage.completion_tokens // 0' 2>/dev/null)
+            ;;
+    esac
+
+    [[ "$input_tokens"  =~ ^[0-9]+$ ]] || input_tokens=0
+    [[ "$output_tokens" =~ ^[0-9]+$ ]] || output_tokens=0
+
+    echo "$input_tokens $output_tokens"
 }
 
 # =============================================================================

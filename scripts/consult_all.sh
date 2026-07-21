@@ -692,9 +692,14 @@ if is_escalation_enabled && [[ $SUCCESS_COUNT -gt 0 ]]; then
                         [[ "$new_confidence" =~ ^[0-9]+$ ]] || new_confidence=0
                         if [[ "$new_confidence" -gt "$original_confidence" ]]; then
                             cp "$escalation_file" "$response_file"
+                            # Remove the copy: leaving it makes one query look
+                            # like two to every glob over this directory -
+                            # cost (now that tokens are real) and voting alike.
+                            rm -f "$escalation_file"
                             log_success "  $consultant escalated: confidence $original_confidence → $new_confidence"
                             ESCALATED_COUNT=$((ESCALATED_COUNT + 1))
                         else
+                            rm -f "$escalation_file"
                             log_debug "  $consultant escalation did not improve confidence"
                         fi
                     fi
@@ -1092,7 +1097,7 @@ log_info "Session saved: $SESSION_ID"
 if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
     ACTUAL_COST=$(calculate_session_cost "$OUTPUT_DIR")
     track_session_cost "$SESSION_ID" "$ACTUAL_COST"
-    log_info "Session cost: $(format_cost "$ACTUAL_COST")"
+    log_info "Session cost: $(format_cost "$ACTUAL_COST")$(format_cost_caveats "$OUTPUT_DIR")"
 fi
 
 # --- Final Summary ---

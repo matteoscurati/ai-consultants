@@ -393,18 +393,82 @@ get_api_url() {
 
 # Get the API response format for an agent
 # Usage: get_api_format <agent_name>
+#
+# The per-agent default below is overridable with ${AGENT}_FORMAT (e.g.
+# QWEN3_FORMAT=openai), which is what lets a consultant be pointed at an
+# endpoint speaking a different wire protocol than its provider's own — Qwen
+# Cloud Token Plan, for instance, is OpenAI-compatible while DashScope is not.
+# Those variables have been declared in config.sh and documented in
+# .env.example since v2.6 but were never read: this function hardcoded the
+# mapping, so setting one silently did nothing.
+#
+# An unrecognized value falls back to the default with a warning rather than
+# failing. There is always a correct per-agent default to fall back to, so a
+# typo degrades to today's behavior instead of building a malformed body. (The
+# reasoning-effort knob deliberately does the opposite — see
+# validate_reasoning_effort: substituting a default there would silently ignore
+# what the user asked for.)
 get_api_format() {
     local agent="$1"
     local agent_upper
     agent_upper=$(to_upper "$agent")
 
+    local default_format
     case "$agent_upper" in
-        GEMINI)     echo "google_ai" ;;
-        CLAUDE)     echo "anthropic" ;;
-        CODEX|MISTRAL|GLM|GROK|DEEPSEEK|MINIMAX)  echo "openai" ;;
-        QWEN3)      echo "qwen" ;;
-        *)          echo "openai" ;;
+        GEMINI)     default_format="google_ai" ;;
+        CLAUDE)     default_format="anthropic" ;;
+        CODEX|MISTRAL|GLM|GROK|DEEPSEEK|MINIMAX)  default_format="openai" ;;
+        QWEN3)      default_format="qwen" ;;
+        *)          default_format="openai" ;;
     esac
+
+    local override_var="${agent_upper}_FORMAT"
+    local override="${!override_var:-}"
+    # Lowercase like validate_reasoning_effort does: these are hand-typed .env
+    # values, and a capitalized one silently falling back to the provider
+    # default sends the wrong envelope to the configured endpoint.
+    override=$(echo "$override" | tr '[:upper:]' '[:lower:]')
+
+    if [[ -z "$override" || "$override" == "$default_format" ]]; then
+        echo "$default_format"
+        return 0
+    fi
+
+    case "$override" in
+        google_ai|anthropic|qwen|openai)
+            echo "$override"
+            ;;
+        *)
+            log_warn "[$agent] $override_var='$override' is not a known API format (google_ai|anthropic|qwen|openai) - using '$default_format'"
+            echo "$default_format"
+            ;;
+    esac
+}
+
+# Warn when a reasoning-effort setting cannot be delivered on the CLI transport.
+# Usage: warn_effort_ignored_in_cli <agent_name>
+#
+# api_query.sh reads ${AGENT}_REASONING_EFFORT generically, so six consultants
+# accept the variable in API mode. CLI is the mandatory default transport and no
+# CLI exposes an effort flag, so every one of them needs the same diagnostic -
+# it lived in query_qwen3.sh alone, leaving the other five with the silent
+# no-op this feature exists to avoid.
+warn_effort_ignored_in_cli() {
+    local agent="$1"
+    local agent_upper
+    agent_upper=$(to_upper "$agent")
+    local var="${agent_upper}_REASONING_EFFORT"
+    [[ -n "${!var:-}" ]] || return 0
+    # Self-guarding, so call sites do not have to be placed inside the CLI
+    # branch: in API mode the setting is honored and must not be warned about.
+    #
+    # Explicit `if`, not `is_api_mode "$agent" && return 0`: an &&-list that
+    # short-circuits returns non-zero as a statement, and under `set -e` that
+    # kills the caller. Same shape as the v2.22.0 prompt_value bug.
+    if is_api_mode "$agent"; then
+        return 0
+    fi
+    log_warn "[$agent] $var is ignored in CLI mode - no consultant CLI exposes a reasoning-effort flag. Set it in the CLI's own configuration, or switch this consultant to API mode."
 }
 
 # Log API mode status for debugging
@@ -866,19 +930,97 @@ log_token_estimate() {
 # =============================================================================
 # Shared helpers for building standardized JSON responses in query scripts
 
+# Token counts published by the API layer for the response it just wrote, as
+# "<input> <output>". Consumed and cleared by resolve_response_tokens.
+#
+# A plain variable, not a file: every caller of run_api_mode_query invokes it as
+# a plain statement in the current shell (verified across all six call sites),
+# so an assignment propagates. An earlier cut of this change used a temp-file
+# sidecar, justified by a claim that some callers run in a command
+# substitution - that claim was false, and it bought a cross-function file
+# lifecycle with five cleanup sites for nothing. The real subshell constraint
+# applies to calculate_session_cost / format_cost_caveats, which ARE always
+# called as $(...) and therefore take their input as arguments.
+_API_TOKEN_SPLIT=""
+
+# Publish the API layer's measured split. Usage: set_api_token_split <in> <out>
+set_api_token_split() {
+    _API_TOKEN_SPLIT="${1:-0} ${2:-0}"
+}
+
+# Clear a published split once it has been consumed, so a CLI-mode response
+# later in the same shell cannot inherit an earlier API call's figures.
+# Callers do this, not resolve_response_tokens: that runs inside $(...) and an
+# assignment there dies with the subshell - it can read the variable (subshells
+# inherit) but never clear it.
+clear_api_token_split() {
+    _API_TOKEN_SPLIT=""
+}
+
+# Determine the token counts for a response and where they came from.
+# Usage: resolve_response_tokens <input_text> <response_text>
+# Echoes: "<total> <source> <input> <output>", source = measured|estimated
+#
+# API mode gets the provider's own usage figures; CLI mode has no such data, so
+# it falls back to the 4-chars-per-token approximation over prompt + reply. The
+# source is recorded alongside the numbers so cost reports can say which they
+# are built on instead of presenting an approximation as a measurement.
+#
+# Both halves are measured in BYTES via estimate_tokens. Passing a bash
+# character count for one and a byte count for the other under-counted
+# multibyte input roughly threefold.
+resolve_response_tokens() {
+    local input_text="${1:-}"
+    local response_text="${2:-}"
+
+    if [[ -n "$_API_TOKEN_SPLIT" ]]; then
+        local m_in m_out
+        read -r m_in m_out <<< "$_API_TOKEN_SPLIT"
+        [[ "$m_in"  =~ ^[0-9]+$ ]] || m_in=0
+        [[ "$m_out" =~ ^[0-9]+$ ]] || m_out=0
+        if (( m_in + m_out > 0 )); then
+            echo "$(( m_in + m_out )) measured $m_in $m_out"
+            return 0
+        fi
+    fi
+
+    local in_tokens=0 out_tokens=0
+    [[ -n "$input_text" ]]    && in_tokens=$(estimate_tokens "$input_text")
+    [[ -n "$response_text" ]] && out_tokens=$(estimate_tokens "$response_text")
+    [[ "$in_tokens"  =~ ^[0-9]+$ ]] || in_tokens=0
+    [[ "$out_tokens" =~ ^[0-9]+$ ]] || out_tokens=0
+    echo "$(( in_tokens + out_tokens )) estimated $in_tokens $out_tokens"
+}
+
 # Build metadata JSON for responses
-# Usage: build_response_metadata <latency_ms> <model> [error_msg]
+# Usage: build_response_metadata <latency_ms> <model> [error_msg] [tokens] [source]
+#
+# tokens_used was hardcoded to 0 until v2.25, which made every session's cost
+# report read $0.00 regardless of what was actually spent (calculate_session_cost
+# multiplies this field by the model rate). tokens_source records whether the
+# figure is the provider's own or a local approximation.
 build_response_metadata() {
     local latency="$1"
     local model="$2"
     local error="${3:-}"
+    local tokens="${4:-0}"
+    local source="${5:-unknown}"
+    local tokens_in="${6:-}"
+    local tokens_out="${7:-}"
 
     jq -n \
         --argjson latency "$latency" \
         --arg model "$model" \
         --arg timestamp "$(date -Iseconds)" \
         --arg error "$error" \
-        '{tokens_used: 0, latency_ms: $latency, model_version: $model, timestamp: $timestamp} + (if $error != "" then {error: $error} else {} end)'
+        --argjson tokens "${tokens:-0}" \
+        --arg source "$source" \
+        --arg t_in "$tokens_in" \
+        --arg t_out "$tokens_out" \
+        '{tokens_used: $tokens, tokens_source: $source, latency_ms: $latency, model_version: $model, timestamp: $timestamp}
+         + (if $t_in  != "" then {tokens_input:  ($t_in  | tonumber)} else {} end)
+         + (if $t_out != "" then {tokens_output: ($t_out | tonumber)} else {} end)
+         + (if $error != "" then {error: $error} else {} end)'
 }
 
 # Build a complete structured response JSON
@@ -889,13 +1031,19 @@ build_structured_response() {
     local persona="$3"
     local inner_json="$4"
     local latency="$5"
+    local tokens="${6:-0}"
+    local tokens_source="${7:-unknown}"
+    local tokens_in="${8:-}"
+    local tokens_out="${9:-}"
+    local tokens_in="${8:-}"
+    local tokens_out="${9:-}"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --argjson inner "$inner_json" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out")" \
         '{consultant: $consultant, model: $model, persona: $persona, response: $inner.response, confidence: $inner.confidence, metadata: $metadata}'
 }
 
@@ -907,13 +1055,17 @@ build_fallback_response() {
     local persona="$3"
     local response_text="$4"
     local latency="$5"
+    local tokens="${6:-0}"
+    local tokens_source="${7:-unknown}"
+    local tokens_in="${8:-}"
+    local tokens_out="${9:-}"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --arg response "$response_text" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out")" \
         '{consultant: $consultant, model: $model, persona: $persona,
           response: {summary: "Unstructured response - see detailed", detailed: $response, approach: "unknown", pros: [], cons: [], caveats: ["Unstructured output from consultant"]},
           confidence: {score: 5, reasoning: "Confidence not provided by consultant", uncertainty_factors: ["Non-standard response format"]},
@@ -1102,10 +1254,15 @@ process_consultant_response() {
     local exit_code="$6"
     local latency_ms="$7"
     local native_json_field="${8:-}"
+    local input_text="${9:-}"
 
     if [[ $exit_code -eq 0 && -f "$temp_output" && -s "$temp_output" ]]; then
         local raw_response inner_response
         raw_response=$(cat "$temp_output")
+
+        local _tok _tok_src _tok_in _tok_out
+        read -r _tok _tok_src _tok_in _tok_out <<< "$(resolve_response_tokens "$input_text" "$raw_response")"
+        clear_api_token_split
 
         # Try to extract from native JSON format if field specified
         if [[ -n "$native_json_field" ]] && echo "$raw_response" | jq -e ".$native_json_field" > /dev/null 2>&1; then
@@ -1124,9 +1281,9 @@ process_consultant_response() {
 
         # Use shared helpers for response building
         if echo "$inner_response" | jq -e '.response.summary' > /dev/null 2>&1; then
-            build_structured_response "$consultant" "$model" "$persona" "$inner_response" "$latency_ms" > "$output_file"
+            build_structured_response "$consultant" "$model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
         else
-            build_fallback_response "$consultant" "$model" "$persona" "$inner_response" "$latency_ms" > "$output_file"
+            build_fallback_response "$consultant" "$model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
         fi
     else
         rm -f "$temp_output"

@@ -7,6 +7,11 @@
 
 set -uo pipefail
 
+# Pin the log level: three assertions below match on log_warn output, which is
+# silent at LOG_LEVEL=ERROR. Two of them are the v2.17.2 secret-exfiltration
+# guards - a security regression test must not depend on the caller's verbosity.
+export LOG_LEVEL=INFO
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Fixtures are referenced by RELATIVE path: build_context.sh's context gate

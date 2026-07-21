@@ -144,7 +144,20 @@
       "properties": {
         "tokens_used": {
           "type": "integer",
-          "description": "Approximate tokens consumed"
+          "description": "Tokens consumed. Provider-reported in API mode, approximated locally in CLI mode - read tokens_source before treating it as exact."
+        },
+        "tokens_input": {
+          "type": "integer",
+          "description": "Prompt tokens, when the provider reported them (API mode). Absent in CLI mode. Cost depends on the split - output rates run several times input rates - so consumers should prefer this over re-splitting tokens_used."
+        },
+        "tokens_output": {
+          "type": "integer",
+          "description": "Completion tokens, when the provider reported them (API mode). Absent in CLI mode."
+        },
+        "tokens_source": {
+          "type": "string",
+          "enum": ["measured", "estimated", "unknown"],
+          "description": "Where tokens_used came from: 'measured' = the provider's own usage figures (API mode), 'estimated' = local 4-chars-per-token approximation over prompt + reply (CLI mode exposes no counts), 'unknown' = not recorded."
         },
         "latency_ms": {
           "type": "integer",

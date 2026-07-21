@@ -47,14 +47,21 @@ if is_api_mode "codex"; then
 
     source "$SCRIPT_DIR/lib/api_query.sh"
 
-    run_api_mode_query \
-        "$CONSULTANT_NAME" \
-        "$CODEX_MODEL" \
-        "$FULL_QUERY" \
-        "$TEMP_OUTPUT" \
-        "$CODEX_TIMEOUT_SECONDS"
-
-    exit_code=$?
+    # Keep the failure inside an explicit conditional: a bare call whose
+    # function returns non-zero aborts the script under `set -e` before
+    # exit_code is read, so no error-response envelope is ever written and
+    # the output file is left empty. Same guard run_query uses.
+    if run_api_mode_query \
+            "$CONSULTANT_NAME" \
+            "$CODEX_MODEL" \
+            "$FULL_QUERY" \
+            "$TEMP_OUTPUT" \
+            "$CODEX_TIMEOUT_SECONDS"; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
+warn_effort_ignored_in_cli "Codex"
 else
     # --- CLI Mode ---
     log_api_mode_status "codex"
@@ -81,12 +88,12 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${CODEX_MODEL:-gpt-5.3-codex}"
+MODEL_USED="${CODEX_MODEL:-gpt-5.5}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS"
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"
 
 cat "$OUTPUT_FILE"
 exit $exit_code

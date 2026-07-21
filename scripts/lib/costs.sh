@@ -243,27 +243,146 @@ estimate_query_cost() {
     echo "$total_cost"
 }
 
+# Check whether a model is billed by prepaid credits rather than per token.
+# Usage: is_unpriced_model <model>
+# Returns 0 if the model has no meaningful per-token price, 1 otherwise.
+is_unpriced_model() {
+    local model="$1"
+    [[ -z "$model" ]] && return 1
+    [[ -f "$COST_RATES_FILE" ]] || return 1
+
+    local hit
+    hit=$(jq -r --arg m "$model" \
+        'first((.unpriced_models // [])[] | select(ascii_downcase == ($m | ascii_downcase))) // ""' \
+        "$COST_RATES_FILE" 2>/dev/null)
+
+    [[ -n "$hit" ]]
+}
+
+# Enumerate the response files a session actually billed for.
+# Usage: _billable_response_files <responses_dir>
+#
+# Emits one path per line. Three rules, each of which was a real mis-billing
+# before v2.25.0 made tokens_used non-zero and turned them into money:
+#   - only consultant responses (voting.json and friends carry no tokens_used
+#     and would each be priced at the `// 1000` fallback times the default rate);
+#   - debate/peer-review rounds live in `round_N/` subdirectories and are
+#     separate billed queries, so the glob must recurse;
+#   - a cache hit made no API call, and `<consultant>_escalated.json` is a copy
+#     of a file already counted, so both are excluded.
+_billable_response_files() {
+    local responses_dir="$1"
+    [[ -d "$responses_dir" ]] || return 0
+
+    local f
+    while IFS= read -r f; do
+        [[ -f "$f" && -s "$f" ]] || continue
+        [[ "$(basename "$f")" == *_escalated.json ]] && continue
+        _is_consultant_response_file "$f" 2>/dev/null || continue
+        # A cache hit is a replay of an earlier response, metadata included.
+        [[ "$(jq -r '.cache_metadata.from_cache // false' "$f" 2>/dev/null)" == "true" ]] && continue
+        printf '%s\n' "$f"
+    done < <(find "$responses_dir" -type f -name '*.json' 2>/dev/null | sort)
+}
+
 # Calculate total session cost from responses
 # Usage: calculate_session_cost <responses_dir>
+#
+# Prefers the provider's own prompt/completion split when it was recorded
+# (API mode). The 60/40 guess is a last resort for CLI mode, which has no
+# split to record: consultations are large-context/short-reply, so applying it
+# to a measured total materially overstates cost when output rates exceed
+# input rates.
 calculate_session_cost() {
     local responses_dir="$1"
     local total_cost=0
+    local f
 
-    for f in "$responses_dir"/*.json; do
-        if [[ -f "$f" && -s "$f" ]]; then
-            local model=$(jq -r '.model // "default"' "$f" 2>/dev/null)
-            local tokens=$(jq -r '.metadata.tokens_used // 1000' "$f" 2>/dev/null)
+    while IFS= read -r f; do
+        [[ -n "$f" ]] || continue
+        local model input_tokens output_tokens
+        model=$(jq -r '.model // "default"' "$f" 2>/dev/null)
+        input_tokens=$(jq -r '.metadata.tokens_input // empty' "$f" 2>/dev/null)
+        output_tokens=$(jq -r '.metadata.tokens_output // empty' "$f" 2>/dev/null)
 
-            # Assume 60% input, 40% output
-            local input_tokens=$((tokens * 60 / 100))
-            local output_tokens=$((tokens * 40 / 100))
-
-            local cost=$(estimate_query_cost "$model" "$input_tokens" "$output_tokens")
-            total_cost=$(echo "scale=6; $total_cost + $cost" | bc)
+        if [[ -z "$input_tokens" || -z "$output_tokens" ]]; then
+            local tokens
+            tokens=$(jq -r '.metadata.tokens_used // 1000' "$f" 2>/dev/null)
+            [[ "$tokens" =~ ^[0-9]+$ ]] || tokens=0
+            input_tokens=$((tokens * 60 / 100))
+            output_tokens=$((tokens * 40 / 100))
         fi
-    done
+        [[ "$input_tokens"  =~ ^[0-9]+$ ]] || input_tokens=0
+        [[ "$output_tokens" =~ ^[0-9]+$ ]] || output_tokens=0
+
+        local cost
+        cost=$(estimate_query_cost "$model" "$input_tokens" "$output_tokens")
+        total_cost=$(echo "scale=6; $total_cost + $cost" | bc)
+    done < <(_billable_response_files "$responses_dir")
+
+    # bc drops the leading zero on sub-1 values (".115000"); restore it as
+    # estimate_query_cost does, so callers can compare numerically.
+    [[ "$total_cost" == .* ]] && total_cost="0$total_cost"
 
     echo "$total_cost"
+}
+
+# Render the caveats a session's cost figure carries, or nothing when it is a
+# clean measurement of priced models.
+# Usage: format_cost_caveats <responses_dir>
+#
+# Two things can make the number less than it looks:
+#   - credit-billed models contribute 0 because they have no per-token price;
+#   - CLI-mode consultants have no provider token count, so their share is a
+#     4-chars-per-token approximation (metadata.tokens_source = "estimated").
+# Both are stated rather than folded silently into a confident-looking total.
+#
+# Rescans the directory rather than reading state left by
+# calculate_session_cost: that function is always invoked in a command
+# substitution, so anything it assigns dies with the subshell and the
+# disclosure would never fire.
+format_cost_caveats() {
+    local responses_dir="${1:-}"
+    [[ -d "$responses_dir" ]] || return 0
+
+    local unpriced="" estimated=0 unknown=0 priced=0 f
+    while IFS= read -r f; do
+        [[ -n "$f" ]] || continue
+
+        local src
+        src=$(jq -r '.metadata.tokens_source // "unknown"' "$f" 2>/dev/null)
+        case "$src" in
+            estimated) estimated=$((estimated + 1)); priced=$((priced + 1)) ;;
+            # Anything without a source contributed no tokens at all - in
+            # practice a failed consultation. Counting it in the denominator of
+            # "estimated for N of M" would make it read as provider-measured,
+            # the exact opposite of the truth.
+            measured)  priced=$((priced + 1)) ;;
+            *)         unknown=$((unknown + 1)) ;;
+        esac
+
+        local model
+        model=$(jq -r '.model // ""' "$f" 2>/dev/null)
+        is_unpriced_model "$model" || continue
+        case ",$unpriced," in
+            *",$model,"*) ;;
+            *) unpriced="${unpriced:+$unpriced,}$model" ;;
+        esac
+    done < <(_billable_response_files "$responses_dir")
+
+    local parts=""
+    if [[ $estimated -gt 0 ]]; then
+        parts="token counts estimated for $estimated of $priced"
+    fi
+    if [[ $unknown -gt 0 ]]; then
+        parts="${parts:+$parts; }$unknown contributed no token data"
+    fi
+    if [[ -n "$unpriced" ]]; then
+        parts="${parts:+$parts; }excludes ${unpriced//,/, } (credit-billed, no per-token price)"
+    fi
+
+    [[ -z "$parts" ]] && return 0
+    echo " [$parts]"
 }
 
 # Format cost for display

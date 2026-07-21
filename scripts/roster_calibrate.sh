@@ -26,8 +26,12 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/routing.sh
 source "$SCRIPT_DIR/lib/routing.sh"        # get_category_axis
+# shellcheck source=lib/costs.sh
+source "$SCRIPT_DIR/lib/costs.sh"          # is_unpriced_model
 COST_RATES="$SCRIPT_DIR/../docs/cost_rates.json"
 AFFINITY_JSON="$SCRIPT_DIR/../references/affinity.json"
+# is_unpriced_model (costs.sh) reads COST_RATES_FILE; point it at the same catalog.
+COST_RATES_FILE="$COST_RATES"
 
 # Input/output token split convention (mirrors lib/costs.sh's 60/40 estimate)
 # and the fallback rate for a model absent from the catalog (per-1K).
@@ -127,6 +131,17 @@ main() {
             model=$(jq -r '.model // "unknown"' "$f" 2>/dev/null)
             tokens=$(jq -r '.metadata.tokens_used // empty' "$f" 2>/dev/null)
             [[ -z "$tokens" || ! "$tokens" =~ ^[0-9]+$ ]] && continue
+            # A credit-billed model has no per-token price. It is catalogued at
+            # 0/0 so the session estimator does not fabricate a figure, but
+            # feeding that 0 into a rank where "cheapest = 10" would score it
+            # the cheapest consultant on the panel and persist that into
+            # affinity.json, preferentially routing work to a model whose real
+            # consumption is invisible here. Excluded from the cost axis
+            # instead - no data beats wrong data.
+            if is_unpriced_model "$model" 2>/dev/null; then
+                echo "  skip cost sample: $c/$model is credit-billed (no per-token price)" >&2
+                continue
+            fi
             echo "$c $(_response_cost "$model" "$tokens")" >> "$cacc"
         done
     done

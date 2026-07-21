@@ -6,6 +6,11 @@
 # --only paths are smoke-tested as a subprocess and asserted to change nothing.
 set -uo pipefail
 
+# Pin the log level: assertions below match on log output, which is filtered by
+# LOG_LEVEL, so an inherited value would fail this suite for that environment
+# only - deterministic, but easily mistaken for flakiness.
+export LOG_LEVEL=INFO
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/test_helpers.sh
 source "$SCRIPT_DIR/lib/test_helpers.sh"

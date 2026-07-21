@@ -60,6 +60,21 @@ run_api_mode_query() {
         return 1
     fi
 
+    # Resolve the reasoning-effort knob BEFORE the format switch. Doing it
+    # inside the openai arm meant a value set for a consultant on any other
+    # wire format was silently dropped and never validated - and Qwen3's
+    # DEFAULT format is `qwen`, so the one consultant the feature was built for
+    # got exactly the silent no-op it exists to prevent.
+    local effort_var effort=""
+    effort_var="$(to_upper "$consultant_name")_REASONING_EFFORT"
+    if [[ -n "${!effort_var:-}" ]]; then
+        # Validate before spending a request: a rejected value should fail here,
+        # not as a provider 400 after the call is billed.
+        if ! effort=$(validate_reasoning_effort "${!effort_var}" "$consultant_name"); then
+            return 1
+        fi
+    fi
+
     # Build request body based on format
     local request_body
     local final_api_url="$api_url"
@@ -67,20 +82,35 @@ run_api_mode_query() {
 
     case "$api_format" in
         google_ai)
+            if [[ -n "$effort" ]]; then
+                log_warn "[$consultant_name] $effort_var is not supported on the 'google_ai' wire format and is ignored."
+            fi
             request_body=$(build_google_ai_request "$query")
             # Google AI appends model to URL; use x-goog-api-key header for security
             final_api_url="${api_url}/${model}:generateContent"
             auth_style="google_ai"
             ;;
         anthropic)
+            if [[ -n "$effort" ]]; then
+                log_warn "[$consultant_name] $effort_var is not supported on the 'anthropic' wire format and is ignored."
+            fi
             request_body=$(build_anthropic_request "$query" "$model")
             auth_style="anthropic"
             ;;
         qwen)
+            # The DashScope envelope has no reasoning_effort field. Say so
+            # rather than accepting the setting and dropping it.
+            if [[ -n "$effort" ]]; then
+                log_warn "[$consultant_name] $effort_var is ignored on the '$api_format' wire format (no reasoning_effort field). Set ${consultant_name^^}_FORMAT=openai and an OpenAI-compatible ${consultant_name^^}_API_URL to use it."
+            fi
             request_body=$(build_qwen_request "$query" "$model")
             ;;
         *)  # openai format
-            request_body=$(build_openai_request "$query" "$model")
+            if [[ -n "$effort" ]]; then
+                request_body=$(build_openai_request "$query" "$model" 4096 "$effort")
+            else
+                request_body=$(build_openai_request "$query" "$model")
+            fi
             ;;
     esac
 
@@ -129,10 +159,18 @@ run_api_mode_query() {
     # Write parsed content to output
     echo "$parsed_content" > "$output_file"
 
-    # Extract and log token usage
-    local tokens
-    tokens=$(extract_token_usage "$raw_response" "$api_format")
-    log_debug "[$consultant_name] Tokens used: $tokens"
+    # Publish token usage for the response builder.
+    #
+    # These figures used to be logged and thrown away, so every response carried
+    # the hardcoded tokens_used: 0 from build_response_metadata and every cost
+    # report came out at $0.00. The provider's prompt/completion SPLIT is kept,
+    # not just the total: output rates run several times input rates, so
+    # re-splitting a total 60/40 overstates cost while still reading as
+    # "measured".
+    local _t_in _t_out
+    read -r _t_in _t_out <<< "$(extract_token_split "$raw_response" "$api_format")"
+    log_debug "[$consultant_name] Tokens used: $((_t_in + _t_out)) (in=$_t_in out=$_t_out)"
+    set_api_token_split "$_t_in" "$_t_out"
 
     rm -f "$temp_response"
     return 0
@@ -216,6 +254,9 @@ ${STANCE_OPTIONS_PROMPT}"
     # Read parsed content from temp file (run_api_mode_query already parsed it)
     local parsed_content
     parsed_content=$(cat "$temp_response")
+    local _tok _tok_src _tok_in _tok_out
+    read -r _tok _tok_src _tok_in _tok_out <<< "$(resolve_response_tokens "$full_query" "$parsed_content")"
+    clear_api_token_split
     rm -f "$temp_response"
 
     if [[ -z "$parsed_content" ]]; then
@@ -227,10 +268,10 @@ ${STANCE_OPTIONS_PROMPT}"
     # Try to parse as structured JSON response
     if echo "$parsed_content" | jq -e '.response' >/dev/null 2>&1; then
         build_structured_response "$consultant_name" "${model:-unknown}" "API Consultant" \
-            "$parsed_content" "$latency" > "$output_file"
+            "$parsed_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
     else
         build_fallback_response "$consultant_name" "${model:-unknown}" "API Consultant" \
-            "$parsed_content" "$latency" > "$output_file"
+            "$parsed_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
     fi
 
     log_success "[$consultant_name] Response generated"

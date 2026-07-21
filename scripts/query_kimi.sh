@@ -23,6 +23,9 @@ OUTPUT_FILE="${3:-/tmp/kimi_response.json}"
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Kimi"
 
+# API-mode-only knob; say so rather than ignoring it silently (see common.sh).
+warn_effort_ignored_in_cli "Kimi"
+
 # --- Build query ---
 FULL_QUERY=$(build_full_query "$QUERY" "$CONTEXT_FILE")
 validate_query "$FULL_QUERY" "Kimi" || exit 1
@@ -84,7 +87,7 @@ PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS"
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"
 
 cat "$OUTPUT_FILE"
 exit $exit_code

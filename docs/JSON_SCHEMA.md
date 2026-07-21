@@ -32,6 +32,9 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
   "debate": {...},
   "metadata": {
     "tokens_used": 1500,
+    "tokens_source": "measured",
+    "tokens_input": 1200,
+    "tokens_output": 300,
     "latency_ms": 2345,
     "model_version": "gemini-3.1-pro-preview",
     "timestamp": "2024-01-14T12:34:56Z"
@@ -188,6 +191,9 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
 {
   "metadata": {
     "tokens_used": 1500,
+    "tokens_source": "measured",
+    "tokens_input": 1200,
+    "tokens_output": 300,
     "latency_ms": 2345,
     "model_version": "gemini-3.1-pro-preview",
     "timestamp": "2024-01-14T12:34:56Z"
@@ -197,7 +203,10 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `tokens_used` | integer | Tokens consumed (estimate) |
+| `tokens_used` | integer | Tokens consumed. Provider-reported in API mode; locally approximated in CLI mode |
+| `tokens_source` | string | `measured` \| `estimated` \| `unknown` — how `tokens_used` was obtained |
+| `tokens_input` | integer | Prompt tokens, when the provider reported them (API mode only) |
+| `tokens_output` | integer | Completion tokens, when the provider reported them (API mode only) |
 | `latency_ms` | integer | Response time in ms |
 | `model_version` | string | Exact model version |
 | `timestamp` | string | ISO 8601 timestamp |
@@ -224,6 +233,28 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
 ```
 "minor" | "moderate" | "major"
 ```
+
+### metadata.tokens_source
+
+```
+"measured" | "estimated" | "unknown"
+```
+
+- `measured` — the provider's own usage figures, available in API mode.
+- `estimated` — a local 4-chars-per-token approximation over prompt + reply.
+  CLI-backed consultants report no token counts, so this is what they get; it
+  is the majority case, since CLI is the default transport.
+- `unknown` — not recorded (error responses, and callers on the pre-v2.25.0
+  metadata signature).
+
+When `tokens_input`/`tokens_output` are present, price on those rather than
+splitting `tokens_used`: output rates run several times input rates and
+consultations are large-context/short-reply, so a fixed split overstates cost
+substantially.
+
+Consumers that add up cost should read this field: a total built partly on
+estimates is not a measurement. `consult_all.sh` discloses the split on its
+session-cost line for that reason.
 
 ## Confidence Score Guidelines
 
@@ -297,6 +328,7 @@ jq 'has("consultant") and has("response") and has("confidence")' output.json
   },
   "metadata": {
     "tokens_used": 1250,
+    "tokens_source": "estimated",
     "latency_ms": 1850,
     "model_version": "gemini-3.1-pro-preview",
     "timestamp": "2024-01-14T12:34:56Z"

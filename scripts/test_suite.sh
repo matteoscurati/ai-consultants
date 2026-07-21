@@ -1018,6 +1018,190 @@ test_cost_per1k_contract() {
     if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
 }
 
+# tokens_used was hardcoded to 0 in build_response_metadata, so every response
+# ever written reported zero tokens and calculate_session_cost multiplied that
+# zero by the model rate: every session's cost read $0.00 regardless of spend.
+# Budget enforcement and roster_calibrate's cost axis read the same field.
+test_response_tokens() {
+    suite "common.sh: token accounting (tokens_used / tokens_source / split)"
+
+    local td
+    td=$(mktemp -d "${TMPDIR:-/tmp}/tokens.XXXXXX")
+    local reply; reply=$(printf 'a%.0s' {1..400})   # 400 bytes -> 100 output tokens
+    local prompt; prompt=$(printf 'b%.0s' {1..800}) # 800 bytes -> 200 input tokens
+
+    # No published split: fall back to the 4-bytes-per-token approximation over
+    # prompt + reply, and say so.
+    _API_TOKEN_SPLIT=""
+    assert_equals "300 estimated 200 100" "$(resolve_response_tokens "$prompt" "$reply")" \
+        "no measured split -> estimated, with its own in/out breakdown"
+
+    # Both halves must be measured in the SAME unit. Passing a bash character
+    # count for the prompt and a byte count for the reply under-counted
+    # multibyte input roughly threefold.
+    _API_TOKEN_SPLIT=""
+    local cjk; cjk=$(printf '日本語のテスト%.0s' {1..10})   # 70 chars, 210 bytes
+    local out_cjk; out_cjk=$(resolve_response_tokens "$cjk" "")
+    assert_equals "52 estimated 52 0" "$out_cjk" "multibyte input counted in bytes, not characters"
+
+    # A published split wins and is marked measured, in/out preserved.
+    set_api_token_split 20000 500
+    assert_equals "20500 measured 20000 500" "$(resolve_response_tokens "$prompt" "$reply")" \
+        "published split -> measured, split preserved"
+
+    # The split is cleared by the CALLER, not by resolve_response_tokens:
+    # that function runs inside $(...), where an assignment dies with the
+    # subshell. It can read the variable (subshells inherit) but never clear it.
+    assert_equals "20500 measured 20000 500" "$(resolve_response_tokens "$prompt" "$reply")" \
+        "resolve alone does not clear the split (it cannot - it runs in a subshell)"
+    clear_api_token_split
+    assert_equals "300 estimated 200 100" "$(resolve_response_tokens "$prompt" "$reply")" \
+        "once the caller clears it, the next response falls back to the estimate"
+
+    # A zero or junk split is not trusted over the estimate.
+    set_api_token_split 0 0
+    assert_equals "300 estimated 200 100" "$(resolve_response_tokens "$prompt" "$reply")" \
+        "zero split falls back to the estimate"
+
+    # Metadata carries all of it, and the legacy short call still works.
+    local md
+    md=$(build_response_metadata 1500 "gpt-5.5" "" 20500 "measured" 20000 500)
+    assert_equals "20500"    "$(echo "$md" | jq -r '.tokens_used')"   "metadata records the total"
+    assert_equals "measured" "$(echo "$md" | jq -r '.tokens_source')" "metadata records the source"
+    assert_equals "20000"    "$(echo "$md" | jq -r '.tokens_input')"  "metadata records input tokens"
+    assert_equals "500"      "$(echo "$md" | jq -r '.tokens_output')" "metadata records output tokens"
+    md=$(build_response_metadata 1500 "gpt-5.5")
+    assert_equals "0"       "$(echo "$md" | jq -r '.tokens_used')"   "legacy call defaults to 0"
+    assert_equals "unknown" "$(echo "$md" | jq -r '.tokens_source')" "legacy call is marked unknown"
+    assert_equals "null"    "$(echo "$md" | jq -r '.tokens_input')"  "legacy call omits the split"
+
+    # Every builder must survive BOTH arities under `set -u`. The fallback
+    # builder shipped briefly using $tokens_in without declaring it, which
+    # would have aborted on any unstructured reply for all 11 consultants;
+    # only one consultant's own suite happened to exercise that path.
+    local inner='{"response":{"summary":"s"},"confidence":{"score":8}}'
+    assert_exit_code_success "structured builder, legacy arity" \
+        bash -c "set -u; source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; build_structured_response A m p '$inner' 100 >/dev/null"
+    assert_exit_code_success "fallback builder, legacy arity" \
+        bash -c "set -u; source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; build_fallback_response A m p 'free text' 100 >/dev/null"
+    assert_exit_code_success "error builder, legacy arity" \
+        bash -c "set -u; source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; build_error_response A m p 'boom' 100 >/dev/null"
+    assert_exit_code_success "structured builder, full arity" \
+        bash -c "set -u; source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; build_structured_response A m p '$inner' 100 500 measured 400 100 >/dev/null"
+    assert_exit_code_success "fallback builder, full arity" \
+        bash -c "set -u; source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; build_fallback_response A m p 't' 100 500 estimated 400 100 >/dev/null"
+
+    # An error response carries no tokens but must still declare a source, or
+    # a strict consumer of the documented schema breaks on failed runs.
+    assert_equals "unknown" "$(build_error_response A m p 'boom' 100 | jq -r '.metadata.tokens_source')" \
+        "error responses still declare tokens_source"
+
+    # The CLI-mode effort warning must not abort its caller under `set -e`
+    # (an &&-list that short-circuits returns non-zero: the v2.22.0 shape).
+    assert_exit_code_success "effort warning is set -e safe in CLI mode" \
+        bash -c "set -euo pipefail; source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; KIMI_REASONING_EFFORT=high warn_effort_ignored_in_cli Kimi 2>/dev/null; echo ok >/dev/null"
+
+    local saved="${COST_RATES_FILE:-}"
+    COST_RATES_FILE="$SCRIPT_DIR/../docs/cost_rates.json"
+    local rd="$td/responses"; mkdir -p "$rd"
+
+    # The regression itself: real tokens must produce a real cost.
+    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":50000,"tokens_source":"estimated"}}\n' > "$rd/c.json"
+    assert_not_equals "0" "$(calculate_session_cost "$rd")" "non-zero tokens produce non-zero cost"
+    assert_contains "estimated for 1 of 1" "$(format_cost_caveats "$rd")" "estimated share is disclosed"
+
+    # A measured split must be priced on the REAL split, not re-derived 60/40.
+    # gpt-5.5 is 0.005 in / 0.030 out: 20000+500 costs 0.115, not 0.3075.
+    rm -f "$rd"/*.json
+    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
+    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "measured split priced as measured, not re-split 60/40"
+    assert_equals "" "$(format_cost_caveats "$rd")" "a fully measured, priced run discloses nothing"
+
+    # Pipeline metadata must not be billed as a phantom consultant.
+    printf '{"consensus_score":80,"recommendation":"x"}\n' > "$rd/voting.json"
+    printf '{"shape":"converge"}\n' > "$rd/orchestration.json"
+    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "pipeline metadata is not billed"
+
+    # A cache hit made no API call.
+    printf '{"consultant":"GLM","model":"glm-5.2","response":{"approach":"y"},"confidence":{"score":9},"cache_metadata":{"from_cache":true},"metadata":{"tokens_used":40000,"tokens_source":"measured","tokens_input":30000,"tokens_output":10000}}\n' > "$rd/cached.json"
+    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "cache hit costs nothing"
+
+    # Debate rounds are separate billed queries in a subdirectory.
+    mkdir -p "$rd/round_1"
+    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/round_1/c.json"
+    assert_equals "0.230000" "$(calculate_session_cost "$rd")" "debate round spend is counted"
+
+    # An escalation copy is the same query, already counted via the base file.
+    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":9},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/Codex_escalated.json"
+    assert_equals "0.230000" "$(calculate_session_cost "$rd")" "escalation copy is not double-counted"
+
+    # Failed consultations carry no token data and must not read as measured.
+    rm -f "$rd"/*.json "$rd"/round_1/*.json
+    printf '{"consultant":"A","model":"m","response":{"approach":"x"},"confidence":{"score":5},"metadata":{"tokens_used":100,"tokens_source":"estimated"}}\n' > "$rd/a.json"
+    printf '{"consultant":"B","model":"m","response":{"approach":"error"},"confidence":{"score":0},"metadata":{"tokens_used":0,"tokens_source":"unknown"}}\n' > "$rd/b.json"
+    local cav; cav=$(format_cost_caveats "$rd")
+    assert_contains "estimated for 1 of 1" "$cav" "failed responses stay out of the estimated denominator"
+    assert_contains "1 contributed no token data" "$cav" "failed responses are disclosed separately"
+
+    if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
+    rm -rf "$td"
+}
+
+# Credit-billed models (Qwen Cloud Token Plan) have no per-token price. An
+# absent catalog entry is NOT neutral: it falls through to default_rate
+# (0.005/0.015), which is ~4x the real qwen3.7-max input rate and gets reported
+# as a confident figure. The 0/0 entry plus the disclosure is what keeps the
+# report honest instead of fabricating or silently implying "free".
+test_unpriced_models() {
+    suite "costs.sh: credit-billed models (no per-token price)"
+
+    local saved="${COST_RATES_FILE:-}"
+    COST_RATES_FILE="$SCRIPT_DIR/../docs/cost_rates.json"
+
+    assert_equals "0" "$(get_input_cost_per_1k qwen3.8-max-preview)"  "3.8 preview input is 0, not the default rate"
+    assert_equals "0" "$(get_output_cost_per_1k qwen3.8-max-preview)" "3.8 preview output is 0, not the default rate"
+
+    # The catalogued priced model must be untouched by this change.
+    assert_equals "0.0012" "$(get_input_cost_per_1k qwen3.7-max)" "qwen3.7-max input unchanged"
+    assert_equals "0.006"  "$(get_output_cost_per_1k qwen3.7-max)" "qwen3.7-max output unchanged"
+
+    if is_unpriced_model "qwen3.8-max-preview"; then
+        assert_equals "yes" "yes" "qwen3.8-max-preview is flagged unpriced"
+    else
+        assert_equals "yes" "no"  "qwen3.8-max-preview is flagged unpriced"
+    fi
+    if is_unpriced_model "qwen3.7-max"; then
+        assert_equals "no" "yes"  "qwen3.7-max is NOT flagged unpriced"
+    else
+        assert_equals "no" "no"   "qwen3.7-max is NOT flagged unpriced"
+    fi
+
+    # The disclosure must reflect the responses on disk. It deliberately
+    # rescans rather than reading state from calculate_session_cost, which runs
+    # in a command substitution and cannot export anything to its caller.
+    local td
+    td=$(mktemp -d "${TMPDIR:-/tmp}/unpriced.XXXXXX")
+    printf '{"consultant":"GLM","model":"glm-5.2","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1200,"tokens_output":800}}\n' > "$td/b.json"
+    assert_equals "" "$(format_cost_caveats "$td")" "priced + measured run discloses nothing"
+
+    printf '{"consultant":"Qwen3","model":"qwen3.8-max-preview","response":{"approach":"y"},"confidence":{"score":9},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1200,"tokens_output":800}}\n' > "$td/a.json"
+    local disclosure
+    disclosure=$(format_cost_caveats "$td")
+    if [[ "$disclosure" == *"qwen3.8-max-preview"* && "$disclosure" == *"credit-billed"* ]]; then
+        assert_equals "yes" "yes" "mixed run names the excluded model"
+    else
+        assert_equals "yes" "no ($disclosure)" "mixed run names the excluded model"
+    fi
+
+    # Two responses from the same unpriced model must be named once.
+    printf '{"consultant":"Qwen3b","model":"qwen3.8-max-preview","response":{"approach":"z"},"confidence":{"score":7},"metadata":{"tokens_used":500,"tokens_source":"measured","tokens_input":300,"tokens_output":200}}\n' > "$td/c.json"
+    assert_equals "1" "$(format_cost_caveats "$td" | grep -o 'qwen3.8-max-preview' | wc -l | tr -d ' ')" \
+        "duplicate model named once"
+
+    rm -rf "$td"
+    if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
+}
+
 # Fresh-install regression: track_session_cost wrote to $COST_TRACKING_FILE
 # without creating its parent directory, so on a fresh install (XDG data dir
 # ~/.local/share/ai-consultants absent) every session ended with
@@ -1521,6 +1705,11 @@ test_model_for_tier() {
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.5"
     assert_equals "grok-4.1-fast"         "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.1-fast"
     assert_equals "qwen3.7-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.7-max"
+    # qwen3.8-max-preview is opt-in only: it needs a Qwen Cloud Token Plan
+    # subscription and a different endpoint, so promoting it to the default
+    # tier would break the consultant for every user without one. Asserted
+    # explicitly so the contract is self-documenting rather than implied.
+    assert_not_equals "qwen3.8-max-preview" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in 3.8 preview"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
     assert_equals "composer-2"            "$(get_model_for_tier "cursor" "standard")"   "cursor standard is composer-2"
     assert_equals "gemini-3-flash"        "$(get_model_for_tier "cursor" "economy")"    "cursor economy is gemini-3-flash"
@@ -1661,6 +1850,8 @@ main() {
     test_cost_rates
     test_cost_estimation
     test_cost_per1k_contract
+    test_unpriced_models
+    test_response_tokens
     test_cost_tracking_resilience
     test_cost_formatting
     test_budget_checking
