@@ -46,25 +46,12 @@ source "$SCRIPT_DIR/lib/orchestration.sh"
 # Discovers custom API agents from environment variables
 # Convention: ENABLE_AGENTNAME=true with AGENTNAME_API_URL set
 _discover_custom_api_agents() {
-    while IFS='=' read -r var value; do
-        [[ "$var" != ENABLE_* ]] && continue
-        [[ "$value" != "true" ]] && continue
-
-        local agent_upper="${var#ENABLE_}"
-
-        # Skip known agents (uses helper from common.sh)
-        is_known_agent "$agent_upper" && continue
-
-        # Check if it has an API URL configured (indicates it's an API agent)
-        local url_var="${agent_upper}_API_URL"
-        [[ -z "${!url_var:-}" ]] && continue
-
-        # Add custom API agent with proper case
-        local agent_name
-        agent_name=$(to_title "$agent_upper")
+    local agent_name
+    while IFS= read -r agent_name; do
+        [[ -n "$agent_name" ]] || continue
         SELECTED_CONSULTANTS+=("$agent_name")
         log_debug "Discovered custom API agent: $agent_name"
-    done < <(env)
+    done < <(_list_custom_api_agents | sort -u)
 }
 
 # --- Show usage help ---

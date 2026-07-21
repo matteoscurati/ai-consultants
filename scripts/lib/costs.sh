@@ -266,23 +266,41 @@ is_unpriced_model() {
 # before v2.25.0 made tokens_used non-zero and turned them into money:
 #   - only consultant responses (voting.json and friends carry no tokens_used
 #     and would each be priced at the `// 1000` fallback times the default rate);
-#   - debate/peer-review rounds live in `round_N/` subdirectories and are
-#     separate billed queries, so the glob must recurse;
+#   - debate rounds live in `round_N/` subdirectories and are separate billed
+#     queries, so those directories must be included without recursing into
+#     derived peer-review trees;
 #   - a cache hit made no API call, and `<consultant>_escalated.json` is a copy
 #     of a file already counted, so both are excluded.
 _billable_response_files() {
     local responses_dir="$1"
     [[ -d "$responses_dir" ]] || return 0
 
-    local f
-    while IFS= read -r f; do
+    local f round_dir round_name
+    for f in "$responses_dir"/*.json "$responses_dir"/round_*/*.json; do
         [[ -f "$f" && -s "$f" ]] || continue
-        [[ "$(basename "$f")" == *_escalated.json ]] && continue
+
+        # Nested billable files are allowed only one level below an exact
+        # round_<digits> directory. Peer-review and other derived trees are not
+        # provider queries and must never reach the token fallback.
+        if [[ "${f%/*}" != "$responses_dir" ]]; then
+            round_dir="${f%/*}"
+            round_name="${round_dir##*/}"
+            case "$round_name" in
+                round_[0-9]*)
+                    case "${round_name#round_}" in
+                        *[!0-9]*) continue ;;
+                    esac
+                    ;;
+                *) continue ;;
+            esac
+        fi
+
+        [[ "${f##*/}" == *_escalated.json ]] && continue
         _is_consultant_response_file "$f" 2>/dev/null || continue
         # A cache hit is a replay of an earlier response, metadata included.
         [[ "$(jq -r '.cache_metadata.from_cache // false' "$f" 2>/dev/null)" == "true" ]] && continue
         printf '%s\n' "$f"
-    done < <(find "$responses_dir" -type f -name '*.json' 2>/dev/null | sort)
+    done
 }
 
 # Calculate total session cost from responses

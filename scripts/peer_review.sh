@@ -141,7 +141,9 @@ run_consultant_review() {
     local prompt
     prompt=$(generate_review_prompt "$(cat "$anonymous_file")")
 
-    local timeout_var="${consultant^^}_TIMEOUT_SECONDS"
+    local consultant_upper timeout_var
+    consultant_upper=$(to_upper "$consultant")
+    timeout_var="${consultant_upper}_TIMEOUT_SECONDS"
     local timeout="${!timeout_var:-180}"
 
     log_debug "Running peer review by $consultant..."
@@ -382,8 +384,9 @@ main() {
     for reviewer in "${reviewers[@]}"; do
         local review_output="$reviews_dir/review_${reviewer}.json"
         run_consultant_review "$reviewer" "$output_dir/anonymous_responses.md" "$review_output" &
-        pids+=($!)
-        log_debug "Started review by $reviewer (PID: ${pids[-1]})"
+        local review_pid=$!
+        pids+=("$review_pid")
+        log_debug "Started review by $reviewer (PID: $review_pid)"
     done
 
     # Wait for all reviews

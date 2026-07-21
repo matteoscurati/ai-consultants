@@ -99,7 +99,14 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="$GEMINI_MODEL"
+# Record the identifier actually sent to the provider so cost lookup uses the
+# matching rate table entry. CLI and API mode intentionally use different model
+# namespaces.
+if is_api_mode "gemini"; then
+    MODEL_USED="$GEMINI_API_MODEL"
+else
+    MODEL_USED="$GEMINI_MODEL"
+fi
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---

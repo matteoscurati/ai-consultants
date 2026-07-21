@@ -61,6 +61,16 @@ test_cluster_consensus() {
     rm -f "$TD"/*.json
     _r Solo "just do it" 8
     assert_eq "100" "$(calculate_consensus_score "$TD")" "single response -> 100%"
+
+    # Similarity is not transitive: alpha-beta and beta-gamma overlap, but
+    # alpha and gamma do not. A connected-component merge must not call this
+    # three-way disagreement unanimous.
+    rm -f "$TD"/*.json
+    _r Alpha "alpha beta" 8
+    _r Beta  "beta gamma" 8
+    _r Gamma "gamma delta" 8
+    assert_eq "66" "$(calculate_consensus_score "$TD")" \
+        "transitive similarity chain has only a 2-of-3 pairwise-similar cluster"
 }
 
 run_test "Fix A: pipeline metadata not counted as votes" test_metadata_not_voted
