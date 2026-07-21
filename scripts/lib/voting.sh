@@ -135,6 +135,49 @@ _jaccard_similarity() {
     fi
 }
 
+# Exact maximum-clique search over the approach-similarity graph. Candidates
+# are space-separated numeric indices; each recursive level keeps only nodes
+# adjacent to every node already chosen. The default panel is at most eleven,
+# so this bounded backtracking stays small while avoiding order-dependent or
+# transitive clustering. Globals are used because Bash 3.2 has no namerefs.
+_CONSENSUS_NEIGHBORS=()
+_CONSENSUS_MAX_CLUSTER=0
+_find_largest_pairwise_cluster() {
+    local candidates="$1"
+    local chosen_count="$2"
+    local candidate remaining_count=0 other next_candidates neighbors
+
+    if [[ $chosen_count -gt $_CONSENSUS_MAX_CLUSTER ]]; then
+        _CONSENSUS_MAX_CLUSTER=$chosen_count
+    fi
+
+    for candidate in $candidates; do
+        remaining_count=$((remaining_count + 1))
+    done
+    [[ $((chosen_count + remaining_count)) -le $_CONSENSUS_MAX_CLUSTER ]] && return
+
+    while [[ -n "$candidates" ]]; do
+        candidate="${candidates%% *}"
+        if [[ "$candidates" == *" "* ]]; then
+            candidates="${candidates#* }"
+        else
+            candidates=""
+        fi
+
+        next_candidates=""
+        neighbors=" ${_CONSENSUS_NEIGHBORS[$candidate]:-} "
+        for other in $candidates; do
+            if [[ "$neighbors" == *" $other "* ]]; then
+                next_candidates="${next_candidates:+$next_candidates }$other"
+            fi
+        done
+        _find_largest_pairwise_cluster "$next_candidates" $((chosen_count + 1))
+
+        remaining_count=$((remaining_count - 1))
+        [[ $((chosen_count + remaining_count)) -le $_CONSENSUS_MAX_CLUSTER ]] && return
+    done
+}
+
 # Calculate consensus score based on keyword overlap between approaches
 # Uses Jaccard similarity instead of exact string matching so that
 # "JWT tokens", "JWT-based auth", and "JSON Web Tokens" are recognized as similar.
@@ -198,7 +241,7 @@ calculate_consensus_score() {
         return
     fi
 
-    # Consensus = size of the LARGEST cluster of mutually-similar approaches
+    # Consensus = size of the LARGEST cluster of pairwise-similar approaches
     # (Jaccard >= threshold), as a percentage of all approaches. This asks
     # "does a majority agree?" rather than "is the whole panel mutually similar?"
     # -- the latter is structurally capped low whenever any single consultant
@@ -208,37 +251,32 @@ calculate_consensus_score() {
     # robust fix is a controlled-vocabulary stance field, tracked separately).
     local threshold=15
 
-    # Agglomerate: for each similar pair, merge their clusters (relabel). O(n^3)
-    # but n is tiny (<= panel size), so no Union-Find is needed at this scale.
-    local -a cluster
-    local i j
-    for ((i=0; i<total; i++)); do cluster[i]=$i; done
+    # Build the undirected similarity graph once, then find its exact maximum
+    # clique. Connected components are invalid here because similarity is not
+    # transitive: A~B and B~C does not imply A~C.
+    _CONSENSUS_NEIGHBORS=()
+    _CONSENSUS_MAX_CLUSTER=0
+    local i j candidates=""
+    for ((i=0; i<total; i++)); do
+        _CONSENSUS_NEIGHBORS[$i]=""
+        candidates="${candidates:+$candidates }$i"
+    done
     for ((i=0; i<total; i++)); do
         for ((j=i+1; j<total; j++)); do
             local sim
             sim=$(_jaccard_similarity "${keyword_sets[$i]}" "${keyword_sets[$j]}")
             if [[ $sim -ge $threshold ]]; then
-                local ci=${cluster[$i]} cj=${cluster[$j]} k
-                if [[ $ci -ne $cj ]]; then
-                    for ((k=0; k<total; k++)); do
-                        [[ ${cluster[$k]} -eq $cj ]] && cluster[$k]=$ci
-                    done
-                fi
+                _CONSENSUS_NEIGHBORS[$i]="${_CONSENSUS_NEIGHBORS[$i]:+${_CONSENSUS_NEIGHBORS[$i]} }$j"
+                _CONSENSUS_NEIGHBORS[$j]="${_CONSENSUS_NEIGHBORS[$j]:+${_CONSENSUS_NEIGHBORS[$j]} }$i"
             fi
         done
     done
 
-    # Largest cluster size / total, as a percentage. Cluster labels are indices
-    # 0..total-1, so a plain indexed array suffices (bash 3.2 has no assoc arrays).
-    local -a csize
-    for ((i=0; i<total; i++)); do csize[i]=0; done
-    local maxc=0 lbl
-    for ((i=0; i<total; i++)); do
-        lbl=${cluster[$i]}
-        csize[$lbl]=$(( csize[$lbl] + 1 ))
-        [[ ${csize[$lbl]} -gt $maxc ]] && maxc=${csize[$lbl]}
-    done
-    echo $(( maxc * 100 / total ))
+    _find_largest_pairwise_cluster "$candidates" 0
+    local max_cluster=$_CONSENSUS_MAX_CLUSTER
+    _CONSENSUS_NEIGHBORS=()
+    _CONSENSUS_MAX_CLUSTER=0
+    echo $(( max_cluster * 100 / total ))
 }
 
 # Determine the consensus level from a score
@@ -264,51 +302,55 @@ get_consensus_level() {
 # Output: JSON with the recommendation
 calculate_weighted_recommendation() {
     local responses_dir="$1"
-
-    # Clear any previous map state
-    map_clear "APPROACH_WEIGHTS"
-    map_clear "APPROACH_SUPPORTERS"
+    local -a approaches=()
+    local -a approach_weights=()
+    local -a approach_supporters=()
 
     # Resolve the capability-weighting axis once (empty when weighting is off)
     local _cap_axis
     _cap_axis=$(_voting_capability_axis)
 
-    # Collect weights for each approach
+    # Keep the original approach strings as indexed-array values. The generic
+    # Bash 3.2 map encodes keys as shell variable names, so using an approach as
+    # a map key loses punctuation and whitespace, cannot round-trip into the
+    # final score, and can merge distinct recommendations.
     for f in "$responses_dir"/*.json; do
         if _is_consultant_response_file "$f"; then
-            local consultant approach confidence current_weight current_supporters weight
+            local consultant approach confidence weight index i
             consultant=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
             confidence=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
 
-            # Add weight (capability-modulated when ENABLE_CAPABILITY_WEIGHTING)
             weight=$(_effective_vote_weight "$consultant" "$confidence" "$_cap_axis")
-            current_weight=$(map_get "APPROACH_WEIGHTS" "$approach")
-            map_set "APPROACH_WEIGHTS" "$approach" "$((${current_weight:-0} + weight))"
+            index=-1
+            for ((i=0; i<${#approaches[@]}; i++)); do
+                if [[ "${approaches[$i]}" == "$approach" ]]; then
+                    index=$i
+                    break
+                fi
+            done
 
-            # Add supporter
-            current_supporters=$(map_get "APPROACH_SUPPORTERS" "$approach")
-            if [[ -z "$current_supporters" ]]; then
-                map_set "APPROACH_SUPPORTERS" "$approach" "$consultant"
+            if [[ $index -lt 0 ]]; then
+                index=${#approaches[@]}
+                approaches+=("$approach")
+                approach_weights+=("$weight")
+                approach_supporters+=("$consultant")
             else
-                map_set "APPROACH_SUPPORTERS" "$approach" "${current_supporters},$consultant"
+                approach_weights[$index]=$(( approach_weights[$index] + weight ))
+                approach_supporters[$index]="${approach_supporters[$index]},$consultant"
             fi
         fi
     done
 
-    # Find the approach with the highest weight using map_keys
     local best_approach=""
     local best_weight=0
     local best_supporters=""
-    local approach weight
-
-    for approach in $(map_keys "APPROACH_WEIGHTS"); do
-        weight=$(map_get "APPROACH_WEIGHTS" "$approach")
-        weight="${weight:-0}"
-        if [[ $weight -gt $best_weight ]]; then
-            best_weight=$weight
-            best_approach="$approach"
-            best_supporters=$(map_get "APPROACH_SUPPORTERS" "$approach")
+    local i
+    for ((i=0; i<${#approaches[@]}; i++)); do
+        if [[ ${approach_weights[$i]} -gt $best_weight ]]; then
+            best_weight=${approach_weights[$i]}
+            best_approach="${approaches[$i]}"
+            best_supporters="${approach_supporters[$i]}"
         fi
     done
 
@@ -398,30 +440,36 @@ calculate_final_score() {
 # Usage: simple_majority_vote <json_responses_dir>
 simple_majority_vote() {
     local responses_dir="$1"
-
-    # Clear any previous map state
-    map_clear "MAJORITY_VOTES"
+    local -a approaches=()
+    local -a votes=()
 
     for f in "$responses_dir"/*.json; do
         if _is_consultant_response_file "$f"; then
-            local approach current_votes
+            local approach index i
             approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)
-            current_votes=$(map_get "MAJORITY_VOTES" "$approach")
-            map_set "MAJORITY_VOTES" "$approach" "$((${current_votes:-0} + 1))"
+            index=-1
+            for ((i=0; i<${#approaches[@]}; i++)); do
+                if [[ "${approaches[$i]}" == "$approach" ]]; then
+                    index=$i
+                    break
+                fi
+            done
+            if [[ $index -lt 0 ]]; then
+                approaches+=("$approach")
+                votes+=(1)
+            else
+                votes[$index]=$(( votes[$index] + 1 ))
+            fi
         fi
     done
 
-    # Find approach with most votes using map_keys
     local winner=""
     local max_votes=0
-    local approach votes
-
-    for approach in $(map_keys "MAJORITY_VOTES"); do
-        votes=$(map_get "MAJORITY_VOTES" "$approach")
-        votes="${votes:-0}"
-        if [[ $votes -gt $max_votes ]]; then
-            max_votes=$votes
-            winner="$approach"
+    local i
+    for ((i=0; i<${#approaches[@]}; i++)); do
+        if [[ ${votes[$i]} -gt $max_votes ]]; then
+            max_votes=${votes[$i]}
+            winner="${approaches[$i]}"
         fi
     done
 

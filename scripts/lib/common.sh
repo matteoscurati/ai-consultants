@@ -302,6 +302,23 @@ is_known_agent() {
     return 1
 }
 
+# List enabled custom API consultants discovered from the environment.
+# Convention: ENABLE_AGENTNAME=true plus AGENTNAME_API_URL. Known consultants
+# and non-consultant feature flags are excluded by the shared registry.
+_list_custom_api_agents() {
+    local var value agent_upper url_var agent_name
+    while IFS='=' read -r var value; do
+        [[ "$var" == ENABLE_* && "$value" == "true" ]] || continue
+        agent_upper="${var#ENABLE_}"
+        is_known_agent "$agent_upper" && continue
+
+        url_var="${agent_upper}_API_URL"
+        [[ -n "${!url_var:-}" ]] || continue
+        agent_name=$(to_title "$agent_upper")
+        printf '%s\n' "$agent_name"
+    done < <(env)
+}
+
 # =============================================================================
 # CLI/API MODE SWITCHING (v2.6)
 # =============================================================================
@@ -1117,22 +1134,19 @@ _kimi_extract_content() {
     ' "$1" 2>/dev/null
 }
 
-# consult_all.sh writes non-consultant pipeline metadata (orchestration.json,
-# panic_diagnosis.json, voting.json, synthesis.json, optimization_metrics.json,
-# stance_options.json) into the SAME dir as per-consultant responses. None carry .consultant /
-# .response.approach, so an unfiltered glob turns them into phantom "unknown"
-# votes / peer-review reviewees / synthesis inputs. Every loop that globs the
-# responses dir for consultant data must gate on this. Shared by voting.sh,
-# peer_review.sh, synthesize.sh.
+# Validate the response envelope rather than guessing from filenames. Pipeline
+# metadata and peer-review artifacts can use arbitrary names, while anonymous
+# copies deliberately remove the consultant identity. Every loop that consumes
+# consultant responses must gate on the actual shape. Shared by voting.sh,
+# peer_review.sh, synthesize.sh, and costs.sh.
 _is_consultant_response_file() {
     local f="$1"
     [[ -f "$f" && -s "$f" ]] || return 1
-    # ${f##*/} is an in-process basename (no fork) -- this runs in hot voting loops.
-    case "${f##*/}" in
-        orchestration.json|panic_diagnosis.json|voting.json|synthesis.json|optimization_metrics.json|stance_options.json)
-            return 1 ;;
-    esac
-    return 0
+    jq -e '
+        type == "object" and
+        (.consultant | type == "string" and length > 0) and
+        (.response | type == "object")
+    ' "$f" >/dev/null 2>&1
 }
 
 # Extract a concise, ANSI-stripped failure reason from a consultant's captured

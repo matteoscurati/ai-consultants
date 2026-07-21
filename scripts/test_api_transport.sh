@@ -145,10 +145,52 @@ test_openai_body_with_effort() {
     assert_eq "4" "$(jq -r '. | keys | length' <<<"$body")" "exactly one key added"
 }
 
+test_gemini_api_model_metadata() {
+    local td fake_curl output_file
+    td=$(mktemp -d "${TMPDIR:-/tmp}/gemini_model.XXXXXX")
+    fake_curl="$td/curl"
+    output_file="$td/response.json"
+
+    cat > "$fake_curl" <<'EOF'
+#!/bin/bash
+out=""
+headers=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -o) shift; out="$1" ;;
+        -D) shift; headers="$1" ;;
+    esac
+    shift
+done
+printf '%s\n' '{"candidates":[{"content":{"parts":[{"text":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}]}}],"usageMetadata":{"promptTokenCount":1000,"candidatesTokenCount":1000}}' > "$out"
+: > "$headers"
+printf '200'
+EOF
+    chmod +x "$fake_curl"
+
+    if ! PATH="$td:$PATH" \
+        GEMINI_USE_API=true \
+        GEMINI_API_KEY=test-key \
+        GEMINI_API_MODEL=gemini-api-test-model \
+        GEMINI_MODEL="Gemini CLI Display Model" \
+        MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_gemini.sh" "test API metadata" "" "$output_file" \
+        >/dev/null 2>&1; then
+        rm -rf "$td"
+        assert_eq "0" "1" "Gemini API-mode query completes with the stub transport"
+        return
+    fi
+
+    assert_eq "gemini-api-test-model" "$(jq -r '.model' "$output_file")" \
+        "Gemini API response records the API model used for billing"
+    rm -rf "$td"
+}
+
 run_test "get_api_format: default mapping (back-compat gate)" test_format_defaults
 run_test "build_openai_request: default body (back-compat gate)" test_openai_body_unchanged
 run_test "get_api_format: \${AGENT}_FORMAT override" test_format_override
 run_test "validate_reasoning_effort" test_effort_validation
 run_test "build_openai_request: with reasoning_effort" test_openai_body_with_effort
+run_test "Gemini API mode records API model" test_gemini_api_model_metadata
 
 test_summary "api_transport"

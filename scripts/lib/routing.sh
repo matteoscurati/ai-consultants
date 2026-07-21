@@ -183,10 +183,12 @@ select_consultants() {
     local min_affinity="${2:-7}"
     local max_consultants="${3:-8}"
 
-    # Include all consultants (order matches ALL_CONSULTANTS in config.sh)
+    # Known roster order matches ALL_CONSULTANTS in config.sh. Eligibility is
+    # applied here because smart-routing callers consume this output directly.
     local consultants=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
     local selected=()
     local scores=()
+    local custom_consultants=()
 
     # Collect affinities. When capability-aware routing is on, the ELIGIBILITY
     # filter still uses raw category affinity (same panel as before), but the
@@ -198,6 +200,14 @@ select_consultants() {
         _cap_axis=$(get_category_axis "$category")
     fi
     for c in "${consultants[@]}"; do
+        local consultant_flag enable_var
+        consultant_flag=$(printf '%s' "$c" | tr '[:lower:]' '[:upper:]')
+        enable_var="ENABLE_${consultant_flag}"
+        [[ "${!enable_var:-true}" == "true" ]] || continue
+        if declare -f should_skip_consultant >/dev/null 2>&1 && should_skip_consultant "$consultant_flag"; then
+            continue
+        fi
+
         local score=$(get_affinity "$category" "$c")
         if [[ $score -ge $min_affinity ]]; then
             local rank=$score
@@ -210,6 +220,15 @@ select_consultants() {
             scores+=("$rank")
         fi
     done
+
+    # Custom agents have no affinity entry. Their explicit ENABLE_* + API URL
+    # configuration is the eligibility signal, so reserve panel slots for them
+    # after affinity-ranked known consultants instead of silently omitting them.
+    if declare -f _list_custom_api_agents >/dev/null 2>&1; then
+        while IFS= read -r c; do
+            [[ -n "$c" ]] && custom_consultants+=("$c")
+        done < <(_list_custom_api_agents | sort -u)
+    fi
 
     # Sort by score (simple bubble sort)
     local n=${#selected[@]}
@@ -228,12 +247,20 @@ select_consultants() {
         done
     done
 
-    # Limit to maximum requested
+    # Limit to the requested panel size while keeping room for configured
+    # custom agents, which are appended in stable name order.
     local count=0
+    local known_limit=$(( max_consultants - ${#custom_consultants[@]} ))
+    [[ $known_limit -lt 0 ]] && known_limit=0
     for c in ${selected[@]+"${selected[@]}"}; do
-        if [[ $count -ge $max_consultants ]]; then
+        if [[ $count -ge $known_limit ]]; then
             break
         fi
+        echo "$c"
+        count=$((count + 1))
+    done
+    for c in ${custom_consultants[@]+"${custom_consultants[@]}"}; do
+        [[ $count -ge $max_consultants ]] && break
         echo "$c"
         count=$((count + 1))
     done

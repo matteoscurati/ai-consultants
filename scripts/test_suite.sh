@@ -874,6 +874,36 @@ test_weighted_recommendation() {
     assert_equals "17" "$total_weight" "total weight = 9+8 = 17"
 
     rm -rf "$dir"
+
+    # Multiword recommendations must round-trip unchanged into the final score.
+    # This is the normal production shape; single-word labels masked a lossy map
+    # key from the recommendation-to-score handoff.
+    dir="$TEST_TMPDIR/rec_multiword"
+    create_mock_response "$dir" "a.json" "Gemini" "Use JWT with rotating sessions" 9
+    create_mock_response "$dir" "b.json" "Codex" "Use JWT with rotating sessions" 9
+    create_mock_response "$dir" "c.json" "Mistral" "Use JWT with rotating sessions" 9
+
+    result=$(generate_voting_report "$dir")
+    assert_equals "Use JWT with rotating sessions" \
+        "$(echo "$result" | jq -r '.voting_report.recommendation.recommended_approach')" \
+        "multiword winner round-trips unchanged"
+    assert_equals "10" "$(echo "$result" | jq -r '.voting_report.final_weighted_score')" \
+        "unanimous multiword winner receives final score 10"
+    rm -rf "$dir"
+
+    # Punctuation differences are distinct approaches, even when deleting the
+    # punctuation would produce the same shell-safe string.
+    dir="$TEST_TMPDIR/rec_collision"
+    create_mock_response "$dir" "a.json" "Gemini" "Use JWT + sessions" 8
+    create_mock_response "$dir" "b.json" "Codex" "Use JWT sessions" 9
+    result=$(calculate_weighted_recommendation "$dir")
+    assert_equals "Use JWT sessions" "$(echo "$result" | jq -r '.recommended_approach')" \
+        "distinct punctuation does not collide"
+    assert_equals "9" "$(echo "$result" | jq -r '.total_weight')" \
+        "colliding-looking approaches retain separate weights"
+    assert_equals "Codex" "$(echo "$result" | jq -r '.supporters | join(",")')" \
+        "colliding-looking approaches retain separate supporters"
+    rm -rf "$dir"
 }
 
 # =============================================================================
@@ -1130,6 +1160,19 @@ test_response_tokens() {
     mkdir -p "$rd/round_1"
     printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/round_1/c.json"
     assert_equals "0.230000" "$(calculate_session_cost "$rd")" "debate round spend is counted"
+
+    # Peer-review artifacts are derived data, not additional consultations.
+    # Anonymous copies retain token metadata while bookkeeping has no metadata,
+    # so a recursive filename-only scan bills both unless shape and scope agree.
+    mkdir -p "$rd/peer_review/anonymous" "$rd/peer_review/reviews"
+    printf '{"anonymous_id":"Response_A","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/peer_review/anonymous/Response_A.json"
+    printf '{"Response_A":{"consultant":"Codex","file":"c.json"}}\n' > "$rd/peer_review/mapping.json"
+    printf '{"reviews":[{"response_id":"Response_A","quality_score":9}]}\n' > "$rd/peer_review/reviews/review_Gemini.json"
+    assert_equals "0.230000" "$(calculate_session_cost "$rd")" \
+        "peer-review artifacts are not billed"
+    assert_exit_code_failure "anonymous response copy is not a consultant response shape" \
+        _is_consultant_response_file "$rd/peer_review/anonymous/Response_A.json"
+    rm -rf "$rd/peer_review"
 
     # An escalation copy is the same query, already counted via the base file.
     printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":9},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/Codex_escalated.json"
@@ -1603,6 +1646,23 @@ test_consultant_selection() {
     local count
     count=$(echo "$result" | wc -l | tr -d ' ')
     assert_less_than_or_equal 3 "$count" "max_consultants=3 respected"
+
+    result=$(ENABLE_CODEX=false INVOKING_AGENT="" select_consultants "GENERAL" 1 20)
+    assert_not_contains "Codex" "$result" "disabled consultant is excluded from smart routing"
+
+    result=$(ENABLE_CODEX=true INVOKING_AGENT=codex select_consultants "GENERAL" 1 20)
+    assert_not_contains "Codex" "$result" "invoking consultant is self-excluded from smart routing"
+
+    result=$(
+        ENABLE_TESTROUTER=true
+        TESTROUTER_API_URL="https://example.invalid/v1"
+        export ENABLE_TESTROUTER TESTROUTER_API_URL
+        select_consultants "GENERAL" 7 8
+    )
+    assert_contains "Testrouter" "$result" \
+        "enabled custom API agent participates in smart routing"
+    count=$(echo "$result" | wc -l | tr -d ' ')
+    assert_less_than_or_equal 8 "$count" "custom API agent still respects smart-routing panel limit"
 }
 
 # =============================================================================
