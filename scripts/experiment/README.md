@@ -18,23 +18,21 @@ both found the defect). `PREREGISTRATION.md` is now the **coverage** design: arm
 arm W (panel → union of findings → adversarial verify → survivors), arm C (self-consistency
 union). Primary metric = coverage; decisive comparison = items W catches that A misses.
 
-> **Harness status:** `run_experiment.sh` / `grade.sh` / `analyze.sh` still implement the v1
-> consensus design (they score the synthesized answer, not the verified union). Running the v2
-> pre-registration needs three additions, not yet built: (1) arm W extracts the **union** of
-> distinct per-consultant findings instead of reading `synthesis.json`; (2) an **adversarial
-> verifier** pass over each finding (a different model tries to refute it against the code);
-> (3) `analyze.sh` computes coverage rates + McNemar on discordant pairs. Until then the scripts
-> answer the v1 question; do not treat their output as the v2 coverage result.
+The harness implements this v2 coverage design end to end (validated for $0 via `--smoke`):
+arm W runs the roster as a pure **fan-out with debate/consensus OFF** and takes the **union**
+of independent findings; `verify.sh` adversarially prunes each finding against the code; `grade.sh`
+scores coverage; `analyze.sh` reports discordant-pair value + cost per covered defect.
 
 ## Files
 
 | File | Role |
 |---|---|
 | `PREREGISTRATION.md` | Frozen choices + decision rule. Freeze **before** any real run. |
-| `benchmark.json` | Held-out defect-finding questions with rubric answer keys + grader-calibration pairs. **Seed only** — extend to n≥30 before the real run. |
-| `run_experiment.sh` | Driver: arms A (single strong model), B (full panel), C (self-consistency). |
-| `grade.sh` | Blind YES/NO grader vs the key rubric (fork of `taste_elo.sh::_judge`). |
-| `analyze.sh` | Per-arm hit rate, paired sign test, the pre-registered verdict, secondary metric. |
+| `benchmark.json` | Held-out defect-finding items (code + rubric key) + grader-calibration pairs. **Seed (8)** — extend to n≥30 before the real run. |
+| `run_experiment.sh` | Driver: arm A (one model, direct), arm W (roster fan-out → union, no debate), arm C (self-consistency union). Emits `findings.jsonl`. |
+| `verify.sh` | Adversarial verifier: a model (≠ the finding's author) tries to refute each finding against the code; keeps survivors. Emits `verified.jsonl`. |
+| `grade.sh` | Coverage grader: does any **verified** finding identify the keyed defect? `--calibrate` is the validity gate. Emits `coverage.jsonl`. |
+| `analyze.sh` | Coverage rate per arm, discordant-pair value (W-vs-A, W-vs-C), the pre-registered verdict, cost per covered defect, verifier pruning. |
 
 ## Run order
 
@@ -44,23 +42,26 @@ cd scripts/experiment
 # 0. Prove the plumbing with no model calls ($0):
 ./run_experiment.sh --smoke && echo "smoke ok"
 
-# 1. Validate the grader BEFORE trusting it. Pick a JUDGE_CLI that is NOT the arm-A model.
-JUDGE_CLI=<cheap-clerk-cli> ./grade.sh --calibrate     # must print GATE PASSED
+# 1. Validate the grader BEFORE trusting it. JUDGE_CLI must NOT be the arm-A/C model.
+JUDGE_CLI=<capable-clerk-cli> ./grade.sh --calibrate     # must print GATE PASSED
 
-# 2. Freeze the pre-registration (fill in date, commit hash, grader), then:
+# 2. Freeze the pre-registration (fill in date, commit hash, models), then:
 touch .frozen
 
-# 3. Real run (spends model calls; mostly subscription CLIs). Cache is forced off,
-#    budget guard on, config isolated from your own .env.
-STRONG_CONSULTANT=Claude ./run_experiment.sh --run > /tmp/exp/results_path
-RES=scripts/experiment/out/results.jsonl
-JUDGE_CLI=<cheap-clerk-cli> ./grade.sh benchmark.json "$RES" out/grades.jsonl
+# 3. Real run. From a PLAIN TERMINAL (not a Claude Code session — the claude CLI
+#    contends with it) and with a strong model that is reliable and not the grader.
+STRONG_CONSULTANT=Gemini ./run_experiment.sh --run
+FIND=out/findings.jsonl
 
-# 4. Verdict:
-./analyze.sh out/grades.jsonl "$RES"
+# 4. Adversarial verify (VERIFY_CLI must not be the finding's author). Then coverage-grade.
+VERIFY_CLI=<verifier-cli> ./verify.sh benchmark.json "$FIND" out/verified.jsonl
+JUDGE_CLI=<grader-cli>    ./grade.sh  benchmark.json out/verified.jsonl out/coverage.jsonl
 
-# 5. Hand-label 10 random verdicts; if grader/human agreement < 90%, the run is
-#    inconclusive, not a loss for any arm (PREREGISTRATION.md).
+# 5. Verdict:
+./analyze.sh out/coverage.jsonl out/verified.jsonl
+
+# 6. Hand-label 10 random grader verdicts AND 10 verifier decisions; if either agrees
+#    with you < 90%, the run is inconclusive, not a loss for any arm (PREREGISTRATION.md).
 ```
 
 ## Pilot findings (2026-07-22) — read before a real run
@@ -72,24 +73,23 @@ A pilot on the seed set surfaced environment constraints that a binding run must
   driving session and intermittently degrades (synthesis fell back to "Manual review
   required"). Run the experiment from a plain terminal, or pick a strong model whose CLI
   is not the one running the harness.
-- **Keep the user's credentials; isolate only composition.** The first pilot ran arm B
-  with an *empty* config dir (for `ENABLE_*` hermeticity) and saw only 3 consultants —
-  because the empty dir also stripped the API keys that GLM/Grok/DeepSeek/Qwen need.
-  `doctor --live` with the real config showed **8 of 11 actually respond**. The driver now
-  copies only the credential lines (`*_API_KEY`, `*_API_URL`) into the isolated dir, so
-  auth survives while arm composition stays controlled by the explicit per-arm `ENABLE_*`.
-- **Confirm the live panel with `doctor --live`, not static doctor.** The 3 that stay down
-  are credential/quota, not code: Cursor (usage limit → Cursor Pro), Qwen3 (401, expired
-  DashScope key), Grok (xAI "incorrect API key", returned as HTTP 400). Fix those keys or
-  accept an 8-consultant panel; arm B is only as full as what actually answers.
-- **Arm B runs with peer review OFF** (`_full_panel`) — it runs after synthesis and cannot
-  change the scored recommendation, so dropping it cuts the slowest stage without altering
-  what is measured.
-- **Arm A is scored on the consultant's own response**, not a synthesis-of-one (which can
-  degrade independently of answer quality).
+- **Use the user's real config; don't isolate.** The first pilot ran the panel with an
+  *empty* config dir (for `ENABLE_*` hermeticity) and saw only 3 consultants — the empty dir
+  stripped the API keys AND Qwen's Token Plan transport. The driver now uses the real config
+  (keys + transport survive) and controls composition via explicit per-arm `ENABLE_*`; a
+  `DEFAULT_PRESET` like `balanced` must be cleared or it caps the panel at 4.
+- **Confirm the live panel with `doctor --live`, not static doctor.** Consultants down for
+  credential/quota reasons (a bad key, a usage limit) pass every static check and fail live;
+  set `EXPERIMENT_SKIP_CONSULTANTS` to drop them from arm W (default drops `CURSOR`).
+- **Arm W is a pure fan-out** — `ENABLE_DEBATE=false`, `ORCHESTRATION_MODE=fixed`, peer
+  review off. The debate/convergence/consensus machinery is deliberately NOT run: it is the
+  averaging part the experiment is testing *against*, not part of arm W.
+- **Arm A is a direct query** — consult_all refuses fewer than 2 consultants, so a single
+  model cannot go through it.
 - **Arm C's k is capped** (`K_MAX`, default 12) so a failed sample cannot explode it.
-- Budget the wall clock: even a 3-consultant arm B took minutes per item; size the outer
-  timeout and prefer running in the background.
+- Budget the wall clock: even a fan-out (no debate) over 10 consultants took minutes per
+  item in the pilot; run in the background. Note the v1 pilot found the *deliberating* panel
+  cost ~113× a single model — arm W (fan-out only) is far cheaper, which is the point.
 
 ## Guardrails baked in
 
