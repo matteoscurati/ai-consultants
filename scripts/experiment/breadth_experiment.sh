@@ -86,6 +86,8 @@ while IFS= read -r id; do
     a=$(_one_answer "$STRONG" "$ctx"); [[ -n "$a" ]] && blobC+="=== sample $i ==="$'\n'"$a"$'\n\n'
   done
   rm -f "$ctx"
+  # Persist raw answers so grader coverage decisions can be hand-checked (verify, don't trust counts).
+  printf '%s' "$ansA" > "$OUT/$id.A.txt"; printf '%s' "$blobW" > "$OUT/$id.W.txt"; printf '%s' "$blobC" > "$OUT/$id.C.txt"
 
   read -r cA nA < <(_coverage "$id" "$ansA")
   read -r cW _  < <(_coverage "$id" "$blobW")
