@@ -30,7 +30,7 @@ strong_q="$REPO/query_$(to_lower "$STRONG").sh"
 [[ -x "$strong_q" ]] || { echo "no query script for STRONG_CONSULTANT=$STRONG ($strong_q)" >&2; exit 1; }
 CFG="${AI_CONSULTANTS_CONFIG_DIR:-$HOME/.config/ai-consultants}"
 
-miss=0; caught=0; n=0; promote=()
+miss=0; caught=0; noans=0; n=0; promote=()
 echo "difficulty probe: STRONG=$STRONG, grader=${JUDGE_BACKEND:-codex}/${JUDGE_MODEL:-gpt-5.6-sol}@${JUDGE_EFFORT:-high}, votes=$JUDGE_VOTES"
 echo "======================================================================================"
 while IFS= read -r id; do
@@ -39,24 +39,31 @@ while IFS= read -r id; do
   key=$(jq -r --arg id "$id" '.questions[]|select(.id==$id)|.key' "$POOL")
   diff=$(jq -r --arg id "$id" '.questions[]|select(.id==$id)|.difficulty' "$POOL")
   ctx=$(mktemp); printf '%s\n' "$q" > "$ctx"; out=$(mktemp)
-  env AI_CONSULTANTS_CONFIG_DIR="$CFG" INVOKING_AGENT="" ENABLE_SEMANTIC_CACHE=false \
-    "$strong_q" "" "$ctx" "$out" >/dev/null 2>&1 || true
-  finding=$(jq -r '.response.summary // .response.detailed // ""' "$out" 2>/dev/null || echo "")
+  # A degraded consultant emits the fallback stub "Unstructured response - see detailed" (summary)
+  # instead of a real answer. Grading that stub yields NO and would COUNT AS A MISS — a false
+  # discriminating item. Detect it (and empty output), RETRY, and if it persists mark NO-ANSWER
+  # (a response failure, never a miss). This is a data-collection failure, not evidence the model
+  # missed the bug.
+  finding=""; attempt=0
+  while :; do
+    env AI_CONSULTANTS_CONFIG_DIR="$CFG" INVOKING_AGENT="" ENABLE_SEMANTIC_CACHE=false \
+      "$strong_q" "" "$ctx" "$out" >/dev/null 2>&1 || true
+    finding=$(jq -r '.response.summary // .response.detailed // ""' "$out" 2>/dev/null || echo "")
+    [[ -n "$finding" && "$finding" != Unstructured\ response* ]] && break
+    attempt=$((attempt + 1)); [[ $attempt -gt "${PROBE_RETRIES:-2}" ]] && break
+  done
   n=$((n + 1))
-  if [[ -z "$finding" ]]; then
-    verdict="NO-ANSWER"
+  if [[ -z "$finding" || "$finding" == Unstructured\ response* ]]; then
+    verdict="NO-ANSWER"; noans=$((noans + 1)); tag="NO-ANSWER (response failure -> re-probe; NOT a miss)"
+  elif [[ "$(_grade_one "$key" "$finding")" == "YES" ]]; then
+    verdict="YES"; caught=$((caught + 1)); tag="CAUGHT  (too easy -> drop)"
   else
-    verdict=$(_grade_one "$key" "$finding")
-  fi
-  if [[ "$verdict" == "YES" ]]; then
-    caught=$((caught + 1)); tag="CAUGHT  (too easy -> drop)"
-  else
-    miss=$((miss + 1)); tag="MISSED  (discriminating -> promote)"; promote+=("$id")
+    verdict="NO"; miss=$((miss + 1)); tag="MISSED  (discriminating -> promote)"; promote+=("$id")
   fi
   printf '  %-26s a-priori=%-6s strong=%-9s %s\n' "$id" "$diff" "$verdict" "$tag"
   printf '      finding: %s\n' "$(printf '%s' "$finding" | tr '\n' ' ' | cut -c1-150)"
   rm -f "$ctx" "$out"
 done < <(jq -r '.questions[].id' "$POOL")
 echo "======================================================================================"
-echo "MISSED (promote) = $miss / $n    CAUGHT (drop) = $caught / $n"
+echo "MISSED (promote) = $miss / $n    CAUGHT (drop) = $caught / $n    NO-ANSWER = $noans / $n"
 [[ ${#promote[@]} -gt 0 ]] && printf 'promote: %s\n' "${promote[*]}"
