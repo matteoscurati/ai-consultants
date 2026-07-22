@@ -1,0 +1,96 @@
+{
+  "_comment": "Held-out defect-finding benchmark for the panel-vs-baseline experiment. Each item shows real pre-fix code; the task is to name the most serious defect. `key` is a RUBRIC (answers are prose), not an exact string. SEED ONLY: these are drawn from this repo's own changelog, where the fix is the answer key. Extend to n>=30 with defects from other repos with a known key before the real run (see PREREGISTRATION.md).",
+  "version": "1.0",
+  "grader_calibration": [
+    {
+      "id": "cal-correct-1",
+      "key": "answer must identify that the loop condition uses <= with array length, reading one element past the end",
+      "answer": "The loop runs from i=0 while i<=len, but valid indices are 0..len-1, so at i==len it reads one element past the end of the array — an off-by-one out-of-bounds read.",
+      "expected_grade": "YES"
+    },
+    {
+      "id": "cal-correct-2",
+      "key": "answer must identify that the mutex is locked but never unlocked on the early-return path, causing a deadlock",
+      "answer": "On the `if err != nil` branch the function returns without calling Unlock(), so the mutex stays held and the next caller deadlocks.",
+      "expected_grade": "YES"
+    },
+    {
+      "id": "cal-wrong-1",
+      "key": "answer must identify that the loop condition uses <= with array length, reading one element past the end",
+      "answer": "The variable names are unclear and the function is too long; it should be split for readability.",
+      "expected_grade": "NO"
+    },
+    {
+      "id": "cal-wrong-2",
+      "key": "answer must identify that the mutex is locked but never unlocked on the early-return path, causing a deadlock",
+      "answer": "The error is not wrapped with context, so debugging the failure will be harder.",
+      "expected_grade": "NO"
+    }
+  ],
+  "questions": [
+    {
+      "id": "final-score-sanitized-key",
+      "source": "changelog v2.25.1",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "prompt": "In a bash voting module, the winning recommendation is produced by one function and the final 1-10 score by another. Name the most serious defect and why.\n\n_map_sanitize_key() { echo \"$1\" | tr -cd '[:alnum:]_'; }\n\ncalculate_weighted_recommendation() {\n  # ... picks the most-supported approach, then emits it as the winner key:\n  winner=$(_map_sanitize_key \"$top_approach\")\n  echo \"{\\\"recommended_approach\\\": \\\"$winner\\\"}\"\n}\n\ncalculate_final_score() {\n  local dir=\"$1\" winner=\"$2\" weighted_sum=0 total=0\n  for f in \"$dir\"/*.json; do\n    approach=$(jq -r '.response.approach' \"$f\")   # ORIGINAL string, e.g. \"Use JWT with sessions\"\n    conf=$(jq -r '.confidence.score' \"$f\")\n    total=$((total + conf))\n    if [[ \"$approach\" == \"$winner\" ]]; then weighted_sum=$((weighted_sum + conf*10));\n    else weighted_sum=$((weighted_sum + conf*2)); fi\n  done\n  echo $(( weighted_sum / total ))\n}",
+      "key": "answer must identify that the winner is the sanitized key (spaces/punctuation stripped, e.g. UseJWTwithsessions) while calculate_final_score compares each consultant's ORIGINAL approach string against it, so they never match and even a unanimous multiword panel is scored as all-dissent (~2/10 instead of 10/10)"
+    },
+    {
+      "id": "recursive-billing-peer-review",
+      "source": "changelog v2.25.1",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "prompt": "A cost function was changed to recurse so it would catch debate rounds written under round_N/ subdirectories. Name the most serious defect and why.\n\ncalculate_session_cost() {\n  local dir=\"$1\" total=0\n  while IFS= read -r f; do\n    model=$(jq -r '.model // \"default\"' \"$f\")\n    tokens=$(jq -r '.metadata.tokens_used // 1000' \"$f\")\n    total=$(echo \"$total + $(cost_for \"$model\" \"$tokens\")\" | bc)\n  done < <(find \"$dir\" -type f -name '*.json')\n  echo \"$total\"\n}\n\n# Context: the run directory also contains a peer_review/ subtree with\n# anonymized copies of each response (which keep the original .metadata.tokens_used)\n# and bookkeeping files like mapping.json (which have no .metadata at all).",
+      "key": "answer must identify that the recursive find also sweeps in the peer_review/ subtree: anonymized copies re-bill the original tokens (double counting) and bookkeeping files with no metadata take the // 1000 fallback, inflating the reported cost; the recursion needed to be scoped to the responses plus round_N/ only"
+    },
+    {
+      "id": "estimate-tokens-stdin-hang",
+      "source": "changelog v2.25.1",
+      "category": "BUG_DEBUG",
+      "difficulty": "medium",
+      "prompt": "This helper is called both as estimate_tokens \"$text\" and as `echo ... | estimate_tokens`. A test calls estimate_tokens \"\". Name the most serious defect and why.\n\nestimate_tokens() {\n  local text=\"${1:-}\"\n  if [[ -z \"$text\" ]]; then\n    text=$(cat)   # read from stdin if no argument\n  fi\n  local chars\n  chars=$(echo -n \"$text\" | wc -c | tr -d ' ')\n  echo $((chars / 4))\n}",
+      "key": "answer must identify that an explicit empty-string argument is indistinguishable from no argument (both make text empty), so estimate_tokens \"\" falls into cat and blocks reading stdin forever whenever stdin is an open pipe rather than closed/EOF; it should decide by argument count ($#), not by emptiness"
+    },
+    {
+      "id": "and-list-set-e-abort",
+      "source": "changelog v2.22.0 / v2.25.1",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "prompt": "This function runs under `set -euo pipefail`. It is meant to warn only in CLI mode and otherwise do nothing. Name the most serious defect and why.\n\nwarn_if_cli() {\n  local agent=\"$1\"\n  local var=\"${agent}_EFFORT\"\n  [[ -n \"${!var:-}\" ]] || return 0\n  is_api_mode \"$agent\" && return 0\n  log_warn \"$var is ignored in CLI mode\"\n}",
+      "key": "answer must identify that `is_api_mode \"$agent\" && return 0` is an &&-list: when is_api_mode returns non-zero (CLI mode) the whole list evaluates to non-zero, and because it is the last command before log_warn under set -e, a caller can be aborted / the function returns non-zero unexpectedly; it must use an explicit if-block, not an &&-list, as the guard"
+    },
+    {
+      "id": "dead-format-flags",
+      "source": "changelog v2.25.0",
+      "category": "CODE_REVIEW",
+      "difficulty": "medium",
+      "prompt": "Config declares per-agent wire-format overrides (QWEN3_FORMAT, GLM_FORMAT, ...) and .env.example documents them. The function that resolves the format is below. Name the most serious defect and why.\n\nget_api_format() {\n  local agent_upper; agent_upper=$(to_upper \"$1\")\n  case \"$agent_upper\" in\n    GEMINI) echo google_ai ;;\n    CLAUDE) echo anthropic ;;\n    QWEN3)  echo qwen ;;\n    *)      echo openai ;;\n  esac\n}",
+      "key": "answer must identify that the documented ${AGENT}_FORMAT override variables are never read — the function hardcodes the mapping by agent name — so setting QWEN3_FORMAT=openai silently does nothing, and there is no way to point a consultant at an endpoint using a different wire protocol"
+    },
+    {
+      "id": "tokens-used-hardcoded-zero",
+      "source": "changelog v2.25.0",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "prompt": "This is the only writer of per-response metadata. Session cost is computed as sum over responses of tokens_used * model_rate. Users report every session costs about the same small amount regardless of the work done. Name the most serious defect and why.\n\nbuild_response_metadata() {\n  local latency=\"$1\" model=\"$2\"\n  jq -n --argjson latency \"$latency\" --arg model \"$model\" \\\n    '{tokens_used: 0, latency_ms: $latency, model_version: $model}'\n}",
+      "key": "answer must identify that tokens_used is hardcoded to 0 for every response, so real consultants contribute $0 to the cost; the reported figure comes only from other files the cost glob picks up (which take a fallback token count), so the number reflects pipeline overhead, not actual spend"
+    },
+    {
+      "id": "log-level-non-hermetic-test",
+      "source": "changelog v2.25.0",
+      "category": "TESTING",
+      "difficulty": "medium",
+      "prompt": "This test passes locally and in most CI runs but occasionally fails for one contributor. log_warn writes at WARN level and is suppressed when LOG_LEVEL=ERROR. Name the most serious defect and why.\n\ntest_bad_value_warns() {\n  local out\n  out=$(SOME_VAR=bogus get_api_format QWEN3 2>&1 >/dev/null)\n  assert_match \"not a known format\" \"$out\" \"bad value warns\"\n}",
+      "key": "answer must identify that the test asserts on log_warn output but does not pin LOG_LEVEL, so it is non-hermetic: for anyone whose environment sets LOG_LEVEL=ERROR the warning is suppressed and the assertion fails deterministically for that environment while passing everywhere else; the suite must export LOG_LEVEL=INFO before the assertion"
+    },
+    {
+      "id": "smart-routing-ignores-enable",
+      "source": "changelog v2.25.1",
+      "category": "BUG_DEBUG",
+      "difficulty": "medium",
+      "prompt": "select_consultants ranks the roster by affinity and returns the top N. The caller uses its output directly when smart routing is on; the ENABLE_* and self-exclusion checks live only in the other (non-smart) code branch. Name the most serious defect and why.\n\nselect_consultants() {\n  local category=\"$1\" min=\"$2\" max=\"$3\" count=0\n  for c in Gemini Codex Mistral Cursor Kimi Claude Qwen3 GLM Grok DeepSeek MiniMax; do\n    [[ $(get_affinity \"$category\" \"$c\") -ge $min ]] || continue\n    echo \"$c\"; count=$((count+1))\n    [[ $count -ge $max ]] && break\n  done\n}",
+      "key": "answer must identify that select_consultants filters only on affinity and ignores the ENABLE_* flags and self-exclusion, so with smart routing on, a consultant the user disabled (or the invoking agent itself) can still be selected, queried, and billed; eligibility must be applied here where the output is consumed"
+    }
+  ]
+}

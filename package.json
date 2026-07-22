@@ -12,6 +12,7 @@
     "!scripts/test_fixtures/",
     "!scripts/lib/test_helpers.sh",
     "!scripts/release.sh",
+    "!scripts/experiment/",
     "templates/",
     ".env.example",
     ".claude/commands/",
