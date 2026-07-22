@@ -4,7 +4,24 @@ Maintainer instrumentation — **not shipped** (excluded from the npm tarball vi
 `package.json` `files`). Not user calibration (`roster_calibrate.sh` / `taste_elo.sh`
 are shipped; this is not). It changes no default, no roster, no shipped code path.
 
-## Result so far (2026-07-22): snippet defect-finding SATURATES — panel has no headroom
+## Bottom line (2026-07-22): panel value is TASK-DEPENDENT — wins on breadth, not on defect-finding
+
+Two regimes, opposite results:
+
+| task | measure | single strong model | cross-vendor panel (fan-out union) |
+|---|---|---|---|
+| **convergent** — find THE defect | caught? | **19/19 (saturates)** | no headroom to add |
+| **divergent** — enumerate ALL risks (breadth) | rubric coverage | A = 19/32 (**59%**) | W = 32/32 (**100%**); C (same model ×8) = 84% |
+
+On breadth the panel wins **W > C > A on every item** (`breadth_experiment.sh`, 3 items) — it covers
+points one model misses (W−A = +13) *and* beats resampling the same model at equal sample count
+(W−C = +5), so the edge is **diversity, not volume**. The panel ran as **raw fan-out with NO
+deliberation** (voting/consensus/debate off): the value is the diverse UNION, not the averaging —
+which supports keeping the diverse agents and cutting the consensus machinery. The whole result is
+directional (n=3) and has a **rubric-ceiling caveat** (W hit 100%, masking the true W−C gap); a
+binding run needs deeper rubrics (20–30 points incl. niche ones) so neither W nor C maxes out.
+
+## Regime 1 (2026-07-22): snippet defect-finding SATURATES — panel has no headroom
 
 The full A/W/C run was NOT needed to answer the premise. The `difficulty_probe.sh` curation
 step measures the precondition for any panel value — *does a single strong model miss the bug?*
