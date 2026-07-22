@@ -49,8 +49,8 @@ nothing), or than the same model sampled k times (diversity ≠ more samples).
 |---|---|---|
 | Strong model (A, C) | a model reliable in the run environment and **not** the grader/verifier | The pilot proved Claude is unusable driven from a Claude Code session; pick per environment, record it here before freezing |
 | Verifier (W, C) | a model **not** the one that produced the finding | Adversarial verification must not check its own answer |
-| Grader (coverage scoring) | a model **different** from A/C, **pinned strong** (`JUDGE_MODEL=opus`) and **majority-voted** (`JUDGE_VOTES=5`) | The default headless grader graded an unambiguous pair YES only 5/12; even opus flips ~1/6 per call. Pin + vote, or the gate is noise (see README pilot findings). The grader IS the experiment |
-| Verifier (W, C) — reliability | same pin + vote (`VERIFY_MODEL=opus`, `VERIFY_VOTES=5`) | A weak/single-call verifier corrupts coverage exactly as a weak grader does |
+| Grader (coverage scoring) | **codex `gpt-5.6-sol` @high** (the default backend), a model **different** from A/C | Measured both directions: claude default 5/12 on an obvious-YES pair, opus over-matches (3/6 on an obvious-NO pair), codex-sol 6/6 + 4/4. The grader IS the experiment; pick the reliable one, not the convenient one |
+| Verifier (W, C) — reliability | same codex sol-high backend | A weak/single-call verifier corrupts coverage exactly as a weak grader does |
 | Panel (W) | every consultant that answers live (`doctor --live`), Cursor and any dead-key consultants excluded | Measure the real working panel, not a static roster |
 | n | ≥ 30 items | Sign/McNemar test needs it; the pilot's n=3 is not a result |
 | Cache | `ENABLE_SEMANTIC_CACHE=false` | A cache hit collapses C's samples and voids token accounting |
@@ -91,14 +91,14 @@ not a win or loss for any arm.
 ## Grader / verifier validity gate
 
 Before any real coverage grade is trusted: the grader must clear the fixed calibration pairs in
-`benchmark.json` (obvious-correct / obvious-wrong), run with the pinned+voted config above. After
+`benchmark.json` (obvious-correct / obvious-wrong), run with the codex sol-high backend above. After
 the run, hand-label a random 10 of the grader's verdicts AND 10 of the verifier's refute/keep
 decisions; below **90%** human agreement on either, the run is inconclusive. The pilot is the
-cautionary case, now quantified: a single call from the *default* grader scored a verbatim-correct
-answer wrong ~half the time — which is why the gate requires a pinned strong model and a majority
-vote, not one call. Two caveats on the gate itself: (a) the calibration set is only 4 pairs, so one
-residual flip is a 25% swing — expand it alongside the n≥30 benchmark; (b) even at votes=5 a
-~5–7% *spurious* fail remains, which is conservative (re-run; never proceed on a grader that failed).
+cautionary case, now quantified: the *default* claude grader scored a verbatim-correct answer wrong
+~half the time, and opus flips both ways — which is why the backend is codex sol-high (measured 6/6
++ 4/4), not the convenient CLI. One caveat on the gate itself: the calibration set is only 4 pairs,
+so one flip is a 25% swing — expand it alongside the n≥30 benchmark. A gate fail is conservative:
+re-run or investigate the pair; never proceed on a grader that failed.
 
 ## What this experiment does NOT do
 

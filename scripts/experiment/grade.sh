@@ -15,46 +15,78 @@
 #                                       verified finding against the item key; the arm COVERS
 #                                       the defect if any finding scores YES.
 #
-# Env: JUDGE_CLI   (default claude; MUST differ from the arm-A/C model — PREREGISTRATION.md),
-#      JUDGE_MODEL (optional; passed as `--model $JUDGE_MODEL`). REQUIRED for reliability with
-#                  claude: headless `claude -p` at the session default is a fast model that grades
-#                  an UNAMBIGUOUS correct pair YES only ~5/12 (a coin flip). `JUDGE_MODEL=opus`
-#                  + the reason-then-verdict prompt below graded it 8/8. Pin a strong grader.
-#      GRADE_CMD   (optional external: "$GRADE_CMD" <key> <finding> -> YES|NO).
+# The grader MUST be reliable and a DIFFERENT model from arm A/C (PREREGISTRATION.md). Choosing it
+# is not incidental — it was measured (both directions, per call, N samples):
+#   claude -p, session default : cal-correct-1 (obvious YES) graded YES only 5/12 — a coin flip.
+#   claude -p --model opus      : 6-8/10 YES on that pair, and only 3/6 NO on an obvious-WRONG pair
+#                                 (it over-matches under a sharper prompt). Noisy BOTH ways; unusable.
+#   codex gpt-5.6-sol @ high    : 6/6 YES on the correct pair, 4/4 NO on the wrong pair. Reliable.
+# So the DEFAULT backend is codex sol-high, not claude. (v1 also found Codex passed the gate 4/4.)
+#
+# Env: JUDGE_BACKEND codex (default) | claude
+#      JUDGE_MODEL   backend model. codex: `-m` (default gpt-5.6-sol). claude: `--model` (e.g. opus).
+#      JUDGE_EFFORT  codex reasoning effort (default high). Ignored by the claude backend.
+#      JUDGE_CLI     claude-backend CLI name (default claude). Ignored by the codex backend.
+#      JUDGE_VOTES   majority over N single-shots (default 1; the reliable backend needs little,
+#                    use 3 for insurance). Variance reduction; applied to calibration and real grades.
+#      GRADE_CMD     hard override (external: "$GRADE_CMD" <key> <finding> -> YES|NO).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BENCH_DEFAULT="$SCRIPT_DIR/benchmark.json"
+
+# Extract a single YES|NO from model text: last standalone verdict, upper-cased. Word-boundary
+# so "no" inside "not"/"cannot"/"none" never matches; tail -1 takes the concluding token.
+_extract_verdict() { grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'; }
+
+# Run ONE grader call on the chosen backend and echo its raw verdict text.
+_judge_backend_call() {  # prompt
+  local prompt="$1"
+  case "${JUDGE_BACKEND:-codex}" in
+    codex)
+      # Brief on a file (never spliced into argv — it carries quotes/backticks/newlines);
+      # -o <file> isolates the final message (raw stdout carries hook chatter). read-only.
+      local bf of; bf=$(mktemp); of=$(mktemp); printf '%s' "$prompt" > "$bf"
+      codex exec -m "${JUDGE_MODEL:-gpt-5.6-sol}" \
+        -c model_reasoning_effort="${JUDGE_EFFORT:-high}" -s read-only \
+        "$(cat "$bf")" </dev/null -o "$of" >/dev/null 2>&1 || true
+      _extract_verdict < "$of"
+      rm -f "$bf" "$of" ;;
+    claude|*)
+      local -a jcmd=("${JUDGE_CLI:-claude}" -p)
+      [[ -n "${JUDGE_MODEL:-}" ]] && jcmd+=(--model "$JUDGE_MODEL")
+      printf '%s' "$prompt" | "${jcmd[@]}" 2>/dev/null | _extract_verdict ;;
+  esac
+}
 
 # ONE single-shot verdict (YES|NO|empty) from the grader.
 _grade_once() {
   local key="$1" finding="$2"
   if [[ -n "${GRADE_CMD:-}" ]]; then
-    "$GRADE_CMD" "$key" "$finding" 2>/dev/null | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
+    "$GRADE_CMD" "$key" "$finding" 2>/dev/null | _extract_verdict
     return
   fi
-  local prompt
-  # Reason-then-verdict (NOT a forced single token): a reasoning grader is markedly more reliable
-  # when allowed to reason first; `tail -1` below takes the concluding verdict. Forcing "one word"
-  # measured worse on the calibration pairs. See the JUDGE_MODEL note in the header.
-  prompt="You are grading whether a finding identified a specific defect. Decide ONLY against the KEY — ignore style, extra content, and whether the finding also found OTHER issues.
+  # Match on MEANING, not wording: a finding matches if it names the SAME underlying bug — even in
+  # different words, or describing the cause OR the consequence. Reason-then-verdict; `tail -1`
+  # grabs the conclusion. (This exact framing kept codex 6/6 on the correct pair AND 4/4 on the
+  # wrong one; the looser "cause or consequence" clause made the noisy claude backend over-match,
+  # which is why the backend, not just the prompt, had to change.)
+  local prompt="You are grading whether a FINDING correctly identifies a specific known defect described in the KEY.
 
-KEY (the defect that must be identified): $key
+The FINDING MATCHES (YES) if it describes the SAME underlying bug as the KEY — even in different words, at a different level of detail, or focusing on the defect's CAUSE or its CONSEQUENCE. It does NOT match (NO) only if it points at a DIFFERENT issue, a vague/non-specific concern, or nothing relevant to the KEY's defect. Ignore writing style and any extra issues the finding also raises.
+
+KEY: $key
 
 FINDING: $finding
 
-Think briefly, then on the FINAL line write your verdict as exactly YES or NO (YES if the finding identifies the KEY's defect; otherwise NO)."
-  local -a jcmd=("${JUDGE_CLI:-claude}" -p)
-  [[ -n "${JUDGE_MODEL:-}" ]] && jcmd+=(--model "$JUDGE_MODEL")
-  printf '%s' "$prompt" | "${jcmd[@]}" 2>/dev/null \
-    | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
+Think briefly, then on the FINAL line write your verdict as exactly YES or NO."
+  _judge_backend_call "$prompt"
 }
 
 # YES|NO: does a finding identify the defect in the key? MAJORITY over JUDGE_VOTES single-shots.
-# An LLM binary grader has irreducible per-call noise — even a strong pinned model flips on an
-# UNAMBIGUOUS pair (~0.82 YES for opus on the calibration set). A single sample is not an
-# instrument; the majority of an odd number of votes is. Applied identically to calibration and
-# real grades (fair). Ties / all-empty -> ERR (calibration flags it; coverage treats non-YES as
-# not-covered). JUDGE_VOTES=1 preserves the old single-shot behavior for the $0 smoke path.
+# The codex sol-high backend is near-deterministic on the calibration pairs (votes=1 suffices), but
+# voting stays available as cheap insurance / for the noisier claude backend. Applied identically to
+# calibration and real grades (fair). Ties / all-empty -> ERR (calibration flags it; coverage treats
+# non-YES as not-covered). JUDGE_VOTES=1 preserves the single-shot behavior for the $0 smoke path.
 _grade_one() {
   local key="$1" finding="$2" n="${JUDGE_VOTES:-1}" y=0 no=0 i v
   for ((i=0; i<n; i++)); do
@@ -70,7 +102,9 @@ _grade_one() {
 _calibrate() {
   local bench="${1:-$BENCH_DEFAULT}"
   local n=0 agree=0 err=0
-  echo "Grader calibration (JUDGE_CLI=${JUDGE_CLI:-claude}${JUDGE_MODEL:+ --model $JUDGE_MODEL})"
+  local _bk="${JUDGE_BACKEND:-codex}" _mdl
+  if [[ "$_bk" == codex ]]; then _mdl="${JUDGE_MODEL:-gpt-5.6-sol} @${JUDGE_EFFORT:-high}"; else _mdl="${JUDGE_CLI:-claude}${JUDGE_MODEL:+ --model $JUDGE_MODEL}"; fi
+  echo "Grader calibration (backend=$_bk, model=$_mdl, votes=${JUDGE_VOTES:-1})"
   echo "----------------------------------------------------"
   while IFS=$'\t' read -r id key answer expected; do
     [[ -n "$id" ]] || continue

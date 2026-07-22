@@ -15,25 +15,49 @@
 # weak grader (see the pilot's grader failure).
 #
 # Usage: verify.sh <benchmark.json> <findings.jsonl> [verified.jsonl]
-# Env:   VERIFY_CLI    verifier CLI (default: claude), invoked as: printf '%s' "$p" | CLI -p
-#        VERIFY_MODEL  optional; passed as `--model $VERIFY_MODEL`. Pin a strong model — headless
-#                      `claude -p` at the session default is a fast, unreliable judge (the grader
-#                      calibration showed it flipping a coin on an unambiguous pair; use e.g.
-#                      VERIFY_MODEL=opus). A weak verifier is as corrupting as a weak grader.
-#        VERIFY_CMD    optional external verifier: "$VERIFY_CMD" <code> <finding> -> YES|NO
+# Env:   VERIFY_BACKEND codex (default) | claude. The verifier must be reliable for the same reason
+#                       the grader must (measured: claude is noisy both directions; codex sol-high is
+#                       not — see grade.sh header). A weak verifier corrupts coverage as a weak grader does.
+#        VERIFY_MODEL   backend model. codex: `-m` (default gpt-5.6-sol). claude: `--model` (e.g. opus).
+#        VERIFY_EFFORT  codex reasoning effort (default high). Ignored by the claude backend.
+#        VERIFY_CLI     claude-backend CLI name (default claude). Ignored by the codex backend.
+#        VERIFY_VOTES   majority over N single-shots (default 1; 3 for insurance).
+#        VERIFY_CMD     hard override (external: "$VERIFY_CMD" <code> <finding> -> YES|NO).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Extract a single YES|NO from model text: last standalone verdict, upper-cased (word-boundary so
+# "no" inside "not"/"cannot"/"none" never matches; tail -1 takes the concluding token).
+_extract_verdict() { grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'; }
+
+# Run ONE verifier call on the chosen backend and echo its raw verdict text.
+_verify_backend_call() {  # prompt
+  local prompt="$1"
+  case "${VERIFY_BACKEND:-codex}" in
+    codex)
+      # Brief on a file (never spliced into argv); -o isolates the final message; read-only.
+      local bf of; bf=$(mktemp); of=$(mktemp); printf '%s' "$prompt" > "$bf"
+      codex exec -m "${VERIFY_MODEL:-gpt-5.6-sol}" \
+        -c model_reasoning_effort="${VERIFY_EFFORT:-high}" -s read-only \
+        "$(cat "$bf")" </dev/null -o "$of" >/dev/null 2>&1 || true
+      _extract_verdict < "$of"
+      rm -f "$bf" "$of" ;;
+    claude|*)
+      local -a vcmd=("${VERIFY_CLI:-claude}" -p)
+      [[ -n "${VERIFY_MODEL:-}" ]] && vcmd+=(--model "$VERIFY_MODEL")
+      printf '%s' "$prompt" | "${vcmd[@]}" 2>/dev/null | _extract_verdict ;;
+  esac
+}
 
 # ONE single-shot verdict (YES|NO|empty): is the finding a REAL defect in the code?
 _verify_once() {
   local code="$1" finding="$2"
   if [[ -n "${VERIFY_CMD:-}" ]]; then
-    "$VERIFY_CMD" "$code" "$finding" 2>/dev/null | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
+    "$VERIFY_CMD" "$code" "$finding" 2>/dev/null | _extract_verdict
     return
   fi
-  local prompt
-  # Reason-then-verdict; `tail -1` grabs the concluding token. See VERIFY_MODEL in the header.
-  prompt="You are adversarially verifying a claimed code defect. Try to REFUTE it. Say YES only if the claimed defect is a REAL defect actually present in the code below; say NO if it is vague, wrong, not present, or unsupported by the code.
+  # Reason-then-verdict; `tail -1` grabs the concluding token. See the header for the backend note.
+  local prompt="You are adversarially verifying a claimed code defect. Try to REFUTE it. Say YES only if the claimed defect is a REAL defect actually present in the code below; say NO if it is vague, wrong, not present, or unsupported by the code.
 
 CODE:
 $code
@@ -41,10 +65,7 @@ $code
 CLAIMED DEFECT: $finding
 
 Think briefly, then on the FINAL line write your verdict as exactly YES or NO (YES if the claimed defect is real and present; otherwise NO)."
-  local -a vcmd=("${VERIFY_CLI:-claude}" -p)
-  [[ -n "${VERIFY_MODEL:-}" ]] && vcmd+=(--model "$VERIFY_MODEL")
-  printf '%s' "$prompt" | "${vcmd[@]}" 2>/dev/null \
-    | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
+  _verify_backend_call "$prompt"
 }
 
 # One verdict for (code, finding): is the finding a REAL defect? MAJORITY over VERIFY_VOTES
