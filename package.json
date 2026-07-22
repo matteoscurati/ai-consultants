@@ -1,6 +1,6 @@
 {
   "name": "ai-consultants",
-  "version": "2.25.1",
+  "version": "2.25.2",
   "description": "A harness for every question - a panel of up to 11 AI models that picks its own deliberation strategy per question (convergence, adversarial verification, tournament) and checks its work before answering",
   "bin": {
     "ai-consultants": "bin/ai-consultants"

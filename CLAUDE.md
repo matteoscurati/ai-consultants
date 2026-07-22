@@ -6,7 +6,7 @@ AI Consultants is a multi-model AI deliberation system that queries up to 11 AI 
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 2.25.1
+**Version**: 2.25.2
 
 ## Distribution
 
@@ -800,6 +800,10 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v2.25.2
+- **`doctor`'s static ✓ was a false all-clear.** `check_cli_consultant` verifies `command -v` (installed) or key-present; neither confirms the consultant answers. So `✓ All systems healthy!` and JSON `status: "healthy"` were printed on installation state alone — a consultant with an expired key or spent quota passes every static check and fails the first real query. Surfaced concretely: static doctor called all 11 healthy; `doctor --live` showed 8/11 (Cursor usage limit, Qwen3 401, Grok bad xAI key returned as HTTP 400). Fix gates the word "healthy" on `LIVE_MODE`: a static-only clean run now prints "Static checks passed: CLIs installed, keys present … verify with doctor --live", and JSON reports `status: "static_ok"` + a new `verified: live|static` field; "healthy" now implies a live check backed it. `test_doctor.sh` asserts the invariant directly (a static-only run must never report `healthy`) rather than pinning a specific status, so it holds regardless of the test host's own consultant health. v2.18.0 added `--live` but left the default over-claiming; this closes that. `npm test` = 22 suites.
+- **Note (not shipped, local only)**: the 3 down consultants were all credentials, not code — Grok/Qwen3 keys refreshed and Cursor disabled in the maintainer's own `~/.config`, taking the local live panel to 10/10 (Cursor off by choice). Qwen locally points at Token Plan `qwen3.8-max-preview`; the shipped default stays `qwen3.7-max`.
 
 ### v2.25.1
 - **Six defects found by an independent review of the released v2.25.0** (Codex `gpt-5.6-sol`, effort high, read-only via the `sol-reviewer` profile). Five were reproduced locally by executing the shipped functions before accepting them; the bash 3.2 crash was verified by the reviewer against `/bin/bash 3.2.57`.

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.25.2] - 2026-07-22
+
+### Fixed
+- **`doctor` no longer reports "healthy" from static checks alone.** The default `doctor` confirms a CLI is installed and a key is present — not that a consultant can actually answer. A consultant with an expired key or an exhausted quota passed every static check, yet `doctor` printed "All systems healthy!" and its JSON reported `status: "healthy"`. Measured: static `doctor` called all 11 consultants healthy while only 8 responded to a real query. A static-only run now says so explicitly and points to `doctor --live`; the word "healthy" is reserved for a `--live` run that actually pinged them. The `--json` output gains a `verified: "live"|"static"` field and a `static_ok` status, so tooling can tell a real all-clear from an unverified one. `--live` behavior is unchanged, and a plain `doctor` still makes no billed calls.
+
 ## [2.25.1] - 2026-07-21
 
 ### Fixed
