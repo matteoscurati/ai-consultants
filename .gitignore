@@ -35,3 +35,7 @@ Thumbs.db
 
 # Test output
 /test_output/
+
+# ai-consultants experiment run artifacts (transient)
+scripts/experiment/out/
+scripts/experiment/out_*/
