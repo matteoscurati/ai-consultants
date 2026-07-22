@@ -291,7 +291,18 @@ test_main_json_output() {
     empty_entries=$(echo "$out" | jq \
         '[.doctor.issues[], .doctor.warnings[] | select(.description == "")] | length')
     assert_match '^[0-9]+\.[0-9]+\.[0-9]+$' "$version" "main --json includes doctor version"
-    assert_match '^(healthy|degraded|unhealthy)$' "$status" "main --json includes doctor status"
+    # static_ok is the honest static-only status: "healthy" now requires --live,
+    # because static checks cannot see an expired key or exhausted quota.
+    assert_match '^(healthy|static_ok|degraded|unhealthy)$' "$status" "main --json includes doctor status"
+    local verified
+    verified=$(echo "$out" | jq -r '.doctor.verified')
+    assert_match '^(live|static)$' "$verified" "main --json records whether status was verified live or static"
+    # The honesty invariant: a static-only run must never claim "healthy".
+    if [[ "$verified" == "static" && "$status" == "healthy" ]]; then
+        assert_eq "not-healthy" "healthy" "static-only run must not report healthy (it cannot verify consultants answer)"
+    else
+        assert_eq "ok" "ok" "healthy status implies a live check backed it"
+    fi
     assert_match '^[1-9][0-9]*$' "$total" "main --json includes completed checks"
     assert_eq "0" "$empty_entries" "main --json does not synthesize empty issue/warning entries"
     assert_match '^(0|1)$' "$rc" "main --json exit code reflects health without aborting"
