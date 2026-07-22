@@ -15,30 +15,48 @@
 # weak grader (see the pilot's grader failure).
 #
 # Usage: verify.sh <benchmark.json> <findings.jsonl> [verified.jsonl]
-# Env:   VERIFY_CLI  verifier CLI (default: claude), invoked as: printf '%s' "$p" | CLI -p
-#        VERIFY_CMD  optional external verifier: "$VERIFY_CMD" <code> <finding> -> YES|NO
+# Env:   VERIFY_CLI    verifier CLI (default: claude), invoked as: printf '%s' "$p" | CLI -p
+#        VERIFY_MODEL  optional; passed as `--model $VERIFY_MODEL`. Pin a strong model — headless
+#                      `claude -p` at the session default is a fast, unreliable judge (the grader
+#                      calibration showed it flipping a coin on an unambiguous pair; use e.g.
+#                      VERIFY_MODEL=opus). A weak verifier is as corrupting as a weak grader.
+#        VERIFY_CMD    optional external verifier: "$VERIFY_CMD" <code> <finding> -> YES|NO
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# One verdict for (code, finding): is the finding a REAL defect in the code? YES|NO.
-_verify_one() {
+# ONE single-shot verdict (YES|NO|empty): is the finding a REAL defect in the code?
+_verify_once() {
   local code="$1" finding="$2"
   if [[ -n "${VERIFY_CMD:-}" ]]; then
     "$VERIFY_CMD" "$code" "$finding" 2>/dev/null | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
     return
   fi
-  local prompt verdict
-  prompt="You are adversarially verifying a claimed code defect. Try to REFUTE it. Reply YES only if the claimed defect is a REAL defect actually present in the code below; reply NO if it is vague, wrong, not present, or unsupported by the code.
+  local prompt
+  # Reason-then-verdict; `tail -1` grabs the concluding token. See VERIFY_MODEL in the header.
+  prompt="You are adversarially verifying a claimed code defect. Try to REFUTE it. Say YES only if the claimed defect is a REAL defect actually present in the code below; say NO if it is vague, wrong, not present, or unsupported by the code.
 
 CODE:
 $code
 
 CLAIMED DEFECT: $finding
 
-Is the claimed defect a real defect present in this code? Answer with a single word and nothing else: YES or NO."
-  verdict=$(printf '%s' "$prompt" | "${VERIFY_CLI:-claude}" -p 2>/dev/null \
-    | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]')
-  echo "${verdict:-NO}"   # unparsed -> treat as not-verified (conservative: prune)
+Think briefly, then on the FINAL line write your verdict as exactly YES or NO (YES if the claimed defect is real and present; otherwise NO)."
+  local -a vcmd=("${VERIFY_CLI:-claude}" -p)
+  [[ -n "${VERIFY_MODEL:-}" ]] && vcmd+=(--model "$VERIFY_MODEL")
+  printf '%s' "$prompt" | "${vcmd[@]}" 2>/dev/null \
+    | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
+}
+
+# One verdict for (code, finding): is the finding a REAL defect? MAJORITY over VERIFY_VOTES
+# single-shots — same variance-reduction reason as the grader. Ties / all-empty -> NO (a weak
+# verifier that can't confirm should prune, matching the prior conservative default).
+_verify_one() {
+  local code="$1" finding="$2" n="${VERIFY_VOTES:-1}" y=0 no=0 i v
+  for ((i=0; i<n; i++)); do
+    v=$(_verify_once "$code" "$finding")
+    case "$v" in YES) y=$((y+1));; NO) no=$((no+1));; esac
+  done
+  [[ $y -gt $no ]] && echo YES || echo NO
 }
 
 _main() {

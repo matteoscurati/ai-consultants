@@ -42,8 +42,11 @@ cd scripts/experiment
 # 0. Prove the plumbing with no model calls ($0):
 ./run_experiment.sh --smoke && echo "smoke ok"
 
-# 1. Validate the grader BEFORE trusting it. JUDGE_CLI must NOT be the arm-A/C model.
-JUDGE_CLI=<capable-clerk-cli> ./grade.sh --calibrate     # must print GATE PASSED
+# 1. Validate the grader BEFORE trusting it. Pin a STRONG model and VOTE — a headless
+#    `claude -p` at the session default grades an unambiguous pair YES only ~5/12 (measured),
+#    and even opus flips ~1 in 6 on a single call. JUDGE_MODEL + JUDGE_VOTES fix both.
+#    JUDGE_CLI/JUDGE_MODEL must NOT be the arm-A/C model.
+JUDGE_CLI=claude JUDGE_MODEL=opus JUDGE_VOTES=5 ./grade.sh --calibrate   # must print GATE PASSED
 
 # 2. Freeze the pre-registration (fill in date, commit hash, models), then:
 touch .frozen
@@ -53,9 +56,10 @@ touch .frozen
 STRONG_CONSULTANT=Gemini ./run_experiment.sh --run
 FIND=out/findings.jsonl
 
-# 4. Adversarial verify (VERIFY_CLI must not be the finding's author). Then coverage-grade.
-VERIFY_CLI=<verifier-cli> ./verify.sh benchmark.json "$FIND" out/verified.jsonl
-JUDGE_CLI=<grader-cli>    ./grade.sh  benchmark.json out/verified.jsonl out/coverage.jsonl
+# 4. Adversarial verify (VERIFY_CLI/VERIFY_MODEL must not be the finding's author; pin+vote
+#    a strong model for the same reason as the grader). Then coverage-grade.
+VERIFY_CLI=claude VERIFY_MODEL=opus VERIFY_VOTES=5 ./verify.sh benchmark.json "$FIND" out/verified.jsonl
+JUDGE_CLI=claude  JUDGE_MODEL=opus  JUDGE_VOTES=5  ./grade.sh  benchmark.json out/verified.jsonl out/coverage.jsonl
 
 # 5. Verdict:
 ./analyze.sh out/coverage.jsonl out/verified.jsonl
@@ -68,6 +72,20 @@ JUDGE_CLI=<grader-cli>    ./grade.sh  benchmark.json out/verified.jsonl out/cove
 
 A pilot on the seed set surfaced environment constraints that a binding run must respect:
 
+- **The grader is the experiment, and a single LLM call is not an instrument (measured).** The
+  calibration gate failed 3/4, and the cause was neither the parse nor the pairs: a headless
+  `claude -p` at the *session default* model graded an **unambiguous** correct pair (`cal-correct-1`,
+  where the answer restates the key almost verbatim) YES only **5/12** — a coin flip. Two levers
+  fix it, and both are now baked in: (1) **pin a strong model** — `JUDGE_MODEL=opus` took that pair
+  to ~0.82/call (the default resolves to a fast, unreliable model); (2) **majority-vote** —
+  `JUDGE_VOTES=5` turns 0.82/call into ~0.96/pair, which is the difference between a usable gate and
+  a brittle one. Also: the prompt now asks the grader to *reason then* emit a final YES/NO (`tail -1`
+  takes the conclusion); forcing a bare single token measured worse. Same `VERIFY_MODEL`/`VERIFY_VOTES`
+  levers apply to the verifier — a weak verifier corrupts coverage exactly as a weak grader does. A
+  residual ~5–7% chance of a *spurious* single-run gate fail remains at votes=5 (raise to 7 if it
+  bites); a spurious fail is conservative — re-run, don't proceed on it. **Note the 4-pair calibration
+  set is itself too small** — one flip is a 25% swing; expanding it (toward the n≥30 benchmark work)
+  is part of making the gate robust.
 - **Do not drive the strong model from inside a Claude Code session.** With
   `STRONG_CONSULTANT=Claude`, arm A/C call the `claude` CLI, which contends with the
   driving session and intermittently degrades (synthesis fell back to "Manual review

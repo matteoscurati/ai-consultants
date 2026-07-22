@@ -15,37 +15,62 @@
 #                                       verified finding against the item key; the arm COVERS
 #                                       the defect if any finding scores YES.
 #
-# Env: JUDGE_CLI (default claude; MUST differ from the arm-A/C model — PREREGISTRATION.md),
-#      GRADE_CMD (optional external: "$GRADE_CMD" <key> <finding> -> YES|NO).
+# Env: JUDGE_CLI   (default claude; MUST differ from the arm-A/C model — PREREGISTRATION.md),
+#      JUDGE_MODEL (optional; passed as `--model $JUDGE_MODEL`). REQUIRED for reliability with
+#                  claude: headless `claude -p` at the session default is a fast model that grades
+#                  an UNAMBIGUOUS correct pair YES only ~5/12 (a coin flip). `JUDGE_MODEL=opus`
+#                  + the reason-then-verdict prompt below graded it 8/8. Pin a strong grader.
+#      GRADE_CMD   (optional external: "$GRADE_CMD" <key> <finding> -> YES|NO).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BENCH_DEFAULT="$SCRIPT_DIR/benchmark.json"
 
-# YES|NO: does a single finding identify the defect in the key?
-_grade_one() {
+# ONE single-shot verdict (YES|NO|empty) from the grader.
+_grade_once() {
   local key="$1" finding="$2"
   if [[ -n "${GRADE_CMD:-}" ]]; then
     "$GRADE_CMD" "$key" "$finding" 2>/dev/null | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
     return
   fi
-  local prompt verdict
+  local prompt
+  # Reason-then-verdict (NOT a forced single token): a reasoning grader is markedly more reliable
+  # when allowed to reason first; `tail -1` below takes the concluding verdict. Forcing "one word"
+  # measured worse on the calibration pairs. See the JUDGE_MODEL note in the header.
   prompt="You are grading whether a finding identified a specific defect. Decide ONLY against the KEY — ignore style, extra content, and whether the finding also found OTHER issues.
 
 KEY (the defect that must be identified): $key
 
 FINDING: $finding
 
-Does the FINDING identify the defect described in the KEY? Answer with a single word and nothing else: YES or NO."
-  verdict=$(printf '%s' "$prompt" | "${JUDGE_CLI:-claude}" -p 2>/dev/null \
-    | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]')
-  echo "${verdict:-ERR}"
+Think briefly, then on the FINAL line write your verdict as exactly YES or NO (YES if the finding identifies the KEY's defect; otherwise NO)."
+  local -a jcmd=("${JUDGE_CLI:-claude}" -p)
+  [[ -n "${JUDGE_MODEL:-}" ]] && jcmd+=(--model "$JUDGE_MODEL")
+  printf '%s' "$prompt" | "${jcmd[@]}" 2>/dev/null \
+    | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
+}
+
+# YES|NO: does a finding identify the defect in the key? MAJORITY over JUDGE_VOTES single-shots.
+# An LLM binary grader has irreducible per-call noise — even a strong pinned model flips on an
+# UNAMBIGUOUS pair (~0.82 YES for opus on the calibration set). A single sample is not an
+# instrument; the majority of an odd number of votes is. Applied identically to calibration and
+# real grades (fair). Ties / all-empty -> ERR (calibration flags it; coverage treats non-YES as
+# not-covered). JUDGE_VOTES=1 preserves the old single-shot behavior for the $0 smoke path.
+_grade_one() {
+  local key="$1" finding="$2" n="${JUDGE_VOTES:-1}" y=0 no=0 i v
+  for ((i=0; i<n; i++)); do
+    v=$(_grade_once "$key" "$finding")
+    case "$v" in YES) y=$((y+1));; NO) no=$((no+1));; esac
+  done
+  if   [[ $y -gt $no ]]; then echo YES
+  elif [[ $no -gt $y ]]; then echo NO
+  else echo ERR; fi
 }
 
 # --- calibration: prove the grader before trusting it ------------------------
 _calibrate() {
   local bench="${1:-$BENCH_DEFAULT}"
   local n=0 agree=0 err=0
-  echo "Grader calibration (JUDGE_CLI=${JUDGE_CLI:-claude})"
+  echo "Grader calibration (JUDGE_CLI=${JUDGE_CLI:-claude}${JUDGE_MODEL:+ --model $JUDGE_MODEL})"
   echo "----------------------------------------------------"
   while IFS=$'\t' read -r id key answer expected; do
     [[ -n "$id" ]] || continue
