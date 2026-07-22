@@ -25,7 +25,7 @@ BENCH_DEFAULT="$SCRIPT_DIR/benchmark.json"
 _grade_one() {
   local key="$1" finding="$2"
   if [[ -n "${GRADE_CMD:-}" ]]; then
-    "$GRADE_CMD" "$key" "$finding" 2>/dev/null | tr -d '[:space:]' | grep -oiE '(YES|NO)' | head -1 | tr '[:lower:]' '[:upper:]'
+    "$GRADE_CMD" "$key" "$finding" 2>/dev/null | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
     return
   fi
   local prompt verdict
@@ -35,9 +35,9 @@ KEY (the defect that must be identified): $key
 
 FINDING: $finding
 
-Does the FINDING identify the defect described in the KEY? Reply with exactly one word: YES or NO."
+Does the FINDING identify the defect described in the KEY? Answer with a single word and nothing else: YES or NO."
   verdict=$(printf '%s' "$prompt" | "${JUDGE_CLI:-claude}" -p 2>/dev/null \
-    | tr -d '[:space:]' | grep -oiE '(YES|NO)' | head -1 | tr '[:lower:]' '[:upper:]')
+    | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]')
   echo "${verdict:-ERR}"
 }
 

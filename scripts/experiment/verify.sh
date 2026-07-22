@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _verify_one() {
   local code="$1" finding="$2"
   if [[ -n "${VERIFY_CMD:-}" ]]; then
-    "$VERIFY_CMD" "$code" "$finding" 2>/dev/null | tr -d '[:space:]' | grep -oiE '(YES|NO)' | head -1 | tr '[:lower:]' '[:upper:]'
+    "$VERIFY_CMD" "$code" "$finding" 2>/dev/null | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]'
     return
   fi
   local prompt verdict
@@ -35,9 +35,9 @@ $code
 
 CLAIMED DEFECT: $finding
 
-Is the claimed defect a real defect present in this code? Reply with exactly one word: YES or NO."
+Is the claimed defect a real defect present in this code? Answer with a single word and nothing else: YES or NO."
   verdict=$(printf '%s' "$prompt" | "${VERIFY_CLI:-claude}" -p 2>/dev/null \
-    | tr -d '[:space:]' | grep -oiE '(YES|NO)' | head -1 | tr '[:lower:]' '[:upper:]')
+    | grep -oiwE '(yes|no)' | tail -1 | tr '[:lower:]' '[:upper:]')
   echo "${verdict:-NO}"   # unparsed -> treat as not-verified (conservative: prune)
 }
 
