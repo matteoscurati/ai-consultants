@@ -4,6 +4,24 @@ Maintainer instrumentation — **not shipped** (excluded from the npm tarball vi
 `package.json` `files`). Not user calibration (`roster_calibrate.sh` / `taste_elo.sh`
 are shipped; this is not). It changes no default, no roster, no shipped code path.
 
+## Result so far (2026-07-22): snippet defect-finding SATURATES — panel has no headroom
+
+The full A/W/C run was NOT needed to answer the premise. The `difficulty_probe.sh` curation
+step measures the precondition for any panel value — *does a single strong model miss the bug?*
+— and the answer is essentially no. A single strong model (**Gemini 3.1 Pro**) caught **19/19**
+hard bugs: 7 repo-internal (`benchmark_pool.json`) + 12 source-verified external
+(`benchmark_pool_external.json`) spanning version footguns, expert concurrency (incl. the Rust
+`Arc` bug found by RustBelt *formal verification*), famous crypto CVEs, and cross-module
+interaction bugs. **0 were discriminating.** Since arm W's only edge is catching what arm A
+misses (uncorrelated coverage), and arm A misses nothing here, the panel has no coverage headroom
+on this task — direct empirical support for the premise critique, for a fraction of the cost of
+the binding run (which would be INCONCLUSIVE-by-saturation, exactly as the 2-item pilot showed).
+
+**Scope it honestly** — this holds for: snippet-scale code (<~70 lines) + defect-finding + one
+strong model. UNTESTED regimes where a panel could still earn its keep: huge multi-file / long
+context (needle-in-haystack, division of labor) and open-ended BREADTH/design tasks (a union of
+diverse answers beating one) — both are *different* experiments, not this one.
+
 ## What it now asks (v2 — coverage, not consensus)
 
 ai-consultants is the Claude Code dynamic-workflow pattern with **cross-vendor agents**
