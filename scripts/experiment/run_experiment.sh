@@ -44,9 +44,22 @@ _sum_tokens() {
   echo "$total"
 }
 
-# Pull the synthesized answer a grader reads.
+# Pull the synthesized answer a grader reads (arms B and C).
 _answer_of() {
   jq -r '.weighted_recommendation.summary // .weighted_recommendation.approach // ""' "$1" 2>/dev/null
+}
+
+# Arm A is a single model: score its OWN response, not a synthesis-of-one. A single
+# -consultant synthesis pass adds a failure mode (it can degrade to "Manual review
+# required" under load) that has nothing to do with the model's answer quality — the
+# pilot hit exactly that. Reads the first consultant response file in the dir.
+_consultant_answer_of() {
+  local dir="$1" f
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    jq -r '.response.summary // .response.detailed // ""' "$f" 2>/dev/null
+    return
+  done < <(_billable_response_files "$dir" 2>/dev/null)
 }
 
 # Arm-B consensus, from the metrics file the product already writes.
@@ -106,10 +119,14 @@ _smoke() {
 _CFG_DIR=""
 _arm_run() {  # <extra env assignments...> -- <consult_all args...> ; echoes the run dir
   local -a envs=() ; while [[ "$1" != "--" ]]; do envs+=("$1"); shift; done; shift
-  env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" \
+  # INVOKING_AGENT="" so self-exclusion does not drop the strong model (Claude)
+  # from arm A, where it is the ONLY consultant.
+  # ${envs[@]+...}: empty-array-safe expansion — bash 3.2 (stock macOS) treats a
+  # bare "${envs[@]}" on an empty array as unbound under set -u.
+  env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" INVOKING_AGENT="" \
       ENABLE_SEMANTIC_CACHE=false ENABLE_BUDGET_LIMIT=true \
       MAX_SESSION_COST="${MAX_SESSION_COST:-0.50}" \
-      "${envs[@]}" \
+      ${envs[@]+"${envs[@]}"} \
       "$REPO/consult_all.sh" "$@" 2>/dev/null | tail -1
 }
 
@@ -123,15 +140,33 @@ _only_strong() {
   echo "ENABLE_DEBATE=false"
 }
 
+# Env string for arm B: the full roster with deliberation, but peer review OFF.
+# Peer review runs AFTER synthesis and cannot change the synthesized recommendation
+# (the artifact arm B is scored on), so dropping it cuts the slowest stage without
+# altering what is measured. Set explicitly (not via --preset) because a preset
+# re-exports ENABLE_PEER_REVIEW and would override an env override.
+_full_panel() {
+  local a
+  for a in GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
+    echo "ENABLE_$a=true"
+  done
+  echo "ENABLE_PEER_REVIEW=false"
+}
+
 _run() {
-  local bench="$1" outdir="$2"
+  local bench="$1" outdir="$2" mode="${3:-run}"
   mkdir -p "$outdir"; local out="$outdir/results.jsonl"; : > "$out"
 
-  if [[ ! -f "$SCRIPT_DIR/.frozen" ]]; then
+  # A binding run requires the pre-registration frozen. A --pilot is explicitly
+  # NOT the binding run (underpowered n, directional only), so it skips the guard
+  # but must never be reported as the pre-registered verdict.
+  if [[ "$mode" != "pilot" && ! -f "$SCRIPT_DIR/.frozen" ]]; then
     echo "REFUSING: PREREGISTRATION.md is not frozen (scripts/experiment/.frozen absent)." >&2
     echo "Freeze the pre-registration and 'touch scripts/experiment/.frozen' before a real run." >&2
+    echo "For a non-binding shakedown on the seed set, use --pilot." >&2
     exit 1
   fi
+  [[ "$mode" == "pilot" ]] && echo "PILOT MODE — directional only, NOT the pre-registered verdict." >&2
 
   local strong_query="$REPO/query_$(to_lower "$STRONG_CONSULTANT").sh"
   [[ -x "$strong_query" ]] || { echo "REFUSING: no query script for STRONG_CONSULTANT=$STRONG_CONSULTANT ($strong_query)" >&2; exit 1; }
@@ -149,11 +184,13 @@ _run() {
     while IFS= read -r ln; do only+=("$ln"); done < <(_only_strong)
     local dirA; dirA=$(_arm_run "${only[@]}" -- --query-file "$ctx")
     if [[ -d "$dirA" ]]; then
-      _emit "$out" "$id" A "$(_answer_of "$dirA/synthesis.json")" "$(_sum_tokens "$dirA")"
+      _emit "$out" "$id" A "$(_consultant_answer_of "$dirA")" "$(_sum_tokens "$dirA")"
     else echo "  arm A produced no dir" >&2; fi
 
-    # Arm B: full panel. Its token total sizes arm C.
-    local dirB; dirB=$(_arm_run -- --preset max_quality --query-file "$ctx")
+    # Arm B: full panel (peer review off — see _full_panel). Its token total sizes arm C.
+    local -a fp=(); local fpl
+    while IFS= read -r fpl; do fp+=("$fpl"); done < <(_full_panel)
+    local dirB; dirB=$(_arm_run "${fp[@]}" -- --query-file "$ctx")
     local tokB=0 consB=""
     if [[ -d "$dirB" ]]; then
       tokB=$(_sum_tokens "$dirB"); consB=$(_consensus_of "$dirB")
@@ -167,6 +204,8 @@ _run() {
       "$strong_query" "" "$ctx" "$dirC/sample_1.json" >/dev/null 2>&1 || true
     local per; per=$(_sum_tokens "$dirC"); [[ "$per" -gt 0 ]] || per=1
     local k=2; [[ "$tokB" -gt 0 ]] && k=$(( (tokB + per/2) / per )); [[ "$k" -lt 2 ]] && k=2
+    # Hard cap: a failed sample makes per~0 and would explode k to tokB. Bound it.
+    local kmax="${K_MAX:-12}"; [[ "$k" -gt "$kmax" ]] && k=$kmax
     local i
     for ((i=2; i<=k; i++)); do
       env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" ENABLE_SEMANTIC_CACHE=false \
@@ -186,6 +225,7 @@ _run() {
 
 case "${1:-}" in
   --smoke) shift; _smoke "${1:-$SCRIPT_DIR/benchmark.json}" "${2:-$SCRIPT_DIR/out}" ;;
-  --run)   shift; _run   "${1:-$SCRIPT_DIR/benchmark.json}" "${2:-$SCRIPT_DIR/out}" ;;
-  *) echo "usage: run_experiment.sh --smoke|--run [benchmark.json] [outdir]" >&2; exit 1 ;;
+  --run)   shift; _run   "${1:-$SCRIPT_DIR/benchmark.json}" "${2:-$SCRIPT_DIR/out}" run ;;
+  --pilot) shift; _run   "${1:-$SCRIPT_DIR/benchmark.json}" "${2:-$SCRIPT_DIR/out}" pilot ;;
+  *) echo "usage: run_experiment.sh --smoke|--pilot|--run [benchmark.json] [outdir]" >&2; exit 1 ;;
 esac

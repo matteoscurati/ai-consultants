@@ -45,6 +45,28 @@ JUDGE_CLI=<cheap-clerk-cli> ./grade.sh benchmark.json "$RES" out/grades.jsonl
 #    inconclusive, not a loss for any arm (PREREGISTRATION.md).
 ```
 
+## Pilot findings (2026-07-22) — read before a real run
+
+A pilot on the seed set surfaced environment constraints that a binding run must respect:
+
+- **Do not drive the strong model from inside a Claude Code session.** With
+  `STRONG_CONSULTANT=Claude`, arm A/C call the `claude` CLI, which contends with the
+  driving session and intermittently degrades (synthesis fell back to "Manual review
+  required"). Run the experiment from a plain terminal, or pick a strong model whose CLI
+  is not the one running the harness.
+- **Confirm the live panel, not the static one.** `doctor` reported all 11 consultants
+  healthy, but only **codex, gemini, mistral** actually responded live (others installed
+  but unauthenticated). `doctor --live` before a run; arm B is only as full as what
+  actually answers.
+- **Arm B runs with peer review OFF** (`_full_panel`) — it runs after synthesis and cannot
+  change the scored recommendation, so dropping it cuts the slowest stage without altering
+  what is measured.
+- **Arm A is scored on the consultant's own response**, not a synthesis-of-one (which can
+  degrade independently of answer quality).
+- **Arm C's k is capped** (`K_MAX`, default 12) so a failed sample cannot explode it.
+- Budget the wall clock: even a 3-consultant arm B took minutes per item; size the outer
+  timeout and prefer running in the background.
+
 ## Guardrails baked in
 
 - `run_experiment.sh --run` **refuses** unless `.frozen` exists — you cannot run before
