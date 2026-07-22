@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [2.25.1] - 2026-07-21
+
+### Fixed
+- **The final score reported 2/10 even when every consultant agreed.** The recommendation was emitted as a key with spaces and punctuation stripped, while scoring compared each consultant's original answer against that stripped version — so nothing ever matched and everyone was counted as a dissenter. Three consultants unanimous at confidence 9 on "Use JWT with rotating sessions" scored 2/10; the same panel on "JWT" scored 10/10. Real answers are multiword, so the headline number was wrong on essentially every consultation. The same stripping also merged genuinely different answers: "Use JWT + sessions" and "Use JWT sessions" became one option.
+- **Peer-review artifacts were billed as consultations.** The recursive scan v2.25.0 introduced to catch debate rounds also reached everything peer review writes: anonymized copies keep the original token counts, and bookkeeping files fall back to 1000 tokens each. A run whose real cost was $0.125 reported $0.244. Billing now covers only the responses and debate rounds, and a response is recognised by its structure rather than by its filename.
+- **Smart routing queried consultants you had disabled.** `ENABLE_*` and self-exclusion were applied only on the non-smart path, so with `ENABLE_SMART_ROUTING=true` a disabled consultant — or the agent invoking the skill — could still be sent the question and billed for it. Custom API agents were excluded from smart routing entirely; they are now included.
+- **Gemini in API mode was costed as the wrong model.** The request used `GEMINI_API_MODEL` while the response recorded `GEMINI_MODEL`, mispricing by 2.24x at the shipped rates.
+- **Peer review crashed on the stock macOS shell.** Two bash 4 constructs (an uppercase expansion and a negative array index) ran under `/bin/bash` 3.2, which `doctor` explicitly reports as supported.
+- **Consensus reported 100% for panels that disagreed.** Answers were grouped transitively, so A resembling B and B resembling C put A and C in one group even when they had nothing in common. Consensus now requires the members of a group to resemble each other, which also stops a convergence loop from ending early on false agreement.
+- **`estimate_tokens ""` could hang.** Given an explicit empty string it read standard input instead of returning zero, so a caller with an open pipe on stdin blocked indefinitely. It now returns zero for an empty argument and reads stdin only when called with no argument at all.
+
 ## [2.25.0] - 2026-07-21
 
 ### Fixed

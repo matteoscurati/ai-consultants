@@ -909,9 +909,16 @@ get_panic_diagnosis() {
 # Uses ~4 characters per token approximation for English text
 # Usage: estimate_tokens "text" or echo "text" | estimate_tokens
 estimate_tokens() {
-    local text="${1:-}"
-    if [[ -z "$text" ]]; then
-        # Read from stdin if no argument
+    local text
+    # Decide by argument COUNT, not emptiness: `estimate_tokens ""` is an
+    # explicit empty string (0 tokens), not a request to read stdin. Keying on
+    # `-z` made the two indistinguishable, so an empty-string call fell through
+    # to `cat` and blocked forever whenever stdin was an open pipe rather than
+    # closed/EOF — a hang that passed in CI (stdin is /dev/null there) and wedged
+    # local gate runs. Only a genuinely arg-less call reads stdin.
+    if [[ $# -gt 0 ]]; then
+        text="$1"
+    else
         text=$(cat)
     fi
     local chars

@@ -278,6 +278,20 @@ test_token_estimation() {
     result=$(estimate_tokens "")
     assert_equals "0" "$result" "empty string: 0 tokens"
 
+    # An explicit empty string must NOT read stdin — that is only for the
+    # arg-less form. Keying on emptiness instead of arg count made
+    # `estimate_tokens ""` block on `cat` whenever stdin was an open pipe (a
+    # hang that passed in CI, where stdin is /dev/null, and wedged local gate
+    # runs for hours). Run it with a never-closing stdin under a timeout: a
+    # regression re-hangs and the timeout makes that a FAIL, not an infinite run.
+    local _fifo; _fifo=$(mktemp -u "${TMPDIR:-/tmp}/esttok.XXXXXX")
+    mkfifo "$_fifo"; exec 8<>"$_fifo"
+    result=$(run_with_timeout 5 bash -c "source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; estimate_tokens ''" <&8 2>/dev/null)
+    local _rc=$?
+    exec 8>&-; rm -f "$_fifo"
+    assert_equals "0" "$_rc" "empty-string call does not block on stdin (exit 0, not 124 timeout)"
+    assert_equals "0" "$result" "empty-string call returns 0 without reading stdin"
+
     result=$(estimate_tokens "The quick brown fox jumps over the lazy dog")
     # 43 chars / 4 = 10
     assert_equals "10" "$result" "longer text: 43 chars / 4 = 10 tokens"
