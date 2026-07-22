@@ -30,7 +30,7 @@ scores coverage; `analyze.sh` reports discordant-pair value + cost per covered d
 | `PREREGISTRATION.md` | Frozen choices + decision rule. Freeze **before** any real run. |
 | `benchmark.json` | Held-out defect-finding items (code + rubric key) + grader-calibration pairs. **Seed (8)** — extend to n≥30 before the real run. |
 | `run_experiment.sh` | Driver: arm A (one model, direct), arm W (roster fan-out → union, no debate), arm C (self-consistency union). Emits `findings.jsonl`. |
-| `verify.sh` | Adversarial verifier: a model (≠ the finding's author) tries to refute each finding against the code; keeps survivors. Emits `verified.jsonl`. |
+| `verify.sh` | Hallucination filter (codex sol-high, ≠ the finding's author): keeps a finding if the code actually contains the defect it points at — even if terse — and prunes only absent/wrong/unspecific claims. Bar aligned with the grader's. Emits `verified.jsonl`. |
 | `grade.sh` | Coverage grader: does any **verified** finding identify the keyed defect? `--calibrate` is the validity gate. Emits `coverage.jsonl`. |
 | `analyze.sh` | Coverage rate per arm, discordant-pair value (W-vs-A, W-vs-C), the pre-registered verdict, cost per covered defect, verifier pruning. |
 
@@ -89,6 +89,24 @@ A pilot on the seed set surfaced environment constraints that a binding run must
   final YES/NO (`tail -1` grabs it); a bare single token measured worse. Voting (`JUDGE_VOTES`/
   `VERIFY_VOTES`, default 1) stays as cheap insurance — codex needs little. **The 4-pair calibration
   set is still too small** (one flip = a 25% swing); expand it alongside the n≥30 benchmark.
+- **First clean end-to-end run (2 items, codex grader) — plumbing works; two design fixes fell out.**
+  All four stages ran well-formed. Hand-checked, not just counted: arm A (Gemini) precisely nailed
+  both defects (legit YES), and the verifier correctly pruned the 3/8 degraded `"Unstructured
+  response"` stubs. Coverage was A/W/C = 2/2 each → 0 discordant → `INCONCLUSIVE` (correct; the seed
+  items are documented textbook defects a strong model catches trivially — **the n≥30 set must target
+  subtle bugs a single model plausibly MISSES**, or the design can't detect panel value even if it
+  exists). Cost: arm W ≈ **12.4×** arm A (fan-out only, vs v1's ~113× with debate — the diversity is
+  cheap, the deliberation was the cost). Two fixes it forced:
+  - **Verifier bar aligned with the grader's.** The old verifier pruned "vague" findings and killed a
+    terse-but-*correct* arm-W finding before grading (biasing the panel down). It is now a pure
+    HALLUCINATION filter — keeps a finding if the code actually contains the defect (even if terse),
+    prunes only absent/wrong/unspecific claims. Re-validated on item-1 code (votes=3): terse-correct →
+    YES, detailed-correct → YES, junk-stub → NO, a fabricated `eval`-injection claim → NO (not a rubber
+    stamp).
+  - **Vendor-disjointness is a hard panel constraint.** The grader/verifier is codex and arm A/C is the
+    strong model, so arm W must exclude **both** the grader/verifier vendor (CODEX — else self-verify)
+    and the strong model, plus any consultant whose CLI contends with the harness (CLAUDE, when driven
+    from a Claude Code session). Set via `EXPERIMENT_SKIP_CONSULTANTS` (pilot used `CURSOR CLAUDE CODEX`).
 - **Do not drive the strong model from inside a Claude Code session.** With
   `STRONG_CONSULTANT=Claude`, arm A/C call the `claude` CLI, which contends with the
   driving session and intermittently degrades (synthesis fell back to "Manual review

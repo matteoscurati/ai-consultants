@@ -48,10 +48,10 @@ nothing), or than the same model sampled k times (diversity ≠ more samples).
 | Choice | Value | Rationale |
 |---|---|---|
 | Strong model (A, C) | a model reliable in the run environment and **not** the grader/verifier | The pilot proved Claude is unusable driven from a Claude Code session; pick per environment, record it here before freezing |
-| Verifier (W, C) | a model **not** the one that produced the finding | Adversarial verification must not check its own answer |
+| Verifier (W, C) | a HALLUCINATION filter (codex sol-high) — keeps a finding if the code contains the defect (even if terse), prunes only absent/wrong/unspecific claims | Must not check its own answer, and must not prune correct-but-terse findings: the 2-item pilot showed the old "reject if vague" bar killed a correct arm-W finding, biasing the panel down. Bar aligned with the grader's |
 | Grader (coverage scoring) | **codex `gpt-5.6-sol` @high** (the default backend), a model **different** from A/C | Measured both directions: claude default 5/12 on an obvious-YES pair, opus over-matches (3/6 on an obvious-NO pair), codex-sol 6/6 + 4/4. The grader IS the experiment; pick the reliable one, not the convenient one |
 | Verifier (W, C) — reliability | same codex sol-high backend | A weak/single-call verifier corrupts coverage exactly as a weak grader does |
-| Panel (W) | every consultant that answers live (`doctor --live`), Cursor and any dead-key consultants excluded | Measure the real working panel, not a static roster |
+| Panel (W) | live consultants (`doctor --live`), **excluding** the grader/verifier vendor (CODEX), the strong model (arms A/C), any CLI that contends with the harness, and dead-key/Cursor | Vendor-disjointness is required (a codex consultant self-verified by the codex verifier is worthless); a shared CLI degrades under contention. Measure the real, disjoint working panel, not a static roster |
 | n | ≥ 30 items | Sign/McNemar test needs it; the pilot's n=3 is not a result |
 | Cache | `ENABLE_SEMANTIC_CACHE=false` | A cache hit collapses C's samples and voids token accounting |
 

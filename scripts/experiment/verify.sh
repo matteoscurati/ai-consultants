@@ -2,9 +2,11 @@
 # verify.sh - Adversarial verifier for the v2 coverage experiment.
 #
 # This is the step that makes the workflow a workflow rather than a vote: each finding is
-# checked against the CODE by a model that tries to REFUTE it. A finding survives only if
-# the verifier confirms it is a real defect present in the code. Hallucinated / vague
-# findings are pruned. See PREREGISTRATION.md.
+# checked against the CODE. It is a HALLUCINATION filter — a finding survives if the code
+# actually contains the defect it points at, and is pruned only if that defect is absent,
+# wrong, or so unspecific it names no real defect. It deliberately does NOT prune a finding
+# for being terse or consequence-only (that over-pruning, found in the 2-item pilot, biased
+# the panel down); its bar is aligned with the grader's. See PREREGISTRATION.md.
 #
 # Reads findings.jsonl ({id, arm, findings:[...], tokens, consensus?}) and the benchmark
 # (for each item's `prompt`, which carries the code). Writes verified.jsonl:
@@ -56,15 +58,22 @@ _verify_once() {
     "$VERIFY_CMD" "$code" "$finding" 2>/dev/null | _extract_verdict
     return
   fi
-  # Reason-then-verdict; `tail -1` grabs the concluding token. See the header for the backend note.
-  local prompt="You are adversarially verifying a claimed code defect. Try to REFUTE it. Say YES only if the claimed defect is a REAL defect actually present in the code below; say NO if it is vague, wrong, not present, or unsupported by the code.
+  # The verifier's ONLY job is to reject HALLUCINATIONS (a defect the code does not actually contain),
+  # NOT to demand detail. A terse or consequence-only finding that names a REAL, present defect must
+  # survive — matching the grader's "same underlying bug, cause OR consequence" bar. (In the 2-item
+  # pilot the old "reject if vague" wording pruned a correct-but-terse arm-W finding before it could be
+  # graded, biasing the panel down; the hallucination-filter function — its reason to exist, distinct
+  # from the grader — is kept.) Reason-then-verdict; `tail -1` grabs the concluding token.
+  local prompt="You are checking a claimed code defect against the code below. Your ONLY job is to reject HALLUCINATIONS — claims about a defect that is NOT actually present in the code. Do NOT reject a claim for being brief, high-level, or for describing the defect's CONSEQUENCE rather than its exact mechanism.
+
+Say YES if the code genuinely contains the defect the claim points at — even if the claim is terse or names only the symptom. Say NO only if the claim misreads the code, describes a defect that is NOT present, or is so unspecific that it corresponds to no actual defect in the code.
 
 CODE:
 $code
 
 CLAIMED DEFECT: $finding
 
-Think briefly, then on the FINAL line write your verdict as exactly YES or NO (YES if the claimed defect is real and present; otherwise NO)."
+Think briefly, then on the FINAL line write your verdict as exactly YES or NO."
   _verify_backend_call "$prompt"
 }
 
@@ -113,4 +122,7 @@ _main() {
   echo "verified -> $out" >&2
 }
 
-_main "${1:-}" "${2:-}" "${3:-/dev/stdout}"
+# Run only when executed directly, so the file can be sourced (e.g. to unit-test _verify_one).
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  _main "${1:-}" "${2:-}" "${3:-/dev/stdout}"
+fi
