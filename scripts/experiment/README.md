@@ -54,10 +54,16 @@ A pilot on the seed set surfaced environment constraints that a binding run must
   driving session and intermittently degrades (synthesis fell back to "Manual review
   required"). Run the experiment from a plain terminal, or pick a strong model whose CLI
   is not the one running the harness.
-- **Confirm the live panel, not the static one.** `doctor` reported all 11 consultants
-  healthy, but only **codex, gemini, mistral** actually responded live (others installed
-  but unauthenticated). `doctor --live` before a run; arm B is only as full as what
-  actually answers.
+- **Keep the user's credentials; isolate only composition.** The first pilot ran arm B
+  with an *empty* config dir (for `ENABLE_*` hermeticity) and saw only 3 consultants —
+  because the empty dir also stripped the API keys that GLM/Grok/DeepSeek/Qwen need.
+  `doctor --live` with the real config showed **8 of 11 actually respond**. The driver now
+  copies only the credential lines (`*_API_KEY`, `*_API_URL`) into the isolated dir, so
+  auth survives while arm composition stays controlled by the explicit per-arm `ENABLE_*`.
+- **Confirm the live panel with `doctor --live`, not static doctor.** The 3 that stay down
+  are credential/quota, not code: Cursor (usage limit → Cursor Pro), Qwen3 (401, expired
+  DashScope key), Grok (xAI "incorrect API key", returned as HTTP 400). Fix those keys or
+  accept an 8-consultant panel; arm B is only as full as what actually answers.
 - **Arm B runs with peer review OFF** (`_full_panel`) — it runs after synthesis and cannot
   change the scored recommendation, so dropping it cuts the slowest stage without altering
   what is measured.

@@ -172,6 +172,16 @@ _run() {
   [[ -x "$strong_query" ]] || { echo "REFUSING: no query script for STRONG_CONSULTANT=$STRONG_CONSULTANT ($strong_query)" >&2; exit 1; }
 
   _CFG_DIR=$(mktemp -d); trap 'rm -rf "$_CFG_DIR"' RETURN
+  # Carry the user's CREDENTIALS into the isolated config (keys + endpoint URLs),
+  # but NOT their ENABLE_*/model lines — arm composition is set explicitly per arm.
+  # The pilot learned this the hard way: an empty config dir isolated for
+  # hermeticity also stripped the API keys the API-based consultants (GLM/Grok/
+  # DeepSeek/Qwen) need, silently collapsing arm B from 8 live to 3. Copy only the
+  # credential lines so composition stays controlled while auth survives.
+  local real_env="${AI_CONSULTANTS_CONFIG_DIR:-$HOME/.config/ai-consultants}/.env"
+  if [[ -f "$real_env" ]]; then
+    grep -E '^[A-Za-z0-9_]+_API_(KEY|URL)=' "$real_env" > "$_CFG_DIR/.env" 2>/dev/null || true
+  fi
 
   local id q ctx
   while IFS= read -r id; do
