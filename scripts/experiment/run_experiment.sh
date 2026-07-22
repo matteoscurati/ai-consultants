@@ -1,10 +1,14 @@
 #!/bin/bash
 # run_experiment.sh - Drive the panel-vs-baseline experiment: arms A/B/C per question.
 #
-# Arm A: single strong model, one shot (all consultants disabled except STRONG).
-# Arm B: full panel, default deliberation (--preset max_quality).
+# Arm A: single strong model, one shot — a DIRECT query (consult_all refuses <2 consultants).
+# Arm B: the user's real working panel (their config; DEFAULT_PRESET cleared), peer review off.
 # Arm C: the same strong model sampled k times + one synthesis pass (self-consistency),
-#        k per question sized to match arm B's token spend.
+#        k per question sized to match arm B's token spend (K_MAX caps it).
+#
+# NOTE: this is the v1 CONSENSUS harness (arm B is scored on its synthesized answer). The
+# frozen PREREGISTRATION.md is now the v2 COVERAGE design; see README "Harness status" for the
+# three additions v2 needs. These are the fixes the v1 pilot surfaced, preserved.
 #
 # Emits results.jsonl: one {id, arm, answer, tokens, consensus?} line per (item, arm).
 # Grade it with grade.sh and read the verdict with analyze.sh.
@@ -130,25 +134,24 @@ _arm_run() {  # <extra env assignments...> -- <consult_all args...> ; echoes the
       "$REPO/consult_all.sh" "$@" 2>/dev/null | tail -1
 }
 
-# Env string that disables every consultant except the strong one (arm A / arm C base).
-_only_strong() {
-  local up; up=$(to_upper "$STRONG_CONSULTANT")
-  local a
-  for a in GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
-    if [[ "$a" == "$up" ]]; then echo "ENABLE_$a=true"; else echo "ENABLE_$a=false"; fi
-  done
-  echo "ENABLE_DEBATE=false"
-}
 
-# Env string for arm B: the full roster with deliberation, but peer review OFF.
-# Peer review runs AFTER synthesis and cannot change the synthesized recommendation
-# (the artifact arm B is scored on), so dropping it cuts the slowest stage without
-# altering what is measured. Set explicitly (not via --preset) because a preset
-# re-exports ENABLE_PEER_REVIEW and would override an env override.
-_full_panel() {
+# Arm B env: the user's REAL panel with peer review OFF. We do NOT force all 11 on —
+# that would re-enable consultants the user disabled (Cursor) or that are down (Qwen on
+# a dead key), wasting calls and adding failures. Passing no ENABLE_* lets the user's
+# config decide which consultants participate; that IS the panel being measured. Peer
+# review runs after synthesis and cannot change the scored recommendation, so dropping
+# it only cuts the slowest stage.
+_arm_b_env() {
+  # Clear the user's DEFAULT_PRESET (e.g. "balanced" caps the panel at 4 and re-enables
+  # Cursor) so arm B is the full working roster, not a preset subset. Enable everyone
+  # EXCEPT the consultants that are genuinely down for credential/quota reasons — forcing
+  # them on only wastes a call and adds a failure. CURSOR_DOWN can list such consultants
+  # (space-separated uppercase ids); default drops Cursor (usage limit).
+  echo "DEFAULT_PRESET="
+  local down=" ${EXPERIMENT_SKIP_CONSULTANTS:-CURSOR} "
   local a
   for a in GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
-    echo "ENABLE_$a=true"
+    if [[ "$down" == *" $a "* ]]; then echo "ENABLE_$a=false"; else echo "ENABLE_$a=true"; fi
   done
   echo "ENABLE_PEER_REVIEW=false"
 }
@@ -171,17 +174,16 @@ _run() {
   local strong_query="$REPO/query_$(to_lower "$STRONG_CONSULTANT").sh"
   [[ -x "$strong_query" ]] || { echo "REFUSING: no query script for STRONG_CONSULTANT=$STRONG_CONSULTANT ($strong_query)" >&2; exit 1; }
 
-  _CFG_DIR=$(mktemp -d); trap 'rm -rf "$_CFG_DIR"' RETURN
-  # Carry the user's CREDENTIALS into the isolated config (keys + endpoint URLs),
-  # but NOT their ENABLE_*/model lines — arm composition is set explicitly per arm.
-  # The pilot learned this the hard way: an empty config dir isolated for
-  # hermeticity also stripped the API keys the API-based consultants (GLM/Grok/
-  # DeepSeek/Qwen) need, silently collapsing arm B from 8 live to 3. Copy only the
-  # credential lines so composition stays controlled while auth survives.
-  local real_env="${AI_CONSULTANTS_CONFIG_DIR:-$HOME/.config/ai-consultants}/.env"
-  if [[ -f "$real_env" ]]; then
-    grep -E '^[A-Za-z0-9_]+_API_(KEY|URL)=' "$real_env" > "$_CFG_DIR/.env" 2>/dev/null || true
-  fi
+  # Use the user's REAL config, not an isolated/empty one. The experiment measures
+  # the user's actual system: arm B must be their real working panel (their keys,
+  # their Qwen transport, their disabled consultants), so we do NOT override its
+  # AI_CONSULTANTS_CONFIG_DIR. Arm composition is still controlled where it matters —
+  # arm A/C pass explicit ENABLE_* on the command line, which wins over the file
+  # (load_user_config lets the environment override .env). An earlier cut isolated to
+  # an empty dir for hermeticity and silently stripped the credentials + Qwen Token
+  # Plan transport, collapsing arm B; measuring the real system is the right call here,
+  # not test-style hermeticity.
+  _CFG_DIR="${AI_CONSULTANTS_CONFIG_DIR:-$HOME/.config/ai-consultants}"
 
   local id q ctx
   while IFS= read -r id; do
@@ -190,17 +192,22 @@ _run() {
     echo "== $id ==" >&2
 
     # Arm A: single strong model, one shot.
-    local -a only=(); local ln
-    while IFS= read -r ln; do only+=("$ln"); done < <(_only_strong)
-    local dirA; dirA=$(_arm_run "${only[@]}" -- --query-file "$ctx")
-    if [[ -d "$dirA" ]]; then
+    # Arm A: single strong model, one shot — a DIRECT query, not consult_all.
+    # consult_all refuses to run with fewer than 2 consultants ("At least 2
+    # consultants required"), so a single-model arm cannot go through it; and a
+    # one-model consult_all would only re-synthesize one answer anyway. Score the
+    # model's own response.
+    local dirA="$outdir/$id/A"; mkdir -p "$dirA"
+    env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" INVOKING_AGENT="" ENABLE_SEMANTIC_CACHE=false \
+      "$strong_query" "" "$ctx" "$dirA/response.json" >/dev/null 2>&1 || true
+    if [[ -s "$dirA/response.json" ]]; then
       _emit "$out" "$id" A "$(_consultant_answer_of "$dirA")" "$(_sum_tokens "$dirA")"
-    else echo "  arm A produced no dir" >&2; fi
+    else echo "  arm A produced no response" >&2; fi
 
-    # Arm B: full panel (peer review off — see _full_panel). Its token total sizes arm C.
+    # Arm B: the user's real panel, peer review off. Its token total sizes arm C.
     local -a fp=(); local fpl
-    while IFS= read -r fpl; do fp+=("$fpl"); done < <(_full_panel)
-    local dirB; dirB=$(_arm_run "${fp[@]}" -- --query-file "$ctx")
+    while IFS= read -r fpl; do fp+=("$fpl"); done < <(_arm_b_env)
+    local dirB; dirB=$(_arm_run "${fp[@]}" -- --query-file "$ctx" || true)
     local tokB=0 consB=""
     if [[ -d "$dirB" ]]; then
       tokB=$(_sum_tokens "$dirB"); consB=$(_consensus_of "$dirB")
