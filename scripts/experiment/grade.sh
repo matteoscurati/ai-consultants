@@ -153,8 +153,12 @@ _grade_coverage() {
   echo "coverage -> $out" >&2
 }
 
-case "${1:-}" in
-  --calibrate) shift; _calibrate "${1:-}" ;;
-  ""|-h|--help) echo "usage: grade.sh --calibrate | grade.sh <benchmark.json> <verified.jsonl> [coverage.jsonl]" ;;
-  *) _grade_coverage "$1" "${2:-}" "${3:-/dev/stdout}" ;;
-esac
+# Dispatch only when executed directly, so the file can be sourced to reuse _grade_one
+# (e.g. by difficulty_probe.sh).
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  case "${1:-}" in
+    --calibrate) shift; _calibrate "${1:-}" ;;
+    ""|-h|--help) echo "usage: grade.sh --calibrate | grade.sh <benchmark.json> <verified.jsonl> [coverage.jsonl]" ;;
+    *) _grade_coverage "$1" "${2:-}" "${3:-/dev/stdout}" ;;
+  esac
+fi
