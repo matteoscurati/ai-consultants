@@ -13,13 +13,17 @@ Two regimes, opposite results:
 | **convergent** — find THE defect | caught? | **19/19 (saturates)** | no headroom to add |
 | **divergent** — enumerate ALL risks (breadth) | rubric coverage | A = 19/32 (**59%**) | W = 32/32 (**100%**); C (same model ×8) = 84% |
 
-On breadth the panel wins **W > C > A on every item** (`breadth_experiment.sh`, 3 items) — it covers
-points one model misses (W−A = +13) *and* beats resampling the same model at equal sample count
-(W−C = +5), so the edge is **diversity, not volume**. The panel ran as **raw fan-out with NO
-deliberation** (voting/consensus/debate off): the value is the diverse UNION, not the averaging —
-which supports keeping the diverse agents and cutting the consensus machinery. The whole result is
-directional (n=3) and has a **rubric-ceiling caveat** (W hit 100%, masking the true W−C gap); a
-binding run needs deeper rubrics (20–30 points incl. niche ones) so neither W nor C maxes out.
+On breadth the panel wins **W > C > A on every item** — it covers points one model misses *and*
+beats resampling the same model at equal sample count, so the edge is **diversity, not volume**. The
+panel ran as **raw fan-out with NO deliberation** (voting/consensus/debate off): the value is the
+diverse UNION, not the averaging — which supports keeping the diverse agents and cutting the consensus
+machinery. Hardened against the rubric-ceiling caveat: re-run on **deep 60-point rubrics** (21/21/18,
+niche points added) the result strengthened — **A = 31/60 (51%), C = 42/60 (70%), W = 56/60 (93%),
+W−C = +14** (the ceiling had *understated* diversity). Hand-checked against saved answer blobs: the
+codex grader is accurate (a direct leniency test on the jku/x5u point graded YES and W's union
+genuinely contains it), arm A genuinely misses the niche points, and diverse consultants genuinely
+surfaced what one model missed. Remaining caveat: n=3 is directional; a statistically binding claim
+needs n≥15–20 deep-rubric items.
 
 ## Regime 1 (2026-07-22): snippet defect-finding SATURATES — panel has no headroom
 
