@@ -1,12 +1,30 @@
-# Panel-vs-baseline experiment
+# Cross-vendor workflow coverage experiment
 
 Maintainer instrumentation — **not shipped** (excluded from the npm tarball via
-`package.json` `files`). It answers one question raised by two independent reviews: at
-matched token spend, does the 11-consultant panel's synthesized recommendation beat a
-single strong model? See `PREREGISTRATION.md` for the frozen protocol and decision rule.
+`package.json` `files`). Not user calibration (`roster_calibrate.sh` / `taste_elo.sh`
+are shipped; this is not). It changes no default, no roster, no shipped code path.
 
-Not user calibration (`roster_calibrate.sh` / `taste_elo.sh` are shipped; this is not).
-It changes no default, no roster, no shipped code path.
+## What it now asks (v2 — coverage, not consensus)
+
+ai-consultants is the Claude Code dynamic-workflow pattern with **cross-vendor agents**
+(see https://code.claude.com/docs/en/workflows). A workflow earns trust from **adversarial
+verification against ground truth**, not from voting/averaging — so the value to measure is
+**coverage**: does a diverse fan-out, with each finding verified, catch defects a single
+strong model misses (uncorrelated errors)?
+
+The v1 design scored the panel's synthesized **consensus** recommendation and the pilot bore
+out the reviews' critique uninformatively (where the panel "lost", one model and the panel had
+both found the defect). `PREREGISTRATION.md` is now the **coverage** design: arm A (one model),
+arm W (panel → union of findings → adversarial verify → survivors), arm C (self-consistency
+union). Primary metric = coverage; decisive comparison = items W catches that A misses.
+
+> **Harness status:** `run_experiment.sh` / `grade.sh` / `analyze.sh` still implement the v1
+> consensus design (they score the synthesized answer, not the verified union). Running the v2
+> pre-registration needs three additions, not yet built: (1) arm W extracts the **union** of
+> distinct per-consultant findings instead of reading `synthesis.json`; (2) an **adversarial
+> verifier** pass over each finding (a different model tries to refute it against the code);
+> (3) `analyze.sh` computes coverage rates + McNemar on discordant pairs. Until then the scripts
+> answer the v1 question; do not treat their output as the v2 coverage result.
 
 ## Files
 
