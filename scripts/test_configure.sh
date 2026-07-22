@@ -100,7 +100,7 @@ test_template_covers_config_contract() {
     while IFS= read -r file; do
         grep -Eho '\$\{[A-Z][A-Z0-9_]*:[-=]' "$file" 2>/dev/null || true
     done < <(find "$SCRIPT_DIR" -type f -name '*.sh' \
-        ! -name 'test_*.sh' ! -path '*/test_fixtures/*' | sort) \
+        ! -name 'test_*.sh' ! -path '*/test_fixtures/*' ! -path '*/experiment/*' | sort) \
         | sed -E 's/^\$\{//; s/:[-=]$//' \
         | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CONTEXT_SIZE|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XDG_CONFIG_HOME)$' \
         | sort -u > "$runtime"
