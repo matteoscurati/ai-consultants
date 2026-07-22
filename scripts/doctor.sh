@@ -637,10 +637,18 @@ print_summary() {
             --argjson issues_list "$issues_json" \
             --argjson warnings_list "$warnings_json" \
             --arg version "$AI_CONSULTANTS_VERSION" \
+            --arg verified "$([[ "$LIVE_MODE" == "true" ]] && echo live || echo static)" \
             '{
                 doctor: {
                     version: $version,
-                    status: (if $issues > 0 then "unhealthy" elif $warnings > 0 then "degraded" else "healthy" end),
+                    # "healthy" requires a live check. Static-only cannot see an
+                    # expired key or exhausted quota, so it reports "static_ok",
+                    # not "healthy". `verified` says which check backs the status.
+                    status: (if $issues > 0 then "unhealthy"
+                             elif $warnings > 0 then "degraded"
+                             elif $verified == "live" then "healthy"
+                             else "static_ok" end),
+                    verified: $verified,
                     checks: {
                         total: $total,
                         passed: $passed,
@@ -686,10 +694,22 @@ print_summary() {
         fi
 
         if [[ ${#ISSUES[@]} -eq 0 && ${#WARNINGS[@]} -eq 0 ]]; then
-            echo "  ✓ All systems healthy!"
+            # Do NOT claim "healthy" on static checks alone: they confirm a CLI is
+            # installed and a key is present, NOT that a consultant can actually
+            # answer. A consultant with an expired key or exhausted quota passes
+            # every static check and fails on the first real query. Only --live,
+            # which sends a real ping, earns the word "healthy".
+            if [[ "$LIVE_MODE" == "true" ]]; then
+                echo "  ✓ All checks passed — consultants verified responding (live)."
+            else
+                echo "  ✓ Static checks passed: CLIs installed, keys present."
+                echo "    This does NOT confirm consultants can answer — an expired key or"
+                echo "    used-up quota passes every static check. Verify with: doctor --live"
+            fi
             echo ""
         elif [[ ${#ISSUES[@]} -eq 0 ]]; then
             echo "  △ System operational with warnings"
+            [[ "$LIVE_MODE" != "true" ]] && echo "    (static only — run 'doctor --live' to confirm consultants answer)"
             echo ""
         else
             echo "  ✗ Issues found - run with --fix to attempt auto-repair"
