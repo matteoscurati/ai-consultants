@@ -5,10 +5,10 @@ license: MIT
 compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
   author: matteoscurati
-  version: 2.25.2
+  version: 3.0.0
 ---
 
-# AI Consultants v2.25.2 - AI Expert Panel
+# AI Consultants v3.0.0 - AI Expert Panel
 
 **Coverage, not a single guess.** Convene a panel of AI "consultants" from different vendors for coding questions: they fan out in parallel and you get the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses. Each consultant has a **configurable persona** that decorrelates its analysis.
 

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [3.0.0] - 2026-07-23
+
+A held-out experiment settled a question two independent reviews had raised: does the panel beat a single strong model? The answer is **task-dependent**. On convergent defect-finding a single strong model saturates (it caught 19/19 hard bugs, including CVEs and a concurrency bug found by formal verification), so the panel adds nothing. On **breadth** questions — "what could go wrong with this design?", enumerate the risks — a diverse cross-vendor panel covers materially more than one model (measured rubric coverage: one model 51%, self-consistency 70%, the panel **93%**), and it wins as a raw **union of distinct answers**, not through deliberation. So this release keeps the diverse fan-out and cuts the machinery that averaged it away.
+
+### Changed
+- **The default output is now the coverage union, not a voted recommendation.** `DEFAULT_STRATEGY` defaults to the new `coverage` strategy: the deduplicated union of every distinct point, recommendation, risk, and edge case raised across the panel, preserving what only one model raised. `compare_only` (side-by-side), `majority` (a single blended recommendation), `risk_averse`, `security_first`, and `cost_capped` remain available via `--strategy`.
+- **The pipeline is now classify → route → parallel fan-out → coverage synthesis.** No deliberation rounds, no consensus scoring.
+- **Presets choose only the consultant set and model tier** — they no longer enable debate or peer review.
+
+### Removed (breaking)
+- **Multi-round debate and dynamic orchestration** — `ENABLE_DEBATE`, `DEBATE_ROUNDS`, `ORCHESTRATION_MODE`, `CONVERGENCE_*`, `ENABLE_DEBATE_OPTIMIZATION`, the orchestration shapes (quick/converge/adversarial/tournament/exhaustive), and the `debate` slash command.
+- **Voting and consensus scoring** — the voted recommendation, the 1–10 final score, consensus %/level, and the `voting.json` output.
+- **Capability weighting and routing** — `ENABLE_CAPABILITY_WEIGHTING`, `ENABLE_CAPABILITY_ROUTING`, `CAPABILITY_*`, and the capability axes in `affinity.json` (category-affinity routing is unchanged).
+- **Panic mode** — `ENABLE_PANIC_MODE`, `PANIC_*`, and `panic_diagnosis.json`.
+- **Peer review** — `ENABLE_PEER_REVIEW`, `PEER_REVIEW_MIN_RESPONSES` (it ran after synthesis and could not change the recommendation).
+- **Stance consensus** — `ENABLE_STANCE_CONSENSUS`, `STANCE_*`.
+- **The capability-calibration tooling** — `roster_audit.sh`, `roster_calibrate.sh`, `run_calibration.sh`, `taste_elo.sh`, `doctor --roster-audit`, and the `roster-audit` slash command (they existed only to feed the removed weighting).
+- Setting any removed variable via `configure --set` now fails closed; installers prune the removed slash commands.
+
+### Kept
+- The diverse parallel fan-out to all 11 consultants, category-affinity smart routing, `doctor` (including `--live`, `--suggest-preset`, `--suggest-config`), cost tracking and budgets, quorum grading and the opt-in health gate, semantic caching, and every CLI/API adapter.
+
+### Upgrade
+- No configuration change is required. If you relied on a debate/consensus setting, remove it — the tool now fans out and returns the coverage union by default. See `docs/releases/v3.0.0.md`.
+
 ## [2.25.2] - 2026-07-22
 
 ### Fixed

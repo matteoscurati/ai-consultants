@@ -1,4 +1,4 @@
-# Cost Rates - AI Consultants v2.25.2
+# Cost Rates - AI Consultants v3.0.0
 
 This page documents the per-token rates used by the cost tracking system.
 
