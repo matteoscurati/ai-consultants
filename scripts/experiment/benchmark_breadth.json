@@ -1,0 +1,92 @@
+{
+  "_comment": "Breadth pool: open-ended enumeration questions with a ground-truth RUBRIC (set of distinct valid points from canonical checklists). breadth_probe.sh measures arm-A coverage = fraction of rubric a single strong model hits. ~100% -> breadth saturates; partial -> headroom, run the panel union. [rubrics DEEPENED 2026-07-22 with niche points so W cannot hit the ceiling]",
+  "questions": [
+    {
+      "id": "breadth-jwt-auth",
+      "source": "canonical JWT/auth threat checklist (OWASP JWT/ASVS)",
+      "category": "SECURITY",
+      "difficulty": "breadth",
+      "prompt": "You are security-reviewing this authentication design. Enumerate EVERYTHING that could go wrong — list every distinct security risk you can identify.\n\nDESIGN: A web app authenticates users by issuing a JWT signed with HS256 using a shared secret string. The token payload is {user_id, role}. On each request the server verifies the JWT signature (using the algorithm named in the token header) and reads `role` to authorize actions. The token is stored in the browser's localStorage and sent in the Authorization header. There is no separate session store.\n",
+      "rubric": [
+        "algorithm confusion - server trusts the alg in the token header (alg=none accepted, or RS256->HS256 downgrade using the public key as the HMAC secret)",
+        "no token expiration (exp) - tokens are valid forever",
+        "no revocation/logout - a stolen or compromised token cannot be invalidated (no session store)",
+        "weak/guessable HMAC shared secret enables offline brute-force and token forgery",
+        "token in localStorage is exfiltratable by any XSS (should be an httpOnly cookie)",
+        "authorization trusts the role claim in the token - privilege escalation if the token is forgeable or the role is client-influenced",
+        "no audience/issuer (aud/iss) binding - a token is replayable across services or environments",
+        "the JWT payload is only base64, not encrypted - user_id and role are readable by anyone holding the token",
+        "no replay or channel binding - a captured token can be reused (no device/session/DPoP binding)",
+        "no signing-key rotation strategy",
+        "transport not stated - without enforced TLS the bearer token is interceptable on the wire",
+        "kid header injection - attacker manipulates the key-lookup (path traversal or SQL injection via kid) to control the verification key",
+        "jku/x5u or embedded JWK header trusted - the verifier could fetch an attacker-supplied key if any asymmetric path is enabled",
+        "no nbf/iat validation and no clock-skew/leeway policy - boundary acceptance of not-yet-valid or just-expired tokens",
+        "no typ/token-type enforcement - an id or refresh token accepted where an access token is expected (token confusion)",
+        "stale privileges - a role baked into a long-lived token cannot be downgraded after a permission change without a server-side re-check",
+        "no refresh-token rotation or max session lifetime - a leaked long-lived token is durable",
+        "token leakage via access logs, proxies, or Referer - the Authorization header or a token-in-URL captured downstream",
+        "non-constant-time signature or secret comparison - timing side-channel",
+        "denial of service via an oversized or deeply-nested token - parser/verify resource exhaustion",
+        "one shared secret authorizes every endpoint and service - no scoping, so a single leak forges tokens everywhere"
+      ]
+    },
+    {
+      "id": "breadth-webhook-delivery",
+      "source": "canonical webhook-security/reliability checklist",
+      "category": "ARCHITECTURE",
+      "difficulty": "breadth",
+      "prompt": "You are reviewing this webhook-delivery system for problems. Enumerate EVERYTHING that could go wrong — list every distinct risk, failure mode, or abuse you can identify.\n\nDESIGN: A SaaS delivers event notifications to customer-provided webhook URLs via HTTP POST with a JSON body. Customers register any URL. On a 2xx response the event is marked delivered; on any failure the system retries immediately, repeatedly, until it succeeds. Delivery is handled by a pool of workers pulling from a single queue.\n",
+      "rubric": [
+        "SSRF - a customer URL can target internal services or the cloud metadata endpoint (169.254.169.254)",
+        "no request signing/HMAC - the receiver cannot verify authenticity; payloads are spoofable",
+        "retries without an idempotency key - duplicate deliveries; the receiver double-processes",
+        "immediate and unbounded retries - a retry storm / self-DDoS against a failing endpoint (needs exponential backoff)",
+        "no max-retry cap or dead-letter - a permanently-failing (poison) endpoint retries forever and blocks the queue",
+        "no per-request timeout - a slow or hanging endpoint exhausts the worker pool",
+        "no ordering guarantee - events can arrive out of order",
+        "sensitive event data is sent to an arbitrary third-party URL (data exposure)",
+        "no backpressure - queue growth under sustained failure",
+        "DNS rebinding / TOCTOU - the URL is validated once but resolves differently at delivery time",
+        "no per-destination rate limiting, delivery observability, or replay for customers",
+        "no signature timestamp+nonce - a captured delivery can be replayed against the receiver",
+        "no TLS certificate verification on the outbound call - MITM/interception of the delivery",
+        "follows HTTP redirects - a 3xx to an internal address bypasses URL allowlisting (SSRF)",
+        "IPv6, link-local, or decimal/octal IP encodings bypass naive URL validation",
+        "no response size or read cap - a malicious endpoint streams unbounded data and exhausts the worker",
+        "single shared queue - one customer's failures starve all others (no per-tenant isolation or fairness)",
+        "no jitter on recovery - synchronized retries thundering-herd the endpoint when it returns",
+        "a 2xx does not mean processed - the receiver can return 200 then drop the event, silent loss with no reconciliation",
+        "no re-validation of the URL over time - allowed at registration, later repointed to an internal address",
+        "no signing-key rotation or key-distribution mechanism to customers"
+      ]
+    },
+    {
+      "id": "breadth-cache-aside",
+      "source": "canonical caching failure-mode checklist",
+      "category": "ARCHITECTURE",
+      "difficulty": "breadth",
+      "prompt": "You are reviewing this caching layer for problems. Enumerate EVERYTHING that could go wrong — list every distinct failure mode or correctness/reliability risk you can identify.\n\nDESIGN: A read-heavy service uses cache-aside with Redis in front of Postgres. On read: look up the key in Redis; on a miss, query Postgres, write the result into Redis with a 1-hour TTL, and return it. On write: update the row in Postgres, then delete the key from Redis. TTL is fixed at 3600s for every key.\n",
+      "rubric": [
+        "cache stampede / thundering herd - many concurrent misses on a hot key all hit Postgres at once (no single-flight or lock)",
+        "write race - update-then-delete versus a concurrent read-then-set can leave a STALE value cached until the TTL expires",
+        "no negative caching - repeated misses for nonexistent keys hammer Postgres (cache penetration)",
+        "fixed 3600s TTL for every key - synchronized mass expiry causes periodic load spikes (no TTL jitter)",
+        "delete-after-write is not atomic with the DB commit - a crash between commit and delete leaves stale cache",
+        "Redis unavailability behavior is unspecified - fail-open (DB load spike) versus fail-closed (outage)",
+        "no eviction or memory policy - memory pressure evicts hot keys unpredictably",
+        "read-your-writes / replica lag - a read from a Postgres replica after a write can repopulate a stale value",
+        "hot-key or large-value skew overloads a single Redis node",
+        "no serialization versioning - a schema change makes cached blobs unreadable across deploys",
+        "unbounded key cardinality - caching everything with a 1h TTL blows up Redis memory",
+        "cache avalanche - a Redis restart or flush drops all keys at once and overwhelms Postgres (no warmup or staggering)",
+        "a delete failure is not retried - a transient Redis error during the write path silently leaves stale data until the TTL",
+        "no hit-rate or staleness monitoring - silent degradation to the DB goes unnoticed",
+        "Redis is a single point of failure - no replication, so a failover loses the cache and causes a load spike",
+        "TTL too long for volatile data changed by another writer or path that does not delete the key - stale reads within the hour",
+        "two concurrent misses both populate - last-writer-wins may persist a value from an older DB snapshot",
+        "attacker-influenced key derivation - key collision or poisoning serves the wrong tenant's data"
+      ]
+    }
+  ]
+}

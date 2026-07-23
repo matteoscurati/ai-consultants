@@ -1,0 +1,61 @@
+{
+  "_comment": "STAGING POOL for the binding benchmark. Candidate defect items (code + ground-truth key derived from a REAL fix). difficulty_probe.sh runs the arm-A strong model on each and reports CAUGHT/MISSED; PROMOTE only the items the single strong model MISSES (discriminating) into benchmark.json. 'difficulty' here is an a-priori guess, confirmed/refuted by the probe. Snippets are abstracted/minimal so they are not literal ai-consultants code.",
+  "questions": [
+    {
+      "id": "pool-stdin-empty-arg",
+      "source": "ai-consultants v2.25.1 (estimate_tokens stdin hang)",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "prompt": "This shell helper estimates a token count for its argument. It is called throughout a pipeline, sometimes with an empty string. Name the most serious defect and why.\n\nestimate_tokens() {\n  local text=\"$1\"\n  if [[ -z \"$text\" ]]; then\n    text=$(cat)          # no argument given: read from stdin\n  fi\n  echo $(( ${#text} / 4 ))\n}\n\n# usage, e.g.:  n=$(estimate_tokens \"$chunk\")   # $chunk can be \"\"",
+      "key": "answer must identify that an explicitly-empty argument (\"\") is indistinguishable from a missing argument under [[ -z \"$text\" ]], so estimate_tokens \"\" falls through to `cat` and BLOCKS on stdin. It hangs when stdin is an open pipe (interactive/gate) and only appears to work when stdin is closed (CI, /dev/null) — a non-deterministic hang. The empty-vs-absent decision must be made on the argument COUNT ($#), not on emptiness."
+    },
+    {
+      "id": "pool-set-e-and-list",
+      "source": "ai-consultants v2.22.0 (prompt_value) / recurring",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "prompt": "A configuration wizard prompts for each parameter; pressing Enter keeps the current value. It aborts on the very first Enter. Name the most serious defect and why.\n\nset -euo pipefail\n\nprompt_value() {\n  local reply\n  read -r -p \"new value (Enter to keep): \" reply\n  [[ -n \"$reply\" ]] && set_value \"$reply\"\n}\n\nfor p in \"${params[@]}\"; do\n  prompt_value \"$p\"\ndone",
+      "key": "answer must identify that when reply is empty the `[[ -n \"$reply\" ]] && set_value` list evaluates to false and returns exit status 1; because it is the LAST command in prompt_value, the function returns 1, and under `set -e` the plain call `prompt_value \"$p\"` aborts the whole script. The intended 'keep current value' path (empty Enter) is exactly what kills it. Fix: an explicit `if`, or make the function return 0."
+    },
+    {
+      "id": "pool-consensus-transitivity",
+      "source": "ai-consultants v2.25.1 (connected-components consensus)",
+      "category": "ALGORITHM",
+      "difficulty": "hard",
+      "prompt": "A panel's 'consensus %' is the size of the largest agreeing group divided by the panel size. Two members 'agree' if the cosine similarity of their answers exceeds 0.6. The implementation builds a graph with an edge between any two agreeing members, finds connected components, and reports (largest component size / N). Name the most serious defect and why.\n\n# Example panel of 3:\n#   A = \"use JWT stored in a secure cookie\"\n#   B = \"use a secure cookie holding a JWT\"\n#   C = \"use server-side sessions only\"\n#   sim(A,B)=0.72   sim(B,C)=0.63   sim(A,C)=0.28",
+      "key": "answer must identify that pairwise similarity is NOT transitive, so connected components over-groups: A~B and B~C put A, B, C in one component and report 100% consensus, even though A and C do not agree (sim 0.28 < 0.6). A consensus group must be a CLIQUE (every pair mutually similar), not a connected component; the component approach systematically overstates agreement."
+    },
+    {
+      "id": "pool-token-split-resplit",
+      "source": "ai-consultants v2.25.0 (60/40 re-split)",
+      "category": "BUG_DEBUG",
+      "difficulty": "medium",
+      "prompt": "An API returns prompt_tokens and completion_tokens separately. This cost function prices a call. It is labelled as reporting the provider's 'measured' cost. Name the most serious defect and why.\n\nprice() {\n  local prompt_tokens=\"$1\" completion_tokens=\"$2\" in_rate=\"$3\" out_rate=\"$4\"\n  local total=$((prompt_tokens + completion_tokens))\n  # split the total 60/40 into input/output for pricing\n  awk -v t=\"$total\" -v ir=\"$in_rate\" -v orr=\"$out_rate\" \\\n    'BEGIN { printf \"%.4f\", (t*0.6/1000)*ir + (t*0.4/1000)*orr }'\n}\n# e.g. a 20000-prompt / 500-completion call, in_rate=0.005 out_rate=0.030 per 1k",
+      "key": "answer must identify that the function throws away the ACTUAL prompt/completion split and re-derives a fixed 60/40 one, so any call whose real split differs is mispriced — a prompt-heavy call (20000/500) is charged as if 40% of tokens were completion at the expensive output rate, overstating cost ~2.7x — while still being labelled 'measured'. It must price prompt_tokens at in_rate and completion_tokens at out_rate directly."
+    },
+    {
+      "id": "pool-cache-hit-billing",
+      "source": "ai-consultants v2.25.0 (cache hit billed full price)",
+      "category": "BUG_DEBUG",
+      "difficulty": "medium",
+      "prompt": "A semantic cache avoids repeat API calls. Each stored entry is the full response including its metadata.tokens_used. Session cost is the sum of tokens_used over every response the run touched. Name the most serious defect and why.\n\nget_response() {\n  local key=\"$1\"\n  if cached=$(cache_lookup \"$key\"); then\n    echo \"$cached\"; return         # cache hit: no API call\n  fi\n  resp=$(call_api \"$key\"); cache_store \"$key\" \"$resp\"; echo \"$resp\"\n}\n# later: session_cost = sum(.metadata.tokens_used) over ALL responses returned this run",
+      "key": "answer must identify that a cache HIT performs no API call yet the replayed response still carries the original tokens_used, which is summed into session cost — so the run is billed full price for tokens it never spent (a repeated query costs money every time). A cache hit must contribute zero API cost (at most a cache-read cost)."
+    },
+    {
+      "id": "pool-fd0-redirect-read",
+      "source": "ai-consultants v2.22.0 (--advanced fd-0 redirect)",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "prompt": "This loop walks a list of parameters and prompts the user for a new value for each. Instead of pausing for input, each prompt is silently answered with the next parameter's name. Name the most serious defect and why.\n\nwhile IFS= read -r param; do\n  read -r -p \"new value for $param: \" answer\n  echo \"$param = $answer\"\ndone < <(list_parameters)",
+      "key": "answer must identify that `done < <(list_parameters)` redirects fd 0 (stdin) for the ENTIRE loop body, so the nested `read -r -p` reads from the process substitution — the parameter list — not the terminal. Each prompt consumes the NEXT parameter's name as its answer. The nested read needs its own file descriptor (e.g. read <&3 with `done 3< <(list_parameters)`)."
+    },
+    {
+      "id": "pool-mixedcase-rate-lookup",
+      "source": "ai-consultants v2.17.0 (case-sensitive cost lookup)",
+      "category": "BUG_DEBUG",
+      "difficulty": "medium",
+      "prompt": "Model prices live in a JSON map keyed by model id. This function looks up a rate; callers pass the model id lower-cased. Some catalogue keys are mixed-case (e.g. \"Gemini-3-Pro\"). Name the most serious defect and why.\n\nget_rate() {\n  local model=\"$1\"                     # already lower-cased by the caller\n  local rate\n  rate=$(jq -r --arg m \"$model\" '.models[$m] // empty' rates.json)\n  echo \"${rate:-0.005}\"                 # fall back to default rate\n}",
+      "key": "answer must identify that jq object indexing is case-SENSITIVE while the caller lower-cases the model id, so any mixed-case catalogue key (\"Gemini-3-Pro\") never matches the lower-cased lookup and silently falls back to the 0.005 default rate — wrong (often inflated) cost for every mixed-case model, with no error. The lookup must compare case-insensitively (e.g. ascii_downcase both sides)."
+    }
+  ]
+}
