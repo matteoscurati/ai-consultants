@@ -34,7 +34,6 @@ SUGGEST_CONFIG=false
 SUGGEST_PRESET=false
 LIVE_MODE=false
 QUESTION=""
-ROSTER_AUDIT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -66,10 +65,6 @@ while [[ $# -gt 0 ]]; do
             LIVE_MODE=true
             shift
             ;;
-        --roster-audit)
-            ROSTER_AUDIT=true
-            shift
-            ;;
         --question)
             QUESTION="${2:-}"
             shift 2
@@ -91,8 +86,6 @@ while [[ $# -gt 0 ]]; do
             echo "  --live             Send a real ping query to each enabled consultant"
             echo "                     (catches installed-but-unauthenticated CLIs that the"
             echo "                     static check reports as healthy). Costs a tiny query each."
-            echo "  --roster-audit     Audit past consultations for uncorrelated value"
-            echo "                     (which consultants add distinct signal vs echo the panel)"
             exit 0
             ;;
         *)
@@ -902,7 +895,7 @@ _recommend_combo() {
     # Without this short-circuit, e.g. "minimal" preset with count=0 would
     # produce an unrunnable suggestion.
     if (( count < 2 )); then
-        echo "minimal|majority|Only ${count} consultant(s) currently usable — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
+        echo "minimal|coverage|Only ${count} consultant(s) currently usable — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
         return 0
     fi
 
@@ -928,28 +921,28 @@ _recommend_combo() {
             fi
             ;;
         QUICK_SYNTAX)
-            echo "fast|majority|QUICK_SYNTAX detected — single-best-answer is enough; fast preset uses economy models"
+            echo "fast|coverage|QUICK_SYNTAX detected — single-best-answer is enough; fast preset uses economy models"
             ;;
         ALGORITHM)
-            echo "balanced|majority|ALGORITHM detected; DeepSeek (Code Specialist) tends to lead in this category"
+            echo "balanced|coverage|ALGORITHM detected; DeepSeek (Code Specialist) tends to lead in this category"
             ;;
         BUG_DEBUG|CODE_REVIEW|TESTING)
             if (( count >= 5 )); then
-                echo "thorough|majority|${category} detected; ${count} consultants — thorough preset for broader coverage"
+                echo "thorough|coverage|${category} detected; ${count} consultants — thorough preset for broader coverage"
             else
-                echo "balanced|majority|${category} detected; ${count} consultants — balanced for steady quality"
+                echo "balanced|coverage|${category} detected; ${count} consultants — balanced for steady quality"
             fi
             ;;
         DATABASE|API_DESIGN)
-            echo "balanced|majority|${category} detected — balanced preset matches the routing affinity for this category"
+            echo "balanced|coverage|${category} detected — balanced preset matches the routing affinity for this category"
             ;;
         *)
             if (( count >= 5 )); then
-                echo "balanced|majority|GENERAL category — balanced preset with majority voting"
+                echo "balanced|coverage|GENERAL category — balanced preset with coverage synthesis"
             elif (( count >= 2 )); then
-                echo "minimal|majority|GENERAL category; only ${count} consultants — minimal preset"
+                echo "minimal|coverage|GENERAL category; only ${count} consultants — minimal preset"
             else
-                echo "minimal|majority|Only ${count} consultant detected — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
+                echo "minimal|coverage|Only ${count} consultant detected — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
             fi
             ;;
     esac
@@ -1161,14 +1154,6 @@ if [[ "$LIVE_MODE" == "true" ]]; then
     check_live_consultants
     print_summary
     [[ ${#ISSUES[@]} -gt 0 ]] && exit 1 || exit 0
-fi
-
-if [[ "$ROSTER_AUDIT" == "true" ]]; then
-    # Delegate to the standalone audit tool (reuses doctor's --json flag).
-    audit_args=()
-    [[ "$JSON_OUTPUT" == "true" ]] && audit_args+=(--json)
-    "$SCRIPT_DIR/roster_audit.sh" ${audit_args[@]+"${audit_args[@]}"}
-    exit $?
 fi
 
 main

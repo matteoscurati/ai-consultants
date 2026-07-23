@@ -39,27 +39,18 @@ ai-consultants/
 │   ├── config.sh               # Centralized configuration
 │   ├── doctor.sh               # Diagnostic and auto-fix tool (v2.2)
 │   ├── update_clis.sh          # Check/update installed consultant CLIs (v2.21)
-│   ├── peer_review.sh          # Anonymous peer review (v2.2)
-│   ├── roster_audit.sh         # Roster uncorrelated-value audit (v2.20)
-│   ├── roster_calibrate.sh     # Measured capability calibration, Tier A (v2.20)
-│   ├── run_calibration.sh      # Calibration data-collection harness (v2.20)
-│   ├── taste_elo.sh            # Pairwise-judge taste Elo, Tier B (v2.20)
 │   ├── install.sh              # One-liner installer (v2.2)
 │   ├── query_*.sh              # Wrapper for each consultant
 │   ├── query_claude.sh         # Claude consultant (v2.2)
-│   ├── synthesize.sh           # Auto-synthesis of responses
-│   ├── debate_round.sh         # Multi-Agent Debate
+│   ├── synthesize.sh           # Coverage-union synthesis of responses
 │   ├── classify_question.sh    # Question classifier
 │   ├── followup.sh             # Follow-up queries
 │   ├── preflight_check.sh      # DEPRECATED v2.10.9 (thin wrapper -> doctor.sh)
 │   └── lib/
-│       ├── common.sh           # Shared utilities (logging, panic mode)
+│       ├── common.sh           # Shared utilities (logging, quorum grading)
 │       ├── personas.sh         # Consultant persona definitions
 │       ├── schema.json         # JSON output schema
-│       ├── voting.sh           # Voting/consensus + confidence intervals
-│       ├── routing.sh          # Smart routing + cost-aware routing
-│       ├── orchestration.sh    # Dynamic orchestration planner + shapes (v2.16)
-│       ├── stance.sh           # Stance-based semantic consensus (v2.21, opt-in)
+│       ├── routing.sh          # Smart routing (category affinity) + cost-aware routing
 │       ├── session.sh          # Session management
 │       ├── costs.sh            # Cost tracking + response limits
 │       ├── cache.sh            # Semantic caching (v2.3)
@@ -158,17 +149,13 @@ Each consultant must produce JSON with this minimum structure:
 ## Main Flow
 
 1. `consult_all.sh` receives query, optional files, and flags (`--preset`, `--strategy`)
-2. Applies preset if specified (`apply_preset()` in config.sh)
+2. Applies preset if specified (`apply_preset()` in config.sh) — sets the consultant set + model tier
 3. Classifies the question (`classify_question.sh`)
-4. Plans orchestration: complexity + intent → shape (`select_orchestration_shape()` in `lib/orchestration.sh`); `ORCHESTRATION_MODE=fixed` bypasses to the legacy path
-5. Selects consultants (smart routing or all)
-6. Launches parallel queries (`query_*.sh`)
-7. Deliberates per the chosen shape: convergence loop / adversarial gate / tournament / exhaustive sweep (`run_orchestration()`), or fixed debate rounds in `fixed` mode
-8. Calculates voting/consensus with confidence intervals (`lib/voting.sh`)
-9. Checks for panic mode triggers (`lib/common.sh`)
-10. Generates synthesis with selected strategy (`synthesize.sh`)
-11. Optionally runs peer review (`peer_review.sh`)
-12. Produces final report
+4. Selects consultants (smart routing by category affinity, or all)
+5. Launches parallel queries (`query_*.sh`) — one shot per consultant, no serial rounds
+6. Grades quorum (`grade_quorum()` in `lib/common.sh`) — surfaces a degraded panel
+7. Generates synthesis with the selected strategy (`synthesize.sh`); the default `coverage` produces the deduplicated UNION of every distinct point across the panel
+8. Produces final report
 
 ## v2.2 Features
 
@@ -613,32 +600,21 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 |----------|---------|-------------|
 | `INVOKING_AGENT` | unknown | Agent invoking the skill (for self-exclusion) |
 | `ENABLE_CLAUDE` | true | Enable Claude consultant (auto-excluded under Claude Code) |
-| `ENABLE_DEBATE` | false | Enable Multi-Agent Debate |
-| `DEBATE_ROUNDS` | 1 | Number of debate rounds |
-| `ENABLE_SYNTHESIS` | true | Auto-synthesis of responses |
-| `ENABLE_SMART_ROUTING` | false | Intelligent routing |
+| `ENABLE_SYNTHESIS` | true | Coverage-union synthesis of responses |
+| `ENABLE_SMART_ROUTING` | false | Intelligent routing by category |
 | `ENABLE_COST_TRACKING` | true | Track costs |
 | `MAX_SESSION_COST` | 1.00 | Max budget ($) |
-| `ENABLE_PANIC_MODE` | auto | Panic mode trigger (v2.2) |
-| `PANIC_CONFIDENCE_THRESHOLD` | 5 | Panic threshold (v2.2) |
 | `CLAUDE_MODEL` | claude-opus-4-8 | Claude model (v2.5) |
 | `GEMINI_MODEL` | Gemini 3.1 Pro (High) | Gemini agy CLI model (v2.15) |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
 | `CODEX_MODEL` | gpt-5.5 | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
-| `SYNTHESIS_STRATEGY` | majority | Synthesis strategy (v2.2) |
+| `SYNTHESIS_STRATEGY` | coverage | Synthesis strategy (coverage=union of distinct points) |
 | `ENABLE_SEMANTIC_CACHE` | true | Semantic response caching (v2.3) |
 | `CACHE_TTL_HOURS` | 24 | Cache expiration in hours (v2.3) |
 | `ENABLE_RESPONSE_LIMITS` | false | Response token limits (v2.3, opt-in) |
 | `ENABLE_COST_AWARE_ROUTING` | false | Cost-based model routing (v2.3) |
-| `ENABLE_DEBATE_OPTIMIZATION` | true | Skip debate if all agree; SECURITY and ARCHITECTURE remain mandatory (default since v2.13) |
 | `ENABLE_COMPACT_REPORT` | true | Compact report format (v2.3) |
-| `ENABLE_CAPABILITY_WEIGHTING` | false | Capability-weighted voting (v2.20, opt-in) |
-| `ENABLE_CAPABILITY_ROUTING` | false | Capability-aware panel composition (v2.20, opt-in) |
-| `CAPABILITY_WEIGHT_STRENGTH` | 10 | Vote-weight modulation: conf*(S+cap)/S (v2.20) |
-| `CAPABILITY_DEFAULT` | 5 | Fallback capability for a missing consultant/axis (v2.20) |
-| `ENABLE_STANCE_CONSENSUS` | false | Enumerated-stance exact-match consensus (v2.21, opt-in; +1 LLM call/run) |
-| `STANCE_MAX_OPTIONS` | 5 | Max stance options generated per question (v2.21) |
 | `ENABLE_BUDGET_LIMIT` | false | Budget enforcement (v2.4, opt-in) |
 | `BUDGET_ACTION` | warn | Action on budget exceeded: warn/stop (v2.4) |
 | `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |

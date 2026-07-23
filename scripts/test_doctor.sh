@@ -36,7 +36,7 @@ export KIMI_CMD=true CLAUDE_CMD=true QWEN3_CMD=true MINIMAX_CMD=true
 test_suggest_no_question_is_general() {
     local out
     out=$("$DOCTOR" --suggest-preset 2>/dev/null)
-    assert_match 'preset balanced.*strategy majority' "$out" "no question -> balanced + majority"
+    assert_match 'preset balanced.*strategy coverage' "$out" "no question -> balanced + coverage"
     assert_match 'GENERAL category' "$out" "no question -> reason mentions GENERAL"
     assert_match 'pass --question' "$out" "no question -> tip about --question shown"
 }
@@ -69,7 +69,7 @@ test_suggest_algorithm_default_strategy() {
     local out
     out=$("$DOCTOR" --suggest-preset --question \
         "what's an O(log n) algorithm for binary search?" 2>/dev/null)
-    assert_match 'preset balanced.*strategy majority' "$out" "ALGORITHM -> balanced + majority"
+    assert_match 'preset balanced.*strategy coverage' "$out" "ALGORITHM -> balanced + coverage"
     assert_match 'ALGORITHM detected' "$out" "ALGORITHM -> reason mentions detection"
 }
 
@@ -101,7 +101,7 @@ run_test "Test 1: no question defaults to GENERAL"     test_suggest_no_question_
 run_test "Test 2: SECURITY -> security_first"          test_suggest_security_picks_security_first
 run_test "Test 3: QUICK_SYNTAX -> fast preset"         test_suggest_quick_syntax_picks_fast
 run_test "Test 4: ARCHITECTURE -> risk_averse"         test_suggest_architecture_picks_risk_averse
-run_test "Test 5: ALGORITHM -> balanced + majority"    test_suggest_algorithm_default_strategy
+run_test "Test 5: ALGORITHM -> balanced + coverage"    test_suggest_algorithm_default_strategy
 run_test "Test 6: long questions are truncated"        test_suggest_truncates_long_question
 run_test "Test 7: short-circuits main pipeline"        test_suggest_does_not_run_main_checks
 
@@ -125,7 +125,7 @@ test_suggest_json_output() {
     category=$(echo "$out" | jq -r '.category')
     failed_flag=$(echo "$out" | jq -r '.classification_failed')
     assert_match '^(minimal|balanced|thorough|high-stakes|fast)$' "$preset" "preset is a known value"
-    assert_match '^(majority|risk_averse|security_first|cost_capped|compare_only)$' "$strategy" \
+    assert_match '^(coverage|majority|risk_averse|security_first|cost_capped|compare_only)$' "$strategy" \
         "strategy is a known value"
     assert_match '^[A-Z_]+$' "$category" "category is uppercase enum"
     assert_match '^(true|false)$' "$failed_flag" "classification_failed is boolean"

@@ -229,11 +229,11 @@ test_auto_selects_api_when_cli_is_missing() {
 test_set_covers_advanced_parameters() {
     local cfg="$TMP/set"
     run_clean_configure "$cfg" --force \
-        --set ENABLE_DEBATE=true \
-        --set ORCHESTRATION_MODE=converge \
+        --set ENABLE_SYNTHESIS=false \
+        --set ENABLE_SMART_ROUTING=true \
         --set CHUNK_OVERLAP_LINES=9 >/dev/null
-    assert_eq "true" "$(read_env "$cfg/.env" ENABLE_DEBATE)" "--set overrides a core feature"
-    assert_eq "converge" "$(read_env "$cfg/.env" ORCHESTRATION_MODE)" "--set overrides orchestration"
+    assert_eq "false" "$(read_env "$cfg/.env" ENABLE_SYNTHESIS)" "--set overrides a core feature"
+    assert_eq "true" "$(read_env "$cfg/.env" ENABLE_SMART_ROUTING)" "--set overrides routing"
     assert_eq "9" "$(read_env "$cfg/.env" CHUNK_OVERLAP_LINES)" "--set overrides an advanced knob"
 }
 

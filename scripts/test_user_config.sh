@@ -319,17 +319,6 @@ test_config_sh_explicit_override_wins() {
     assert_eq "/explicit/cache" "$out" "explicit CACHE_DIR wins over XDG_CACHE_HOME"
 }
 
-# v2.13 default flip: ENABLE_DEBATE_OPTIMIZATION promoted to true. A clean
-# env (no override) should yield "true" so consensus questions skip debate.
-test_debate_optimization_default_true() {
-    local val
-    val=$(unset ENABLE_DEBATE_OPTIMIZATION; bash -c '
-        source scripts/config.sh
-        echo "$ENABLE_DEBATE_OPTIMIZATION"
-    ')
-    assert_eq "true" "$val" "ENABLE_DEBATE_OPTIMIZATION default is true (v2.13 promotion)"
-}
-
 # v2.15.1 Gemini transport auto-resolution. With GEMINI_USE_API unset, config.sh
 # picks API mode when a GEMINI_API_KEY is present (the npm-friendly path) and CLI
 # mode otherwise. An explicit GEMINI_USE_API always wins (back-compat).
@@ -437,19 +426,19 @@ test_env_example_is_sourceable_and_loader_compatible() {
     # config.sh -> load_user_config before `npm test`, and GEMINI_MODEL is a
     # documented `configure --set` parameter) would be compared against the
     # template instead of the template's own value. Unset in both subshells.
-    out=$(bash -c 'set -e; unset GEMINI_MODEL PANIC_KEYWORDS
-        source .env.example; printf "%s|%s" "$GEMINI_MODEL" "$PANIC_KEYWORDS"')
-    assert_eq "Gemini 3.1 Pro (High)|uncertain|maybe|not sure|possibly|unclear|depends|hard to say|difficult to determine" \
+    out=$(bash -c 'set -e; unset GEMINI_MODEL
+        source .env.example; printf "%s" "$GEMINI_MODEL"')
+    assert_eq "Gemini 3.1 Pro (High)" \
         "$out" ".env.example is safely sourceable"
     mkdir -p "$cfg"
     cp .env.example "$cfg/.env"
     out=$(AI_CONSULTANTS_CONFIG_DIR="$cfg" bash -c '
-        unset GEMINI_MODEL PANIC_KEYWORDS
+        unset GEMINI_MODEL
         source scripts/lib/user_config.sh
         load_user_config
-        printf "%s|%s" "$GEMINI_MODEL" "$PANIC_KEYWORDS"
+        printf "%s" "$GEMINI_MODEL"
     ')
-    assert_eq "Gemini 3.1 Pro (High)|uncertain|maybe|not sure|possibly|unclear|depends|hard to say|difficult to determine" \
+    assert_eq "Gemini 3.1 Pro (High)" \
         "$out" "custom loader preserves quoted template semantics"
 }
 
@@ -459,7 +448,6 @@ run_test "Test 14: get_xdg_dir distroless /tmp fallback" test_xdg_dir_distroless
 run_test "Test 15: get_xdg_dir invalid kind"             test_xdg_dir_invalid_kind
 run_test "Test 16: config.sh XDG defaults"               test_config_sh_xdg_defaults
 run_test "Test 17: explicit env wins over XDG"           test_config_sh_explicit_override_wins
-run_test "Test 18: ENABLE_DEBATE_OPTIMIZATION=true (v2.13)" test_debate_optimization_default_true
 run_test "Test 19: Gemini auto-API with key (v2.15.1)"   test_gemini_auto_api_with_key
 run_test "Test 20: Gemini auto-CLI without key (v2.15.1)" test_gemini_auto_cli_without_key
 run_test "Test 21: Gemini explicit false wins (v2.15.1)" test_gemini_explicit_false_wins_over_key

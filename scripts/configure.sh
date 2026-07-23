@@ -40,7 +40,7 @@ Options:
 
 Examples:
   ai-consultants configure
-  ai-consultants configure --set DEFAULT_PRESET=balanced --set ENABLE_DEBATE=true
+  ai-consultants configure --set DEFAULT_PRESET=balanced --set ENABLE_SYNTHESIS=true
   ai-consultants configure --interactive
   ai-consultants configure --advanced
 EOF

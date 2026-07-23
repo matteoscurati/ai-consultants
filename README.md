@@ -1,6 +1,6 @@
 # AI Consultants v2.25.2
 
-> **A harness for every question.** A panel of up to 11 frontier models that writes its own playbook per question — fan out, debate to convergence, cross-examine under adversarial review, or run a tournament — and checks its work before it reaches you.
+> **Coverage, not a single guess.** A panel of up to 11 frontier models from different vendors fans out on your question in parallel and hands you the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses.
 
 [![Version](https://img.shields.io/badge/version-2.25.2-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -35,15 +35,13 @@
 
 ## Why AI Consultants?
 
-A single model gives you a single guess. AI Consultants gives you a **panel that deliberates — and adapts how it deliberates to the question in front of it.**
+A single model gives you a single guess — and it misses whatever falls in its blind spots. AI Consultants fans your question out to a **panel of models from different vendors** and returns the **union of their distinct answers**: the point one model raised and the others didn't is exactly the value.
 
-Instead of running a fixed script, it classifies your question, picks an orchestration **shape**, and iterates until the answers hold up — the way a workflow builds a harness for the task at hand:
-
-- **Dynamic orchestration** — the engine chooses the strategy per question: a quick read, a convergence loop, an adversarial refutation gate, a tournament of approaches, or an exhaustive sweep
-- **Convergence, not fixed rounds** — debate iterates until the panel actually agrees (or provably won't), instead of a hardcoded count
-- **Self-checking** — security answers are stress-tested by consultants trying to refute them before anything reaches you
-- **11 supported consultants** with distinct personas (Architect, Pragmatist, Devil's Advocate, …)
-- **Confidence-weighted synthesis** — one recommendation, with the dissent and the path it took surfaced so you know how much to trust it
+- **Cross-vendor diversity → coverage** — different model families have different blind spots, so the union covers what any one misses. On open-ended questions ("what could go wrong with this design?", "enumerate the risks") a diverse panel covers materially more of the answer space than one strong model — or than sampling one model repeatedly.
+- **Parallel fan-out** — every consultant runs at once; no serial deliberation rounds.
+- **Coverage synthesis** — the default synthesis is the deduplicated *union* of every distinct point, not a single voted winner (use `--strategy compare_only` for a side-by-side, or `majority` for a blended recommendation).
+- **11 supported consultants** with distinct personas (Architect, Pragmatist, Devil's Advocate, …) — the personas deliberately decorrelate the panel.
+- **Best for breadth** — threat-modeling, design review, "what am I missing?", exhaustive enumeration. For a single-answer factual or defect-finding question, one strong model is usually enough.
 
 ---
 
@@ -216,7 +214,6 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 | Command | Description |
 |---------|-------------|
 | `/ai-consultants:consult` | Main consultation - ask AI consultants a coding question |
-| `/ai-consultants:debate` | Run consultation with multi-round debate |
 | `/ai-consultants:help` | Show all commands and usage |
 
 Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
@@ -342,8 +339,8 @@ cd ai-consultants
 # With preset
 ./scripts/consult_all.sh --preset balanced "Redis or Memcached?"
 
-# With debate
-ENABLE_DEBATE=true DEBATE_ROUNDS=2 ./scripts/consult_all.sh "Microservices vs monolith?"
+# Side-by-side instead of the coverage union
+./scripts/consult_all.sh --strategy compare_only "Microservices vs monolith?"
 
 # With smart routing
 ENABLE_SMART_ROUTING=true ./scripts/consult_all.sh "Bug in auth code"
@@ -434,13 +431,8 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 | `medium` | Standard | 4 | General questions |
 | `fast` | Economy | 2 | Quick checks |
 
-**Deliberation depth is not fixed by the preset.** Under the default
-`ORCHESTRATION_MODE=auto` the planner picks the shape per question, so the
-`DEBATE_ROUNDS` a preset pins applies only under `ORCHESTRATION_MODE=fixed`,
-and a `SECURITY`-classified question runs the adversarial shape — including a
-peer-review round — whatever preset you chose. `max_quality` additionally
-enables peer review outright; `medium` and `fast` do not *clear* it, so an
-enabled peer review carries into them.
+A preset only chooses the **consultant set and model tier** — every run then fans out in
+parallel and returns the coverage union.
 
 ### Models by Tier
 
@@ -487,14 +479,14 @@ Choose how many consultants to use:
 
 | Preset | Consultants | Tier | Use Case |
 |--------|-------------|------|----------|
-| `max_quality` | 8 of 11 (+ peer review) | Premium | Critical decisions |
+| `max_quality` | 8 of 11 | Premium | Critical decisions |
 | `medium` | 4 | Standard | General questions |
 | `fast` | 2 | Economy | Quick checks |
 | `minimal` | 2 (Gemini + Codex) | Default | Quick questions, low cost |
 | `balanced` | 4 (+ Mistral + Cursor) | Default | Standard consultations |
 | `thorough` | 4 | Default | Comprehensive analysis |
-| `high-stakes` | Expanded panel + debate | Default | Critical decisions |
-| `security` | Security-focused + debate | Default | Security reviews |
+| `high-stakes` | Expanded panel (5 of 11) | Default | Critical decisions |
+| `security` | Security-focused (4) | Default | Security reviews |
 | `cost-capped` | Budget-conscious | Default | Minimal API costs |
 
 **Bash:**
@@ -533,8 +525,8 @@ ai-consultants configure --interactive
 # Set any persistent parameter without opening an editor
 ai-consultants configure \
   --set DEFAULT_PRESET=balanced \
-  --set ENABLE_DEBATE=true \
-  --set ORCHESTRATION_MODE=converge
+  --set DEFAULT_STRATEGY=coverage \
+  --set ENABLE_SMART_ROUTING=true
 
 # Inspect the complete machine-readable parameter surface
 ai-consultants configure --show-parameters
@@ -561,8 +553,8 @@ For ad-hoc overrides without persisting, the most common knobs:
 
 ```bash
 DEFAULT_PRESET=balanced      # minimal | balanced | thorough | high-stakes | fast | security
-DEFAULT_STRATEGY=majority    # majority | risk_averse | security_first | cost_capped | compare_only
-ENABLE_DEBATE=true           # Multi-agent debate (auto-skipped when consensus is high since v2.13)
+DEFAULT_STRATEGY=coverage    # coverage | compare_only | majority | risk_averse | security_first | cost_capped
+ENABLE_SMART_ROUTING=true    # Auto-select consultants by question category
 MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=true to enforce)
 KIMI_MODEL=kimi-code/k3      # Pin the Kimi consultant to K3
 ```
@@ -571,35 +563,25 @@ Full reference: [`references/configuration.md`](references/configuration.md). Co
 
 ### Configuration Recipes
 
-**Dynamic debate until convergence:**
+**Breadth review — the coverage union (default):**
 
 ```bash
-ENABLE_DEBATE=true \
-ORCHESTRATION_MODE=converge \
-CONVERGENCE_MAX_ROUNDS=4 \
-CONVERGENCE_TARGET_CONSENSUS=75 \
-ai-consultants --strategy risk_averse \
-  "Event log or mutable relational state for this service?"
+ai-consultants --preset high-stakes \
+  "What could go wrong with this webhook-delivery design?" src/webhooks.ts@PRIMARY
 ```
 
-**Repeatable two-round review:**
+**Security review, security-first framing:**
 
 ```bash
-ENABLE_DEBATE=true \
-ORCHESTRATION_MODE=fixed \
-DEBATE_ROUNDS=2 \
-ENABLE_DEBATE_OPTIMIZATION=false \
-ai-consultants "Review this migration plan" docs/migration.md@PRIMARY
-```
-
-**Security review with adversarial verification:**
-
-```bash
-ENABLE_DEBATE=true \
-ORCHESTRATION_MODE=adversarial \
-ENABLE_PEER_REVIEW=true \
 ai-consultants --preset security --strategy security_first \
   "Find authentication bypasses" src/auth.ts@PRIMARY
+```
+
+**Side-by-side comparison (no synthesized union):**
+
+```bash
+ai-consultants --strategy compare_only \
+  "Event log or mutable relational state for this service?"
 ```
 
 **Live health gate plus hard quorum:**
@@ -611,9 +593,8 @@ QUORUM_ACTION=stop \
 ai-consultants "Make a release recommendation"
 ```
 
-See [13 complete recipes](docs/RECIPES.md) for fast, high-stakes, tournament,
-exhaustive audit, budget-capped, CLI-only, hybrid API, semantic-consensus, and
-large-context workflows.
+See the [recipes](docs/RECIPES.md) for balanced, fast, security, compare-only,
+budget-capped, CLI-only, hybrid API, and large-context workflows.
 
 ### Doctor Command
 
@@ -637,35 +618,18 @@ ai-consultants update-clis --dry-run                           # Preview: each C
 ## How It Works
 
 ```
-Classify -> Plan shape -> Fan out -> Deliberate & converge -> Synthesize
-   |            |             |               |
- category   orchestration  Gemini (8)    convergence loop /
- complexity    shape       Codex (7)     adversarial gate /
- intent                    Mistral (6)   tournament / exhaustive
-                           Cursor (9)
+Classify -> Route -> Fan out (parallel) -> Coverage synthesis
+   |          |            |                      |
+ category  smart       Gemini (8)          union of every
+          routing      Codex (7)           distinct point,
+                       Mistral (6)         deduplicated
+                       Cursor (9)
 ```
 
-The **shape** is chosen per question (or pinned via `ORCHESTRATION_MODE`):
-
-| Shape | When | What happens |
-|-------|------|--------------|
-| `quick` | simple questions | one fan-out, no debate |
-| `converge` | most questions | debate rounds until consensus is reached (not a fixed count) |
-| `adversarial` | security | a forced critique round + peer-review refutation gate |
-| `tournament` | "compare X vs Y" | converge, then declare a single winning approach |
-| `exhaustive` | "find all / audit" | loop until a round surfaces no new angle |
-
-Set `ORCHESTRATION_MODE=fixed` for the classic fixed-round pipeline.
-
-Consensus is measured lexically by default; set `ENABLE_STANCE_CONSENSUS=true`
-(opt-in, v2.21) to have the panel pick from a shared set of enumerated stance
-options and score agreement by exact match instead — see
-[references/configuration.md](references/configuration.md#semantic-consensus-v221-opt-in).
-
-With peer review:
-```
-Responses -> Anonymize -> Peer Ranking -> De-anonymize -> Peer Scores
-```
+1. **Classify** the question into a category.
+2. **Route** (optional, `ENABLE_SMART_ROUTING`) to the consultants with the best category affinity (`references/affinity.json`).
+3. **Fan out** to every selected consultant in parallel — one shot each, no serial rounds.
+4. **Synthesize** the **coverage union**: the deduplicated set of every distinct point, recommendation, risk, and edge case raised by any consultant. Override with `--strategy compare_only` (side-by-side) or `majority` (a single blended recommendation).
 
 ### Output
 
@@ -677,31 +641,34 @@ Each consultation generates:
 ├── codex.json           #   with confidence scores
 ├── mistral.json
 ├── cursor.json
-├── voting.json          # Consensus calculation
-├── synthesis.json       # Weighted recommendation
-├── report.md            # Human-readable report
-└── round_2/             # (if debate enabled)
+├── synthesis.json       # Coverage union
+└── report.md            # Human-readable report
 ```
 
 ---
 
 ## Best Practices
 
-### When to Use High-Stakes Mode
+### When the Panel Helps Most
 
-- Architectural decisions affecting system design
-- Security-critical code changes
-- Performance-critical optimizations
+The panel's edge is **coverage** — surfacing what a single model misses. It pays off on
+open-ended, breadth questions:
+
+- Threat-modeling and design review ("what could go wrong with this?")
+- Enumerating risks, edge cases, or failure modes
+- "What am I missing?" / exhaustive audits
 - Decisions that are difficult to reverse
+
+For a single-answer factual or defect-finding question, a single strong model is usually
+enough — the panel adds little.
 
 ### Interpreting Results
 
 | Scenario | Recommendation |
 |----------|----------------|
-| High confidence + High consensus | Proceed with confidence |
-| Low confidence OR Low consensus | Consider more options |
-| Mistral (Devil's Advocate) disagrees | Investigate the risks |
-| Panic mode triggered | Add more consultants or debate rounds |
+| A point only one consultant raised | Weigh it — the diversity is the point |
+| Mistral (Devil's Advocate) flags a risk | Investigate it |
+| Consultants diverge on approach | Use `--strategy compare_only` to see each side-by-side |
 
 ### Security
 

@@ -334,45 +334,9 @@ SYNTHESIS_CMD="${SYNTHESIS_CMD:-claude}"
 DEFAULT_PRESET="${DEFAULT_PRESET:-}"
 
 # Default synthesis strategy
-# Options: majority, risk_averse, security_first, cost_capped, compare_only
-DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-majority}"
-
-# =============================================================================
-# PEER REVIEW (v2.2)
-# =============================================================================
-
-# Enable anonymous peer review step
-ENABLE_PEER_REVIEW="${ENABLE_PEER_REVIEW:-false}"
-
-# Minimum responses required for peer review (default: 3)
-PEER_REVIEW_MIN_RESPONSES="${PEER_REVIEW_MIN_RESPONSES:-3}"
-
-# =============================================================================
-# MULTI-AGENT DEBATE - MAD (v2.0)
-# =============================================================================
-
-# Enable multi-round debate
-ENABLE_DEBATE="${ENABLE_DEBATE:-false}"
-
-# Number of debate rounds (1 = initial responses only, 2-3 = with cross-critique)
-DEBATE_ROUNDS="${DEBATE_ROUNDS:-1}"
-
-# =============================================================================
-# PANIC BUTTON MODE (v2.2)
-# =============================================================================
-
-# Panic mode triggers additional rigor when uncertainty is detected
-# Values: "auto" (detect), "always" (always enable), "never" (disable)
-ENABLE_PANIC_MODE="${ENABLE_PANIC_MODE:-auto}"
-
-# Threshold for average confidence below which panic mode triggers
-PANIC_CONFIDENCE_THRESHOLD="${PANIC_CONFIDENCE_THRESHOLD:-5}"
-
-# Number of additional debate rounds to add in panic mode
-PANIC_EXTRA_DEBATE_ROUNDS="${PANIC_EXTRA_DEBATE_ROUNDS:-1}"
-
-# Keywords that trigger panic mode when found in responses
-PANIC_KEYWORDS="${PANIC_KEYWORDS:-uncertain|maybe|not sure|possibly|unclear|depends|hard to say|difficult to determine}"
+# Options: coverage (union of distinct points; default), majority, risk_averse,
+# security_first, cost_capped, compare_only
+DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-coverage}"
 
 # =============================================================================
 # SMART ROUTING (v2.0)
@@ -517,57 +481,10 @@ USE_ECONOMIC_MODELS_FOR_SIMPLE="${USE_ECONOMIC_MODELS_FOR_SIMPLE:-true}"
 COMPLEXITY_THRESHOLD_SIMPLE="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
 COMPLEXITY_THRESHOLD_MEDIUM="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
 
-# --- Capability-Aware Routing & Voting (opt-in, v2.20) ---
-# Weight each consultant's vote (and rank the panel) by its capability on the
-# quality axis a question stresses — intelligence or taste, per
-# references/affinity.json 'category_axis'. Scores live in affinity.json
-# 'capabilities'. cost is a composition/budget axis only, never a vote weight
-# (tie-break: intelligence > taste > cost). Both default off -> identical to
-# prior behavior.
-ENABLE_CAPABILITY_WEIGHTING="${ENABLE_CAPABILITY_WEIGHTING:-false}"  # capability-weighted voting
-ENABLE_CAPABILITY_ROUTING="${ENABLE_CAPABILITY_ROUTING:-false}"      # capability-aware panel composition
-CAPABILITY_WEIGHT_STRENGTH="${CAPABILITY_WEIGHT_STRENGTH:-10}"       # higher = gentler nudge: weight = conf*(S+cap)/S
-CAPABILITY_DEFAULT="${CAPABILITY_DEFAULT:-5}"                        # fallback capability for a missing consultant/axis
-
 # --- Selective Context ---
 # Send only relevant files to each consultant
 ENABLE_SELECTIVE_CONTEXT="${ENABLE_SELECTIVE_CONTEXT:-false}"
 MAX_FILES_PER_CONSULTANT="${MAX_FILES_PER_CONSULTANT:-5}"
-
-# =============================================================================
-# DYNAMIC ORCHESTRATION (v2.16.0)
-# =============================================================================
-# The planner (lib/orchestration.sh) picks an orchestration SHAPE per question
-# from its category, complexity, and intent, and runs debate as a CONVERGENCE
-# LOOP (iterate until answers converge) instead of a fixed round count.
-#
-# ORCHESTRATION_MODE:
-#   auto        - planner selects the shape (default)
-#   fixed       - legacy pipeline (pre-2.16 behavior, fixed DEBATE_ROUNDS)
-#   quick|converge|adversarial|tournament|exhaustive - force a specific shape
-ORCHESTRATION_MODE="${ORCHESTRATION_MODE:-auto}"
-
-# Convergence loop controls (used by auto/converge/adversarial/tournament).
-# Max debate rounds the loop may run before stopping regardless of consensus.
-CONVERGENCE_MAX_ROUNDS="${CONVERGENCE_MAX_ROUNDS:-4}"
-# Consensus score (0-100) at or above which the loop is considered converged.
-CONVERGENCE_TARGET_CONSENSUS="${CONVERGENCE_TARGET_CONSENSUS:-75}"
-# Minimum per-round consensus gain; below this the loop stops as "stalled"
-# (prevents burning rounds when the panel has stopped moving).
-CONVERGENCE_STALL_EPSILON="${CONVERGENCE_STALL_EPSILON:-5}"
-
-# Adversarial verification: the 'adversarial' shape forces >=1 critique round
-# and runs anonymous peer review as a refutation gate before synthesis.
-ENABLE_ADVERSARIAL_VERIFY="${ENABLE_ADVERSARIAL_VERIFY:-true}"
-
-# Stance-based semantic consensus (v2.21, opt-in). When true, one LLM call
-# enumerates 2..STANCE_MAX_OPTIONS mutually-exclusive stance options per question
-# and each consultant picks one verbatim, so consensus is an exact-match plurality
-# (robust to paraphrasing) instead of lexical clustering. Adds one serial LLM call
-# per run; degrades gracefully to the cluster consensus if generation fails.
-ENABLE_STANCE_CONSENSUS="${ENABLE_STANCE_CONSENSUS:-false}"
-STANCE_MAX_OPTIONS="${STANCE_MAX_OPTIONS:-5}"
-STANCE_TIMEOUT="${STANCE_TIMEOUT:-60}"   # seconds for the stance-generation call (guards a hang)
 
 # =============================================================================
 # QUORUM GRADING (v2.19.0)
@@ -597,19 +514,6 @@ QUORUM_ACTION="${QUORUM_ACTION:-warn}"
 # That's the cost of pruning up front; keep it opt-in and tune the timeout.
 ENABLE_HEALTH_GATE="${ENABLE_HEALTH_GATE:-false}"
 HEALTH_GATE_TIMEOUT="${HEALTH_GATE_TIMEOUT:-30}"
-
-# --- Debate Optimization ---
-# Optimize debate rounds for token efficiency: skip debate when consensus is
-# already high (confidence spread below DEBATE_CONFIDENCE_SPREAD_THRESHOLD).
-# Promoted to default TRUE in v2.13.0 after sustained good results — saves
-# ~30-50% tokens on consensus questions. SECURITY and ARCHITECTURE categories
-# are exempt (mandatory debate). Set to false to force debate for every run.
-ENABLE_DEBATE_OPTIMIZATION="${ENABLE_DEBATE_OPTIMIZATION:-true}"
-# Only activate debate if confidence spread exceeds threshold
-# Lowered to 2 per quality review (original: 3)
-DEBATE_CONFIDENCE_SPREAD_THRESHOLD="${DEBATE_CONFIDENCE_SPREAD_THRESHOLD:-2}"
-# Use summaries in debate rounds instead of full responses
-DEBATE_USE_SUMMARIES="${DEBATE_USE_SUMMARIES:-true}"
 
 # --- Report Optimization ---
 # Generate compact reports by default (summaries only)
@@ -763,7 +667,6 @@ _disable_all_consultants() {
     export ENABLE_CURSOR=false ENABLE_KIMI=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
     export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
-    export ENABLE_DEBATE=false
 }
 
 # Apply a preset configuration
@@ -789,12 +692,10 @@ apply_preset() {
         high-stakes)
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
             export ENABLE_CURSOR=true ENABLE_CLAUDE=true
-            export ENABLE_DEBATE=true DEBATE_ROUNDS=2
             ;;
         security)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
             export ENABLE_MISTRAL=true ENABLE_CURSOR=true
-            export ENABLE_DEBATE=true DEBATE_ROUNDS=2
             ;;
         cost-capped)
             apply_model_tier "economy"
@@ -808,21 +709,17 @@ apply_preset() {
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
             export ENABLE_CURSOR=true ENABLE_KIMI=true
             export ENABLE_CLAUDE=true ENABLE_QWEN3=true ENABLE_MINIMAX=true
-            export ENABLE_DEBATE=true DEBATE_ROUNDS=3
-            export ENABLE_PEER_REVIEW=true
             ;;
         medium)
             # Balanced quality - standard models, good coverage
             apply_model_tier "standard"
             export ENABLE_GEMINI=true ENABLE_CODEX=true
             export ENABLE_MISTRAL=true ENABLE_CURSOR=true
-            export ENABLE_DEBATE=true DEBATE_ROUNDS=1
             ;;
         fast)
             # Super fast - economy models, minimal consultants
             apply_model_tier "economy"
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_DEBATE=false
             export ENABLE_COMPACT_REPORT=true
             ;;
         *)

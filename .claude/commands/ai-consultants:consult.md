@@ -42,34 +42,29 @@ Query multiple AI models for expert opinions on a coding question.
    - Read `<output_dir>/synthesis.json` using the **Read** tool (may not exist if synthesis was skipped or failed)
    - If neither exists, use the **Glob** tool with pattern `<output_dir>/*.json` to discover individual consultant response files, then read each one
 
-5. **Present the results** using this template:
+5. **Present the results** using this template. The panel's value is *coverage* — the
+   union of distinct points across diverse models, including what only one raised — not a
+   single voted winner:
 
-   ### Consensus
-   - **Score**: <consensus_percentage>% (<consensus_level: strong/medium/low/none>)
-   - **Category**: <question_category>
+   ### Category
+   - <question_category>
 
    ### Consultant Summary
    | Consultant | Confidence | Approach | Key Insight |
    |------------|-----------|----------|-------------|
    | <name> | <score>/10 | <approach> | <one-line from summary> |
 
-   ### Synthesized Recommendation
-   - **Recommended approach**: <approach>
-   - **Summary**: <synthesized summary>
+   ### Coverage (the union of distinct considerations)
+   - <every distinct point, recommendation, risk, and edge case raised by ANY consultant,
+     deduplicated but preserving points only one model raised; note who raised each>
 
-   ### Key Agreements
-   - <points most consultants agree on>
-
-   ### Key Disagreements
-   - <points where consultants diverge>
-
-   ### Risk Assessment
-   - <caveats and uncertainty factors raised>
+   ### Risks & Caveats
+   - <distinct caveats and uncertainty factors raised across the panel>
 
    ### Suggested Next Steps
-   - <actionable items based on the recommendation>
+   - <actionable items drawn from the coverage above>
 
-   If `synthesis.json` is missing, build the summary table and recommendation directly from the individual consultant JSON files in the output directory.
+   If `synthesis.json` is missing, build the summary table and coverage directly from the individual consultant JSON files in the output directory (take the union of their distinct points).
 
 6. **Error recovery**:
    - **Exit code 1** (general failure): Tell the user and suggest running diagnostics:
@@ -84,9 +79,8 @@ Query multiple AI models for expert opinions on a coding question.
 
 | Variable | Effect |
 |----------|--------|
-| `ENABLE_DEBATE=true` | Enable multi-round debate for deeper analysis |
 | `ENABLE_SMART_ROUTING=true` | Auto-select best consultants for the question type |
-| `DEBATE_ROUNDS=2` | Number of debate rounds (1-3) |
+| `SYNTHESIS_STRATEGY=compare_only` | Present each consultant side-by-side instead of the coverage union |
 | `FORCE_PROJECT_TREE=true` | Include the project tree even for pointed categories (SECURITY, QUICK_SYNTAX, etc.) |
 
 ## Follow-up
