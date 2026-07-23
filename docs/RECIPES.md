@@ -17,16 +17,13 @@ must be enabled.
 
 ## 1. Everyday balanced panel
 
-Use four complementary CLI consultants, synthesize their answers, and keep the
-dynamic planner available without forcing debate on every question.
+Use four complementary CLI consultants and synthesize their answers with the
+default coverage strategy.
 
 ```dotenv
 DEFAULT_PRESET=balanced
-DEFAULT_STRATEGY=majority
+DEFAULT_STRATEGY=coverage
 ENABLE_SYNTHESIS=true
-ENABLE_DEBATE=true
-ORCHESTRATION_MODE=auto
-ENABLE_DEBATE_OPTIMIZATION=true
 ```
 
 ```bash
@@ -35,7 +32,7 @@ ai-consultants "Redis or Memcached for a write-heavy session store?"
 
 ## 2. Fast and inexpensive check
 
-The `fast` preset selects two consultants, economy models, and no debate.
+The `fast` preset selects two consultants and economy models.
 
 ```bash
 ai-consultants --preset fast "Is this SQL index definition valid?"
@@ -51,57 +48,10 @@ MAX_SESSION_COST=0.10
 BUDGET_ACTION=stop
 ```
 
-## 3. Debate until the panel converges
-
-Use the dynamic convergence loop for architectural questions. It stops when
-consensus reaches the target, progress stalls, or the round cap is reached.
-
-```dotenv
-ENABLE_DEBATE=true
-ORCHESTRATION_MODE=converge
-CONVERGENCE_MAX_ROUNDS=4
-CONVERGENCE_TARGET_CONSENSUS=75
-CONVERGENCE_STALL_EPSILON=5
-ENABLE_DEBATE_OPTIMIZATION=true
-DEBATE_USE_SUMMARIES=true
-```
-
-```bash
-ai-consultants --strategy risk_averse \
-  "Should this service use an event log or mutable relational state?"
-```
-
-## 4. Exactly two debate rounds
-
-Use fixed mode when a benchmark or repeatable workflow requires a predictable
-number of calls.
-
-```dotenv
-ENABLE_DEBATE=true
-ORCHESTRATION_MODE=fixed
-DEBATE_ROUNDS=2
-ENABLE_DEBATE_OPTIMIZATION=false
-```
-
-```bash
-ai-consultants "Review this migration plan" docs/migration.md@PRIMARY
-```
-
-`DEBATE_ROUNDS=1` means initial answers only. Values `2` and `3` add one and two
-cross-critique rounds respectively.
-
-## 5. Security review with an adversarial gate
-
-The adversarial shape forces critique and enables peer review as a refutation
-gate before synthesis.
+## 3. Security review
 
 ```dotenv
 DEFAULT_STRATEGY=security_first
-ENABLE_DEBATE=true
-ORCHESTRATION_MODE=adversarial
-ENABLE_ADVERSARIAL_VERIFY=true
-ENABLE_PEER_REVIEW=true
-PEER_REVIEW_MIN_RESPONSES=3
 ```
 
 ```bash
@@ -112,34 +62,17 @@ ai-consultants --preset security \
 
 Never include credentials, tokens, or private keys in consultation context.
 
-## 6. Compare two approaches and choose one
+## 4. Compare two approaches without a recommendation
 
-Force tournament mode when the answer must end with one winner.
-
-```bash
-ORCHESTRATION_MODE=tournament \
-ENABLE_DEBATE=true \
-ai-consultants --strategy majority \
-  "For this API, choose REST or GraphQL and justify one winner"
-```
-
-Use `--strategy compare_only` instead when you want the trade-offs without a
-recommendation.
-
-## 7. Exhaustive audit
-
-Continue until a round surfaces no new approach or finding.
+Use `--strategy compare_only` when you want the trade-offs laid out without a
+single winner.
 
 ```bash
-ORCHESTRATION_MODE=exhaustive \
-ENABLE_DEBATE=true \
-CONVERGENCE_MAX_ROUNDS=4 \
-ai-consultants --preset high-stakes \
-  "Find all correctness and failure-mode risks in this worker" \
-  src/worker.ts@PRIMARY src/queue.ts@CONTEXT
+ai-consultants --strategy compare_only \
+  "For this API, compare REST and GraphQL"
 ```
 
-## 8. Reliable panel with health gate and quorum
+## 5. Reliable panel with health gate and quorum
 
 Ping selected consultants before the full run and stop when too few respond.
 The health gate adds one small call per selected consultant.
@@ -159,7 +92,7 @@ ai-consultants "Make a release recommendation from the attached evidence" \
   release-notes.md@PRIMARY test-results.md@CONTEXT
 ```
 
-## 9. Hard budget ceiling
+## 6. Hard budget ceiling
 
 Track estimated spend and stop with partial results rather than crossing the
 session limit.
@@ -179,7 +112,7 @@ ai-consultants --preset cost-capped --strategy cost_capped \
   "Propose the smallest safe fix for this regression"
 ```
 
-## 10. CLI-only operation
+## 7. CLI-only operation
 
 Keep every switchable consultant on its installed CLI. CLI authentication is
 handled by each provider's own login flow.
@@ -205,7 +138,7 @@ ai-consultants doctor --live
 `KIMI_MODEL` is passed to the Kimi CLI with `--model`, so this recipe uses K3
 even when `~/.kimi/config.toml` still names an older default model.
 
-## 11. Hybrid CLI and API panel
+## 8. Hybrid CLI and API panel
 
 Enable API transport only where needed. Gemini and MiniMax automatically choose
 API mode when their API key is present unless `*_USE_API` is explicitly set.
@@ -227,22 +160,7 @@ ENABLE_DEEPSEEK=false
 
 Keep `~/.config/ai-consultants/.env` at mode `600` because it may contain keys.
 
-## 12. Exact semantic consensus
-
-Ask the panel to choose from shared stance options so differently worded answers
-can still count as agreement. This adds roughly one LLM call per run.
-
-```dotenv
-ENABLE_STANCE_CONSENSUS=true
-STANCE_MAX_OPTIONS=5
-STANCE_TIMEOUT=60
-```
-
-```bash
-ai-consultants "Should package lockfiles always be committed for applications?"
-```
-
-## 13. Large or awkward prompts
+## 9. Large or awkward prompts
 
 Use `--query-file` to avoid shell quoting and argument-size problems. Mark the
 main files with `@PRIMARY` and supporting files with `@CONTEXT`.

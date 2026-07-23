@@ -10,7 +10,7 @@ metadata:
 
 # AI Consultants v2.25.2 - AI Expert Panel
 
-**A harness for every question.** Convene a panel of AI "consultants" for coding questions — and let the engine pick *how* they deliberate: a quick read, a convergence loop, an adversarial refutation gate, a tournament, or an exhaustive sweep. Each consultant has a **configurable persona** that shapes its analysis.
+**Coverage, not a single guess.** Convene a panel of AI "consultants" from different vendors for coding questions: they fan out in parallel and you get the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses. Each consultant has a **configurable persona** that decorrelates its analysis.
 
 ## Quick Start
 
@@ -23,7 +23,6 @@ metadata:
 | Command | Description |
 |---------|-------------|
 | `/ai-consultants:consult` | Main consultation - ask AI consultants a coding question |
-| `/ai-consultants:debate` | Run consultation with multi-round debate |
 | `/ai-consultants:help` | Show all commands and usage |
 
 Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
@@ -71,29 +70,24 @@ For detailed CLI installation instructions, see [Setup Guide](docs/SETUP.md).
 ```
 /ai-consultants:consult "How to optimize this SQL query?"
 /ai-consultants:consult "Review this authentication flow" src/auth.ts
-/ai-consultants:debate "Microservices or monolith for our new service?"
+/ai-consultants:consult "What could go wrong with this design?" src/service.ts
 ```
 
-Presets: `minimal`, `balanced`, `thorough`, `high-stakes`, `local`, `security`, `cost-capped`. Strategies: `majority`, `risk_averse`, `security_first`, `cost_capped`, `compare_only`. See [Reference Details](references/details.md) for full tables, bash usage, and best practices.
+Presets: `minimal`, `balanced`, `thorough`, `high-stakes`, `security`, `cost-capped`, `max_quality`, `medium`, `fast`. Strategies: `coverage` (default; union of distinct points), `compare_only`, `majority`, `risk_averse`, `security_first`, `cost_capped`. See [Reference Details](references/details.md) for full tables, bash usage, and best practices.
 
 ## Workflow
 
-Query is classified, then sent to consultants in parallel. Responses are scored, voted on, and synthesized into a recommendation.
-
-**Dynamic orchestration (v2.16+):** a planner picks an orchestration *shape* per question — `quick` (simple), `converge` (debate until consensus, not a fixed round count), `adversarial` (SECURITY: forced critique + peer-review refutation gate), `tournament` (compare approaches → pick a winner), `exhaustive` (find-all: loop until no new angle). Set `ORCHESTRATION_MODE=fixed` for the legacy pipeline. See [configuration reference](references/configuration.md#dynamic-orchestration-v216).
+The query is classified, optionally routed by category, then sent to all consultants in parallel. Their responses are synthesized into the **coverage union** — the deduplicated set of every distinct point, recommendation, and risk raised across the panel (not a single voted winner). Use `--strategy compare_only` for a side-by-side, or `majority` for a blended recommendation.
 
 ## Features
 
 | Feature | Description | Toggle |
 |---------|-------------|--------|
-| **Personas** | Each consultant has a role that shapes responses | `ENABLE_PERSONA` |
-| **Synthesis** | Auto-combine responses into recommendation | `ENABLE_SYNTHESIS` |
-| **Debate** | Consultants critique each other's answers | `ENABLE_DEBATE` |
-| **Peer Review** | Consultants anonymously rank each other | `ENABLE_PEER_REVIEW` |
-| **Smart Routing** | Auto-select best consultants per question type | `ENABLE_SMART_ROUTING` |
+| **Personas** | Each consultant has a role that decorrelates responses | `ENABLE_PERSONA` |
+| **Coverage synthesis** | Union of every distinct point across the panel (default) | `ENABLE_SYNTHESIS` |
+| **Smart Routing** | Auto-select best consultants per question category | `ENABLE_SMART_ROUTING` |
 | **Cost Tracking** | Track API usage costs | `ENABLE_COST_TRACKING` |
-| **Panic Mode** | Auto-add rigor when uncertainty detected | `ENABLE_PANIC_MODE` |
-| **Stance Consensus** | Panel picks from enumerated stances; agreement by exact match (opt-in, v2.21) | `ENABLE_STANCE_CONSENSUS` |
+| **Health Gate** | Ping and prune dead consultants before the run (opt-in) | `ENABLE_HEALTH_GATE` |
 
 ## Configuration
 
@@ -101,9 +95,8 @@ All settings use environment variables. Key toggles:
 
 ```bash
 ai-consultants configure     # Auto-detect CLIs/API keys and persist all settings
-ENABLE_DEBATE=true           # Multi-agent debate
-ENABLE_SYNTHESIS=true        # Automatic synthesis
-ENABLE_PANIC_MODE=auto       # Auto-rigor for uncertainty
+ENABLE_SYNTHESIS=true        # Coverage-union synthesis
+ENABLE_SMART_ROUTING=true    # Route by question category
 ENABLE_BUDGET_LIMIT=false    # Budget enforcement (v2.4)
 ```
 
@@ -121,8 +114,7 @@ See [Full Configuration Reference](references/configuration.md) for all variable
 /tmp/ai_consultations/TIMESTAMP/
 ├── gemini.json        # Individual responses
 ├── codex.json
-├── voting.json        # Consensus
-├── synthesis.json     # Recommendation
+├── synthesis.json     # Coverage union
 └── report.md          # Human-readable
 ```
 
@@ -147,10 +139,9 @@ When a consultant fails during a consultation, the run prints the captured reaso
 
 | Scenario | Recommendation |
 |----------|----------------|
-| High confidence + High consensus | Proceed confidently |
-| Low confidence OR Low consensus | Consider more options |
-| Mistral disagrees | Investigate risks |
-| Panic mode triggered | Add debate rounds |
+| A point only one consultant raised | Weigh it — the diversity is the point |
+| Mistral (Devil's Advocate) flags a risk | Investigate it |
+| Consultants diverge on approach | Use `--strategy compare_only` to see each side-by-side |
 
 ## Troubleshooting
 
@@ -160,7 +151,7 @@ Run `./scripts/doctor.sh` to diagnose issues, or `./scripts/doctor.sh --fix` to 
 
 - [Reference Details](references/details.md) - Presets, strategies, best practices, limitations
 - [Full Configuration](references/configuration.md) - All environment variables, models, tiers, timeouts
-- [Configuration Recipes](docs/RECIPES.md) - Copy-paste workflows for debate, routing, budgets, and transport
+- [Configuration Recipes](docs/RECIPES.md) - Copy-paste workflows for routing, budgets, and transport
 - [Setup Guide](docs/SETUP.md) - Installation, authentication
 - [Cost Rates](docs/COST_RATES.md) - Model pricing
 - [Smart Routing](docs/SMART_ROUTING.md) - Category routing

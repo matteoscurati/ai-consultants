@@ -42,8 +42,6 @@ ai-consultants configure --advanced
 # Fully automated, repeatable configuration
 ai-consultants configure \
   --set DEFAULT_PRESET=security \
-  --set ENABLE_DEBATE=true \
-  --set ORCHESTRATION_MODE=adversarial \
   --set ENABLE_HEALTH_GATE=true \
   --set QUORUM_ACTION=stop
 
@@ -94,7 +92,7 @@ Files loaded from that dir (in order, both optional):
 
 ```bash
 DEFAULT_PRESET=balanced      # Preset when --preset not given
-DEFAULT_STRATEGY=majority    # Strategy when --strategy not given
+DEFAULT_STRATEGY=coverage    # Strategy when --strategy not given
 ```
 
 ## Context Handoff (v2.14+)
@@ -160,11 +158,6 @@ AST extractors are dedicated for **Python, JavaScript, TypeScript, Bash, Go**. O
 ENABLE_PERSONA=true          # Give each consultant its configured role
 ENABLE_SYNTHESIS=true        # Automatic synthesis
 SYNTHESIS_CMD=claude         # CLI used to synthesize the panel
-ENABLE_DEBATE=false          # Multi-agent debate
-DEBATE_ROUNDS=1              # Used by ORCHESTRATION_MODE=fixed
-ENABLE_PEER_REVIEW=false     # Anonymous peer review
-PEER_REVIEW_MIN_RESPONSES=3  # Minimum panel size for peer review
-ENABLE_PANIC_MODE=auto       # auto | always | never
 ENABLE_SMART_ROUTING=false   # Category-based consultant selection
 ENABLE_COST_TRACKING=true    # Track API usage costs
 ```
@@ -173,74 +166,6 @@ ENABLE_COST_TRACKING=true    # Track API usage costs
 `kimi`, `qwen3`, or `minimax`. The invoking agent is excluded automatically;
 set `INVOKING_AGENT` only for direct integrations that need to declare their
 host explicitly.
-
-Panic mode adds rigor when confidence is low or uncertainty language appears:
-
-```bash
-ENABLE_PANIC_MODE=auto          # auto | always | never
-PANIC_CONFIDENCE_THRESHOLD=5    # trigger below this average confidence
-PANIC_EXTRA_DEBATE_ROUNDS=1     # additional rounds after a trigger
-PANIC_KEYWORDS='uncertain|maybe|not sure|possibly|unclear|depends'
-```
-
-## Dynamic Orchestration (v2.16+)
-
-A planner picks an orchestration **shape** per question (from category, complexity,
-and intent) and runs debate as a **convergence loop** — iterating until the panel's
-answers converge instead of a fixed `DEBATE_ROUNDS` count.
-
-```bash
-ORCHESTRATION_MODE=auto              # auto (planner) | fixed (legacy) | <shape>
-CONVERGENCE_MAX_ROUNDS=4             # hard cap on debate rounds
-CONVERGENCE_TARGET_CONSENSUS=75      # consensus score (0-100) that counts as converged
-CONVERGENCE_STALL_EPSILON=5          # min per-round gain; below it the loop stops "stalled"
-ENABLE_ADVERSARIAL_VERIFY=true       # adversarial shape forces a critique round + peer review
-ENABLE_DEBATE_OPTIMIZATION=true      # skip optional debate when answers already agree
-DEBATE_CONFIDENCE_SPREAD_THRESHOLD=2 # activate debate above this confidence spread
-DEBATE_USE_SUMMARIES=true            # pass summaries instead of full answers to later rounds
-```
-
-**Shapes** (auto-selected, or force one via `ORCHESTRATION_MODE=<shape>`):
-
-| Shape | Picked when | Behavior |
-|-------|-------------|----------|
-| `quick` | complexity ≤ `COMPLEXITY_THRESHOLD_SIMPLE` | single fan-out, no debate |
-| `converge` | medium/high complexity (default) | debate until consensus ≥ target |
-| `adversarial` | category `SECURITY` | ≥1 forced critique round + peer-review refutation gate |
-| `tournament` | intent "compare X vs Y" | converge, then synthesis declares one winner |
-| `exhaustive` | intent "find all / audit" | loop until a round surfaces no new approach |
-
-`SECURITY` and `ARCHITECTURE` are mandatory-debate categories (as in the pre-2.16
-pipeline): `SECURITY` → `adversarial`, `ARCHITECTURE` → `converge` with a forced
-critique round, so they always get at least one debate round even when the panel
-agrees on the first pass.
-
-`ORCHESTRATION_MODE=fixed` restores the exact pre-2.16 pipeline (fixed `DEBATE_ROUNDS`).
-The convergence trajectory and stop reason are recorded in `orchestration.json` /
-`optimization_metrics.json`. Every round still respects `MAX_SESSION_COST` / budget limits.
-
-## Semantic Consensus (v2.21+, opt-in)
-
-By default the consensus score (which drives `CONVERGENCE_TARGET_CONSENSUS`) is a
-**lexical cluster**: the largest group of consultants whose free-text `approach`
-fields are similar (single-linkage over Jaccard). That can't tell that two
-differently-phrased answers actually AGREE ("Commit the lockfile" vs "Always keep
-package-lock in git").
-
-`ENABLE_STANCE_CONSENSUS=true` adds an exact-matchable signal: one extra LLM call
-enumerates a small set of mutually-exclusive **stance options** for the question,
-each consultant is asked to pick exactly one verbatim, and consensus becomes the
-plurality stance's share of the **panel** (consultants that answered but emitted no
-stance count against agreement). It degrades to the lexical cluster whenever fewer
-than two stances are emitted or generation fails, so it is always safe to enable.
-
-```bash
-ENABLE_STANCE_CONSENSUS=false   # opt-in; adds ~1 LLM call per run
-STANCE_MAX_OPTIONS=5            # max stance options generated per question
-STANCE_TIMEOUT=60              # seconds for the stance-generation call (guards a hang)
-```
-
-The generated options are written to `stance_options.json` in the output dir.
 
 ## Classification and Smart Routing
 
@@ -348,12 +273,8 @@ ENABLE_SEMANTIC_CACHE=true   # Cache responses by query fingerprint
 CACHE_TTL_HOURS=24           # Cache expiration
 ENABLE_RESPONSE_LIMITS=false # Limit output tokens by category
 ENABLE_COST_AWARE_ROUTING=false  # Route simple queries to cheaper models
-ENABLE_DEBATE_OPTIMIZATION=true  # Skip optional debate if all agree
 ENABLE_COMPACT_REPORT=true   # Summaries only in reports
 ```
-
-`ENABLE_DEBATE_OPTIMIZATION` defaults to `true`; set it to `false` only when
-every configured fixed debate round must run.
 
 ## Health Gate, Quorum, and Retries
 
@@ -369,23 +290,6 @@ RETRY_DELAY_SECONDS=5
 The health gate adds one small call per selected consultant. It drops dead or
 unauthenticated consultants before the full query; `QUORUM_ACTION=stop` aborts
 when the remaining panel is smaller than `QUORUM_MIN`.
-
-## Capability-Aware Routing & Voting (v2.20+)
-
-Weight each consultant's vote (and rank the panel) by its capability on the
-quality axis a question stresses — **intelligence** or **taste**, per the
-`category_axis` map in [`references/affinity.json`](../references/affinity.json).
-Per-consultant scores live in that file's `capabilities` block. `cost` is a
-composition/budget axis only and is never a vote weight (tie-break order:
-intelligence > taste > cost). Both features are opt-in and additive — with the
-flags off, behavior is identical to before.
-
-```bash
-ENABLE_CAPABILITY_WEIGHTING=false  # capability-weighted voting
-ENABLE_CAPABILITY_ROUTING=false    # capability-aware panel composition
-CAPABILITY_WEIGHT_STRENGTH=10      # higher = gentler nudge: weight = conf*(S+cap)/S
-CAPABILITY_DEFAULT=5               # fallback for a missing consultant/axis
-```
 
 ## Timeouts and Retries
 

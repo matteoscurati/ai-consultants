@@ -62,12 +62,11 @@ That's it! You're ready to go.
 
 ## Claude Code Slash Commands
 
-AI Consultants provides 3 slash commands:
+AI Consultants provides 2 slash commands:
 
 | Command | Description |
 |---------|-------------|
 | `/ai-consultants:consult` | Main consultation - ask AI consultants a coding question |
-| `/ai-consultants:debate` | Run consultation with multi-round debate |
 | `/ai-consultants:help` | Show all commands and usage |
 
 Configuration can be managed with `ai-consultants configure`, including presets,
@@ -460,8 +459,8 @@ Presets let you quickly configure how many consultants to use.
 | `minimal` | 2 (Gemini + Codex) | Quick, cheap |
 | `balanced` | 4 (+ Mistral + Cursor) | Standard |
 | `thorough` | 4 | Comprehensive |
-| `high-stakes` | Expanded panel + debate | Critical decisions |
-| `security` | Security-focused + debate | Security reviews |
+| `high-stakes` | Expanded panel | Critical decisions |
+| `security` | Security-focused | Security reviews |
 | `cost-capped` | Budget-friendly | Low cost |
 
 ### Set Default Preset
@@ -491,7 +490,8 @@ Strategies control how consultant responses are combined.
 
 | Strategy | Description |
 |----------|-------------|
-| `majority` | Simple voting, most common answer wins (default) |
+| `coverage` | Union of every distinct point/risk across consultants, deduplicated (default) |
+| `majority` | Simple voting, most common answer wins |
 | `risk_averse` | Weight conservative responses higher |
 | `security_first` | Prioritize security-focused insights |
 | `cost_capped` | Prefer simpler, cheaper solutions |
@@ -522,33 +522,9 @@ DEFAULT_STRATEGY=risk_averse
 These examples can be prefixed to one command or saved in
 `~/.config/ai-consultants/.env`.
 
-### Dynamic debate
-
-```bash
-ENABLE_DEBATE=true \
-ORCHESTRATION_MODE=converge \
-CONVERGENCE_MAX_ROUNDS=4 \
-CONVERGENCE_TARGET_CONSENSUS=75 \
-ai-consultants --strategy risk_averse \
-  "Should this service use an event log or mutable relational state?"
-```
-
-### Fixed two-round debate
-
-```bash
-ENABLE_DEBATE=true \
-ORCHESTRATION_MODE=fixed \
-DEBATE_ROUNDS=2 \
-ENABLE_DEBATE_OPTIMIZATION=false \
-ai-consultants "Review this migration plan" docs/migration.md@PRIMARY
-```
-
 ### Security gate with a required quorum
 
 ```bash
-ENABLE_DEBATE=true \
-ORCHESTRATION_MODE=adversarial \
-ENABLE_PEER_REVIEW=true \
 ENABLE_HEALTH_GATE=true \
 QUORUM_MIN=3 \
 QUORUM_ACTION=stop \
@@ -556,9 +532,8 @@ ai-consultants --preset security --strategy security_first \
   "Find authentication bypasses" src/auth.ts@PRIMARY
 ```
 
-More scenarios—including tournament, exhaustive audit, CLI-only, hybrid API,
-hard-budget, semantic-consensus, and large-context runs—are in
-[`docs/RECIPES.md`](RECIPES.md).
+More scenarios—including CLI-only, hybrid API, hard-budget, and
+large-context runs—are in [`docs/RECIPES.md`](RECIPES.md).
 
 ---
 
@@ -573,7 +548,7 @@ ai-consultants configure
 # Set any supported parameter non-interactively
 ai-consultants configure \
   --set DEFAULT_PRESET=balanced \
-  --set ENABLE_DEBATE=true
+  --set ENABLE_SYNTHESIS=true
 
 # Guided or exhaustive review
 ai-consultants configure --interactive
@@ -643,13 +618,10 @@ MINIMAX_USE_API=false  # Default: mmx CLI mode
 
 # Defaults (v2.8)
 DEFAULT_PRESET=balanced
-DEFAULT_STRATEGY=majority
+DEFAULT_STRATEGY=coverage
 
 # Features
-ENABLE_DEBATE=false
 ENABLE_SYNTHESIS=true
-ENABLE_PANIC_MODE=auto
-ORCHESTRATION_MODE=auto
 ENABLE_HEALTH_GATE=false
 QUORUM_MIN=2
 QUORUM_ACTION=warn

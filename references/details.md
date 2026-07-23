@@ -9,19 +9,25 @@ Read this file when the user asks about presets, strategies, bash usage, best pr
 | `minimal` | 2 (Gemini + Codex) | Quick questions |
 | `balanced` | 4 (+Mistral +Cursor) | Standard use |
 | `thorough` | 4 | Comprehensive |
-| `high-stakes` | All + debate | Critical decisions |
-| `security` | Security-focused | +Debate |
+| `high-stakes` | Expanded panel (5 of 11) | Critical decisions |
+| `security` | Security-focused (4) | Security reviews |
 | `cost-capped` | Budget-friendly | Low cost |
+| `max_quality` | 8 of 11, premium models | Critical decisions |
+| `medium` | 4, standard models | General questions |
+| `fast` | 2, economy models | Quick checks |
+
+A preset only chooses the consultant set + model tier; every run fans out in parallel and returns the coverage union.
 
 ## Synthesis Strategies
 
 | Strategy | Description |
 |----------|-------------|
-| `majority` | Most common answer wins (default) |
+| `coverage` | Union of every distinct point across the panel (default) |
+| `compare_only` | Present each consultant side-by-side, no synthesized union |
+| `majority` | A single blended recommendation, weighting all equally |
 | `risk_averse` | Weight conservative responses |
 | `security_first` | Prioritize security |
 | `cost_capped` | Prefer cheaper solutions |
-| `compare_only` | No recommendation |
 
 ## Bash Usage
 
@@ -59,7 +65,7 @@ See `references/configuration.md` § "Context Handoff (v2.14+)" for `QUESTION_CA
 
 - Be specific about the question
 - Include constraints (performance, etc.)
-- Use debate for controversial decisions
+- The panel pays off most on breadth questions ("what could go wrong?", "enumerate the risks"); for a single-answer factual question, one strong model is usually enough
 
 ## Known Limitations
 
