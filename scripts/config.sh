@@ -334,8 +334,9 @@ SYNTHESIS_CMD="${SYNTHESIS_CMD:-claude}"
 DEFAULT_PRESET="${DEFAULT_PRESET:-}"
 
 # Default synthesis strategy
-# Options: majority, risk_averse, security_first, cost_capped, compare_only
-DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-majority}"
+# Options: coverage (union of distinct points; default), majority, risk_averse,
+# security_first, cost_capped, compare_only
+DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-coverage}"
 
 # =============================================================================
 # SMART ROUTING (v2.0)

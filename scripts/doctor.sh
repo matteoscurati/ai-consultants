@@ -895,7 +895,7 @@ _recommend_combo() {
     # Without this short-circuit, e.g. "minimal" preset with count=0 would
     # produce an unrunnable suggestion.
     if (( count < 2 )); then
-        echo "minimal|majority|Only ${count} consultant(s) currently usable — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
+        echo "minimal|coverage|Only ${count} consultant(s) currently usable — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
         return 0
     fi
 
@@ -921,28 +921,28 @@ _recommend_combo() {
             fi
             ;;
         QUICK_SYNTAX)
-            echo "fast|majority|QUICK_SYNTAX detected — single-best-answer is enough; fast preset uses economy models"
+            echo "fast|coverage|QUICK_SYNTAX detected — single-best-answer is enough; fast preset uses economy models"
             ;;
         ALGORITHM)
-            echo "balanced|majority|ALGORITHM detected; DeepSeek (Code Specialist) tends to lead in this category"
+            echo "balanced|coverage|ALGORITHM detected; DeepSeek (Code Specialist) tends to lead in this category"
             ;;
         BUG_DEBUG|CODE_REVIEW|TESTING)
             if (( count >= 5 )); then
-                echo "thorough|majority|${category} detected; ${count} consultants — thorough preset for broader coverage"
+                echo "thorough|coverage|${category} detected; ${count} consultants — thorough preset for broader coverage"
             else
-                echo "balanced|majority|${category} detected; ${count} consultants — balanced for steady quality"
+                echo "balanced|coverage|${category} detected; ${count} consultants — balanced for steady quality"
             fi
             ;;
         DATABASE|API_DESIGN)
-            echo "balanced|majority|${category} detected — balanced preset matches the routing affinity for this category"
+            echo "balanced|coverage|${category} detected — balanced preset matches the routing affinity for this category"
             ;;
         *)
             if (( count >= 5 )); then
-                echo "balanced|majority|GENERAL category — balanced preset with majority voting"
+                echo "balanced|coverage|GENERAL category — balanced preset with coverage synthesis"
             elif (( count >= 2 )); then
-                echo "minimal|majority|GENERAL category; only ${count} consultants — minimal preset"
+                echo "minimal|coverage|GENERAL category; only ${count} consultants — minimal preset"
             else
-                echo "minimal|majority|Only ${count} consultant detected — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
+                echo "minimal|coverage|Only ${count} consultant detected — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
             fi
             ;;
     esac

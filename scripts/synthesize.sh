@@ -159,7 +159,9 @@ NUM_CONSULTANTS=${#CONSULTANTS[@]}
 log_info "Found $NUM_CONSULTANTS responses to synthesize"
 
 # --- Get synthesis strategy ---
-SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-majority}"
+# Default 'coverage': the panel's measured value is the UNION of distinct points across
+# diverse models (it covers what one model misses), not a voted single recommendation.
+SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-coverage}"
 log_info "Using synthesis strategy: $SYNTHESIS_STRATEGY"
 
 # --- Strategy-specific instructions ---
@@ -167,8 +169,10 @@ get_strategy_instructions() {
     local strategy="$1"
 
     case "$strategy" in
+        coverage|union)
+            echo "STRATEGY: COVERAGE - Produce the COMPREHENSIVE UNION of every DISTINCT point, recommendation, risk, edge case, and consideration raised by ANY consultant. Deduplicate near-identical points but preserve every distinct one, and note which consultant(s) raised each. Do NOT collapse to a single 'winner' — the value is complete coverage of the solution/risk space, including points only one model raised. Enumerate the full distinct set in 'detailed'; 'summary' gives a coverage-oriented overview." ;;
         majority)
-            echo "STRATEGY: MAJORITY - Weight equally, most common wins, focus on consensus" ;;
+            echo "STRATEGY: MAJORITY - Synthesize a single blended recommendation, weighting all consultants equally." ;;
         risk_averse)
             echo "STRATEGY: RISK AVERSE - Prioritize safety, weight risk mentions higher, prefer established solutions, highlight risks" ;;
         security_first)
@@ -178,18 +182,11 @@ get_strategy_instructions() {
         compare_only)
             echo "STRATEGY: COMPARE ONLY - No recommendation, present objectively, set approach to 'user_decision_required'" ;;
         *)
-            echo "STRATEGY: DEFAULT (MAJORITY) - Weight equally, most common wins" ;;
+            echo "STRATEGY: DEFAULT (COVERAGE) - Union of every distinct point across consultants" ;;
     esac
 }
 
 STRATEGY_INSTRUCTIONS=$(get_strategy_instructions "$SYNTHESIS_STRATEGY")
-
-# Tournament shape (v2.16.0): the orchestrator asks synthesis to declare a single
-# winning approach with explicit pairwise reasoning, rather than a blended consensus.
-if [[ "${ORCHESTRATION_SELECT_WINNER:-false}" == "true" ]]; then
-    STRATEGY_INSTRUCTIONS="$STRATEGY_INSTRUCTIONS
-TOURNAMENT: Compare the distinct approaches pairwise and declare ONE winner. Set 'approach' to the winning approach name and justify why it beats each runner-up."
-fi
 
 # --- Build synthesis prompt (token-optimized v2.2) ---
 SYNTHESIS_PROMPT="You are an expert meta-analyst. Synthesize AI consultant responses.
