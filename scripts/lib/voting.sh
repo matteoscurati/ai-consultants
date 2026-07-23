@@ -185,37 +185,6 @@ _find_largest_pairwise_cluster() {
 calculate_consensus_score() {
     local responses_dir="$1"
 
-    # Stance-based exact-match consensus (v2.21, preferred when enabled): each
-    # consultant picked one of a shared enumerated stance set, so agreement is a
-    # verbatim match immune to paraphrasing. Consensus = plurality-stance share.
-    # Falls through to the lexical cluster below when disabled or <2 stances seen.
-    if [[ "${ENABLE_STANCE_CONSENSUS:-false}" == "true" ]]; then
-        local st_counts st_stances=0 st_max=0 st_panel=0 f
-        # Panel size = consultants that actually answered (denominator). A
-        # consultant that answered but emitted NO stance still counts against
-        # agreement -- otherwise 2 matching stances on a 6-panel would report
-        # 100% "unanimous" and stop the convergence loop on a two-thirds silence.
-        for f in "$responses_dir"/*.json; do
-            _is_consultant_response_file "$f" || continue
-            st_panel=$((st_panel + 1))
-        done
-        st_counts=$(
-            for f in "$responses_dir"/*.json; do
-                _is_consultant_response_file "$f" || continue
-                jq -r '.response.stance // empty' "$f" 2>/dev/null
-            done | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | grep -v '^$' | sort | uniq -c | sort -rn)
-        if [[ -n "$st_counts" ]]; then
-            st_stances=$(printf '%s\n' "$st_counts" | awk '{s+=$1} END{print s+0}')
-            st_max=$(printf '%s\n' "$st_counts" | head -1 | awk '{print $1+0}')
-        fi
-        # Need >=2 emitted stances to trust the signal; divide the plurality by the
-        # PANEL size, not by the number of consultants that happened to emit one.
-        if [[ "$st_stances" -ge 2 && "$st_panel" -gt 0 ]]; then
-            echo $(( st_max * 100 / st_panel ))
-            return
-        fi
-    fi
-
     local approaches=()
     local keyword_sets=()
 

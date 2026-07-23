@@ -220,15 +220,6 @@ run_api_consultant() {
         return 1
     fi
 
-    # Stance addendum (v2.21): API consultants don't pass through
-    # build_query_with_persona (which wraps CLI prompts), so inject the shared
-    # stance instruction here too -- otherwise they'd emit no stance and drop out
-    # of the exact-match consensus count. Appended AFTER the empty-query guard so
-    # a question-less run still errors cleanly instead of sending a stance-only prompt.
-    [[ -n "${STANCE_OPTIONS_PROMPT:-}" ]] && full_query="${full_query}
-
-${STANCE_OPTIONS_PROMPT}"
-
     local start_time
     start_time=$(get_timestamp_ms)
 

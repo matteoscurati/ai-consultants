@@ -560,15 +560,6 @@ CONVERGENCE_STALL_EPSILON="${CONVERGENCE_STALL_EPSILON:-5}"
 # and runs anonymous peer review as a refutation gate before synthesis.
 ENABLE_ADVERSARIAL_VERIFY="${ENABLE_ADVERSARIAL_VERIFY:-true}"
 
-# Stance-based semantic consensus (v2.21, opt-in). When true, one LLM call
-# enumerates 2..STANCE_MAX_OPTIONS mutually-exclusive stance options per question
-# and each consultant picks one verbatim, so consensus is an exact-match plurality
-# (robust to paraphrasing) instead of lexical clustering. Adds one serial LLM call
-# per run; degrades gracefully to the cluster consensus if generation fails.
-ENABLE_STANCE_CONSENSUS="${ENABLE_STANCE_CONSENSUS:-false}"
-STANCE_MAX_OPTIONS="${STANCE_MAX_OPTIONS:-5}"
-STANCE_TIMEOUT="${STANCE_TIMEOUT:-60}"   # seconds for the stance-generation call (guards a hang)
-
 # =============================================================================
 # QUORUM GRADING (v2.19.0)
 # =============================================================================
