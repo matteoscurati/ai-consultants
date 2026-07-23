@@ -32,8 +32,8 @@ setup_dirs() {
 # ---------------------------------------------------------------------------
 test_prunes_commands_removed_upstream() {
     setup_dirs
-    # Three the repo still ships, plus two it dropped (the v2.10.0 consolidation).
-    for c in consult debate help; do
+    # Two the repo still ships, plus two it dropped (the v2.10.0 consolidation).
+    for c in consult help; do
         touch "$TMP/repo/ai-consultants:${c}.md" "$TMP/installed/ai-consultants:${c}.md"
     done
     touch "$TMP/installed/ai-consultants:config-features.md" \
@@ -46,8 +46,8 @@ test_prunes_commands_removed_upstream() {
         "removes a command the repo no longer ships"
     assert_eq "true" "$([[ -f "$TMP/installed/ai-consultants:consult.md" ]] && echo true || echo false)" \
         "keeps a command the repo still ships"
-    assert_eq "3" "$(find "$TMP/installed" -name 'ai-consultants:*.md' | wc -l | tr -d ' ')" \
-        "leaves exactly the three current commands"
+    assert_eq "2" "$(find "$TMP/installed" -name 'ai-consultants:*.md' | wc -l | tr -d ' ')" \
+        "leaves exactly the two current commands"
 }
 
 # ---------------------------------------------------------------------------

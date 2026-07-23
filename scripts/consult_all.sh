@@ -23,10 +23,7 @@
 #
 # Environment variables:
 #   ENABLE_SYNTHESIS=true    Enable automatic synthesis
-#   ENABLE_DEBATE=true       Enable multi-round debate
-#   DEBATE_ROUNDS=2          Number of debate rounds
 #   ENABLE_SMART_ROUTING=true Select consultants based on question
-#   ENABLE_PANIC_MODE=auto   Panic mode (auto, always, never)
 
 set -euo pipefail
 
@@ -37,10 +34,8 @@ source "$SCRIPT_DIR/lib/session.sh"
 source "$SCRIPT_DIR/lib/progress.sh"
 source "$SCRIPT_DIR/lib/costs.sh"
 source "$SCRIPT_DIR/lib/reliability.sh"
-source "$SCRIPT_DIR/lib/voting.sh"
 source "$SCRIPT_DIR/lib/routing.sh"
 source "$SCRIPT_DIR/lib/cache.sh"
-source "$SCRIPT_DIR/lib/orchestration.sh"
 
 # --- Custom API Agent Discovery ---
 # Discovers custom API agents from environment variables
@@ -99,10 +94,7 @@ Examples:
 
 Environment Variables:
   ENABLE_SYNTHESIS=true       Enable automatic synthesis
-  ENABLE_DEBATE=true          Enable multi-round debate
-  DEBATE_ROUNDS=2             Number of debate rounds
   ENABLE_SMART_ROUTING=true   Select consultants based on question category
-  ENABLE_PANIC_MODE=auto      Panic mode: auto, always, never
   MAX_SESSION_COST=1.00       Maximum budget per session ($)
 
 For more information, run: ./doctor.sh
@@ -257,21 +249,9 @@ if [[ "$ENABLE_CLASSIFICATION" == "true" ]]; then
     log_info "Category: $QUESTION_CATEGORY"
 fi
 
-# --- Orchestration Planning (v2.16.0) ---
-# Pick the orchestration shape from category + complexity + intent. Shape drives
-# how the panel deliberates (convergence loop, adversarial gate, tournament,
-# exhaustive sweep) rather than a fixed debate-round count. ORCHESTRATION_MODE=fixed
-# bypasses the planner and preserves the legacy pipeline exactly.
+# Complexity score (costs.sh) — used by opt-in cost-aware routing to pick cheaper
+# models for simple queries. Not deliberation; just a routing signal.
 QUERY_COMPLEXITY=$(calculate_query_complexity "$QUERY" "${#FILES[@]}" "$QUESTION_CATEGORY" 2>/dev/null || echo 5)
-QUERY_INTENT=$(detect_intent "$QUERY")
-ORCH_SHAPE=$(select_orchestration_shape "$QUESTION_CATEGORY" "$QUERY_COMPLEXITY" "$QUERY_INTENT")
-if [[ "$ORCH_SHAPE" != "fixed" ]]; then
-    log_info "Orchestration: shape=$ORCH_SHAPE (complexity=$QUERY_COMPLEXITY, intent=$QUERY_INTENT)"
-    # The adversarial shape uses anonymous peer review as its refutation gate.
-    if [[ "$ORCH_SHAPE" == "adversarial" && "${ENABLE_ADVERSARIAL_VERIFY:-true}" == "true" ]]; then
-        ENABLE_PEER_REVIEW=true
-    fi
-fi
 
 # --- Create Output Directory (with secure permissions) ---
 # Add random suffix to prevent predictable directory names (security improvement)
@@ -684,87 +664,6 @@ if is_escalation_enabled && [[ $SUCCESS_COUNT -gt 0 ]]; then
     fi
 fi
 
-# --- Panic Mode Detection (v2.2) ---
-PANIC_TRIGGERED=false
-if [[ "$ENABLE_PANIC_MODE" != "never" && $SUCCESS_COUNT -gt 1 ]]; then
-    if should_trigger_panic "$OUTPUT_DIR"; then
-        PANIC_TRIGGERED=true
-        PANIC_DIAGNOSIS=$(get_panic_diagnosis "$OUTPUT_DIR")
-
-        log_warn "PANIC MODE TRIGGERED - Uncertainty detected!"
-        log_warn "  Diagnosis: $(echo "$PANIC_DIAGNOSIS" | jq -r '.triggers | join(", ")')"
-
-        # Save diagnosis
-        echo "$PANIC_DIAGNOSIS" > "$OUTPUT_DIR/panic_diagnosis.json"
-
-        # Actions: Enable debate if not already enabled, switch to risk_averse strategy
-        if [[ "$ENABLE_DEBATE" != "true" ]]; then
-            log_info "  Action: Enabling multi-agent debate"
-            ENABLE_DEBATE=true
-            DEBATE_ROUNDS="${PANIC_EXTRA_DEBATE_ROUNDS:-1}"
-            DEBATE_ROUNDS=$((DEBATE_ROUNDS + 1))  # At least one extra round
-        else
-            # Add extra debate rounds
-            EXTRA_ROUNDS="${PANIC_EXTRA_DEBATE_ROUNDS:-1}"
-            DEBATE_ROUNDS=$((DEBATE_ROUNDS + EXTRA_ROUNDS))
-            log_info "  Action: Adding $EXTRA_ROUNDS extra debate round(s) (total: $DEBATE_ROUNDS)"
-        fi
-
-        # Switch to risk_averse synthesis strategy
-        if [[ "$SYNTHESIS_STRATEGY" == "majority" ]]; then
-            log_info "  Action: Switching to risk_averse synthesis strategy"
-            SYNTHESIS_STRATEGY="risk_averse"
-            export SYNTHESIS_STRATEGY
-        fi
-
-        echo "" >&2
-    fi
-fi
-
-# --- Round 2+: Deliberation (dynamic orchestration or legacy debate) ---
-if [[ "$ORCHESTRATION_MODE" == "fixed" ]]; then
-    # Legacy pipeline (pre-v2.16): fixed number of debate rounds.
-    if [[ "$ENABLE_DEBATE" == "true" && $DEBATE_ROUNDS -gt 1 && $SUCCESS_COUNT -gt 1 ]]; then
-        # Budget Check: Before Debate
-        if is_budget_enabled; then
-            DEBATE_ESTIMATE=$(estimate_phase_cost "debate" "$SUCCESS_COUNT" "$CONTEXT_SIZE")
-            DEBATE_ESTIMATE=$(echo "scale=6; $DEBATE_ESTIMATE * $DEBATE_ROUNDS" | bc)
-            if ! enforce_budget "$CURRENT_COST" "$DEBATE_ESTIMATE" "debate rounds"; then
-                log_warn "Skipping debate due to budget constraints"
-                ENABLE_DEBATE=false
-            fi
-        fi
-
-        # Proceed with debate if still enabled after budget check
-        if [[ "$ENABLE_DEBATE" == "true" ]]; then
-            log_info "Starting Multi-Agent Debate (${DEBATE_ROUNDS} total rounds)..."
-
-            for ((round=2; round<=DEBATE_ROUNDS; round++)); do
-                log_info "  Round $round..."
-                _apply_debate_round "$OUTPUT_DIR" "$round" "$QUESTION_CATEGORY"
-            done
-            echo "" >&2
-        fi
-    fi
-else
-    # Dynamic orchestration (v2.16.0): the planned shape drives deliberation
-    # (convergence loop / adversarial gate / tournament / exhaustive sweep).
-    # Per-round budget enforcement happens inside the loop.
-    log_info "Deliberation: running '${ORCH_SHAPE}' orchestration..."
-    run_orchestration "$ORCH_SHAPE" "$OUTPUT_DIR" "$QUESTION_CATEGORY"
-    echo "" >&2
-fi
-
-# --- Voting and Consensus ---
-log_info "Calculating consensus and voting..."
-VOTING_REPORT=$(generate_voting_report "$OUTPUT_DIR")
-echo "$VOTING_REPORT" > "$OUTPUT_DIR/voting.json"
-
-CONSENSUS_SCORE=$(echo "$VOTING_REPORT" | jq -r '.voting_report.consensus.score // 50')
-CONSENSUS_LEVEL=$(echo "$VOTING_REPORT" | jq -r '.voting_report.consensus.level // "unknown"')
-log_info "  Consensus: ${CONSENSUS_SCORE}% ($CONSENSUS_LEVEL)"
-echo "" >&2
-
 # --- Quality Monitoring (v2.3) ---
 # Log optimization metrics for quality tracking
 if [[ "${LOG_LEVEL:-INFO}" == "DEBUG" ]]; then
@@ -773,7 +672,6 @@ if [[ "${LOG_LEVEL:-INFO}" == "DEBUG" ]]; then
     log_debug "  Cache hits: ${#CACHE_HITS[@]}"
     log_debug "  Response limits enabled: ${ENABLE_RESPONSE_LIMITS:-false}"
     log_debug "  Cost-aware routing: ${ENABLE_COST_AWARE_ROUTING:-false}"
-    log_debug "  Debate optimization: ${ENABLE_DEBATE_OPTIMIZATION:-false}"
 fi
 
 # Save optimization metrics to output directory
@@ -782,43 +680,19 @@ jq -n \
     --argjson cache_hits "${#CACHE_HITS[@]}" \
     --argjson response_limits "${ENABLE_RESPONSE_LIMITS:-false}" \
     --argjson cost_aware "${ENABLE_COST_AWARE_ROUTING:-false}" \
-    --argjson debate_opt "${ENABLE_DEBATE_OPTIMIZATION:-false}" \
     --argjson compact "${ENABLE_COMPACT_REPORT:-true}" \
-    --argjson consensus "$CONSENSUS_SCORE" \
-    --arg consensus_level "$CONSENSUS_LEVEL" \
     --argjson success_count "$SUCCESS_COUNT" \
     --argjson total "${#PIDS[@]}" \
     --arg category "$QUESTION_CATEGORY" \
-    --arg orch_mode "${ORCHESTRATION_MODE:-auto}" \
-    --arg orch_shape "${ORCH_SHAPE:-fixed}" \
-    --argjson complexity "${QUERY_COMPLEXITY:-5}" \
-    --arg intent "${QUERY_INTENT:-advise}" \
-    --arg cap_axis "$(get_category_axis "$QUESTION_CATEGORY" 2>/dev/null || echo "")" \
-    --argjson cap_weighting "${ENABLE_CAPABILITY_WEIGHTING:-false}" \
-    --argjson cap_routing "${ENABLE_CAPABILITY_ROUTING:-false}" \
     '{
         optimization_settings: {
             cache_enabled: $cache_enabled,
             cache_hits: $cache_hits,
             response_limits_enabled: $response_limits,
             cost_aware_routing: $cost_aware,
-            debate_optimization: $debate_opt,
             compact_report: $compact
         },
-        orchestration: {
-            mode: $orch_mode,
-            shape: $orch_shape,
-            complexity: $complexity,
-            intent: $intent
-        },
-        capability: {
-            weighting_enabled: $cap_weighting,
-            routing_enabled: $cap_routing,
-            axis: $cap_axis
-        },
         quality_metrics: {
-            consensus_score: $consensus,
-            consensus_level: $consensus_level,
             successful_responses: $success_count,
             total_consultants: $total,
             category: $category
@@ -870,7 +744,6 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
     echo "**Version**: AI Consultants v${AI_CONSULTANTS_VERSION}"
     echo "**Category**: $QUESTION_CATEGORY"
     echo "**Outcome**: ${QUORUM_OUTCOME:-MET} (${SUCCESS_COUNT}/${QUORUM_ATTEMPTED:-${#PIDS[@]}} responded, quorum=${QUORUM_MIN_EFF:-2})"
-    echo "**Consensus**: ${CONSENSUS_SCORE}% ($CONSENSUS_LEVEL)"
     echo ""
 
     # Diagnosed failures (quorum grading, v2.19.0) — surface WHY consultants
@@ -1032,7 +905,6 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
     echo "## Output Files"
     echo ""
     echo "- Context: \`$CONTEXT_FILE\`"
-    echo "- Voting: \`$OUTPUT_DIR/voting.json\`"
     [[ -n "$SYNTHESIS_FILE" ]] && echo "- Synthesis: \`$SYNTHESIS_FILE\`"
     for i in "${!NAMES[@]}"; do
         echo "- ${NAMES[$i]}: \`${OUTPUT_FILES[$i]}\`"
@@ -1069,8 +941,6 @@ for result in "${RESULTS[@]}"; do
         FAILED) log_error "  - $name: Failed" ;;
     esac
 done
-echo "" >&2
-log_info "Consensus: ${CONSENSUS_SCORE}% ($CONSENSUS_LEVEL)"
 echo "" >&2
 log_info "To view the report:"
 log_info "  cat $REPORT_FILE"

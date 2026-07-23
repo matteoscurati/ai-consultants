@@ -41,7 +41,6 @@ test_full_pipeline() {
         ENABLE_SYNTHESIS=false \
         ENABLE_SMART_ROUTING=false \
         ENABLE_HEALTH_GATE=false \
-        ENABLE_PANIC_MODE=never \
         "$SCRIPT_DIR/consult_all.sh" "How should I structure a small web service?" \
         2>"$TEST_TMPDIR/run.err"
     )
@@ -72,11 +71,11 @@ test_full_pipeline() {
     assert_eq "1" "$([[ -f "$output_dir/optimization_metrics.json" ]] && echo 1 || echo 0)" \
         "optimization_metrics.json exists"
 
-    local consensus_score
-    consensus_score=$(jq -r '.quality_metrics.consensus_score // "MISSING"' \
+    local success_responses
+    success_responses=$(jq -r '.quality_metrics.successful_responses // "MISSING"' \
         "$output_dir/optimization_metrics.json" 2>/dev/null)
-    assert_eq "1" "$([[ "$consensus_score" != "MISSING" && "$consensus_score" != "null" ]] && echo 1 || echo 0)" \
-        "optimization_metrics.json has a consensus score (got: $consensus_score)"
+    assert_eq "1" "$([[ "$success_responses" != "MISSING" && "$success_responses" != "null" ]] && echo 1 || echo 0)" \
+        "optimization_metrics.json records successful_responses (got: $success_responses)"
 }
 
 run_test "Test 1: full offline consult_all.sh pipeline with stubbed CLIs" test_full_pipeline

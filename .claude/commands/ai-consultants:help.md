@@ -12,7 +12,6 @@ All skill details (consultants, personas, presets, strategies, features, configu
 | Command | Description |
 |---------|-------------|
 | `/ai-consultants:consult` | Main consultation — ask AI consultants a coding question |
-| `/ai-consultants:debate` | Run consultation with multi-round debate |
 | `/ai-consultants:help` | Show this help |
 
 ## Quick Examples
