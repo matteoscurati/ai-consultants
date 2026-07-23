@@ -13,7 +13,6 @@ All skill details (consultants, personas, presets, strategies, features, configu
 |---------|-------------|
 | `/ai-consultants:consult` | Main consultation — ask AI consultants a coding question |
 | `/ai-consultants:debate` | Run consultation with multi-round debate |
-| `/ai-consultants:roster-audit` | Audit which consultants add distinct value vs echo the panel |
 | `/ai-consultants:help` | Show this help |
 
 ## Quick Examples

@@ -114,42 +114,6 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# Check 3: peer review runs on the minimum supported Bash
-# -----------------------------------------------------------------------------
-echo ""
-echo "Check 3: peer-review compatibility with /bin/bash"
-
-compat_td=$(mktemp -d "${TMPDIR:-/tmp}/peer_review_bash.XXXXXX")
-compat_responses="$compat_td/responses"
-compat_output="$compat_td/output"
-compat_reviewer="$compat_td/reviewer"
-mkdir -p "$compat_responses"
-
-cat > "$compat_reviewer" <<'EOF'
-#!/bin/bash
-printf '%s\n' '{"reviews":[{"response_id":"Response_A","quality_score":8},{"response_id":"Response_B","quality_score":7},{"response_id":"Response_C","quality_score":6}],"ranking":["Response_A","Response_B","Response_C"],"best_overall":"Response_A","reasoning":"test"}'
-EOF
-chmod +x "$compat_reviewer"
-
-for compat_name in Gemini Codex Mistral; do
-    printf '{"consultant":"%s","model":"test","response":{"summary":"test","approach":"%s"},"confidence":{"score":8},"metadata":{"tokens_used":10}}\n' \
-        "$compat_name" "$compat_name" > "$compat_responses/$compat_name.json"
-done
-
-if ENABLE_GEMINI=true GEMINI_CMD="$compat_reviewer" \
-    ENABLE_CODEX=true CODEX_CMD="$compat_reviewer" \
-    ENABLE_MISTRAL=false ENABLE_CURSOR=false \
-    /bin/bash "$SCRIPT_DIR/peer_review.sh" "$compat_responses" "$compat_output" \
-    >/dev/null 2>&1; then
-    compat_bash_version=$(/bin/bash -c 'printf "%s" "$BASH_VERSION"')
-    echo -e "  ${C_GREEN}PASS${C_RESET}: peer_review.sh completes under /bin/bash $compat_bash_version"
-else
-    echo -e "  ${C_RED}FAIL${C_RESET}: peer_review.sh uses constructs unsupported by /bin/bash $BASH_VERSION"
-    failed=1
-fi
-rm -rf "$compat_td"
-
-# -----------------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------------
 echo ""

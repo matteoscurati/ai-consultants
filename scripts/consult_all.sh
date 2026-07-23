@@ -856,24 +856,6 @@ if [[ "$ENABLE_SYNTHESIS" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
     fi
 fi
 
-# --- Anonymous Peer Review (v2.2, optional) ---
-if [[ "${ENABLE_PEER_REVIEW:-false}" == "true" ]]; then
-    MIN_RESPONSES="${PEER_REVIEW_MIN_RESPONSES:-3}"
-    if [[ $SUCCESS_COUNT -ge $MIN_RESPONSES ]]; then
-        log_info "Running anonymous peer review..."
-        PEER_REVIEW_DIR="$OUTPUT_DIR/peer_review"
-        mkdir -p "$PEER_REVIEW_DIR"
-
-        if "$SCRIPT_DIR/peer_review.sh" "$OUTPUT_DIR" "$PEER_REVIEW_DIR" > /dev/null 2>&1; then
-            log_success "Peer review completed: $PEER_REVIEW_DIR"
-        else
-            log_warn "Peer review failed or unavailable"
-        fi
-    else
-        log_info "Skipping peer review: need ${MIN_RESPONSES}+ responses (got $SUCCESS_COUNT)"
-    fi
-    echo "" >&2
-fi
 
 # --- Generate Combined Report ---
 log_info "Generating combined report..."
