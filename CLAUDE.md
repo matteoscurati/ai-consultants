@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 11 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 3.0.0
+**Version**: 3.1.0
 
 ## Distribution
 
@@ -785,6 +785,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v3.1.0
+- **Grok is now a first-class CLI/API-switchable consultant on `grok-4.5`.** `scripts/query_grok.sh` uses the official Grok Build headless interface, `scripts/config.sh` resolves CLI-first while preserving API-only installations, and configure/doctor/update-clis/docs all classify Grok with the other switchable consultants. `XAI_API_KEY` is accepted as the official alias for the historical `GROK_API_KEY` contract. The route that actually answered is recorded as `metadata.transport = cli|api|api_fallback`.
+- **The CLI boundary is enforced rather than documented.** The first implementation disabled plan/subagents/memory/web but still inherited the current checkout and the maintainer's Grok environment; `grok inspect --json` showed 1 MCP server, 13 plugins, 11 hooks, 79 skills, and 3 project instructions available to an advisory consultation. Each run now creates an ephemeral mode-700 HOME/CWD, copies only a regular non-symlink `auth.json` at mode 600, supplies `--tools ""`, `--permission-mode dontAsk`, `--sandbox strict`, and explicit deny rules, then validates the temp-prefix before recursive cleanup. A live Grok 4.5 smoke succeeded through this isolated path.
+- **Prompts use `--prompt-file`, not argv.** `FULL_QUERY` includes context files; passing it through `-p "$FULL_QUERY"` exposed the prompt in the process list and failed before Grok launched once the combined context crossed `ARG_MAX`. Reproduced locally with a 1.1 MiB context (`timeout: Argument list too long`). The private prompt file removes both failure modes, and the regression suite drives the same 1.1 MiB case.
+- **API fallback means transport unavailable, not "any non-zero".** The initial adapter sent every CLI error to the API when a key existed — including timeouts, model errors, empty responses, and a generic tested `exit 42` — which hid CLI regressions and could add an unexpected API charge. `grok_cli_is_unavailable` now recognizes missing/unexecutable binaries and authentication/startup failures only; post-launch failures remain `transport=cli` and surface as errors. Missing-command and authentication fallback paths are tested separately.
+- **Regression and release coverage.** New `test_query_grok.sh` carries 26 assertions across headless flags/model pinning, HOME/CWD/auth isolation, tool denial, transport metadata, API fallback boundaries, and large contexts. The master runner discovers it automatically, taking `npm test` to 16 suites; the v3.1.0 release gate and shellcheck pass. README, SKILL, setup/recipes/configuration references, changelog, and the showcase roster are synchronized.
 
 ### v3.0.0
 - **Phase 2 of the panel-premise investigation: the deliberation/consensus machinery is removed and the default is now the coverage union.** Two independent reviews (Codex `gpt-5.6-sol`, then Fable-5) had judged the panel premise weak — voting/consensus measure *agreement*, not correctness, and no held-out comparison against one strong model existed. A held-out A/W/C coverage experiment (maintainer instrumentation on the `experiment/coverage-metric` branch, not shipped) resolved it: **task-dependent.** On convergent single-answer defect-finding a single strong model (Gemini 3.1 Pro) caught **19/19** hard bugs (repo-internal + external CVEs/concurrency incl. the Rust `Arc` bug found by RustBelt formal verification) → the panel has no coverage headroom. On **breadth/enumeration** (deep 60-point rubrics across JWT/webhook/cache), rubric coverage was **A 51% · self-consistency C 70% · panel W 93%, W>C>A on every item** → diversity, not volume, and specifically the raw **union** (deliberation OFF). The durable value is the diverse fan-out + union; the averaging machinery adds nothing measurable. Directional (n=3 breadth, hand-validated; n=19 defect).

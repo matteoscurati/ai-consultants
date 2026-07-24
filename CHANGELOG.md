@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
-## [Unreleased]
+## [3.1.0] - 2026-07-24
+
+### Added
+- **Grok 4.5 now runs through the official Grok Build CLI by default.** Configuration, setup, diagnostics, and `update-clis` treat Grok as a switchable CLI/API consultant while preserving the existing xAI API path for installations without a usable CLI.
 
 ### Changed
-- **Grok is now CLI-first through Grok Build.** Consultations invoke the official `grok` headless interface with `grok-4.5` pinned explicitly. Prompts use a private `--prompt-file`, and each run gets an isolated HOME/CWD, no built-in tools, fail-closed permissions, and the strict sandbox so local plugins, hooks, MCP servers, skills, and project instructions are not imported. The existing xAI Chat Completions transport is used only when the CLI is missing, cannot launch, or lacks usable authentication; timeouts, model errors, and other post-launch failures never trigger a silent billable fallback. Configuration, doctor diagnostics, CLI updates, documentation, and offline regression coverage now treat Grok as a switchable CLI/API consultant.
+- **Every Grok CLI consultation is isolated and tool-free.** Prompts use a private `--prompt-file`; HOME and CWD are ephemeral; built-in tools, web access, MCP tools, memory, subagents, plugins, hooks, skills, and project instructions are excluded; permissions fail closed under the strict sandbox.
+- **The API fallback is now narrowly classified.** It runs only when Grok Build is missing, cannot execute, or lacks usable authentication. Timeouts, model errors, empty output, and other failures after launch are surfaced without silently creating a separately billed API request.
+
+### Fixed
+- **Large Grok contexts no longer fail at the operating system argument limit or appear in process listings.** The full consultation is delivered through a mode-600 prompt file instead of the `-p` command-line argument.
+
+## [Unreleased]
 
 ## [3.0.0] - 2026-07-23
 
