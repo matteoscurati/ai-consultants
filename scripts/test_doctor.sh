@@ -28,7 +28,7 @@ source "$SCRIPT_DIR/lib/test_helpers.sh"
 # portable executable stand-in; these tests exercise selection/counting only and
 # never invoke the consultants. Tests that need count=0 disable every ENABLE_*.
 export GEMINI_CMD=true CODEX_CMD=true MISTRAL_CMD=true CURSOR_CMD=true
-export KIMI_CMD=true CLAUDE_CMD=true QWEN3_CMD=true MINIMAX_CMD=true
+export KIMI_CMD=true CLAUDE_CMD=true QWEN3_CMD=true GROK_CMD=true MINIMAX_CMD=true
 
 # Each test invokes `doctor.sh --suggest-preset` with a different question
 # and asserts both the recommended preset/strategy and the reasoning text.
@@ -275,9 +275,9 @@ test_main_json_output() {
         "$DOCTOR" --json 2>/dev/null) || rc=$?
     rm -rf "$tmp"
 
-    if echo "$out" | jq empty 2>/dev/null; then
+    if [[ -n "$out" ]] && echo "$out" | jq -e 'type == "object"' >/dev/null 2>&1; then
         ((checked++)) || true
-        echo -e "  ${C_GREEN}PASS${C_RESET}: main --json output is valid JSON"
+        echo -e "  ${C_GREEN}PASS${C_RESET}: main --json output is a JSON object"
     else
         ((failed++)) || true
         echo -e "  ${C_RED}FAIL${C_RESET}: main --json output is not valid JSON: $out"
@@ -319,5 +319,35 @@ test_suggest_config_keeps_grok_api_fallback() {
 }
 
 run_test "Test 17: suggest-config keeps Grok API fallback" test_suggest_config_keeps_grok_api_fallback
+
+test_main_json_reports_missing_enabled_cli() {
+    local tmp out rc=0
+    tmp=$(mktemp -d)
+    out=$(HOME="$tmp" \
+        XDG_CONFIG_HOME="$tmp/config" \
+        XDG_CACHE_HOME="$tmp/cache" \
+        XDG_STATE_HOME="$tmp/state" \
+        XDG_DATA_HOME="$tmp/data" \
+        GROK_CMD="definitely-not-installed" \
+        "$DOCTOR" --json 2>/dev/null) || rc=$?
+    rm -rf "$tmp"
+
+    if [[ -n "$out" ]] && echo "$out" | jq -e 'type == "object"' >/dev/null 2>&1; then
+        ((checked++)) || true
+        echo -e "  ${C_GREEN}PASS${C_RESET}: missing enabled CLI still emits a JSON object"
+    else
+        ((failed++)) || true
+        echo -e "  ${C_RED}FAIL${C_RESET}: missing enabled CLI aborted JSON diagnostics: $out"
+        return 0
+    fi
+
+    local grok_issues
+    grok_issues=$(echo "$out" | jq \
+        '[.doctor.issues[] | select(.description == "Grok Build CLI not found")] | length')
+    assert_eq "1" "$grok_issues" "missing Grok CLI is recorded as a diagnostic issue"
+    assert_eq "1" "$rc" "missing enabled CLI returns unhealthy status after completing diagnostics"
+}
+
+run_test "Test 18: missing enabled CLI completes JSON diagnosis" test_main_json_reports_missing_enabled_cli
 
 test_summary "doctor"

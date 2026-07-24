@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 11 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 3.1.0
+**Version**: 3.1.1
 
 ## Distribution
 
@@ -785,6 +785,9 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v3.1.1
+- **`doctor` no longer aborts at the first missing enabled consultant.** The v3.1.0 tag workflow exposed the pre-existing `set -e` interaction when Grok became CLI-first and the clean Ubuntu runner had no `grok` binary: the main JSON diagnostic exited before emitting output. Missing CLI/API configuration checks now add their issue and continue to the final summary, which still exits unhealthy. `test_doctor.sh` stubs the complete CLI roster, rejects empty JSON output, and includes a dedicated missing-Grok regression. Full gate: 16/16 suites; shellcheck green.
 
 ### v3.1.0
 - **Grok is now a first-class CLI/API-switchable consultant on `grok-4.5`.** `scripts/query_grok.sh` uses the official Grok Build headless interface, `scripts/config.sh` resolves CLI-first while preserving API-only installations, and configure/doctor/update-clis/docs all classify Grok with the other switchable consultants. `XAI_API_KEY` is accepted as the official alias for the historical `GROK_API_KEY` contract. The route that actually answered is recorded as `metadata.transport = cli|api|api_fallback`.

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [3.1.1] - 2026-07-24
+
+### Fixed
+- **`doctor` now completes its diagnosis when an enabled CLI or API credential is missing.** Failed health checks are recorded and reported in the final human or JSON summary instead of aborting early under `set -e`. The JSON regression test now rejects empty output and covers a missing Grok Build installation explicitly.
+
+## [Unreleased]
+
 ## [3.1.0] - 2026-07-24
 
 ### Added
@@ -18,8 +25,6 @@ For longer-form release notes (rationale, upgrade guides, performance numbers), 
 
 ### Fixed
 - **Large Grok contexts no longer fail at the operating system argument limit or appear in process listings.** The full consultation is delivered through a mode-600 prompt file instead of the `-p` command-line argument.
-
-## [Unreleased]
 
 ## [3.0.0] - 2026-07-23
 

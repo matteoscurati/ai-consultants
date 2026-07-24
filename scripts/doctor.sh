@@ -237,7 +237,9 @@ check_cli_consultant() {
         fi
         add_issue "consultant" "$name CLI not found" "$install_cmd"
         check_fail
-        return 1
+        # A failed health check is data for the final diagnosis, not a reason
+        # to abort the diagnostic pipeline under `set -e`.
+        return 0
     fi
 
     # Get version (--version is standard and fast, no timeout needed)
@@ -291,7 +293,7 @@ check_api_mode() {
             _print "  ✗ $name: API mode enabled but $api_key_var not set"
             add_issue "api_mode" "$name API mode enabled but API key missing" "export ${api_key_var}='your-api-key'"
             check_fail
-            return 1
+            return 0
         else
             local masked_key="${api_key:0:4}...${api_key: -4}"
             _print "  ✓ $name: API mode (key: $masked_key)"
@@ -358,7 +360,7 @@ check_api_consultant() {
         _print "  ✗ $name: API key not set"
         add_issue "api" "$name API key not configured" "export ${api_key_var}='your-api-key'"
         check_fail
-        return 1
+        return 0
     fi
 
     # Mask API key for display
