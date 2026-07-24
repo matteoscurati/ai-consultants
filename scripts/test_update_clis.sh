@@ -31,6 +31,9 @@ test_meta() {
     assert_match "cursor.com" "$INSTALLER" "cursor has a curl installer"
     _cli_meta claude
     assert_eq "claude-code@latest" "$BREW_CASK" "claude brew cask (@latest)"
+    _cli_meta grok
+    assert_eq "update" "$SELF_SUB" "Grok Build self-update subcommand"
+    assert_match "x.ai/cli/install.sh" "$INSTALLER" "Grok Build official installer"
 }
 
 test_detect() {
@@ -49,6 +52,7 @@ test_detect() {
     detect_method vibe   __absent__; assert_eq "uv"        "$DETECT_METHOD" "vibe -> uv"
     detect_method agy    __absent__; assert_eq "installer" "$DETECT_METHOD" "agy -> installer"
     detect_method agent  __absent__; assert_eq "installer" "$DETECT_METHOD" "cursor -> installer"
+    detect_method grok   __absent__; assert_eq "self"      "$DETECT_METHOD" "Grok Build -> self-update"
 
     # Nothing owns it and there is no self/installer/manual path -> unknown.
     _NPM_LS=""; _BREW_CASK_LS=""; _UV_LS=""

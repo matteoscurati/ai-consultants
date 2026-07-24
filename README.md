@@ -379,17 +379,22 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis, connecting ideas |
 | **Qwen3** | `qwen` | The Analyst | Data-driven analysis |
+| **Grok** | `grok` | The Provocateur | Challenge conventions |
 | **MiniMax** | `mmx` | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
-Qwen3 and MiniMax can switch from their CLI to API transport. Gemini, Codex,
-Claude, and Mistral are also CLI/API switchable.
+Grok uses Grok Build with `grok-4.5` in an isolated, tool-free sandbox. Prompts
+are passed through a private file rather than process arguments. It falls back
+to the xAI API only when the CLI is missing, cannot launch, or has no usable
+authentication and `GROK_API_KEY` is configured; post-launch request failures
+are surfaced without a silent API charge. Qwen3 and MiniMax can also switch
+from their CLI to API transport. Gemini, Codex, Claude, and Mistral are
+CLI/API switchable.
 
 ### API-Only Consultants
 
 | Consultant | Default Model | Persona | Focus |
 |------------|---------------|---------|-------|
 | **GLM** | glm-5.2 | The Methodologist | Structured approaches |
-| **Grok** | grok-4.5 | The Provocateur | Challenge conventions |
 | **DeepSeek** | deepseek-v4-pro | The Code Specialist | Algorithms, code generation |
 
 ### Installing Consultant CLIs
@@ -405,6 +410,7 @@ curl https://cursor.com/install -fsS | bash  # Cursor
 # Optional CLI-based consultants
 curl -L code.kimi.com/install.sh | bash            # Kimi K3
 npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
+curl -fsSL https://x.ai/cli/install.sh | bash # Grok Build (grok-4.5)
 npm install -g mmx-cli                       # MiniMax
 
 ```

@@ -18,7 +18,7 @@ BIN="$PROJECT_ROOT/bin/ai-consultants"
 # MINIMAX gained in v2.21) cannot silently reintroduce the hole. Same class as
 # the v2.21.0 test_user_config.sh hermeticity fix.
 unset GEMINI_USE_API CODEX_USE_API CLAUDE_USE_API \
-      MISTRAL_USE_API QWEN3_USE_API MINIMAX_USE_API
+      MISTRAL_USE_API QWEN3_USE_API GROK_USE_API MINIMAX_USE_API
 
 # shellcheck source=lib/test_helpers.sh
 source "$SCRIPT_DIR/lib/test_helpers.sh"
@@ -102,7 +102,7 @@ test_template_covers_config_contract() {
     done < <(find "$SCRIPT_DIR" -type f -name '*.sh' \
         ! -name 'test_*.sh' ! -path '*/test_fixtures/*' ! -path '*/experiment/*' | sort) \
         | sed -E 's/^\$\{//; s/:[-=]$//' \
-        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CONTEXT_SIZE|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XDG_CONFIG_HOME)$' \
+        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CONTEXT_SIZE|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
         | sort -u > "$runtime"
     sort -u "$declared" "$runtime" -o "$declared"
     $BIN configure --show-parameters | sort -u > "$supported"
@@ -329,6 +329,30 @@ test_cli_first_preserved() {
     assert_eq "true" "$(read_env "$cfg/.env" ENABLE_CODEX)" "CLI-selected Codex is enabled"
 }
 
+test_grok_cli_first_with_api_fallback() {
+    local cli_cfg="$TMP/grok-cli-first" api_cfg="$TMP/grok-api-fallback"
+    make_stub grok
+
+    env "${CLEAN_ENV_ARGS[@]}" \
+        PATH="$(clean_path)" GROK_API_KEY=xai-test \
+        AI_CONSULTANTS_CONFIG_DIR="$cli_cfg" \
+        "$BIN" configure --force >/dev/null
+    assert_eq "true" "$(read_env "$cli_cfg/.env" ENABLE_GROK)" \
+        "installed Grok Build enables Grok"
+    assert_eq "false" "$(read_env "$cli_cfg/.env" GROK_USE_API)" \
+        "Grok Build wins over a fallback API key"
+
+    rm -f "$TMP/bin/grok"
+    env "${CLEAN_ENV_ARGS[@]}" \
+        PATH="$(clean_path)" GROK_API_KEY=xai-test \
+        AI_CONSULTANTS_CONFIG_DIR="$api_cfg" \
+        "$BIN" configure --force >/dev/null
+    assert_eq "true" "$(read_env "$api_cfg/.env" ENABLE_GROK)" \
+        "API key keeps Grok enabled when Grok Build is missing"
+    assert_eq "true" "$(read_env "$api_cfg/.env" GROK_USE_API)" \
+        "missing Grok Build selects API fallback"
+}
+
 test_backups_are_unique_within_one_second() {
     local cfg="$TMP/backup-collision"
     mkdir -p "$cfg" "$TMP/bin"
@@ -372,5 +396,6 @@ run_test "Test 16: init then configure (BUG 2 regression)" test_init_then_config
 run_test "Test 17: explicit pin survives init" test_explicit_pin_survives_init
 run_test "Test 18: CLI-first preserved with a key present" test_cli_first_preserved
 run_test "Test 19: backup names are unique within one second" test_backups_are_unique_within_one_second
+run_test "Test 20: Grok CLI-first with API fallback" test_grok_cli_first_with_api_fallback
 
 test_summary "configure"

@@ -1,17 +1,226 @@
 #!/bin/bash
-# query_grok.sh - Query Grok (xAI) via HTTP API (v2.0 with Persona and Confidence)
+# query_grok.sh - Query Grok Build CLI, with xAI API fallback
 #
 # Usage: ./query_grok.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   GROK_API_KEY    - API key for xAI (required)
-#   GROK_MODEL      - Model to use (default: grok-4.20-0309-reasoning)
+#   GROK_CMD        - Grok Build command (default: grok)
+#   GROK_MODEL      - Model to use in both transports (default: grok-4.5)
 #   GROK_TIMEOUT    - Timeout in seconds (default: 180)
+#   GROK_USE_API    - Force the API path when true (default: CLI-first auto)
+#   GROK_API_KEY    - xAI API key used by the fallback
+#   XAI_API_KEY     - Official xAI key name; accepted as a GROK_API_KEY alias
 #   ENABLE_PERSONA  - Enable "The Provocateur" persona (default: true)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/api_query.sh"
+source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/personas.sh"
 
-run_api_consultant "Grok" "$@"
+QUERY="${1:-}"
+CONTEXT_FILE="${2:-}"
+OUTPUT_FILE="${3:-/tmp/grok_response.json}"
+
+ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
+CONSULTANT_NAME="Grok"
+
+FULL_QUERY=$(build_full_query "$QUERY" "$CONTEXT_FILE")
+validate_query "$FULL_QUERY" "$CONSULTANT_NAME" || exit 1
+
+if [[ "$ENABLE_PERSONA" == "true" ]]; then
+    FULL_QUERY=$(build_query_with_persona "$CONSULTANT_NAME" "$FULL_QUERY")
+fi
+
+START_TIME=$(get_timestamp_ms)
+TEMP_OUTPUT=$(mktemp)
+GROK_RUNTIME_DIR=""
+TRANSPORT="cli"
+exit_code=1
+
+cleanup() {
+    rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"
+
+    # GROK_RUNTIME_DIR is always created by this script under the system temp
+    # directory. Validate the prefix before recursive cleanup so an unexpected
+    # empty or overridden value can never widen the deletion target.
+    local temp_prefix="${TMPDIR:-/tmp}"
+    temp_prefix="${temp_prefix%/}/ai-consultants-grok."
+    if [[ -n "$GROK_RUNTIME_DIR" && "$GROK_RUNTIME_DIR" == "$temp_prefix"* ]]; then
+        rm -rf -- "$GROK_RUNTIME_DIR"
+    fi
+}
+trap cleanup EXIT
+
+run_grok_api() {
+    source "$SCRIPT_DIR/lib/api_query.sh"
+    : > "$TEMP_OUTPUT"
+    if run_api_mode_query \
+            "$CONSULTANT_NAME" \
+            "$GROK_MODEL" \
+            "$FULL_QUERY" \
+            "$TEMP_OUTPUT" \
+            "$GROK_TIMEOUT_SECONDS"; then
+        return 0
+    else
+        return $?
+    fi
+}
+
+grok_cli_is_unavailable() {
+    local cli_exit_code="$1"
+    local error_file="$2"
+
+    # A missing command is detected before execution. 126/127 cover a binary
+    # that was resolved but cannot be executed (bad interpreter, permissions,
+    # or a race with an uninstall).
+    case "$cli_exit_code" in
+        126|127) return 0 ;;
+    esac
+
+    [[ -s "$error_file" ]] || return 1
+
+    # Authentication is part of CLI availability: without a usable Grok Build
+    # login the subscription transport cannot start a request. Do not classify
+    # model errors, timeouts, empty output, or other post-launch failures here;
+    # those must surface instead of silently creating a billable API request.
+    grep -Eiq \
+        'not authenticated|authentication( is)? required|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)' \
+        "$error_file"
+}
+
+if is_api_mode "grok"; then
+    log_api_mode_status "grok"
+    TRANSPORT="api"
+    if run_grok_api; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
+else
+    log_api_mode_status "grok"
+
+    if command -v "$GROK_CMD" >/dev/null 2>&1; then
+        runtime_base="${TMPDIR:-/tmp}"
+        runtime_base="${runtime_base%/}"
+        GROK_RUNTIME_DIR=$(mktemp -d "$runtime_base/ai-consultants-grok.XXXXXX")
+        chmod 700 "$GROK_RUNTIME_DIR"
+
+        isolated_home="$GROK_RUNTIME_DIR/home"
+        isolated_grok_home="$isolated_home/.grok"
+        isolated_workspace="$GROK_RUNTIME_DIR/workspace"
+        prompt_file="$GROK_RUNTIME_DIR/prompt.txt"
+        mkdir -p "$isolated_grok_home" "$isolated_workspace"
+        chmod 700 "$isolated_home" "$isolated_grok_home" "$isolated_workspace"
+        printf '%s' "$FULL_QUERY" > "$prompt_file"
+        chmod 600 "$prompt_file"
+
+        # Preserve only the credential needed to use the installed CLI. All
+        # config, plugins, hooks, MCP servers, skills, memories, and project
+        # instructions stay outside the isolated HOME/CWD.
+        source_grok_home=$(printenv GROK_HOME 2>/dev/null || true)
+        [[ -n "$source_grok_home" ]] || source_grok_home="${HOME}/.grok"
+        if [[ -f "$source_grok_home/auth.json" && ! -L "$source_grok_home/auth.json" ]]; then
+            if cp "$source_grok_home/auth.json" "$isolated_grok_home/auth.json"; then
+                chmod 600 "$isolated_grok_home/auth.json"
+            else
+                log_warn "[$CONSULTANT_NAME] Could not copy the Grok CLI credential into the isolated runtime"
+            fi
+        fi
+
+        # Official Grok Build headless contract:
+        #   --prompt-file avoids argv size/process-list exposure, -m pins the
+        #   model, and plain output contains the final assistant text.
+        #   dontAsk + strict sandbox make every unapproved tool fail closed.
+        GROK_ARGS=(
+            env
+            HOME="$isolated_home"
+            GROK_HOME="$isolated_grok_home"
+            "$GROK_CMD"
+            --prompt-file "$prompt_file"
+            -m "$GROK_MODEL"
+            --cwd "$isolated_workspace"
+            --output-format plain
+            --no-plan
+            --no-subagents
+            --no-memory
+            --disable-web-search
+            --max-turns 1
+            --permission-mode dontAsk
+            --sandbox strict
+            --tools ""
+            --deny Bash
+            --deny Edit
+            --deny Read
+            --deny Grep
+            --deny MCPTool
+            --deny WebFetch
+            --deny WebSearch
+            --verbatim
+        )
+
+        # Newer Grok Build releases document --no-auto-update for automation;
+        # keep compatibility with older installed builds that do not expose it.
+        if "$GROK_CMD" --help 2>&1 | grep -q -- '--no-auto-update'; then
+            GROK_ARGS+=("--no-auto-update")
+        fi
+
+        if run_query \
+                "$CONSULTANT_NAME" \
+                "$TEMP_OUTPUT" \
+                "$GROK_TIMEOUT_SECONDS" \
+                "${GROK_ARGS[@]}" </dev/null; then
+            exit_code=0
+        else
+            exit_code=$?
+        fi
+    else
+        log_warn "[$CONSULTANT_NAME] Grok Build CLI not found: $GROK_CMD"
+        exit_code=127
+    fi
+
+    # Fall back only when the CLI transport is genuinely unavailable. A timeout,
+    # model error, empty reply, or other post-launch failure is returned as-is so
+    # it cannot silently turn into a separately billed API request.
+    if [[ $exit_code -ne 0 ]] \
+            && grok_cli_is_unavailable "$exit_code" "${TEMP_OUTPUT}.err" \
+            && [[ -n "${GROK_API_KEY:-}" ]]; then
+        log_warn "[$CONSULTANT_NAME] Grok Build CLI unavailable (exit $exit_code); falling back to the xAI API"
+        TRANSPORT="api_fallback"
+        if run_grok_api; then
+            exit_code=0
+        else
+            exit_code=$?
+        fi
+    elif [[ $exit_code -ne 0 && -n "${GROK_API_KEY:-}" ]]; then
+        log_warn "[$CONSULTANT_NAME] Grok Build request failed after launch; API fallback suppressed"
+    fi
+fi
+
+END_TIME=$(get_timestamp_ms)
+LATENCY_MS=$((END_TIME - START_TIME))
+PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
+
+# The response builder intentionally returns the consultant exit code. Keep it
+# inside a conditional so `set -e` cannot skip transport metadata and cleanup
+# on the failure path.
+if process_consultant_response "$CONSULTANT_NAME" "$GROK_MODEL" "$PERSONA_NAME" \
+        "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"; then
+    :
+else
+    :
+fi
+
+# Preserve which route actually answered without changing the shared schema.
+if [[ -s "$OUTPUT_FILE" ]]; then
+    response_tmp=$(mktemp)
+    if jq --arg transport "$TRANSPORT" '.metadata.transport = $transport' \
+            "$OUTPUT_FILE" > "$response_tmp"; then
+        mv "$response_tmp" "$OUTPUT_FILE"
+    else
+        rm -f "$response_tmp"
+    fi
+fi
+
+cat "$OUTPUT_FILE"
+exit $exit_code

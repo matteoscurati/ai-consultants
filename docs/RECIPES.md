@@ -124,10 +124,10 @@ CLAUDE_USE_API=false
 MISTRAL_USE_API=false
 QWEN3_USE_API=false
 MINIMAX_USE_API=false
+GROK_USE_API=false
 KIMI_MODEL=kimi-code/k3
 
 ENABLE_GLM=false
-ENABLE_GROK=false
 ENABLE_DEEPSEEK=false
 ```
 
@@ -140,8 +140,10 @@ even when `~/.kimi/config.toml` still names an older default model.
 
 ## 8. Hybrid CLI and API panel
 
-Enable API transport only where needed. Gemini and MiniMax automatically choose
-API mode when their API key is present unless `*_USE_API` is explicitly set.
+Enable API transport only where needed. Grok normally uses Grok Build and
+automatically falls back to the xAI API if the CLI cannot run. Gemini and
+MiniMax automatically choose API mode when their API key is present unless
+`*_USE_API` is explicitly set.
 
 ```dotenv
 CODEX_USE_API=false
@@ -151,6 +153,7 @@ QWEN3_USE_API=true
 QWEN3_API_KEY=your-dashscope-key
 
 ENABLE_GROK=true
+GROK_USE_API=false
 GROK_API_KEY=your-xai-key
 GROK_MODEL=grok-4.5
 

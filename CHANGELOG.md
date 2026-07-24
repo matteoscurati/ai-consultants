@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [Unreleased]
+
+### Changed
+- **Grok is now CLI-first through Grok Build.** Consultations invoke the official `grok` headless interface with `grok-4.5` pinned explicitly. Prompts use a private `--prompt-file`, and each run gets an isolated HOME/CWD, no built-in tools, fail-closed permissions, and the strict sandbox so local plugins, hooks, MCP servers, skills, and project instructions are not imported. The existing xAI Chat Completions transport is used only when the CLI is missing, cannot launch, or lacks usable authentication; timeouts, model errors, and other post-launch failures never trigger a silent billable fallback. Configuration, doctor diagnostics, CLI updates, documentation, and offline regression coverage now treat Grok as a switchable CLI/API consultant.
+
 ## [3.0.0] - 2026-07-23
 
 A held-out experiment settled a question two independent reviews had raised: does the panel beat a single strong model? The answer is **task-dependent**. On convergent defect-finding a single strong model saturates (it caught 19/19 hard bugs, including CVEs and a concurrency bug found by formal verification), so the panel adds nothing. On **breadth** questions — "what could go wrong with this design?", enumerate the risks — a diverse cross-vendor panel covers materially more than one model (measured rubric coverage: one model 51%, self-consistency 70%, the panel **93%**), and it wins as a raw **union of distinct answers**, not through deliberation. So this release keeps the diverse fan-out and cuts the machinery that averaged it away.

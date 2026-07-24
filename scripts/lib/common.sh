@@ -274,8 +274,8 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 MINIMAX"
-KNOWN_API_AGENTS="GLM GROK DEEPSEEK"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GROK MINIMAX"
+KNOWN_API_AGENTS="GLM DEEPSEEK"
 
 # Every non-consultant ENABLE_* flag declared in config.sh. This is a denylist
 # guarding _discover_custom_api_agents (consult_all.sh): that function walks
@@ -351,6 +351,8 @@ validate_api_mode() {
         CLAUDE)     api_key_var="ANTHROPIC_API_KEY" ;;
         MISTRAL)    api_key_var="MISTRAL_API_KEY" ;;
         QWEN3)      api_key_var="QWEN3_API_KEY" ;;
+        GROK)       api_key_var="GROK_API_KEY" ;;
+        MINIMAX)    api_key_var="MINIMAX_API_KEY" ;;
         *)
             log_error "Unknown agent for API mode: $agent"
             return 1
@@ -465,11 +467,9 @@ get_api_format() {
 # Warn when a reasoning-effort setting cannot be delivered on the CLI transport.
 # Usage: warn_effort_ignored_in_cli <agent_name>
 #
-# api_query.sh reads ${AGENT}_REASONING_EFFORT generically, so six consultants
-# accept the variable in API mode. CLI is the mandatory default transport and no
-# CLI exposes an effort flag, so every one of them needs the same diagnostic -
-# it lived in query_qwen3.sh alone, leaving the other five with the silent
-# no-op this feature exists to avoid.
+# api_query.sh reads ${AGENT}_REASONING_EFFORT generically for API transports,
+# accept the variable in API mode. CLI adapters that cannot express the setting
+# use this diagnostic instead of silently ignoring it.
 warn_effort_ignored_in_cli() {
     local agent="$1"
     local agent_upper
@@ -1210,7 +1210,7 @@ is_consultant_enabled() {
     # Get default based on consultant type
     local default="true"
     case "$name_upper" in
-        GLM|GROK|DEEPSEEK)
+        GLM|DEEPSEEK)
             default="false"
             ;;
     esac

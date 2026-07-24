@@ -182,7 +182,7 @@ override it.
 
 ## CLI/API Mode Switching (v2.6+)
 
-Six consultants support switching between CLI and API mode. **The default is the CLI** for every consultant that has one — API mode is opt-in (for CLI-less models or an explicit choice). When API mode is enabled, the CLI is not used.
+Seven consultants support switching between CLI and API mode. **The default is the CLI** for every consultant that has one. Grok additionally falls back to the xAI API after a failed CLI launch when a key is available. When API mode is explicitly enabled, the CLI is not used.
 
 **Gemini auto-resolution (v2.15.1):** leave `GEMINI_USE_API` unset and the mode is chosen for you — API mode when `GEMINI_API_KEY` is present (no `agy` install or OAuth needed; ideal for `npx`), CLI mode (`agy`) otherwise. Set `GEMINI_USE_API` explicitly only to force a mode (an explicit value disables auto-detection).
 
@@ -193,6 +193,7 @@ CODEX_USE_API=false          # Use OpenAI API instead of codex CLI
 CLAUDE_USE_API=false         # Use Anthropic API instead of claude CLI
 MISTRAL_USE_API=false        # Use Mistral API instead of vibe CLI
 QWEN3_USE_API=false          # Use qwen CLI (default) or DashScope API
+GROK_USE_API=false           # Use Grok Build (default); API is fallback
 MINIMAX_USE_API=false        # Use mmx CLI (default) or MiniMax API
 ```
 
@@ -207,7 +208,7 @@ MINIMAX_USE_API=false        # Use mmx CLI (default) or MiniMax API
 | Qwen3 | `QWEN3_API_KEY` | DashScope API key |
 | MiniMax | `MINIMAX_API_KEY` | MiniMax API key (API mode only; the mmx CLI uses OAuth) |
 | GLM | `GLM_API_KEY` | Required when `ENABLE_GLM=true` |
-| Grok | `GROK_API_KEY` | Required when `ENABLE_GROK=true` |
+| Grok | `GROK_API_KEY` | xAI API fallback key; Grok Build CLI uses its own login |
 | DeepSeek | `DEEPSEEK_API_KEY` | Required when `ENABLE_DEEPSEEK=true` |
 
 ## Consultant Toggles and Models
@@ -220,12 +221,12 @@ ENABLE_MISTRAL=true
 ENABLE_CURSOR=true
 ENABLE_KIMI=true             # Kimi CLI - The Eastern Sage
 ENABLE_QWEN3=true            # Qwen CLI/API - The Analyst
+ENABLE_GROK=true             # Grok Build CLI/API fallback - The Provocateur
 ENABLE_MINIMAX=true          # MiniMax CLI/API (mmx) - The Pragmatic Optimizer
 ENABLE_CLAUDE=true           # Claude CLI - The Synthesizer (auto-excluded under Claude Code)
 
 # API-only consultants (off by default - require API keys)
 ENABLE_GLM=false
-ENABLE_GROK=false
 ENABLE_DEEPSEEK=false
 ```
 
@@ -244,6 +245,14 @@ GROK_MODEL=grok-4.5
 DEEPSEEK_MODEL=deepseek-v4-pro
 MINIMAX_MODEL=MiniMax-M2.7
 ```
+
+`GROK_MODEL` is passed explicitly to `grok -m`. The default transport is the
+headless Grok Build CLI using a private `--prompt-file` inside an isolated,
+tool-free strict sandbox. If the CLI is missing, cannot execute, or has no
+usable authentication, the same query and model fall back to `GROK_API_URL`
+when `GROK_API_KEY` is set. Failures after a request launches (including
+timeouts, model errors, and empty output) are returned without API fallback.
+Set `GROK_USE_API=true` only to force the API path.
 
 `KIMI_MODEL` is passed directly to `kimi --model`, so `kimi-code/k3` overrides
 any older default stored in the user's Kimi CLI configuration.

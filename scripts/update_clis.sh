@@ -18,7 +18,7 @@
 # With no flags it updates every installed supported CLI, best-effort: a failure
 # on one CLI is reported and the rest still run. Some updates run the CLI's
 # official installer (curl | bash) -- use --dry-run first to see what will run.
-# API-only consultants (GLM, Grok, DeepSeek) have no CLI and are not listed here.
+# API-only consultants (GLM, DeepSeek) have no CLI and are not listed here.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,6 +39,7 @@ _CLI_ENTRIES=(
     "Kimi|KIMI_CMD|kimi"
     "Claude|CLAUDE_CMD|claude"
     "Qwen3|QWEN3_CMD|qwen"
+    "Grok|GROK_CMD|grok"
     "MiniMax|MINIMAX_CMD|mmx"
 )
 
@@ -66,6 +67,7 @@ _cli_meta() {
         kimi)     SELF_SUB="upgrade"; INSTALLER="curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash" ;;
         claude)   BREW_CASK="claude-code@latest"; NPM_PKG="@anthropic-ai/claude-code"; SELF_SUB="update" ;;
         qwen)     NPM_PKG="@qwen-code/qwen-code" ;;
+        grok)     SELF_SUB="update"; INSTALLER="curl -fsSL https://x.ai/cli/install.sh | bash" ;;
         mmx)      NPM_PKG="mmx-cli"; SELF_SUB="update" ;;
     esac
 }

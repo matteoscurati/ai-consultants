@@ -310,4 +310,14 @@ test_main_json_output() {
 
 run_test "Test 16: main --json emits a complete diagnostic" test_main_json_output
 
+test_suggest_config_keeps_grok_api_fallback() {
+    local out
+    out=$(PATH="/usr/bin:/bin" GROK_CMD="definitely-not-installed" \
+        GROK_API_KEY="xai-test" "$DOCTOR" --suggest-config 2>/dev/null)
+    assert_match '(^|[[:space:]])ENABLE_GROK=true($|[[:space:]])' "$out" \
+        "Grok remains available from its API fallback when the CLI is missing"
+}
+
+run_test "Test 17: suggest-config keeps Grok API fallback" test_suggest_config_keeps_grok_api_fallback
+
 test_summary "doctor"

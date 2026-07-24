@@ -394,7 +394,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"
 
 ## CLI/API Mode Switching (v2.6+)
 
-Six consultants can switch between CLI mode (using local CLI tools) and API mode (direct API calls): **Gemini, Codex, Claude, Mistral, Qwen3, and MiniMax**.
+Seven consultants can switch between CLI mode (using local CLI tools) and API mode (direct API calls): **Gemini, Codex, Claude, Mistral, Qwen3, Grok, and MiniMax**. Grok is CLI-first and runs in an isolated, tool-free strict sandbox. It falls back automatically only when Grok Build is missing, cannot launch, or lacks usable authentication and a key is available; request failures after launch are surfaced without an API fallback.
 
 ### Why Use API Mode?
 
@@ -417,6 +417,9 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 export MISTRAL_USE_API=true
 export MISTRAL_API_KEY="your-mistral-key"
+
+export GROK_USE_API=true
+export GROK_API_KEY="your-xai-key"
 
 export QWEN3_USE_API=true   # Enable API mode for Qwen3
 export QWEN3_API_KEY="your-dashscope-key"
@@ -590,8 +593,8 @@ ENABLE_CLAUDE=false    # Auto-excluded when invoked from Claude Code
 ENABLE_MISTRAL=false
 ENABLE_CURSOR=false
 ENABLE_QWEN3=false     # v2.7: The Analyst (CLI/API)
+ENABLE_GROK=true       # Grok Build CLI; API fallback when unavailable
 ENABLE_GLM=false
-ENABLE_GROK=false
 ENABLE_DEEPSEEK=false
 ENABLE_KIMI=true
 ENABLE_MINIMAX=true
@@ -606,6 +609,7 @@ OPENAI_API_KEY=sk-your-key
 MISTRAL_API_KEY=your-key
 ANTHROPIC_API_KEY=sk-ant-your-key
 QWEN3_API_KEY=your-dashscope-key
+GROK_API_KEY=your-xai-key  # optional fallback; Grok Build normally uses login
 
 # CLI/API Mode Switching (v2.6+)
 # GEMINI_USE_API auto-resolves when unset (v2.15.1): API if GEMINI_API_KEY is

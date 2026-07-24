@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AI Consultants is a multi-model AI deliberation system that queries up to 11 AI consultants (Gemini, Codex, Mistral, Cursor, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
+AI Consultants is a multi-model coverage system that queries up to 11 AI consultants (Gemini, Codex, Mistral, Cursor, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
@@ -418,6 +418,15 @@ All consultants now use premium models by default:
 | MiniMax | MiniMax-M2.7 |
 
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
+
+Grok is CLI-first through the official Grok Build `grok` command, with
+`grok-4.5` passed explicitly in headless mode. The prompt is delivered with
+`--prompt-file`; HOME and CWD are isolated, built-in/MCP tools are denied, and
+the strict sandbox prevents user or project extensions from joining the
+consultation. The xAI Chat Completions path is retained only when the CLI is
+missing, cannot launch, or lacks usable authentication and `GROK_API_KEY` is
+available. A timeout, model error, empty response, or other post-launch failure
+is surfaced and never silently rerouted to the API.
 
 ## v2.4 Features
 

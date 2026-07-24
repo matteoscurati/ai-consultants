@@ -219,10 +219,9 @@ check_cli_consultant() {
         return 0
     fi
 
-    # Skip the CLI install check when the consultant runs in API mode. For the
-    # 6 switchable agents (Gemini, Codex, Claude, Mistral, Qwen3, MiniMax) a missing CLI
-    # is irrelevant once API mode is on -- the API key is validated separately
-    # by check_api_mode. This matters most for Gemini, which auto-resolves to
+    # Switchable agents skip the CLI requirement while explicitly in API mode;
+    # the API key is validated separately by check_api_mode. This matters most
+    # for Gemini, which auto-resolves to
     # API mode whenever GEMINI_API_KEY is set (the npm-friendly path).
     local use_api_var="${env_var}_USE_API"
     if [[ "${!use_api_var:-false}" == "true" ]]; then
@@ -265,6 +264,7 @@ check_cli_consultants() {
     check_cli_consultant "Kimi" "$KIMI_CMD" "curl -L code.kimi.com/install.sh | bash" "KIMI"
     check_cli_consultant "Claude" "$CLAUDE_CMD" "See https://docs.anthropic.com/claude-code" "CLAUDE"
     check_cli_consultant "Qwen" "$QWEN3_CMD" "npm install -g @qwen-code/qwen-code@latest" "QWEN3"
+    check_cli_consultant "Grok Build" "$GROK_CMD" "curl -fsSL https://x.ai/cli/install.sh | bash" "GROK"
     check_cli_consultant "MiniMax" "$MINIMAX_CMD" "npm install -g mmx-cli" "MINIMAX"
 }
 
@@ -308,7 +308,7 @@ check_api_mode_switching() {
     local has_api_mode=false
 
     # Check switchable consultants
-    for agent in GEMINI CODEX CLAUDE MISTRAL QWEN3 MINIMAX; do
+    for agent in GEMINI CODEX CLAUDE MISTRAL QWEN3 GROK MINIMAX; do
         local enabled_var="ENABLE_${agent}"
         local use_api_var="${agent}_USE_API"
         local is_enabled="${!enabled_var:-false}"
@@ -326,6 +326,7 @@ check_api_mode_switching() {
         check_api_mode "Claude" "CLAUDE_USE_API" "ANTHROPIC_API_KEY" "ENABLE_CLAUDE"
         check_api_mode "Mistral" "MISTRAL_USE_API" "MISTRAL_API_KEY" "ENABLE_MISTRAL"
         check_api_mode "Qwen3" "QWEN3_USE_API" "QWEN3_API_KEY" "ENABLE_QWEN3"
+        check_api_mode "Grok" "GROK_USE_API" "GROK_API_KEY" "ENABLE_GROK"
         check_api_mode "MiniMax" "MINIMAX_USE_API" "MINIMAX_API_KEY" "ENABLE_MINIMAX"
     else
         _print "  ○ All switchable consultants using CLI mode"
@@ -383,7 +384,6 @@ check_api_consultants() {
     print_section "Checking API-only Consultants"
 
     check_api_consultant "GLM" "GLM_API_KEY" "GLM_API_URL" "ENABLE_GLM"
-    check_api_consultant "Grok" "GROK_API_KEY" "GROK_API_URL" "ENABLE_GROK"
     check_api_consultant "DeepSeek" "DEEPSEEK_API_KEY" "DEEPSEEK_API_URL" "ENABLE_DEEPSEEK"
 }
 
@@ -773,6 +773,7 @@ suggest_configuration() {
         "ENABLE_KIMI:${KIMI_CMD:-kimi}"
         "ENABLE_CLAUDE:${CLAUDE_CMD:-claude}"
         "ENABLE_QWEN3:${QWEN3_CMD:-qwen}"
+        "ENABLE_GROK:${GROK_CMD:-grok}"
         "ENABLE_MINIMAX:${MINIMAX_CMD:-mmx}"
     )
 
@@ -781,7 +782,8 @@ suggest_configuration() {
     for entry in "${consultant_clis[@]}"; do
         local flag="${entry%%:*}"
         local cmd="${entry##*:}"
-        if command -v "$cmd" >/dev/null 2>&1; then
+        if command -v "$cmd" >/dev/null 2>&1 || \
+           [[ "$flag" == "ENABLE_GROK" && -n "${GROK_API_KEY:-}" ]]; then
             lines+=("${flag}=true")
             ((available_count++)) || true
         else
@@ -792,7 +794,6 @@ suggest_configuration() {
     # API-only consultants: enable if API key is set
     local api_consultants=(
         "ENABLE_GLM:GLM_API_KEY"
-        "ENABLE_GROK:GROK_API_KEY"
         "ENABLE_DEEPSEEK:DEEPSEEK_API_KEY"
     )
     for entry in "${api_consultants[@]}"; do
@@ -856,13 +857,15 @@ _count_available_consultants() {
         "KIMI|ENABLE_KIMI|${KIMI_CMD:-kimi}"
         "CLAUDE|ENABLE_CLAUDE|${CLAUDE_CMD:-claude}"
         "QWEN3|ENABLE_QWEN3|${QWEN3_CMD:-qwen}"
+        "GROK|ENABLE_GROK|${GROK_CMD:-grok}"
         "MINIMAX|ENABLE_MINIMAX|${MINIMAX_CMD:-mmx}"
     )
     for entry in "${entries[@]}"; do
         IFS='|' read -r name flag cmd <<<"$entry"
         local enabled="${!flag:-false}"
         [[ "$enabled" != "true" ]] && continue
-        if command -v "$cmd" >/dev/null 2>&1; then
+        if command -v "$cmd" >/dev/null 2>&1 || \
+           [[ "$name" == "GROK" && -n "${GROK_API_KEY:-}" ]]; then
             [[ "$name" == "$invoker_consultant" ]] && continue
             ((count++)) || true
         fi
@@ -871,7 +874,6 @@ _count_available_consultants() {
     # API-only consultants: enabled flag + API key both required
     local api_entries=(
         "GLM|ENABLE_GLM|GLM_API_KEY"
-        "GROK|ENABLE_GROK|GROK_API_KEY"
         "DEEPSEEK|ENABLE_DEEPSEEK|DEEPSEEK_API_KEY"
     )
     for entry in "${api_entries[@]}"; do

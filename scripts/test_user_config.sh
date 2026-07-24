@@ -30,7 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # switchable set is cleared so a future auto-resolution cannot silently
 # reintroduce the hole.
 unset GEMINI_USE_API CODEX_USE_API CLAUDE_USE_API \
-      MISTRAL_USE_API QWEN3_USE_API MINIMAX_USE_API
+      MISTRAL_USE_API QWEN3_USE_API GROK_USE_API MINIMAX_USE_API
 
 # shellcheck source=lib/test_helpers.sh
 source "$SCRIPT_DIR/lib/test_helpers.sh"

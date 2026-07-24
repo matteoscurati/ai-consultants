@@ -64,12 +64,12 @@ DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-${_AI_CONSULTANTS_XDG_CACHE}
 # =============================================================================
 # For agents that support both CLI and API mode, set USE_API=true to use API mode.
 # When API mode is enabled, CLI mode is automatically disabled (mutual exclusivity).
-# 6 agents support switching: Gemini, Codex, Claude, Mistral, Qwen3, MiniMax
+# 7 agents support switching: Gemini, Codex, Claude, Mistral, Qwen3, Grok, MiniMax
 
 # Mode switching (true = API, false = CLI). DEFAULT IS CLI — when a consultant
 # has a CLI, the tool uses it; the CLIs are the primary transport (OAuth /
 # subscription, no API key needed). API mode is opt-in only: for CLI-less models
-# (GLM/Grok/DeepSeek are API-only anyway) or an explicit per-run user
+# (GLM/DeepSeek are API-only) or an explicit per-run user
 # choice. Set a switch to true (with its API key) to force API for that agent.
 # GEMINI_USE_API is intentionally NOT defaulted here: it is auto-resolved in the
 # Gemini configuration section below (needs GEMINI_API_KEY / GEMINI_CMD), so an
@@ -78,6 +78,8 @@ CODEX_USE_API="${CODEX_USE_API:-false}"
 CLAUDE_USE_API="${CLAUDE_USE_API:-false}"
 MISTRAL_USE_API="${MISTRAL_USE_API:-false}"
 QWEN3_USE_API="${QWEN3_USE_API:-false}"  # Default false to use qwen CLI
+# GROK_USE_API is intentionally resolved in the Grok section: it is CLI-first,
+# but must preserve an API-only installation when Grok Build is unavailable.
 # MINIMAX_USE_API is intentionally NOT defaulted here: it is auto-resolved in the
 # MiniMax configuration section below (needs MINIMAX_API_KEY), so an explicit
 # unset stays distinguishable from an explicit "false" (back-compat for pre-v2.21
@@ -186,14 +188,32 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 # API key: Set GLM_API_KEY environment variable
 
 # =============================================================================
-# GROK CONFIGURATION - The Provocateur (API-based)
+# GROK CONFIGURATION - The Provocateur (Grok Build CLI + API fallback)
 # =============================================================================
 
+GROK_CMD="${GROK_CMD:-grok}"
 GROK_MODEL="${GROK_MODEL:-grok-4.5}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
-# API key: Set GROK_API_KEY environment variable
+# Grok Build's official credential name is XAI_API_KEY. Keep the historical
+# GROK_API_KEY public contract and accept XAI_API_KEY as its fallback alias.
+GROK_API_KEY="${GROK_API_KEY:-${XAI_API_KEY:-}}"
+export GROK_API_KEY
+
+# CLI-first auto-resolution. Existing users can still pin GROK_USE_API=true,
+# while an unpinned setup uses the CLI whenever it is installed and falls back
+# to the API when only a key is available.
+if [[ -z "${GROK_USE_API+x}" ]]; then
+    if command -v "$GROK_CMD" >/dev/null 2>&1; then
+        GROK_USE_API=false
+    elif [[ -n "$GROK_API_KEY" ]]; then
+        GROK_USE_API=true
+    else
+        GROK_USE_API=false
+    fi
+fi
+export GROK_USE_API
 
 # =============================================================================
 # DEEPSEEK CONFIGURATION - The Methodologist (API-based)
@@ -265,10 +285,10 @@ CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
 
 # CLI-based consultants (use CLI tools, some support CLI/API switching)
-CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "MiniMax")
+CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "Grok" "MiniMax")
 
 # API-only consultants (use HTTP API directly, no CLI available)
-API_CONSULTANTS=("GLM" "Grok" "DeepSeek")
+API_CONSULTANTS=("GLM" "DeepSeek")
 
 # =============================================================================
 # ENABLED CONSULTANTS
@@ -283,11 +303,11 @@ ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 ENABLE_KIMI="${ENABLE_KIMI:-true}"       # Kimi Code (v2.9)
 ENABLE_CLAUDE="${ENABLE_CLAUDE:-true}"   # Auto-disabled when invoked by Claude Code
 ENABLE_QWEN3="${ENABLE_QWEN3:-true}"     # qwen-code CLI (v2.7); API opt-in
+ENABLE_GROK="${ENABLE_GROK:-true}"       # Grok Build CLI; API fallback
 ENABLE_MINIMAX="${ENABLE_MINIMAX:-true}" # mmx CLI (v2.21); API opt-in
 
 # API-only consultants (disabled by default - require API keys)
 ENABLE_GLM="${ENABLE_GLM:-false}"
-ENABLE_GROK="${ENABLE_GROK:-false}"
 ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
 
 # =============================================================================
