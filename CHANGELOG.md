@@ -7,17 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
-## [3.1.1] - 2026-07-24
-
-### Fixed
-- **`doctor` now completes its diagnosis when an enabled CLI or API credential is missing.** Failed health checks are recorded and reported in the final human or JSON summary instead of aborting early under `set -e`. The JSON regression test now rejects empty output and covers a missing Grok Build installation explicitly.
-
-## [Unreleased]
+## [3.2.0] - 2026-07-25
 
 ### Changed
 - **Claude's premium default is now Opus 5.** `CLAUDE_MODEL`, the premium/max/best tier, standalone adapter fallback, examples, and cost mappings use the official `claude-opus-5` ID. Pricing is unchanged at $5/$25 per million tokens; Opus 4.8 remains in the legacy catalog for pinned configurations and historical responses.
 - Claude CLI mode now consumes its JSON result envelope and provider-reported `costUSD`, so adaptive-thinking and cache charges are included instead of estimating cost from visible text. API mode selects visible text blocks after thinking blocks, defaults `CLAUDE_API_MAX_TOKENS` to 16,384, and rejects `stop_reason=max_tokens` as truncated.
 - `ai-consultants configure` migrates the historical generated `CLAUDE_MODEL=claude-opus-4-8` default to Opus 5. Explicit model overrides receive an `# ai-consultants:pin` marker and survive later rewrites.
+
+## [3.1.1] - 2026-07-24
+
+### Fixed
+- **`doctor` now completes its diagnosis when an enabled CLI or API credential is missing.** Failed health checks are recorded and reported in the final human or JSON summary instead of aborting early under `set -e`. The JSON regression test now rejects empty output and covers a missing Grok Build installation explicitly.
 
 ## [3.1.0] - 2026-07-24
 

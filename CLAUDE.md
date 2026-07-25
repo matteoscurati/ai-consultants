@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 11 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 3.1.1
+**Version**: 3.2.0
 
 ## Distribution
 
@@ -787,10 +787,12 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 ## Changelog
 
-### Unreleased
-- **Claude premium upgraded from Opus 4.8 to Opus 5.** The default `CLAUDE_MODEL`, premium/max/best tier, standalone Claude adapter fallback, configuration examples, model table, and cost-catalog fallbacks now resolve to the official pinned ID `claude-opus-5`. Pricing remains $5/$25 per million tokens; `claude-opus-4-8` stays in the legacy cost catalog for pinned overrides and historical responses.
-- **Opus 5 adaptive thinking is accounted for end to end.** CLI mode reads the Claude JSON result envelope, records provider-measured usage and `modelUsage.costUSD`, and therefore includes thinking/cache charges that are absent from visible text. API mode selects all visible text blocks after thinking blocks, raises the shared thinking/output default to `CLAUDE_API_MAX_TOKENS=16384`, and treats `stop_reason=max_tokens` as a failed truncated answer.
-- **Historical generated Claude defaults migrate without making future pins ambiguous.** `configure` upgrades the exact former unmarked `claude-opus-4-8` default to Opus 5; explicit model overrides receive `# ai-consultants:pin` and survive later rewrites.
+### v3.2.0
+- **Claude premium upgraded from Opus 4.8 to Opus 5.** The default `CLAUDE_MODEL`, premium/max/best tier, standalone adapter fallback, configuration examples, model table, and cost catalog now resolve to the canonical `claude-opus-5` ID (`scripts/config.sh:274`, `scripts/query_claude.sh:29`). Pricing remains $5/$25 per million tokens; `claude-opus-4-8` stays in the legacy catalog for historical responses and intentional pins.
+- **Opus 5 adaptive thinking is accounted for end to end.** Claude CLI mode now requests the JSON result envelope, extracts visible `.result`, aggregates provider usage across `modelUsage`, and persists the provider's exact `costUSD` (`scripts/query_claude.sh:72-126`, `scripts/lib/common.sh:904-980`, `scripts/lib/costs.sh:307-354`). This fixes the review finding that pricing only the visible answer undercounted hidden thinking and cache charges. The implementation deliberately prefers provider cost over reconstructing cache pricing from token totals.
+- **Anthropic API responses no longer disappear when thinking precedes text.** `parse_anthropic_response` selects every `type=text` block rather than assuming `.content[0].text` (`scripts/lib/api.sh:325-343`). The API token budget is now the configurable `CLAUDE_API_MAX_TOKENS=16384`, shared by adaptive thinking and visible output; `stop_reason=max_tokens` fails closed instead of admitting a partial answer into synthesis (`scripts/lib/api_query.sh:94-153`).
+- **Historical generated defaults migrate with provenance.** Before this release, `init` copied `CLAUDE_MODEL=claude-opus-4-8` without distinguishing a generated default from a user pin, so the new runtime fallback was unreachable for existing installations. `configure` now upgrades that exact historical value to Opus 5 and writes `# ai-consultants:default`; model values supplied by environment, interactive input, or `--set` receive `# ai-consultants:pin` and survive later rewrites (`scripts/configure.sh:183-291`, `scripts/configure.sh:357-420`). An intentionally retained 4.8 value should be reasserted once with `--set CLAUDE_MODEL=claude-opus-4-8`.
+- **Verification expanded around all four review findings.** `test_query_claude.sh` exercises CLI JSON extraction, measured usage, provider cost persistence, and session billing. `test_api_transport.sh` covers thinking-before-text, the 16,384-token request default, invalid budgets, and truncation rejection; `test_configure.sh` covers managed migration and persistent pins. Full gate: 17/17 suites; core suite: 299/299; shellcheck green. The real maintainer config was not rewritten during implementation and remained on 4.8 until the release installation step.
 
 ### v3.1.1
 - **`doctor` no longer aborts at the first missing enabled consultant.** The v3.1.0 tag workflow exposed the pre-existing `set -e` interaction when Grok became CLI-first and the clean Ubuntu runner had no `grok` binary: the main JSON diagnostic exited before emitting output. Missing CLI/API configuration checks now add their issue and continue to the final summary, which still exits unhealthy. `test_doctor.sh` stubs the complete CLI roster, rejects empty JSON output, and includes a dedicated missing-Grok regression. Full gate: 16/16 suites; shellcheck green.
