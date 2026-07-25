@@ -181,6 +181,25 @@ set_value() {
 }
 
 AUTO_MARKER="# ai-consultants:auto"
+DEFAULT_MARKER="# ai-consultants:default"
+PIN_MARKER="# ai-consultants:pin"
+
+has_value_marker() {
+    local file="$1" key="$2" marker="$3" line normalized
+    [[ -r "$file" ]] || return 1
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        normalized="${line#"${line%%[![:space:]]*}"}"
+        if [[ "$normalized" =~ ^export[[:space:]]+ ]]; then
+            normalized="${normalized#export}"
+            normalized="${normalized#"${normalized%%[![:space:]]*}"}"
+        fi
+        [[ "$normalized" == "$key="* ]] || continue
+        [[ "$normalized" == *"$marker"* ]] && return 0
+    done < "$file"
+    return 1
+}
 
 is_auto_managed_value() {
     local file="$1" key="$2" line normalized raw="" seen=false
@@ -239,12 +258,32 @@ set_auto_value() {
 # Merge existing persistent values first, then current environment overrides.
 while IFS= read -r key; do
     if [[ -f "$OUTPUT_FILE" ]] && value=$(read_value "$OUTPUT_FILE" "$key"); then
-        set_value "$key" "$value"
+        if has_value_marker "$OUTPUT_FILE" "$key" "$DEFAULT_MARKER"; then
+            set_value "$key" "$value $DEFAULT_MARKER"
+        elif has_value_marker "$OUTPUT_FILE" "$key" "$PIN_MARKER"; then
+            set_value "$key" "$value $PIN_MARKER"
+        else
+            set_value "$key" "$value"
+        fi
     fi
     if [[ -n "${!key+x}" ]]; then
-        set_value "$key" "${!key}"
+        if [[ "$key" == *_MODEL ]]; then
+            set_value "$key" "${!key} $PIN_MARKER"
+        else
+            set_value "$key" "${!key}"
+        fi
     fi
 done < <(list_parameters)
+
+# Before model defaults had provenance markers, `init` copied the then-current
+# Claude default as an ordinary-looking value. Refresh that exact historical
+# default when configure rewrites the file. A real legacy pin is preserved by
+# `--set CLAUDE_MODEL=claude-opus-4-8`, which records the pin marker.
+if [[ "$(read_value "$WORK_FILE" CLAUDE_MODEL 2>/dev/null || true)" == "claude-opus-4-8" ]] \
+    && ! has_value_marker "$WORK_FILE" CLAUDE_MODEL "$PIN_MARKER"; then
+    set_value CLAUDE_MODEL "claude-opus-5 $DEFAULT_MARKER"
+    echo "Migrated managed Claude default: claude-opus-4-8 -> claude-opus-5" >&2
+fi
 
 configure_cli_only() {
     local enable_key="$1" cmd_key="$2" cmd enabled=false
@@ -327,7 +366,11 @@ prompt_value() {
     else
         read -r -p "$key [$current]: " reply
         if [[ -n "$reply" ]]; then
-            set_value "$key" "$reply"
+            if [[ "$key" == *_MODEL ]]; then
+                set_value "$key" "$reply $PIN_MARKER"
+            else
+                set_value "$key" "$reply"
+            fi
         fi
     fi
 }
@@ -368,7 +411,11 @@ fi
 
 # Explicit command-line overrides have final precedence.
 for ((i=0; i<${#SET_KEYS[@]}; i++)); do
-    set_value "${SET_KEYS[$i]}" "${SET_VALUES[$i]}"
+    if [[ "${SET_KEYS[$i]}" == *_MODEL ]]; then
+        set_value "${SET_KEYS[$i]}" "${SET_VALUES[$i]} $PIN_MARKER"
+    else
+        set_value "${SET_KEYS[$i]}" "${SET_VALUES[$i]}"
+    fi
 done
 
 enabled_count=0

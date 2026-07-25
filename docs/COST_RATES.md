@@ -26,7 +26,7 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | gpt-5.5 | Premium | $0.005 | Codex |
 | gpt-5.4 | Standard | $0.0025 | Codex |
 | gpt-5.4-nano | Economy | $0.0002 | Codex |
-| claude-opus-4-8 | Premium | $0.005 | Claude |
+| claude-opus-5 | Premium | $0.005 | Claude |
 | claude-sonnet-4-6 | Standard | $0.003 | Claude |
 | claude-haiku-4-5 | Economy | $0.001 | Claude |
 | mistral-large-3 | Premium | $0.002 | Mistral |
@@ -59,7 +59,7 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | gpt-5.5 | Premium | $0.030 | Codex |
 | gpt-5.4 | Standard | $0.015 | Codex |
 | gpt-5.4-nano | Economy | $0.00125 | Codex |
-| claude-opus-4-8 | Premium | $0.025 | Claude |
+| claude-opus-5 | Premium | $0.025 | Claude |
 | claude-sonnet-4-6 | Standard | $0.015 | Claude |
 | claude-haiku-4-5 | Economy | $0.005 | Claude |
 | mistral-large-3 | Premium | $0.006 | Mistral |

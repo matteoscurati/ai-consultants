@@ -368,7 +368,7 @@ Three tiers of models are available for each consultant, configurable via `apply
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-opus-4-8, Gemini 3.1 Pro (High), gpt-5.5 |
+| **premium** | Latest flagship models | claude-opus-5, Gemini 3.1 Pro (High), gpt-5.5 |
 | **standard** | Good quality at reasonable cost | claude-sonnet-4-6, Gemini 3.5 Flash (High), gpt-5.4 |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.5 Flash (Low), gpt-5.4-nano |
 
@@ -400,12 +400,12 @@ Three new presets leverage the model tiers:
 ./scripts/consult_all.sh --preset fast "quick syntax question"
 ```
 
-### Premium Model Defaults (June 2026)
+### Premium Model Defaults (July 2026)
 All consultants now use premium models by default:
 
 | Consultant | Default Model |
 |------------|---------------|
-| Claude | claude-opus-4-8 |
+| Claude | claude-opus-5 |
 | Gemini | Gemini 3.1 Pro (High) (via agy CLI) |
 | Codex | gpt-5.5 |
 | Mistral | mistral-large-3 |
@@ -613,7 +613,8 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_SMART_ROUTING` | false | Intelligent routing by category |
 | `ENABLE_COST_TRACKING` | true | Track costs |
 | `MAX_SESSION_COST` | 1.00 | Max budget ($) |
-| `CLAUDE_MODEL` | claude-opus-4-8 | Claude model (v2.5) |
+| `CLAUDE_MODEL` | claude-opus-5 | Claude model (v2.5) |
+| `CLAUDE_API_MAX_TOKENS` | 16384 | Claude API thinking + visible-output budget |
 | `GEMINI_MODEL` | Gemini 3.1 Pro (High) | Gemini agy CLI model (v2.15) |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
 | `CODEX_MODEL` | gpt-5.5 | Codex model (v2.5) |
@@ -785,6 +786,11 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### Unreleased
+- **Claude premium upgraded from Opus 4.8 to Opus 5.** The default `CLAUDE_MODEL`, premium/max/best tier, standalone Claude adapter fallback, configuration examples, model table, and cost-catalog fallbacks now resolve to the official pinned ID `claude-opus-5`. Pricing remains $5/$25 per million tokens; `claude-opus-4-8` stays in the legacy cost catalog for pinned overrides and historical responses.
+- **Opus 5 adaptive thinking is accounted for end to end.** CLI mode reads the Claude JSON result envelope, records provider-measured usage and `modelUsage.costUSD`, and therefore includes thinking/cache charges that are absent from visible text. API mode selects all visible text blocks after thinking blocks, raises the shared thinking/output default to `CLAUDE_API_MAX_TOKENS=16384`, and treats `stop_reason=max_tokens` as a failed truncated answer.
+- **Historical generated Claude defaults migrate without making future pins ambiguous.** `configure` upgrades the exact former unmarked `claude-opus-4-8` default to Opus 5; explicit model overrides receive `# ai-consultants:pin` and survive later rewrites.
 
 ### v3.1.1
 - **`doctor` no longer aborts at the first missing enabled consultant.** The v3.1.0 tag workflow exposed the pre-existing `set -e` interaction when Grok became CLI-first and the clean Ubuntu runner had no `grok` binary: the main JSON diagnostic exited before emitting output. Missing CLI/API configuration checks now add their issue and continue to the final summary, which still exits unhealthy. `test_doctor.sh` stubs the complete CLI roster, rejects empty JSON output, and includes a dedicated missing-Grok regression. Full gate: 16/16 suites; shellcheck green.

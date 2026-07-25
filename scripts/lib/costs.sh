@@ -306,11 +306,8 @@ _billable_response_files() {
 # Calculate total session cost from responses
 # Usage: calculate_session_cost <responses_dir>
 #
-# Prefers the provider's own prompt/completion split when it was recorded
-# (API mode). The 60/40 guess is a last resort for CLI mode, which has no
-# split to record: consultations are large-context/short-reply, so applying it
-# to a measured total materially overstates cost when output rates exceed
-# input rates.
+# Prefers an exact provider cost when recorded (Claude CLI), then the provider's
+# prompt/completion split (API mode), and only then the legacy 60/40 guess.
 calculate_session_cost() {
     local responses_dir="$1"
     local total_cost=0
@@ -318,6 +315,13 @@ calculate_session_cost() {
 
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
+        local provider_cost
+        provider_cost=$(jq -r '.metadata.provider_cost_usd // empty' "$f" 2>/dev/null)
+        if [[ "$provider_cost" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            total_cost=$(echo "scale=6; $total_cost + $provider_cost" | bc)
+            continue
+        fi
+
         local model input_tokens output_tokens
         model=$(jq -r '.model // "default"' "$f" 2>/dev/null)
         input_tokens=$(jq -r '.metadata.tokens_input // empty' "$f" 2>/dev/null)
@@ -338,6 +342,11 @@ calculate_session_cost() {
         total_cost=$(echo "scale=6; $total_cost + $cost" | bc)
     done < <(_billable_response_files "$responses_dir")
 
+    # Provider-reported costs may carry fewer decimal places than locally
+    # estimated values. Normalize the public result to the existing 6-place
+    # contract without changing its numeric value.
+    total_cost=$(echo "scale=6; $total_cost / 1" | bc)
+
     # bc drops the leading zero on sub-1 values (".115000"); restore it as
     # estimate_query_cost does, so callers can compare numerically.
     [[ "$total_cost" == .* ]] && total_cost="0$total_cost"
@@ -351,8 +360,9 @@ calculate_session_cost() {
 #
 # Two things can make the number less than it looks:
 #   - credit-billed models contribute 0 because they have no per-token price;
-#   - CLI-mode consultants have no provider token count, so their share is a
-#     4-chars-per-token approximation (metadata.tokens_source = "estimated").
+#   - CLI-mode consultants without provider usage have a 4-chars-per-token
+#     approximation (metadata.tokens_source = "estimated"). Claude CLI is the
+#     exception: its JSON envelope supplies measured usage and exact cost.
 # Both are stated rather than folded silently into a confident-looking total.
 #
 # Rescans the directory rather than reading state left by

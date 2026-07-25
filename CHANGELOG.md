@@ -14,6 +14,11 @@ For longer-form release notes (rationale, upgrade guides, performance numbers), 
 
 ## [Unreleased]
 
+### Changed
+- **Claude's premium default is now Opus 5.** `CLAUDE_MODEL`, the premium/max/best tier, standalone adapter fallback, examples, and cost mappings use the official `claude-opus-5` ID. Pricing is unchanged at $5/$25 per million tokens; Opus 4.8 remains in the legacy catalog for pinned configurations and historical responses.
+- Claude CLI mode now consumes its JSON result envelope and provider-reported `costUSD`, so adaptive-thinking and cache charges are included instead of estimating cost from visible text. API mode selects visible text blocks after thinking blocks, defaults `CLAUDE_API_MAX_TOKENS` to 16,384, and rejects `stop_reason=max_tokens` as truncated.
+- `ai-consultants configure` migrates the historical generated `CLAUDE_MODEL=claude-opus-4-8` default to Opus 5. Explicit model overrides receive an `# ai-consultants:pin` marker and survive later rewrites.
+
 ## [3.1.0] - 2026-07-24
 
 ### Added

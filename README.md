@@ -444,7 +444,7 @@ parallel and returns the coverage union.
 
 | Consultant | Premium | Standard | Economy |
 |------------|---------|----------|---------|
-| Claude | claude-opus-4-8 | claude-sonnet-4-6 | claude-haiku-4-5 |
+| Claude | claude-opus-5 | claude-sonnet-4-6 | claude-haiku-4-5 |
 | Gemini | Gemini 3.1 Pro (High) | Gemini 3.5 Flash (High) | Gemini 3.5 Flash (Low) |
 | Codex | gpt-5.5 | gpt-5.4 | gpt-5.4-nano |
 | Mistral | mistral-large-3 | mistral-medium-latest | devstral-small-2 |
@@ -546,7 +546,13 @@ with `--set`). Rewrites create a private timestamped backup. Use `--advanced` to
 review every parameter or `--dry-run` to preview a redacted result.
 Auto-selected `*_USE_API` values are marked `# ai-consultants:auto`, allowing a
 later run to adapt when a CLI or credential changes. Environment variables,
-`--set`, and unmarked values remain explicit user choices.
+`--set`, and unmarked values remain explicit user choices, except for the exact
+historical generated Claude default described below.
+Managed model defaults use `# ai-consultants:default`; `configure` upgrades the
+historical unmarked `CLAUDE_MODEL=claude-opus-4-8` default to Opus 5. To keep
+4.8 intentionally, run
+`ai-consultants configure --set CLAUDE_MODEL=claude-opus-4-8`; explicit model
+overrides are stored with `# ai-consultants:pin`.
 
 Enter credentials through `--interactive`/`--advanced` or export them before the
 run; avoid passing API keys through `--set`, where the shell may retain them in
@@ -563,6 +569,7 @@ DEFAULT_STRATEGY=coverage    # coverage | compare_only | majority | risk_averse 
 ENABLE_SMART_ROUTING=true    # Auto-select consultants by question category
 MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=true to enforce)
 KIMI_MODEL=kimi-code/k3      # Pin the Kimi consultant to K3
+CLAUDE_API_MAX_TOKENS=16384  # Shared thinking + visible-output budget in API mode
 ```
 
 Full reference: [`references/configuration.md`](references/configuration.md). Copy-paste workflows: [`docs/RECIPES.md`](docs/RECIPES.md). For category-aware preset suggestions: `ai-consultants doctor --suggest-preset --question "..."`.

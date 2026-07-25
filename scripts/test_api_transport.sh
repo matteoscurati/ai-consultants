@@ -23,6 +23,7 @@ export LOG_LEVEL=INFO
 source "$SCRIPT_DIR/lib/test_helpers.sh"
 source "$SCRIPT_DIR/lib/common.sh" >/dev/null 2>&1
 source "$SCRIPT_DIR/lib/api.sh"    >/dev/null 2>&1
+source "$SCRIPT_DIR/lib/api_query.sh" >/dev/null 2>&1
 
 # Every *_FORMAT var must be unset for the back-compat block: config.sh is not
 # sourced here, but a caller's environment could still carry one.
@@ -186,11 +187,60 @@ EOF
     rm -rf "$td"
 }
 
+test_anthropic_thinking_blocks_and_budget() {
+    local response body
+    response='{"content":[{"type":"thinking","thinking":"private"},{"type":"text","text":"first"},{"type":"text","text":"second"}]}'
+    assert_eq $'first\nsecond' "$(parse_anthropic_response "$response")" \
+        "Anthropic parser skips thinking and joins visible text blocks"
+
+    body=$(build_anthropic_request "hello" "claude-opus-5" 16384)
+    assert_eq "16384" "$(jq -r '.max_tokens' <<<"$body")" \
+        "Anthropic request accepts the larger shared thinking/output budget"
+    assert_eq "16384" "$(build_anthropic_request "hello" "claude-opus-5" | jq -r '.max_tokens')" \
+        "Anthropic request helper defaults to the Opus 5 budget"
+}
+
+test_anthropic_max_tokens_is_failure() {
+    local td fake_curl output rc=0
+    td=$(mktemp -d "${TMPDIR:-/tmp}/anthropic_truncation.XXXXXX")
+    fake_curl="$td/curl"
+    output="$td/output"
+
+    printf '%s\n' \
+        '#!/bin/bash' \
+        'out=""' \
+        'headers=""' \
+        'while [[ $# -gt 0 ]]; do' \
+        '  case "$1" in -o) shift; out="$1" ;; -D) shift; headers="$1" ;; esac' \
+        '  shift' \
+        'done' \
+        'printf "%s\n" '"'"'{"content":[{"type":"thinking","thinking":"x"},{"type":"text","text":"partial"}],"stop_reason":"max_tokens","usage":{"input_tokens":5,"output_tokens":16384}}'"'"' > "$out"' \
+        ': > "$headers"' \
+        'printf 200' > "$fake_curl"
+    chmod +x "$fake_curl"
+
+    PATH="$td:$PATH" ANTHROPIC_API_KEY=test-key CLAUDE_API_MAX_TOKENS=16384 \
+        MAX_RETRIES=1 run_api_mode_query Claude claude-opus-5 test "$output" 5 \
+        >/dev/null 2>&1 || rc=$?
+    assert_eq "1" "$rc" "Anthropic max_tokens stop returns failure"
+    assert_eq "false" "$([[ -s "$output" ]] && echo true || echo false)" \
+        "truncated Anthropic text is not published as a successful answer"
+
+    rc=0
+    PATH="$td:$PATH" ANTHROPIC_API_KEY=test-key CLAUDE_API_MAX_TOKENS=invalid \
+        MAX_RETRIES=1 run_api_mode_query Claude claude-opus-5 test "$output" 5 \
+        >/dev/null 2>&1 || rc=$?
+    assert_eq "1" "$rc" "invalid Anthropic token budget fails before request"
+    rm -rf "$td"
+}
+
 run_test "get_api_format: default mapping (back-compat gate)" test_format_defaults
 run_test "build_openai_request: default body (back-compat gate)" test_openai_body_unchanged
 run_test "get_api_format: \${AGENT}_FORMAT override" test_format_override
 run_test "validate_reasoning_effort" test_effort_validation
 run_test "build_openai_request: with reasoning_effort" test_openai_body_with_effort
 run_test "Gemini API mode records API model" test_gemini_api_model_metadata
+run_test "Anthropic thinking blocks and request budget" test_anthropic_thinking_blocks_and_budget
+run_test "Anthropic truncation fails closed" test_anthropic_max_tokens_is_failure
 
 test_summary "api_transport"

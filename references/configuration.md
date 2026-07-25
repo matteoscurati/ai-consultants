@@ -54,6 +54,11 @@ ai-consultants configure --dry-run
 Use the hidden interactive credential prompts (or exported environment variables)
 for API keys; command-line arguments may be visible in shell history and process
 inspection.
+Model defaults carry an `# ai-consultants:default` marker. On rewrite,
+`configure` upgrades the historical unmarked
+`CLAUDE_MODEL=claude-opus-4-8` generated default to Opus 5. An explicit model
+override supplied with `--set` is stored with `# ai-consultants:pin`, so
+`--set CLAUDE_MODEL=claude-opus-4-8` keeps the legacy model intentionally.
 The exhaustive parameter contract is [`.env.example`](../.env.example); the
 configurator derives its accepted keys from that template, while
 [`scripts/config.sh`](../scripts/config.sh) remains the runtime source of truth.
@@ -235,7 +240,8 @@ ENABLE_DEEPSEEK=false
 ```bash
 GEMINI_MODEL=Gemini 3.1 Pro (High)   # agy CLI display name; API mode uses GEMINI_API_MODEL
 CODEX_MODEL=gpt-5.5
-CLAUDE_MODEL=claude-opus-4-8
+CLAUDE_MODEL=claude-opus-5
+CLAUDE_API_MAX_TOKENS=16384  # API only: adaptive thinking + visible output
 MISTRAL_MODEL=mistral-large-3
 CURSOR_MODEL=composer-2.5
 KIMI_MODEL=kimi-code/k3
@@ -245,6 +251,11 @@ GROK_MODEL=grok-4.5
 DEEPSEEK_MODEL=deepseek-v4-pro
 MINIMAX_MODEL=MiniMax-M2.7
 ```
+
+Anthropic counts adaptive thinking and visible response tokens against the same
+`CLAUDE_API_MAX_TOKENS` limit. The default is 16,384; a response that reaches
+that limit is rejected as truncated instead of entering synthesis as a complete
+answer.
 
 `GROK_MODEL` is passed explicitly to `grok -m`. The default transport is the
 headless Grok Build CLI using a private `--prompt-file` inside an isolated,

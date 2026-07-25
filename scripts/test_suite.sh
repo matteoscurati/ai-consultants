@@ -727,14 +727,16 @@ test_cost_per1k_contract() {
     local saved="${COST_RATES_FILE:-}"
     COST_RATES_FILE="$SCRIPT_DIR/../docs/cost_rates.json"
 
-    assert_equals "0.005" "$(get_input_cost_per_1k claude-opus-4-8)"  "opus-4-8 input is per-1K (0.005)"
-    assert_equals "0.025" "$(get_output_cost_per_1k claude-opus-4-8)" "opus-4-8 output is per-1K (0.025)"
+    assert_equals "0.005" "$(get_input_cost_per_1k claude-opus-5)"  "opus-5 input is per-1K (0.005)"
+    assert_equals "0.025" "$(get_output_cost_per_1k claude-opus-5)" "opus-5 output is per-1K (0.025)"
+    assert_equals "0.005" "$(get_input_cost_per_1k claude-opus-4-8)"  "legacy opus-4-8 input remains priced"
+    assert_equals "0.025" "$(get_output_cost_per_1k claude-opus-4-8)" "legacy opus-4-8 output remains priced"
     assert_equals "0.001" "$(get_input_cost_per_1k claude-haiku-4-5)" "haiku-4-5 input is per-1K (0.001)"
     assert_equals "0.005" "$(get_output_cost_per_1k claude-haiku-4-5)" "haiku-4-5 output is per-1K (0.005)"
 
     # End-to-end: per-1K rates => correct dollar costs (pre-fix opus 1k+1k was $30, not $0.03).
     # Leading zero restored in v2.17.0 (bc drops it).
-    assert_equals "0.030000" "$(estimate_query_cost claude-opus-4-8 1000 1000)"  "opus 1k+1k = 0.03 (regression: pre-fix was 30)"
+    assert_equals "0.030000" "$(estimate_query_cost claude-opus-5 1000 1000)"  "opus 1k+1k = 0.03 (regression: pre-fix was 30)"
     assert_equals "0.006000" "$(estimate_query_cost claude-haiku-4-5 1000 1000)" "haiku 1k+1k = 0.006"
 
     # Cost lookup must be case-insensitive for display-name model IDs.
@@ -798,6 +800,9 @@ test_response_tokens() {
     assert_equals "measured" "$(echo "$md" | jq -r '.tokens_source')" "metadata records the source"
     assert_equals "20000"    "$(echo "$md" | jq -r '.tokens_input')"  "metadata records input tokens"
     assert_equals "500"      "$(echo "$md" | jq -r '.tokens_output')" "metadata records output tokens"
+    md=$(build_response_metadata 1500 "claude-opus-5" "" 20500 "measured" 20000 500 0.123456)
+    assert_equals "0.123456" "$(echo "$md" | jq -r '.provider_cost_usd')" \
+        "metadata records provider-reported cost"
     md=$(build_response_metadata 1500 "gpt-5.5")
     assert_equals "0"       "$(echo "$md" | jq -r '.tokens_used')"   "legacy call defaults to 0"
     assert_equals "unknown" "$(echo "$md" | jq -r '.tokens_source')" "legacy call is marked unknown"
@@ -845,19 +850,26 @@ test_response_tokens() {
     assert_equals "0.115000" "$(calculate_session_cost "$rd")" "measured split priced as measured, not re-split 60/40"
     assert_equals "" "$(format_cost_caveats "$rd")" "a fully measured, priced run discloses nothing"
 
+    # Claude CLI reports exact costUSD, including adaptive-thinking tokens and
+    # cache pricing. It must win over reconstructing cost from visible output.
+    rm -f "$rd"/*.json
+    printf '{"consultant":"Claude","model":"claude-opus-5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":100,"tokens_source":"measured","tokens_input":60,"tokens_output":40,"provider_cost_usd":0.987654}}\n' > "$rd/c.json"
+    assert_equals "0.987654" "$(calculate_session_cost "$rd")" \
+        "provider-reported cost wins over local token pricing"
+
     # Pipeline metadata must not be billed as a phantom consultant.
     printf '{"consensus_score":80,"recommendation":"x"}\n' > "$rd/voting.json"
     printf '{"shape":"converge"}\n' > "$rd/orchestration.json"
-    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "pipeline metadata is not billed"
+    assert_equals "0.987654" "$(calculate_session_cost "$rd")" "pipeline metadata is not billed"
 
     # A cache hit made no API call.
     printf '{"consultant":"GLM","model":"glm-5.2","response":{"approach":"y"},"confidence":{"score":9},"cache_metadata":{"from_cache":true},"metadata":{"tokens_used":40000,"tokens_source":"measured","tokens_input":30000,"tokens_output":10000}}\n' > "$rd/cached.json"
-    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "cache hit costs nothing"
+    assert_equals "0.987654" "$(calculate_session_cost "$rd")" "cache hit costs nothing"
 
     # Debate rounds are separate billed queries in a subdirectory.
     mkdir -p "$rd/round_1"
     printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/round_1/c.json"
-    assert_equals "0.230000" "$(calculate_session_cost "$rd")" "debate round spend is counted"
+    assert_equals "1.102654" "$(calculate_session_cost "$rd")" "debate round spend is counted"
 
     # Peer-review artifacts are derived data, not additional consultations.
     # Anonymous copies retain token metadata while bookkeeping has no metadata,
@@ -866,7 +878,7 @@ test_response_tokens() {
     printf '{"anonymous_id":"Response_A","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/peer_review/anonymous/Response_A.json"
     printf '{"Response_A":{"consultant":"Codex","file":"c.json"}}\n' > "$rd/peer_review/mapping.json"
     printf '{"reviews":[{"response_id":"Response_A","quality_score":9}]}\n' > "$rd/peer_review/reviews/review_Gemini.json"
-    assert_equals "0.230000" "$(calculate_session_cost "$rd")" \
+    assert_equals "1.102654" "$(calculate_session_cost "$rd")" \
         "peer-review artifacts are not billed"
     assert_exit_code_failure "anonymous response copy is not a consultant response shape" \
         _is_consultant_response_file "$rd/peer_review/anonymous/Response_A.json"
@@ -874,7 +886,7 @@ test_response_tokens() {
 
     # An escalation copy is the same query, already counted via the base file.
     printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":9},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/Codex_escalated.json"
-    assert_equals "0.230000" "$(calculate_session_cost "$rd")" "escalation copy is not double-counted"
+    assert_equals "1.102654" "$(calculate_session_cost "$rd")" "escalation copy is not double-counted"
 
     # Failed consultations carry no token data and must not read as measured.
     rm -f "$rd"/*.json "$rd"/round_1/*.json
@@ -1462,7 +1474,7 @@ test_escalation() {
 test_model_for_tier() {
     suite "config.sh: get_model_for_tier"
 
-    assert_equals "claude-opus-4-8"       "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-4-8"
+    assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-5"
     assert_equals "claude-sonnet-4-6"     "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-4-6"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
     assert_equals "Gemini 3.1 Pro (High)" "$(get_model_for_tier "gemini" "premium")" "gemini premium is Gemini 3.1 Pro (High) (agy)"

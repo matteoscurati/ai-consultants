@@ -41,7 +41,7 @@ assert_contains() {
 read_env() {
     local file="$1" key="$2"
     sed -nE "s/^${key}=(.*)$/\\1/p" "$file" \
-        | sed 's/[[:space:]]# ai-consultants:auto$//' | tail -1
+        | sed -E 's/[[:space:]]# ai-consultants:(auto|default|pin)$//' | tail -1
 }
 
 clean_path() {
@@ -353,6 +353,29 @@ test_grok_cli_first_with_api_fallback() {
         "missing Grok Build selects API fallback"
 }
 
+test_claude_default_migration_and_pin() {
+    local cfg="$TMP/claude-model-migration"
+    mkdir -p "$cfg"
+    printf '%s\n' 'CLAUDE_MODEL=claude-opus-4-8' > "$cfg/.env"
+
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "historical generated Claude default migrates to Opus 5"
+    assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:default" \
+        "migrated Claude default records managed provenance"
+
+    run_clean_configure "$cfg" --force \
+        --set CLAUDE_MODEL=claude-opus-4-8 >/dev/null 2>&1
+    assert_eq "claude-opus-4-8" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "explicit legacy Claude model remains selectable"
+    assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:pin" \
+        "explicit model override records pin provenance"
+
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "claude-opus-4-8" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "pinned Opus 4.8 survives later configure runs"
+}
+
 test_backups_are_unique_within_one_second() {
     local cfg="$TMP/backup-collision"
     mkdir -p "$cfg" "$TMP/bin"
@@ -397,5 +420,6 @@ run_test "Test 17: explicit pin survives init" test_explicit_pin_survives_init
 run_test "Test 18: CLI-first preserved with a key present" test_cli_first_preserved
 run_test "Test 19: backup names are unique within one second" test_backups_are_unique_within_one_second
 run_test "Test 20: Grok CLI-first with API fallback" test_grok_cli_first_with_api_fallback
+run_test "Test 21: Claude managed-default migration and pin" test_claude_default_migration_and_pin
 
 test_summary "configure"

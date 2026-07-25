@@ -1,10 +1,10 @@
 {
   "version": "3.1.1",
-  "updated": "2026-07-16",
+  "updated": "2026-07-25",
   "models": {
     "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
-    "_comment_premium": "Premium tier models - Jun 2026 (v2.17.0)",
-    "claude-opus-4-8": {
+    "_comment_premium": "Premium tier models - Jul 2026",
+    "claude-opus-5": {
       "input": 0.005,
       "output": 0.025
     },
@@ -137,6 +137,10 @@
       "output": 0.001
     },
     "_comment_legacy": "Legacy models for backwards compatibility",
+    "claude-opus-4-8": {
+      "input": 0.005,
+      "output": 0.025
+    },
     "claude-opus-4-7": {
       "input": 0.005,
       "output": 0.025
@@ -331,8 +335,8 @@
     "qwen3.8-max-preview"
   ],
   "consultant_fallbacks": {
-    "_comment": "Premium defaults - Updated Jun 2026 (v2.17.0)",
-    "claude": "claude-opus-4-8",
+    "_comment": "Premium defaults - Updated Jul 2026",
+    "claude": "claude-opus-5",
     "gemini": "Gemini 3.1 Pro (High)",
     "codex": "gpt-5.5",
     "mistral": "mistral-large-3",
@@ -347,7 +351,7 @@
   "model_tiers": {
     "_comment": "Model tiers for apply_model_tier() function",
     "premium": {
-      "claude": "claude-opus-4-8",
+      "claude": "claude-opus-5",
       "gemini": "Gemini 3.1 Pro (High)",
       "codex": "gpt-5.5",
       "mistral": "mistral-large-3",

@@ -902,6 +902,7 @@ resolve_response_tokens() {
 
 # Build metadata JSON for responses
 # Usage: build_response_metadata <latency_ms> <model> [error_msg] [tokens] [source]
+#        [tokens_input] [tokens_output] [provider_cost_usd]
 #
 # tokens_used was hardcoded to 0 until v2.25, which made every session's cost
 # report read $0.00 regardless of what was actually spent (calculate_session_cost
@@ -915,6 +916,7 @@ build_response_metadata() {
     local source="${5:-unknown}"
     local tokens_in="${6:-}"
     local tokens_out="${7:-}"
+    local provider_cost="${8:-}"
 
     jq -n \
         --argjson latency "$latency" \
@@ -925,9 +927,11 @@ build_response_metadata() {
         --arg source "$source" \
         --arg t_in "$tokens_in" \
         --arg t_out "$tokens_out" \
+        --arg provider_cost "$provider_cost" \
         '{tokens_used: $tokens, tokens_source: $source, latency_ms: $latency, model_version: $model, timestamp: $timestamp}
          + (if $t_in  != "" then {tokens_input:  ($t_in  | tonumber)} else {} end)
          + (if $t_out != "" then {tokens_output: ($t_out | tonumber)} else {} end)
+         + (if $provider_cost != "" then {provider_cost_usd: ($provider_cost | tonumber)} else {} end)
          + (if $error != "" then {error: $error} else {} end)'
 }
 
@@ -943,15 +947,14 @@ build_structured_response() {
     local tokens_source="${7:-unknown}"
     local tokens_in="${8:-}"
     local tokens_out="${9:-}"
-    local tokens_in="${8:-}"
-    local tokens_out="${9:-}"
+    local provider_cost="${10:-}"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --argjson inner "$inner_json" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost")" \
         '{consultant: $consultant, model: $model, persona: $persona, response: $inner.response, confidence: $inner.confidence, metadata: $metadata}'
 }
 
@@ -967,13 +970,14 @@ build_fallback_response() {
     local tokens_source="${7:-unknown}"
     local tokens_in="${8:-}"
     local tokens_out="${9:-}"
+    local provider_cost="${10:-}"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --arg response "$response_text" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost")" \
         '{consultant: $consultant, model: $model, persona: $persona,
           response: {summary: "Unstructured response - see detailed", detailed: $response, approach: "unknown", pros: [], cons: [], caveats: ["Unstructured output from consultant"]},
           confidence: {score: 5, reasoning: "Confidence not provided by consultant", uncertainty_factors: ["Non-standard response format"]},

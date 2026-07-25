@@ -249,7 +249,7 @@ build_openai_request() {
 build_anthropic_request() {
     local prompt="$1"
     local model="${2:-claude-sonnet-4-6}"
-    local max_tokens="${3:-4096}"
+    local max_tokens="${3:-16384}"
 
     jq -n \
         --arg model "$model" \
@@ -327,7 +327,11 @@ parse_anthropic_response() {
     local response="$1"
 
     local content
-    content=$(echo "$response" | jq -r '.content[0].text // empty' 2>/dev/null)
+    # Opus 5 may put a thinking block before the visible text block. Select
+    # every text block instead of assuming content[0] is user-visible output.
+    content=$(echo "$response" | jq -r \
+        '[.content[]? | select(.type == "text") | (.text // "")] | join("\n")' \
+        2>/dev/null)
 
     if [[ -n "$content" && "$content" != "null" ]]; then
         echo "$content"

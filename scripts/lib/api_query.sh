@@ -94,7 +94,14 @@ run_api_mode_query() {
             if [[ -n "$effort" ]]; then
                 log_warn "[$consultant_name] $effort_var is not supported on the 'anthropic' wire format and is ignored."
             fi
-            request_body=$(build_anthropic_request "$query" "$model")
+            local max_tokens_var api_max_tokens
+            max_tokens_var="$(to_upper "$consultant_name")_API_MAX_TOKENS"
+            api_max_tokens="${!max_tokens_var:-16384}"
+            if ! [[ "$api_max_tokens" =~ ^[1-9][0-9]*$ ]]; then
+                log_error "[$consultant_name] $max_tokens_var must be a positive integer (got: $api_max_tokens)"
+                return 1
+            fi
+            request_body=$(build_anthropic_request "$query" "$model" "$api_max_tokens")
             auth_style="anthropic"
             ;;
         qwen)
@@ -133,6 +140,16 @@ run_api_mode_query() {
     # Parse response based on format
     local raw_response
     raw_response=$(cat "$temp_response")
+
+    # Anthropic counts adaptive thinking and visible output against the same
+    # max_tokens budget. A max_tokens stop is therefore an incomplete answer,
+    # not a successful partial response suitable for synthesis.
+    if [[ "$api_format" == "anthropic" ]] \
+        && [[ "$(jq -r '.stop_reason // empty' <<<"$raw_response" 2>/dev/null)" == "max_tokens" ]]; then
+        log_error "[$consultant_name] API response was truncated at ${api_max_tokens:-the configured} max tokens"
+        rm -f "$temp_response"
+        return 1
+    fi
 
     local parsed_content
     case "$api_format" in
