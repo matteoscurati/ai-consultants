@@ -40,9 +40,43 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution ---
 TEMP_OUTPUT=$(mktemp)
+KIMI_CLI_VERSION=""
+
+observe_kimi_cli_version() {
+    local version
+    version=$("$KIMI_CMD" --version 2>/dev/null | head -1 || true)
+    printf '%s\n' "${version:-unknown}"
+}
+
+kimi_cli_supports_required_interface() {
+    local help providers flag
+
+    help=$("$KIMI_CMD" --help 2>&1 || true)
+    for flag in --model --prompt --output-format; do
+        grep -q -- "$flag" <<< "$help" || return 1
+    done
+    grep -Eq '^[[:space:]]+provider([[:space:]]|$)' <<< "$help" || return 1
+
+    # Check the complete prompt-mode parser without running a model request.
+    "$KIMI_CMD" \
+        --model "$KIMI_MODEL" \
+        --prompt "" \
+        --output-format stream-json \
+        --help >/dev/null 2>&1 || return 1
+
+    providers=$("$KIMI_CMD" provider list --json 2>/dev/null || true)
+    jq -e --arg model "$KIMI_MODEL" '
+        .models[$model] != null
+    ' <<< "$providers" >/dev/null 2>&1
+}
 
 # Check CLI prerequisite
 check_command "$KIMI_CMD" "Kimi CLI" "curl -L code.kimi.com/install.sh | bash" || exit 1
+KIMI_CLI_VERSION=$(observe_kimi_cli_version)
+kimi_cli_supports_required_interface || {
+    log_error "[Kimi] Kimi CLI lacks the required capabilities for model $KIMI_MODEL (reported version: $KIMI_CLI_VERSION)"
+    exit 1
+}
 
 # Kimi takes the prompt as the -p argument (it does NOT read stdin). The old
 # `--quiet --input-format text` were NOT real flags on kimi 0.23.6 — commander
@@ -88,6 +122,18 @@ PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 # --- Post-processing: use shared helper ---
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
     "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"
+
+if [[ -s "$OUTPUT_FILE" ]]; then
+    response_tmp=$(mktemp)
+    if jq --arg cli_version "$KIMI_CLI_VERSION" '
+            .metadata.cli_version = $cli_version |
+            .metadata.cli_compatibility = "capability-probed"
+        ' "$OUTPUT_FILE" > "$response_tmp"; then
+        mv "$response_tmp" "$OUTPUT_FILE"
+    else
+        rm -f "$response_tmp"
+    fi
+fi
 
 cat "$OUTPUT_FILE"
 exit $exit_code

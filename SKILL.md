@@ -45,6 +45,11 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 
 **CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.5` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise.
 
+Grok and Kimi are compatible by capability rather than by CLI version. Before
+dispatch, their adapters verify the required headless arguments, requested
+model, and structured-output surface. Compatible version changes are accepted;
+the observed version is recorded only as response provenance.
+
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 
 ## Requirements

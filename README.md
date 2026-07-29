@@ -388,7 +388,10 @@ to the xAI API only when the CLI is missing, cannot launch, or has no usable
 authentication and `GROK_API_KEY` is configured; post-launch request failures
 are surfaced without a silent API charge. Qwen3 and MiniMax can also switch
 from their CLI to API transport. Gemini, Codex, Claude, and Mistral are
-CLI/API switchable.
+CLI/API switchable. Grok and Kimi compatibility is capability-probed before
+dispatch: the requested model, headless arguments, and structured-output
+surface must be available. Any CLI version is accepted when those checks pass;
+the observed version is response provenance only.
 
 ### API-Only Consultants
 
