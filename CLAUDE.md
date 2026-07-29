@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 11 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 3.2.0
+**Version**: 3.3.0
 
 ## Distribution
 
@@ -786,6 +786,12 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v3.3.0
+- **Grok and Kimi compatibility is now established from capabilities, not inferred from an installed binary or its version string.** `grok_cli_supports_required_interface` validates the complete headless parser surface inside the same isolated HOME/CWD boundary used for dispatch, while `grok_cli_exposes_requested_model` verifies both usable authentication and the exact `GROK_MODEL` in the CLI inventory (`scripts/query_grok.sh:85-154`). Kimi similarly checks prompt mode, `stream-json`, the provider inventory, and `KIMI_MODEL` before any request (`scripts/query_kimi.sh:45-79`). Compatible future and vendor-custom versions therefore continue to work without a release-specific allowlist; an interface that cannot enforce the adapter's contract fails before a model call.
+- **The observed CLI version is provenance only.** Successful Grok and Kimi responses add `metadata.cli_version` and `metadata.cli_compatibility="capability-probed"`; the shared schema documents both fields without making either required for other transports (`scripts/query_grok.sh:319-336`, `scripts/query_kimi.sh:126-138`, `scripts/lib/schema.json:169-180`). This deliberately does not introduce a blessed-version range: the version is useful for diagnosis, while compatibility is decided by the exercised command, output, and model surfaces.
+- **Optional capabilities remain optional.** Grok's `--no-auto-update` is used when the help surface advertises it, but its absence does not reject an otherwise compatible CLI. The capability probe itself uses `--help` and model/provider inventory commands; it does not send a consultation. Grok preserves its existing narrowly classified API fallback when the required CLI route is unavailable, while Kimi continues to fail closed because it has no API transport.
+- **Regression coverage pins the compatibility contract rather than today's binaries.** Grok's suite accepts an alternate compatible version, rejects an incomplete interface before dispatch, checks requested-model availability, and preserves the post-launch/API-fallback boundary (32 checks). Kimi's suite covers an alternate compatible version, an incomplete interface, and a missing requested model (8 checks). Full release gate: 17/17 suites; core suite: 299/299; ShellCheck green. Installed Grok 0.2.114 and Kimi 0.27.0 also passed no-model-call probes.
 
 ### v3.2.0
 - **Claude premium upgraded from Opus 4.8 to Opus 5.** The default `CLAUDE_MODEL`, premium/max/best tier, standalone adapter fallback, configuration examples, model table, and cost catalog now resolve to the canonical `claude-opus-5` ID (`scripts/config.sh:274`, `scripts/query_claude.sh:29`). Pricing remains $5/$25 per million tokens; `claude-opus-4-8` stays in the legacy catalog for historical responses and intentional pins.

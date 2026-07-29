@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [3.3.0] - 2026-07-29
+
+### Added
+- Grok and Kimi CLI responses now record the observed `cli_version` and a `cli_compatibility` result, so downstream tooling can distinguish provenance from compatibility.
+
+### Changed
+- **Grok and Kimi compatibility is now capability-based.** Before dispatch, each adapter checks the required headless arguments, structured-output mode, provider/model inventory, and requested model instead of treating a visible CLI or version string as sufficient.
+- Compatible future or vendor-custom CLI versions are accepted when they expose the complete required interface. Grok's `--no-auto-update` remains an optional capability and is used only when advertised.
+
+### Fixed
+- Incompatible Grok and Kimi installations now fail before a model request starts, with regression coverage for alternate compatible versions, missing interfaces, and missing requested models.
+
 ## [3.2.0] - 2026-07-25
 
 ### Changed
