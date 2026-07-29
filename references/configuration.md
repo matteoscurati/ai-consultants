@@ -263,10 +263,15 @@ tool-free strict sandbox. If the CLI is missing, cannot execute, or has no
 usable authentication, the same query and model fall back to `GROK_API_URL`
 when `GROK_API_KEY` is set. Failures after a request launches (including
 timeouts, model errors, and empty output) are returned without API fallback.
-Set `GROK_USE_API=true` only to force the API path.
+Set `GROK_USE_API=true` only to force the API path. The adapter accepts any CLI
+version that exposes the complete required headless interface and requested
+model; `metadata.cli_version` is provenance, not a version pin.
 
 `KIMI_MODEL` is passed directly to `kimi --model`, so `kimi-code/k3` overrides
-any older default stored in the user's Kimi CLI configuration.
+any older default stored in the user's Kimi CLI configuration. Kimi CLI
+compatibility is also capability-probed: prompt mode, `stream-json`, provider
+inventory, and the requested model must be present. No numeric CLI version is
+used as a gate.
 
 ## Model Quality Tiers (v2.5)
 

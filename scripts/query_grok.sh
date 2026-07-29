@@ -36,6 +36,9 @@ START_TIME=$(get_timestamp_ms)
 TEMP_OUTPUT=$(mktemp)
 GROK_RUNTIME_DIR=""
 TRANSPORT="cli"
+GROK_CLI_VERSION=""
+GROK_CLI_COMPATIBILITY=""
+GROK_SUPPORTS_NO_AUTO_UPDATE=false
 exit_code=1
 
 cleanup() {
@@ -67,6 +70,93 @@ run_grok_api() {
     fi
 }
 
+observe_grok_cli_version() {
+    local version
+    version=$("$GROK_CMD" --version 2>/dev/null | head -1 || true)
+    if [[ "$version" =~ ^grok[[:space:]]+([^[:space:]]+) ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+    elif [[ -n "$version" ]]; then
+        printf '%s\n' "$version"
+    else
+        printf 'unknown\n'
+    fi
+}
+
+grok_cli_supports_required_interface() {
+    local probe_home="$1"
+    local probe_grok_home="$2"
+    local probe_workspace="$3"
+    local help flag
+
+    help=$(env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
+        "$GROK_CMD" --help 2>&1 || true)
+    for flag in \
+        --prompt-file --model --cwd --output-format --no-plan --no-subagents \
+        --no-memory --disable-web-search --max-turns --permission-mode \
+        --sandbox --tools --deny --verbatim; do
+        grep -q -- "$flag" <<< "$help" || return 1
+    done
+    grep -Eq '^[[:space:]]+models([[:space:]]|$)' <<< "$help" || return 1
+
+    # Exercise the complete headless argument surface under --help. This checks
+    # parser compatibility without starting a session or sending a prompt.
+    env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
+        "$GROK_CMD" \
+        --prompt-file /dev/null \
+        -m "$GROK_MODEL" \
+        --cwd "$probe_workspace" \
+        --output-format plain \
+        --no-plan \
+        --no-subagents \
+        --no-memory \
+        --disable-web-search \
+        --max-turns 1 \
+        --permission-mode dontAsk \
+        --sandbox strict \
+        --tools "" \
+        --deny Bash \
+        --deny Edit \
+        --deny Read \
+        --deny Grep \
+        --deny MCPTool \
+        --deny WebFetch \
+        --deny WebSearch \
+        --verbatim \
+        --help >/dev/null 2>&1 || return 1
+
+    if grep -q -- '--no-auto-update' <<< "$help"; then
+        GROK_SUPPORTS_NO_AUTO_UPDATE=true
+    else
+        GROK_SUPPORTS_NO_AUTO_UPDATE=false
+    fi
+    GROK_CLI_COMPATIBILITY="capability-probed"
+}
+
+grok_cli_exposes_requested_model() {
+    local isolated_home="$1"
+    local isolated_grok_home="$2"
+    local models
+
+    if ! models=$(env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
+            "$GROK_CMD" models 2>&1); then
+        printf '%s\n' "$models"
+        return 1
+    fi
+    grep -Fq "You are logged in with grok.com." <<< "$models" || {
+        printf '%s\n' "$models"
+        return 1
+    }
+    awk -v requested="$GROK_MODEL" '
+        {
+            line = $0
+            sub(/^[[:space:]*]+/, "", line)
+            split(line, fields, /[[:space:]]+/)
+            if (fields[1] == requested) found = 1
+        }
+        END { exit(found ? 0 : 1) }
+    ' <<< "$models"
+}
+
 grok_cli_is_unavailable() {
     local cli_exit_code="$1"
     local error_file="$2"
@@ -85,7 +175,7 @@ grok_cli_is_unavailable() {
     # model errors, timeouts, empty output, or other post-launch failures here;
     # those must surface instead of silently creating a billable API request.
     grep -Eiq \
-        'not authenticated|authentication( is)? required|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)' \
+        'not authenticated|authentication( is)? required|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)|lacks the required capabilities|does not expose the requested model' \
         "$error_file"
 }
 
@@ -128,51 +218,66 @@ else
             fi
         fi
 
-        # Official Grok Build headless contract:
-        #   --prompt-file avoids argv size/process-list exposure, -m pins the
-        #   model, and plain output contains the final assistant text.
-        #   dontAsk + strict sandbox make every unapproved tool fail closed.
-        GROK_ARGS=(
-            env
-            HOME="$isolated_home"
-            GROK_HOME="$isolated_grok_home"
-            "$GROK_CMD"
-            --prompt-file "$prompt_file"
-            -m "$GROK_MODEL"
-            --cwd "$isolated_workspace"
-            --output-format plain
-            --no-plan
-            --no-subagents
-            --no-memory
-            --disable-web-search
-            --max-turns 1
-            --permission-mode dontAsk
-            --sandbox strict
-            --tools ""
-            --deny Bash
-            --deny Edit
-            --deny Read
-            --deny Grep
-            --deny MCPTool
-            --deny WebFetch
-            --deny WebSearch
-            --verbatim
-        )
-
-        # Newer Grok Build releases document --no-auto-update for automation;
-        # keep compatibility with older installed builds that do not expose it.
-        if "$GROK_CMD" --help 2>&1 | grep -q -- '--no-auto-update'; then
-            GROK_ARGS+=("--no-auto-update")
-        fi
-
-        if run_query \
-                "$CONSULTANT_NAME" \
-                "$TEMP_OUTPUT" \
-                "$GROK_TIMEOUT_SECONDS" \
-                "${GROK_ARGS[@]}" </dev/null; then
-            exit_code=0
+        GROK_CLI_VERSION=$(observe_grok_cli_version)
+        if ! grok_cli_supports_required_interface \
+                "$isolated_home" "$isolated_grok_home" "$isolated_workspace"; then
+            GROK_CLI_COMPATIBILITY="incompatible"
+            printf 'Grok Build CLI lacks the required capabilities\n' > "${TEMP_OUTPUT}.err"
+            log_warn "[$CONSULTANT_NAME] Grok Build CLI is capability-incompatible (reported version: $GROK_CLI_VERSION)"
+            exit_code=69
+        elif ! grok_cli_exposes_requested_model \
+                "$isolated_home" "$isolated_grok_home" > "${TEMP_OUTPUT}.err"; then
+            printf 'Grok Build CLI does not expose the requested model %s\n' \
+                "$GROK_MODEL" >> "${TEMP_OUTPUT}.err"
+            log_warn "[$CONSULTANT_NAME] Grok Build CLI does not expose $GROK_MODEL"
+            exit_code=69
         else
-            exit_code=$?
+            # Official Grok Build headless contract:
+            #   --prompt-file avoids argv size/process-list exposure, -m pins the
+            #   model, and plain output contains the final assistant text.
+            #   dontAsk + strict sandbox make every unapproved tool fail closed.
+            GROK_ARGS=(
+                env
+                HOME="$isolated_home"
+                GROK_HOME="$isolated_grok_home"
+                "$GROK_CMD"
+                --prompt-file "$prompt_file"
+                -m "$GROK_MODEL"
+                --cwd "$isolated_workspace"
+                --output-format plain
+                --no-plan
+                --no-subagents
+                --no-memory
+                --disable-web-search
+                --max-turns 1
+                --permission-mode dontAsk
+                --sandbox strict
+                --tools ""
+                --deny Bash
+                --deny Edit
+                --deny Read
+                --deny Grep
+                --deny MCPTool
+                --deny WebFetch
+                --deny WebSearch
+                --verbatim
+            )
+
+            # --no-auto-update is a useful optional capability, not a version
+            # requirement. Compatible older or vendor-custom builds may omit it.
+            if [[ "$GROK_SUPPORTS_NO_AUTO_UPDATE" == "true" ]]; then
+                GROK_ARGS+=("--no-auto-update")
+            fi
+
+            if run_query \
+                    "$CONSULTANT_NAME" \
+                    "$TEMP_OUTPUT" \
+                    "$GROK_TIMEOUT_SECONDS" \
+                    "${GROK_ARGS[@]}" </dev/null; then
+                exit_code=0
+            else
+                exit_code=$?
+            fi
         fi
     else
         log_warn "[$CONSULTANT_NAME] Grok Build CLI not found: $GROK_CMD"
@@ -214,7 +319,17 @@ fi
 # Preserve which route actually answered without changing the shared schema.
 if [[ -s "$OUTPUT_FILE" ]]; then
     response_tmp=$(mktemp)
-    if jq --arg transport "$TRANSPORT" '.metadata.transport = $transport' \
+    if jq --arg transport "$TRANSPORT" \
+            --arg cli_version "$GROK_CLI_VERSION" \
+            --arg cli_compatibility "$GROK_CLI_COMPATIBILITY" '
+            .metadata.transport = $transport |
+            if $transport == "cli" and $cli_version != "" then
+                .metadata.cli_version = $cli_version |
+                .metadata.cli_compatibility = $cli_compatibility
+            else
+                .
+            end
+        ' \
             "$OUTPUT_FILE" > "$response_tmp"; then
         mv "$response_tmp" "$OUTPUT_FILE"
     else

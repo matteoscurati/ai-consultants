@@ -14,11 +14,25 @@ make_grok_stub() {
     if [[ "$mode" == "success" ]]; then
         cat > "$path" <<'EOF'
 #!/bin/bash
-if [[ "${1:-}" == "--help" ]]; then
-    echo "Usage: grok --no-auto-update -p PROMPT"
+if [[ "${1:-}" == "--version" ]]; then
+    printf 'grok %s\n' "${GROK_FAKE_VERSION:-user-build-a}"
+    exit 0
+fi
+if [[ " $* " == *" --help "* ]]; then
+    cat <<'HELP'
+--prompt-file --model --cwd --output-format --no-plan --no-subagents
+--no-memory --disable-web-search --max-turns --permission-mode --sandbox
+--tools --deny --verbatim --no-auto-update
+  models  List available models
+HELP
+    exit 0
+fi
+if [[ "${1:-}" == "models" ]]; then
+    printf 'You are logged in with grok.com.\n\nAvailable models:\n  * grok-4.5 (default)\n'
     exit 0
 fi
 printf '%s\n' "$@" > "$GROK_ARGS_FILE"
+[[ -z "${GROK_REQUEST_FILE:-}" ]] || : > "$GROK_REQUEST_FILE"
 prompt_file=""
 previous=""
 for arg in "$@"; do
@@ -42,20 +56,66 @@ EOF
     elif [[ "$mode" == "auth_failure" ]]; then
         cat > "$path" <<'EOF'
 #!/bin/bash
-if [[ "${1:-}" == "--help" ]]; then
-    echo "Usage: grok -p PROMPT"
+if [[ "${1:-}" == "--version" ]]; then
+    printf 'grok %s\n' "${GROK_FAKE_VERSION:-user-build-a}"
     exit 0
 fi
+if [[ " $* " == *" --help "* ]]; then
+    cat <<'HELP'
+--prompt-file --model --cwd --output-format --no-plan --no-subagents
+--no-memory --disable-web-search --max-turns --permission-mode --sandbox
+--tools --deny --verbatim
+  models  List available models
+HELP
+    exit 0
+fi
+[[ "${1:-}" != "models" ]] || {
+    echo "Authentication required. Run grok login." >&2
+    exit 1
+}
 echo "Authentication required. Run grok login." >&2
 exit 1
+EOF
+    elif [[ "$mode" == "incompatible" ]]; then
+        cat > "$path" <<'EOF'
+#!/bin/bash
+if [[ "${1:-}" == "--version" ]]; then
+    printf 'grok %s\n' "${GROK_FAKE_VERSION:-user-build-incompatible}"
+    exit 0
+fi
+if [[ " $* " == *" --help "* ]]; then
+    cat <<'HELP'
+--prompt-file --model --cwd --output-format --no-plan --no-subagents
+--no-memory --disable-web-search --max-turns --permission-mode --sandbox
+--deny --verbatim
+  models  List available models
+HELP
+    exit 0
+fi
+[[ -z "${GROK_REQUEST_FILE:-}" ]] || : > "$GROK_REQUEST_FILE"
+exit 42
 EOF
     else
         cat > "$path" <<'EOF'
 #!/bin/bash
-if [[ "${1:-}" == "--help" ]]; then
-    echo "Usage: grok -p PROMPT"
+if [[ "${1:-}" == "--version" ]]; then
+    printf 'grok %s\n' "${GROK_FAKE_VERSION:-user-build-a}"
     exit 0
 fi
+if [[ " $* " == *" --help "* ]]; then
+    cat <<'HELP'
+--prompt-file --model --cwd --output-format --no-plan --no-subagents
+--no-memory --disable-web-search --max-turns --permission-mode --sandbox
+--tools --deny --verbatim
+  models  List available models
+HELP
+    exit 0
+fi
+if [[ "${1:-}" == "models" ]]; then
+    printf 'You are logged in with grok.com.\n\nAvailable models:\n  * grok-4.5 (default)\n'
+    exit 0
+fi
+[[ -z "${GROK_REQUEST_FILE:-}" ]] || : > "$GROK_REQUEST_FILE"
 exit 42
 EOF
     fi
@@ -127,6 +187,51 @@ test_cli_pins_model_and_headless_contract() {
     assert_eq "AUTH=true" "$(sed -n '3p' "$env_file")" "isolated Grok home carries only the CLI credential"
     assert_eq "grok-4.5" "$(jq -r '.model' "$output_file")" "response records grok-4.5"
     assert_eq "cli" "$(jq -r '.metadata.transport' "$output_file")" "response records CLI transport"
+    assert_eq "user-build-a" "$(jq -r '.metadata.cli_version' "$output_file")" "CLI version is recorded as provenance"
+    assert_eq "capability-probed" "$(jq -r '.metadata.cli_compatibility' "$output_file")" "response records capability-based compatibility"
+}
+
+test_alternate_compatible_version_is_accepted() {
+    local fake_grok="$TMP_ROOT/grok-alternate-version"
+    local args_file="$TMP_ROOT/alternate-version-args"
+    local output_file="$TMP_ROOT/alternate-version-response.json"
+    make_grok_stub "$fake_grok" success
+
+    if ! GROK_CMD="$fake_grok" \
+        GROK_USE_API=false \
+        GROK_MODEL=grok-4.5 \
+        GROK_FAKE_VERSION=user-build-b \
+        GROK_ARGS_FILE="$args_file" \
+        MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_grok.sh" "Test alternate version" "" "$output_file" >/dev/null 2>&1; then
+        assert_eq "success" "failure" "compatible alternate Grok version completes"
+        return
+    fi
+
+    assert_eq "user-build-b" "$(jq -r '.metadata.cli_version' "$output_file")" "alternate version is provenance only"
+    assert_eq "capability-probed" "$(jq -r '.metadata.cli_compatibility' "$output_file")" "alternate version passes the same capability gate"
+}
+
+test_incompatible_version_is_rejected_before_dispatch() {
+    local fake_grok="$TMP_ROOT/grok-incompatible"
+    local output_file="$TMP_ROOT/incompatible-response.json"
+    local request_file="$TMP_ROOT/incompatible-request"
+    make_grok_stub "$fake_grok" incompatible
+
+    if GROK_CMD="$fake_grok" \
+        GROK_USE_API=false \
+        GROK_MODEL=grok-4.5 \
+        GROK_API_KEY="" \
+        XAI_API_KEY="" \
+        GROK_REQUEST_FILE="$request_file" \
+        MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_grok.sh" "Test incompatible version" "" "$output_file" >/dev/null 2>&1; then
+        assert_eq "failure" "success" "capability-incompatible Grok CLI is rejected"
+        return
+    fi
+
+    assert_eq "false" "$([[ -e "$request_file" ]] && echo true || echo false)" "incompatible CLI never starts a request"
+    assert_eq "incompatible" "$(jq -r '.metadata.cli_compatibility' "$output_file")" "rejection records capability incompatibility"
 }
 
 test_post_launch_failure_does_not_fall_back() {
@@ -232,8 +337,10 @@ test_large_context_uses_prompt_file() {
 }
 
 run_test "Test 1: CLI headless contract and model pin" test_cli_pins_model_and_headless_contract
-run_test "Test 2: post-launch failure does not fall back" test_post_launch_failure_does_not_fall_back
-run_test "Test 3: authentication-unavailable CLI falls back to xAI API" test_unavailable_cli_falls_back_to_api
-run_test "Test 4: missing CLI falls back to xAI API" test_missing_cli_falls_back_to_api
-run_test "Test 5: large context uses prompt-file" test_large_context_uses_prompt_file
+run_test "Test 2: alternate compatible version is accepted" test_alternate_compatible_version_is_accepted
+run_test "Test 3: incompatible version is rejected before dispatch" test_incompatible_version_is_rejected_before_dispatch
+run_test "Test 4: post-launch failure does not fall back" test_post_launch_failure_does_not_fall_back
+run_test "Test 5: authentication-unavailable CLI falls back to xAI API" test_unavailable_cli_falls_back_to_api
+run_test "Test 6: missing CLI falls back to xAI API" test_missing_cli_falls_back_to_api
+run_test "Test 7: large context uses prompt-file" test_large_context_uses_prompt_file
 test_summary "query_grok"

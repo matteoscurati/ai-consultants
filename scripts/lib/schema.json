@@ -167,6 +167,15 @@
           "type": "string",
           "description": "Exact model version string"
         },
+        "cli_version": {
+          "type": "string",
+          "description": "Observed consultant CLI version for provenance only; compatibility is not decided from this string."
+        },
+        "cli_compatibility": {
+          "type": "string",
+          "enum": ["capability-probed", "incompatible"],
+          "description": "Result of checking the CLI's required command, model, and structured-output capabilities before dispatch."
+        },
         "timestamp": {
           "type": "string",
           "format": "date-time",
