@@ -333,3 +333,8 @@ GLM_TIMEOUT=180
 GROK_TIMEOUT=180
 DEEPSEEK_TIMEOUT=180
 ```
+
+`KIMI_TIMEOUT` remains `180` seconds by default for ordinary consultations.
+`KIMI_TIMEOUT=1200` is an opt-in override for exceptionally large workloads;
+it is passed unchanged to each process attempt. Account for `MAX_RETRIES` when
+using a large override, because every retry can consume the full timeout.
