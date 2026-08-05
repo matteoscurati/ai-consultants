@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [3.4.0] - 2026-08-05
+
+### Fixed
+- **Gemini consultations from an SSH session no longer fail to authenticate.** The Antigravity CLI switches to a file-based token store whenever it sees `SSH_CLIENT`, `SSH_CONNECTION`, or `SSH_TTY`, and then never consults the macOS Keychain — so a user who signed in locally lost Gemini entirely over SSH, and signing in again could not help. Those markers are now stripped for every `agy` invocation.
+- **The Codex consultant no longer inherits your local Codex environment.** Your `~/.codex/config.toml`, the repository's `AGENTS.md`, your hooks, MCP servers, and execpolicy rules previously reached into what is meant to be an independent second opinion.
+- Very large contexts no longer break the Codex consultant: the prompt is delivered on stdin instead of argv, removing both the `ARG_MAX` ceiling and the process-list exposure.
+- A Codex timeout, authentication error, or exhausted retry is now always reported as a failure, even when a partial answer reached disk.
+- `ai-consultants configure` upgrades the historical generated `CODEX_MODEL=gpt-5.5` default, so existing installations actually receive the new model instead of silently keeping the old one. An explicit pin is preserved.
+
+### Changed
+- **Model catalog refresh**, verified live against the installed CLIs: Codex moves to `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna`, Claude's standard tier to `claude-sonnet-5`, and Gemini's standard/economy tiers to `Gemini 3.6 Flash (High)` / `(Low)`. Gemini's premium tier stays on `Gemini 3.1 Pro (High)` — there is no 3.6 Pro. Cost rates ship with the new ids; superseded ids remain catalogued for pinned configurations and historical responses.
+- Codex CLI mode runs under an ephemeral HOME and working directory with a read-only sandbox. Authentication is unaffected — `CODEX_HOME` still resolves to your real auth store.
+- The opt-in Qwen Token Plan model is referenced as `qwen3.8-max`. Both it and `qwen3.8-max-preview` remain served and catalogued; the shipped premium Qwen model is still `qwen3.7-max`.
+
+### Added
+- **`*_REASONING_EFFORT` now works in CLI mode** for the three consultants whose CLI exposes the control: `CODEX_REASONING_EFFORT`, `CLAUDE_REASONING_EFFORT`, and `GEMINI_REASONING_EFFORT`. The setting was previously honored in API mode only, which meant it did nothing in the default CLI-first configuration. Consultants whose CLI has no such flag still warn.
+- Regression suites for the Gemini and Codex adapters (`test_query_gemini.sh`, `test_query_codex.sh`); `npm test` is now 19 suites.
+
 ## [3.3.0] - 2026-07-29
 
 ### Added
