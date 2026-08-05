@@ -140,6 +140,29 @@ check_command() {
     return 0
 }
 
+# Run a command with SSH session markers stripped from the environment.
+#
+# WHY (do not "simplify" this away): the Antigravity CLI (`agy`, our Gemini
+# transport) picks its credential store from the environment. When it sees any
+# of SSH_CLIENT, SSH_CONNECTION, or SSH_TTY it switches to a file-based token
+# store and never consults the macOS Keychain. A user who signed in locally has
+# credentials only in the Keychain, so every `agy` call from an SSH session
+# fails auth — and re-signing-in does not help, because the new login also lands
+# in the Keychain the CLI has already decided to ignore. Clearing the three
+# markers for the `agy` process restores Keychain lookup. On a local (non-SSH)
+# session they are already unset, so this is a pure no-op there. It grants no
+# extra tools or filesystem access; it only changes which credential store the
+# CLI consults.
+#
+# AGY_ENV_PREFIX is the exec-safe form (external `env` binary) for use under
+# run_with_timeout / GNU timeout, which cannot invoke shell functions. agy_env
+# is the same-shell convenience wrapper. Keep both in lockstep via this array.
+#
+# Usage (same shell):  agy_env <command> [args...]
+# Usage (under timeout / command arrays):  "${AGY_ENV_PREFIX[@]}" <command> [args...]
+AGY_ENV_PREFIX=(env -u SSH_CLIENT -u SSH_CONNECTION -u SSH_TTY)
+agy_env() { "${AGY_ENV_PREFIX[@]}" "$@"; }
+
 # =============================================================================
 # MAIN QUERY EXECUTION FUNCTION
 # =============================================================================
@@ -149,8 +172,9 @@ check_command() {
 # Usage: run_query <consultant_name> <output_file> <timeout_sec> <command...>
 #
 # The query is passed via stdin to the command.
+# Use the exec-safe array form under run_query (agy_env is same-shell only).
 # Example:
-#   echo "$QUERY" | run_query "Gemini" "/tmp/out.json" 120 agy -p - --model "Gemini 3.1 Pro (High)"
+#   echo "$QUERY" | run_query "Gemini" "/tmp/out.json" 120 "${AGY_ENV_PREFIX[@]}" agy -p "..." --model "Gemini 3.1 Pro (High)"
 #
 run_query() {
     local consultant_name="$1"
@@ -1311,7 +1335,8 @@ build_synthesis_args() {
             # stdin and "-" is not a stdin sentinel. A prior `-p -` made agy answer
             # a literal "-" with a generic greeting -> unparseable synthesis ->
             # manual_review. Pass the prompt directly, mirroring query_gemini.sh.
-            SYNTHESIS_ARGS=("${GEMINI_CMD:-agy}" "-p" "$prompt")
+            # AGY_ENV_PREFIX is exec-safe under timeout (see agy_env above).
+            SYNTHESIS_ARGS=("${AGY_ENV_PREFIX[@]}" "${GEMINI_CMD:-agy}" "-p" "$prompt")
             local model="${SYNTHESIS_MODEL:-${GEMINI_MODEL:-}}"
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;

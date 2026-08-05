@@ -85,11 +85,14 @@ else
     # -p argument. agy has --model (no -m alias) and no read-from-file flag, so a
     # very large FULL_QUERY goes through argv (ARG_MAX-bounded; fine for normal
     # contexts). stdin is /dev/null (agy ignores it; run_query's cat needs an EOF).
+    # Strip SSH_* markers so agy consults the macOS Keychain (see agy_env /
+    # AGY_ENV_PREFIX in lib/common.sh). Use the exec-safe prefix array — not the
+    # agy_env function — because run_query dispatches through GNU timeout.
     run_query \
         "Gemini" \
         "$TEMP_OUTPUT" \
         "$GEMINI_TIMEOUT_SECONDS" \
-        "$GEMINI_CMD" -p "$FULL_QUERY" --model "$GEMINI_MODEL" </dev/null
+        "${AGY_ENV_PREFIX[@]}" "$GEMINI_CMD" -p "$FULL_QUERY" --model "$GEMINI_MODEL" </dev/null
 
     exit_code=$?
 fi

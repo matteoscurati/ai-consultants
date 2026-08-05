@@ -368,9 +368,9 @@ Three tiers of models are available for each consultant, configurable via `apply
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-opus-5, Gemini 3.1 Pro (High), gpt-5.5 |
-| **standard** | Good quality at reasonable cost | claude-sonnet-4-6, Gemini 3.5 Flash (High), gpt-5.4 |
-| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.5 Flash (Low), gpt-5.4-nano |
+| **premium** | Latest flagship models | claude-opus-5, Gemini 3.1 Pro (High), gpt-5.6-sol |
+| **standard** | Good quality at reasonable cost | claude-sonnet-5, Gemini 3.6 Flash (High), gpt-5.6-terra |
+| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.6 Flash (Low), gpt-5.6-luna |
 
 **Default models are now premium tier** for maximum quality.
 
@@ -407,7 +407,7 @@ All consultants now use premium models by default:
 |------------|---------------|
 | Claude | claude-opus-5 |
 | Gemini | Gemini 3.1 Pro (High) (via agy CLI) |
-| Codex | gpt-5.5 |
+| Codex | gpt-5.6-sol |
 | Mistral | mistral-large-3 |
 | Cursor | composer-2.5 |
 | DeepSeek | deepseek-v4-pro |
@@ -617,7 +617,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `CLAUDE_API_MAX_TOKENS` | 16384 | Claude API thinking + visible-output budget |
 | `GEMINI_MODEL` | Gemini 3.1 Pro (High) | Gemini agy CLI model (v2.15) |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
-| `CODEX_MODEL` | gpt-5.5 | Codex model (v2.5) |
+| `CODEX_MODEL` | gpt-5.6-sol | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
 | `SYNTHESIS_STRATEGY` | coverage | Synthesis strategy (coverage=union of distinct points) |
 | `ENABLE_SEMANTIC_CACHE` | true | Semantic response caching (v2.3) |

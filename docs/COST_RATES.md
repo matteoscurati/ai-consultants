@@ -21,13 +21,13 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
 | Gemini 3.1 Pro (High) | Premium | $0.002 | Gemini (agy CLI) |
-| Gemini 3.5 Flash (High) | Standard | $0.0015 | Gemini (agy CLI) |
-| Gemini 3.5 Flash (Low) | Economy | $0.0015 | Gemini (agy CLI) |
-| gpt-5.5 | Premium | $0.005 | Codex |
-| gpt-5.4 | Standard | $0.0025 | Codex |
-| gpt-5.4-nano | Economy | $0.0002 | Codex |
+| Gemini 3.6 Flash (High) | Standard | $0.0015 | Gemini (agy CLI) |
+| Gemini 3.6 Flash (Low) | Economy | $0.0015 | Gemini (agy CLI) |
+| gpt-5.6-sol | Premium | $0.005 | Codex |
+| gpt-5.6-terra | Standard | $0.002 | Codex |
+| gpt-5.6-luna | Economy | $0.0002 | Codex |
 | claude-opus-5 | Premium | $0.005 | Claude |
-| claude-sonnet-4-6 | Standard | $0.003 | Claude |
+| claude-sonnet-5 | Standard | $0.003 | Claude |
 | claude-haiku-4-5 | Economy | $0.001 | Claude |
 | mistral-large-3 | Premium | $0.002 | Mistral |
 | mistral-medium-latest | Standard | $0.001 | Mistral |
@@ -54,13 +54,13 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
 | Gemini 3.1 Pro (High) | Premium | $0.012 | Gemini (agy CLI) |
-| Gemini 3.5 Flash (High) | Standard | $0.009 | Gemini (agy CLI) |
-| Gemini 3.5 Flash (Low) | Economy | $0.009 | Gemini (agy CLI) |
-| gpt-5.5 | Premium | $0.030 | Codex |
-| gpt-5.4 | Standard | $0.015 | Codex |
-| gpt-5.4-nano | Economy | $0.00125 | Codex |
+| Gemini 3.6 Flash (High) | Standard | $0.0075 | Gemini (agy CLI) |
+| Gemini 3.6 Flash (Low) | Economy | $0.0075 | Gemini (agy CLI) |
+| gpt-5.6-sol | Premium | $0.030 | Codex |
+| gpt-5.6-terra | Standard | $0.012 | Codex |
+| gpt-5.6-luna | Economy | $0.0012 | Codex |
 | claude-opus-5 | Premium | $0.025 | Claude |
-| claude-sonnet-4-6 | Standard | $0.015 | Claude |
+| claude-sonnet-5 | Standard | $0.015 | Claude |
 | claude-haiku-4-5 | Economy | $0.005 | Claude |
 | mistral-large-3 | Premium | $0.006 | Mistral |
 | mistral-medium-latest | Standard | $0.003 | Mistral |

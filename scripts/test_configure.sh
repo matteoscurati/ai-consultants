@@ -376,6 +376,36 @@ test_claude_default_migration_and_pin() {
         "pinned Opus 4.8 survives later configure runs"
 }
 
+test_codex_default_migration_and_pin() {
+    local cfg="$TMP/codex-model-migration"
+    mkdir -p "$cfg"
+    printf '%s\n' 'CODEX_MODEL=gpt-5.5' > "$cfg/.env"
+
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "gpt-5.6-sol" "$(read_env "$cfg/.env" CODEX_MODEL)" \
+        "historical generated Codex default migrates to gpt-5.6-sol"
+    assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "# ai-consultants:default" \
+        "migrated Codex default records managed provenance"
+
+    run_clean_configure "$cfg" --force \
+        --set CODEX_MODEL=gpt-5.5 >/dev/null 2>&1
+    assert_eq "gpt-5.5" "$(read_env "$cfg/.env" CODEX_MODEL)" \
+        "explicit legacy Codex model remains selectable"
+    assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "# ai-consultants:pin" \
+        "explicit Codex model override records pin provenance"
+
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "gpt-5.5" "$(read_env "$cfg/.env" CODEX_MODEL)" \
+        "pinned gpt-5.5 survives later configure runs"
+
+    local other_cfg="$TMP/codex-model-unrelated"
+    mkdir -p "$other_cfg"
+    printf '%s\n' 'CODEX_MODEL=gpt-5.4' > "$other_cfg/.env"
+    run_clean_configure "$other_cfg" --force >/dev/null 2>&1
+    assert_eq "gpt-5.4" "$(read_env "$other_cfg/.env" CODEX_MODEL)" \
+        "unrelated Codex model is not force-upgraded"
+}
+
 test_backups_are_unique_within_one_second() {
     local cfg="$TMP/backup-collision"
     mkdir -p "$cfg" "$TMP/bin"
@@ -421,5 +451,6 @@ run_test "Test 18: CLI-first preserved with a key present" test_cli_first_preser
 run_test "Test 19: backup names are unique within one second" test_backups_are_unique_within_one_second
 run_test "Test 20: Grok CLI-first with API fallback" test_grok_cli_first_with_api_fallback
 run_test "Test 21: Claude managed-default migration and pin" test_claude_default_migration_and_pin
+run_test "Test 22: Codex managed-default migration and pin" test_codex_default_migration_and_pin
 
 test_summary "configure"

@@ -447,9 +447,9 @@ parallel and returns the coverage union.
 
 | Consultant | Premium | Standard | Economy |
 |------------|---------|----------|---------|
-| Claude | claude-opus-5 | claude-sonnet-4-6 | claude-haiku-4-5 |
-| Gemini | Gemini 3.1 Pro (High) | Gemini 3.5 Flash (High) | Gemini 3.5 Flash (Low) |
-| Codex | gpt-5.5 | gpt-5.4 | gpt-5.4-nano |
+| Claude | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
+| Gemini | Gemini 3.1 Pro (High) | Gemini 3.6 Flash (High) | Gemini 3.6 Flash (Low) |
+| Codex | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna |
 | Mistral | mistral-large-3 | mistral-medium-latest | devstral-small-2 |
 | Cursor | composer-2.5 | composer-2 | gemini-3-flash |
 | DeepSeek | deepseek-v4-pro | deepseek-v4-flash | deepseek-v4-flash |

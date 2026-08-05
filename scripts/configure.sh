@@ -285,6 +285,15 @@ if [[ "$(read_value "$WORK_FILE" CLAUDE_MODEL 2>/dev/null || true)" == "claude-o
     echo "Migrated managed Claude default: claude-opus-4-8 -> claude-opus-5" >&2
 fi
 
+# Same shape for Codex: `init` once wrote gpt-5.5 as an unmarked value, so
+# configure treated it as a deliberate pin and never reached gpt-5.6-sol. A
+# real pin is preserved by `--set CODEX_MODEL=gpt-5.5`.
+if [[ "$(read_value "$WORK_FILE" CODEX_MODEL 2>/dev/null || true)" == "gpt-5.5" ]] \
+    && ! has_value_marker "$WORK_FILE" CODEX_MODEL "$PIN_MARKER"; then
+    set_value CODEX_MODEL "gpt-5.6-sol $DEFAULT_MARKER"
+    echo "Migrated managed Codex default: gpt-5.5 -> gpt-5.6-sol" >&2
+fi
+
 configure_cli_only() {
     local enable_key="$1" cmd_key="$2" cmd enabled=false
     cmd=$(effective_input_value "$cmd_key")

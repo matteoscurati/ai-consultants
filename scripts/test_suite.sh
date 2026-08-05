@@ -911,17 +911,17 @@ test_unpriced_models() {
     local saved="${COST_RATES_FILE:-}"
     COST_RATES_FILE="$SCRIPT_DIR/../docs/cost_rates.json"
 
-    assert_equals "0" "$(get_input_cost_per_1k qwen3.8-max-preview)"  "3.8 preview input is 0, not the default rate"
-    assert_equals "0" "$(get_output_cost_per_1k qwen3.8-max-preview)" "3.8 preview output is 0, not the default rate"
+    assert_equals "0" "$(get_input_cost_per_1k qwen3.8-max)"  "3.8 max input is 0, not the default rate"
+    assert_equals "0" "$(get_output_cost_per_1k qwen3.8-max)" "3.8 max output is 0, not the default rate"
 
     # The catalogued priced model must be untouched by this change.
     assert_equals "0.0012" "$(get_input_cost_per_1k qwen3.7-max)" "qwen3.7-max input unchanged"
     assert_equals "0.006"  "$(get_output_cost_per_1k qwen3.7-max)" "qwen3.7-max output unchanged"
 
-    if is_unpriced_model "qwen3.8-max-preview"; then
-        assert_equals "yes" "yes" "qwen3.8-max-preview is flagged unpriced"
+    if is_unpriced_model "qwen3.8-max"; then
+        assert_equals "yes" "yes" "qwen3.8-max is flagged unpriced"
     else
-        assert_equals "yes" "no"  "qwen3.8-max-preview is flagged unpriced"
+        assert_equals "yes" "no"  "qwen3.8-max is flagged unpriced"
     fi
     if is_unpriced_model "qwen3.7-max"; then
         assert_equals "no" "yes"  "qwen3.7-max is NOT flagged unpriced"
@@ -937,18 +937,18 @@ test_unpriced_models() {
     printf '{"consultant":"GLM","model":"glm-5.2","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1200,"tokens_output":800}}\n' > "$td/b.json"
     assert_equals "" "$(format_cost_caveats "$td")" "priced + measured run discloses nothing"
 
-    printf '{"consultant":"Qwen3","model":"qwen3.8-max-preview","response":{"approach":"y"},"confidence":{"score":9},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1200,"tokens_output":800}}\n' > "$td/a.json"
+    printf '{"consultant":"Qwen3","model":"qwen3.8-max","response":{"approach":"y"},"confidence":{"score":9},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1200,"tokens_output":800}}\n' > "$td/a.json"
     local disclosure
     disclosure=$(format_cost_caveats "$td")
-    if [[ "$disclosure" == *"qwen3.8-max-preview"* && "$disclosure" == *"credit-billed"* ]]; then
+    if [[ "$disclosure" == *"qwen3.8-max"* && "$disclosure" == *"credit-billed"* ]]; then
         assert_equals "yes" "yes" "mixed run names the excluded model"
     else
         assert_equals "yes" "no ($disclosure)" "mixed run names the excluded model"
     fi
 
     # Two responses from the same unpriced model must be named once.
-    printf '{"consultant":"Qwen3b","model":"qwen3.8-max-preview","response":{"approach":"z"},"confidence":{"score":7},"metadata":{"tokens_used":500,"tokens_source":"measured","tokens_input":300,"tokens_output":200}}\n' > "$td/c.json"
-    assert_equals "1" "$(format_cost_caveats "$td" | grep -o 'qwen3.8-max-preview' | wc -l | tr -d ' ')" \
+    printf '{"consultant":"Qwen3b","model":"qwen3.8-max","response":{"approach":"z"},"confidence":{"score":7},"metadata":{"tokens_used":500,"tokens_source":"measured","tokens_input":300,"tokens_output":200}}\n' > "$td/c.json"
+    assert_equals "1" "$(format_cost_caveats "$td" | grep -o 'qwen3.8-max' | wc -l | tr -d ' ')" \
         "duplicate model named once"
 
     rm -rf "$td"
@@ -1100,8 +1100,8 @@ test_model_tiers() {
 test_economic_models() {
     suite "costs.sh: get_economic_model"
 
-    assert_equals "Gemini 3.5 Flash (Low)" "$(get_economic_model "gemini")" "gemini economy is Gemini 3.5 Flash (Low) (agy)"
-    assert_equals "gpt-5.4-nano"     "$(get_economic_model "codex")"  "codex economy is gpt-5.4-nano"
+    assert_equals "Gemini 3.6 Flash (Low)" "$(get_economic_model "gemini")" "gemini economy is Gemini 3.6 Flash (Low) (agy)"
+    assert_equals "gpt-5.6-luna"     "$(get_economic_model "codex")"  "codex economy is gpt-5.6-luna"
     assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
     assert_equals "MiniMax-M2.5"     "$(get_economic_model "minimax")" "minimax economy is MiniMax-M2.5"
     assert_equals ""                 "$(get_economic_model "unknown")" "unknown consultant returns empty"
@@ -1475,30 +1475,30 @@ test_model_for_tier() {
     suite "config.sh: get_model_for_tier"
 
     assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-5"
-    assert_equals "claude-sonnet-4-6"     "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-4-6"
+    assert_equals "claude-sonnet-5"       "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-5"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
     assert_equals "Gemini 3.1 Pro (High)" "$(get_model_for_tier "gemini" "premium")" "gemini premium is Gemini 3.1 Pro (High) (agy)"
-    assert_equals "Gemini 3.5 Flash (Low)" "$(get_model_for_tier "gemini" "economy")" "gemini economy is Gemini 3.5 Flash (Low) (agy)"
+    assert_equals "Gemini 3.6 Flash (Low)" "$(get_model_for_tier "gemini" "economy")" "gemini economy is Gemini 3.6 Flash (Low) (agy)"
     assert_equals "MiniMax-M2.7"           "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M2.7"
     assert_equals "MiniMax-M2.5"           "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M2.5"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "premium")"    "kimi premium is K3"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "standard")"   "kimi standard is K3"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "economy")"    "kimi economy is K3"
-    # v2.17.0 model refresh
-    assert_equals "gpt-5.5"               "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-5.5"
-    assert_equals "gpt-5.4"               "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.4"
-    assert_equals "gpt-5.4-nano"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.4-nano"
+    # Codex / Gemini tier refresh (Aug 2026)
+    assert_equals "gpt-5.6-sol"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-5.6-sol"
+    assert_equals "gpt-5.6-terra"         "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.6-terra"
+    assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
     assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "premium")"   "cursor premium is composer-2.5"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
     assert_equals "glm-5.2"               "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.2"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.5"
     assert_equals "grok-4.1-fast"         "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.1-fast"
     assert_equals "qwen3.7-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.7-max"
-    # qwen3.8-max-preview is opt-in only: it needs a Qwen Cloud Token Plan
+    # qwen3.8-max is opt-in only: it needs a Qwen Cloud Token Plan
     # subscription and a different endpoint, so promoting it to the default
     # tier would break the consultant for every user without one. Asserted
     # explicitly so the contract is self-documenting rather than implied.
-    assert_not_equals "qwen3.8-max-preview" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in 3.8 preview"
+    assert_not_equals "qwen3.8-max" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in Token Plan model"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
     assert_equals "composer-2"            "$(get_model_for_tier "cursor" "standard")"   "cursor standard is composer-2"
     assert_equals "gemini-3-flash"        "$(get_model_for_tier "cursor" "economy")"    "cursor economy is gemini-3-flash"

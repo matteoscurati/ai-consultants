@@ -190,17 +190,17 @@ For every available variable and its default, see
 [`references/configuration.md`](../references/configuration.md). The executable
 source of truth is [`scripts/config.sh`](../scripts/config.sh).
 
-## Qwen via Qwen Cloud Token Plan (opt-in, preview)
+## Qwen via Qwen Cloud Token Plan (opt-in)
 
-`qwen3.8-max-preview` is **not** served by DashScope/ModelStudio. It is reachable
+`qwen3.8-max` is **not** served by DashScope/ModelStudio. It is reachable
 only through a Qwen Cloud **Token Plan** subscription, which has its own base URL
 and its own API key. This is opt-in: nothing below is a default, and the panel's
 premium Qwen model remains `qwen3.7-max`.
 
 Understand the tradeoffs before enabling it:
 
-- **Preview, not GA.** Alibaba describes it as continuously evolving. No open
-  weights, no published benchmarks, no stable per-token price.
+- **Token Plan only.** No open weights, no published benchmarks, no stable
+  per-token price.
 - **Billed in prepaid credits**, not per token — and credit consumption varies
   with reasoning depth. Cost reports therefore exclude it and say so explicitly
   rather than estimating a figure.
@@ -211,7 +211,7 @@ Understand the tradeoffs before enabling it:
 QWEN3_USE_API=true
 QWEN3_FORMAT=openai      # Token Plan is OpenAI-compatible; DashScope is not
 QWEN3_API_URL=https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions
-QWEN3_MODEL=qwen3.8-max-preview
+QWEN3_MODEL=qwen3.8-max
 QWEN3_API_KEY=<your Token Plan key>
 QWEN3_REASONING_EFFORT=high    # none|minimal|low|medium|high|xhigh|max; default xhigh
 ```
@@ -240,8 +240,8 @@ ai-consultants cannot deliver it per call and warns if you set
   "modelProviders": {
     "openai": [
       {
-        "id": "qwen3.8-max-preview",
-        "name": "[Token Plan] qwen3.8-max-preview",
+        "id": "qwen3.8-max",
+        "name": "[Token Plan] qwen3.8-max",
         "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
         "envKey": "BAILIAN_TOKEN_PLAN_API_KEY",
         "generationConfig": { "reasoning": { "effort": "high" } }

@@ -200,7 +200,13 @@ main() {
             continue
         fi
 
-        ver="$(run_with_timeout 8 "$cmd" --version </dev/null 2>/dev/null | head -1 || true)"
+        # agy under SSH must not see SSH_* markers (Keychain credential store).
+        # AGY_ENV_PREFIX is exec-safe under GNU timeout (see lib/common.sh).
+        if [[ "$default_bin" == "agy" ]]; then
+            ver="$(run_with_timeout 8 "${AGY_ENV_PREFIX[@]}" "$cmd" --version </dev/null 2>/dev/null | head -1 || true)"
+        else
+            ver="$(run_with_timeout 8 "$cmd" --version </dev/null 2>/dev/null | head -1 || true)"
+        fi
         detect_method "$default_bin" "$cmd"
         log_info "$display ($cmd): installed [${ver:-version n/a}] -- install method: $DETECT_METHOD"
 
