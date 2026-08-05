@@ -205,6 +205,16 @@ Understand the tradeoffs before enabling it:
   with reasoning depth. Cost reports therefore exclude it and say so explicitly
   rather than estimating a figure.
 
+Both `qwen3.8-max` and `qwen3.8-max-preview` are served by Token Plan and are
+**separate deployments**, not an alias or rename: each completion reports its
+own requested id back in `.model`. Verified against the live endpoint on
+2026-08-05. Prefer `qwen3.8-max`; `qwen3.8-max-preview` is the older
+deployment and the natural candidate for eventual retirement. An existing
+`qwen3.8-max-preview` pin keeps working and stays correctly catalogued — both
+ids are listed in `unpriced_models`, so the session report continues to
+disclose them as credit-billed and excluded from the total rather than falling
+through to `default_rate`.
+
 ### API mode (the effort knob works here)
 
 ```bash
