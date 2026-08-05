@@ -242,9 +242,15 @@ check_cli_consultant() {
         return 0
     fi
 
-    # Get version (--version is standard and fast, no timeout needed)
+    # Get version (--version is standard and fast, no timeout needed).
+    # Gemini/agy must run under agy_env so an SSH session still reaches the
+    # Keychain credential store (see agy_env in lib/common.sh).
     local version
-    version=$("$cmd" --version 2>/dev/null | head -1 || echo "")
+    if [[ "$name" == "Gemini" ]]; then
+        version=$(agy_env "$cmd" --version 2>/dev/null | head -1 || echo "")
+    else
+        version=$("$cmd" --version 2>/dev/null | head -1 || echo "")
+    fi
 
     if [[ -n "$version" ]]; then
         _print "  ✓ $name: $version"

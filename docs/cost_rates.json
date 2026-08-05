@@ -17,17 +17,25 @@
       "input": 0.002,
       "output": 0.012
     },
-    "Gemini 3.5 Flash (High)": {
+    "Gemini 3.6 Flash (High)": {
       "input": 0.0015,
-      "output": 0.009
+      "output": 0.0075
     },
-    "Gemini 3.5 Flash (Low)": {
+    "Gemini 3.6 Flash (Low)": {
       "input": 0.0015,
-      "output": 0.009
+      "output": 0.0075
     },
-    "gpt-5.5": {
+    "gpt-5.6-sol": {
       "input": 0.005,
       "output": 0.030
+    },
+    "gpt-5.6-terra": {
+      "input": 0.002,
+      "output": 0.012
+    },
+    "gpt-5.6-luna": {
+      "input": 0.0002,
+      "output": 0.0012
     },
     "mistral-large-3": {
       "input": 0.002,
@@ -75,7 +83,7 @@
       "output": 0.00
     },
     "_comment_standard": "Standard tier models",
-    "claude-sonnet-4-6": {
+    "claude-sonnet-5": {
       "input": 0.003,
       "output": 0.015
     },
@@ -137,6 +145,30 @@
       "output": 0.001
     },
     "_comment_legacy": "Legacy models for backwards compatibility",
+    "Gemini 3.5 Flash (High)": {
+      "input": 0.0015,
+      "output": 0.009
+    },
+    "Gemini 3.5 Flash (Low)": {
+      "input": 0.0015,
+      "output": 0.009
+    },
+    "gpt-5.5": {
+      "input": 0.005,
+      "output": 0.030
+    },
+    "gpt-5.4": {
+      "input": 0.0025,
+      "output": 0.015
+    },
+    "gpt-5.4-nano": {
+      "input": 0.0002,
+      "output": 0.00125
+    },
+    "claude-sonnet-4-6": {
+      "input": 0.003,
+      "output": 0.015
+    },
     "claude-opus-4-8": {
       "input": 0.005,
       "output": 0.025
@@ -289,14 +321,6 @@
       "input": 0.0003,
       "output": 0.0015
     },
-    "gpt-5.4": {
-      "input": 0.0025,
-      "output": 0.015
-    },
-    "gpt-5.4-nano": {
-      "input": 0.0002,
-      "output": 0.00125
-    },
     "composer-2.5": {
       "input": 0.0005,
       "output": 0.0025
@@ -326,19 +350,24 @@
       "output": 0.0025
     },
     "_comment_unpriced": "Credit-billed models: drawn from a prepaid subscription pool, with no published per-token price. Rated 0 so the estimator does not fabricate a figure - an absent model would otherwise fall through to default_rate (0.005/0.015) and be reported as a confident, wrong number. Every entry here must also be listed in unpriced_models, which is what makes the session report disclose the exclusion instead of implying the model was free.",
+    "qwen3.8-max": {
+      "input": 0,
+      "output": 0
+    },
     "qwen3.8-max-preview": {
       "input": 0,
       "output": 0
     }
   },
   "unpriced_models": [
+    "qwen3.8-max",
     "qwen3.8-max-preview"
   ],
   "consultant_fallbacks": {
-    "_comment": "Premium defaults - Updated Jul 2026",
+    "_comment": "Premium defaults - Updated Aug 2026",
     "claude": "claude-opus-5",
     "gemini": "Gemini 3.1 Pro (High)",
-    "codex": "gpt-5.5",
+    "codex": "gpt-5.6-sol",
     "mistral": "mistral-large-3",
     "deepseek": "deepseek-v4-pro",
     "glm": "glm-5.2",
@@ -353,7 +382,7 @@
     "premium": {
       "claude": "claude-opus-5",
       "gemini": "Gemini 3.1 Pro (High)",
-      "codex": "gpt-5.5",
+      "codex": "gpt-5.6-sol",
       "mistral": "mistral-large-3",
       "deepseek": "deepseek-v4-pro",
       "glm": "glm-5.2",
@@ -364,9 +393,9 @@
       "minimax": "minimax-m2.7"
     },
     "standard": {
-      "claude": "claude-sonnet-4-6",
-      "gemini": "Gemini 3.5 Flash (High)",
-      "codex": "gpt-5.4",
+      "claude": "claude-sonnet-5",
+      "gemini": "Gemini 3.6 Flash (High)",
+      "codex": "gpt-5.6-terra",
       "mistral": "mistral-medium-latest",
       "deepseek": "deepseek-v4-flash",
       "glm": "glm-5.2",
@@ -378,8 +407,8 @@
     },
     "economy": {
       "claude": "claude-haiku-4-5",
-      "gemini": "Gemini 3.5 Flash (Low)",
-      "codex": "gpt-5.4-nano",
+      "gemini": "Gemini 3.6 Flash (Low)",
+      "codex": "gpt-5.6-luna",
       "mistral": "devstral-small-2",
       "deepseek": "deepseek-v4-flash",
       "glm": "glm-4-flash",

@@ -115,7 +115,7 @@ test_format_override() {
 test_effort_validation() {
     # The full enum the provider reports in its own 400, verified live against
     # the Token Plan endpoint. 'minimal' and 'medium' are in it despite the
-    # public write-ups claiming qwen3.8-max-preview takes only low|high|xhigh.
+    # public write-ups claiming qwen3.8-max takes only low|high|xhigh.
     for e in none minimal low medium high xhigh max; do
         assert_eq "$e" "$(validate_reasoning_effort "$e" Qwen3)" "accepts '$e'"
     done
@@ -138,9 +138,9 @@ test_effort_validation() {
 
 test_openai_body_with_effort() {
     local body
-    body=$(build_openai_request "hello" "qwen3.8-max-preview" 4096 "xhigh")
+    body=$(build_openai_request "hello" "qwen3.8-max" 4096 "xhigh")
     assert_eq "xhigh" "$(jq -r '.reasoning_effort' <<<"$body")" "reasoning_effort present"
-    assert_eq "qwen3.8-max-preview" "$(jq -r '.model' <<<"$body")" "model preserved"
+    assert_eq "qwen3.8-max" "$(jq -r '.model' <<<"$body")" "model preserved"
     assert_eq "hello" "$(jq -r '.messages[0].content' <<<"$body")" "prompt preserved"
     assert_eq "4096"  "$(jq -r '.max_tokens' <<<"$body")" "max_tokens preserved"
     assert_eq "4" "$(jq -r '. | keys | length' <<<"$body")" "exactly one key added"

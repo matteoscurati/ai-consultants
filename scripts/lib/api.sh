@@ -188,7 +188,7 @@ build_qwen_request() {
 #   'reasoning_effort' must be one of: 'none', 'minimal', 'low', 'medium',
 #   'high', 'xhigh', 'max'
 # Note this is WIDER than the low|high|xhigh that the public write-ups for
-# qwen3.8-max-preview all reported — 'minimal', 'medium' and 'max' are accepted
+# qwen3.8-max all reported — 'minimal', 'medium' and 'max' are accepted
 # by the model too. Taken from the API rather than from documentation for
 # exactly that reason.
 #
@@ -196,7 +196,7 @@ build_qwen_request() {
 # facts in shell is what produced the stale-model bugs this release also fixes,
 # and the same builder serves GLM/Grok/DeepSeek/MiniMax. An unsupported
 # combination is rejected by the provider with a 400 that run_api_query
-# surfaces without retrying — e.g. 'none' on qwen3.8-max-preview returns "The
+# surfaces without retrying — e.g. 'none' on qwen3.8-max returns "The
 # value of the enable_thinking parameter is restricted to True", which is a
 # model fact, not a syntax error.
 validate_reasoning_effort() {
@@ -248,7 +248,7 @@ build_openai_request() {
 # Usage: build_anthropic_request <prompt> <model> [max_tokens]
 build_anthropic_request() {
     local prompt="$1"
-    local model="${2:-claude-sonnet-4-6}"
+    local model="${2:-claude-sonnet-5}"
     local max_tokens="${3:-16384}"
 
     jq -n \

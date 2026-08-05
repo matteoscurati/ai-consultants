@@ -144,8 +144,8 @@ export GEMINI_USE_API
 # CODEX CONFIGURATION - The Pragmatist
 # =============================================================================
 
-# Model: "gpt-5.5" (default), "gpt-5.4", "gpt-5.4-nano", "gpt-5.3-codex", etc.
-CODEX_MODEL="${CODEX_MODEL:-gpt-5.5}"
+# Model: "gpt-5.6-sol" (default), "gpt-5.6-terra", "gpt-5.6-luna", etc.
+CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-sol}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
@@ -584,7 +584,7 @@ get_model_for_tier() {
             case "$consultant" in
                 claude)   echo "claude-opus-5" ;;
                 gemini)   echo "Gemini 3.1 Pro (High)" ;;
-                codex)    echo "gpt-5.5" ;;
+                codex)    echo "gpt-5.6-sol" ;;
                 mistral)  echo "mistral-large-3" ;;
                 cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
@@ -598,9 +598,9 @@ get_model_for_tier() {
             ;;
         standard|medium|balanced)
             case "$consultant" in
-                claude)   echo "claude-sonnet-4-6" ;;
-                gemini)   echo "Gemini 3.5 Flash (High)" ;;
-                codex)    echo "gpt-5.4" ;;
+                claude)   echo "claude-sonnet-5" ;;
+                gemini)   echo "Gemini 3.6 Flash (High)" ;;
+                codex)    echo "gpt-5.6-terra" ;;
                 mistral)  echo "mistral-medium-latest" ;;
                 cursor)   echo "composer-2" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
@@ -615,8 +615,8 @@ get_model_for_tier() {
         economy|fast|quick)
             case "$consultant" in
                 claude)   echo "claude-haiku-4-5" ;;
-                gemini)   echo "Gemini 3.5 Flash (Low)" ;;
-                codex)    echo "gpt-5.4-nano" ;;
+                gemini)   echo "Gemini 3.6 Flash (Low)" ;;
+                codex)    echo "gpt-5.6-luna" ;;
                 mistral)  echo "devstral-small-2" ;;
                 cursor)   echo "gemini-3-flash" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
