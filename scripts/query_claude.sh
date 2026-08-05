@@ -9,6 +9,7 @@
 #   CLAUDE_USE_API - Use API mode instead of CLI (default: false)
 #   CLAUDE_API_MAX_TOKENS - API thinking + visible-output budget (default: 16384)
 #   ANTHROPIC_API_KEY - API key for API mode
+#   CLAUDE_REASONING_EFFORT - Optional CLI/API reasoning effort
 #   ENABLE_PERSONA - Enable "The Synthesizer" persona (default: true)
 
 set -euo pipefail
@@ -64,21 +65,41 @@ if is_api_mode "claude"; then
     else
         exit_code=$?
     fi
-warn_effort_ignored_in_cli "Claude"
 else
     # --- CLI Mode ---
     log_api_mode_status "claude"
     check_command "$CLAUDE_CMD" "Claude CLI" "Visit https://docs.anthropic.com/en/docs/claude-code" || exit 1
 
-    # JSON output exposes provider-measured usage and cost. In particular,
-    # output_tokens includes adaptive thinking that is absent from .result.
-    echo "$FULL_QUERY" | run_query \
-        "Claude" \
-        "$TEMP_OUTPUT" \
-        "$CLAUDE_TIMEOUT_SECONDS" \
-        "$CLAUDE_CMD" --print --model "$MODEL_USED" --output-format json
+    # Optional CLI effort control. Unset leaves the CLI's own default alone;
+    # when set, pass --effort through after the shared validation gate. Do not
+    # invent a local allowlist — the provider rejects what it does not accept.
+    CLAUDE_ARGS=("$CLAUDE_CMD" --print --model "$MODEL_USED" --output-format json)
+    effort_ok=true
+    if [[ -n "${CLAUDE_REASONING_EFFORT:-}" ]]; then
+        source "$SCRIPT_DIR/lib/api.sh"
+        if ! cli_effort=$(validate_reasoning_effort "$CLAUDE_REASONING_EFFORT" "$CONSULTANT_NAME"); then
+            effort_ok=false
+            exit_code=1
+        else
+            CLAUDE_ARGS+=(--effort "$cli_effort")
+        fi
+    fi
 
-    exit_code=$?
+    if [[ "$effort_ok" == "true" ]]; then
+        # JSON output exposes provider-measured usage and cost. In particular,
+        # output_tokens includes adaptive thinking that is absent from .result.
+        # Keep failures inside an explicit conditional so `set -e` cannot skip
+        # exit_code assignment (same guard as the API branch).
+        if echo "$FULL_QUERY" | run_query \
+                "Claude" \
+                "$TEMP_OUTPUT" \
+                "$CLAUDE_TIMEOUT_SECONDS" \
+                "${CLAUDE_ARGS[@]}"; then
+            exit_code=0
+        else
+            exit_code=$?
+        fi
+    fi
 fi
 
 # --- Calculate latency ---
