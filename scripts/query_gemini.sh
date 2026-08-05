@@ -13,6 +13,7 @@
 #   GEMINI_USE_API - Use Google AI API mode instead of the agy CLI (default: false)
 #   GEMINI_API_MODEL - API model ID for API mode (default: gemini-3.1-pro-preview)
 #   GEMINI_API_KEY - API key for API mode
+#   GEMINI_REASONING_EFFORT - Optional CLI reasoning effort
 #   ENABLE_PERSONA - Enable "The Architect" persona (default: true)
 
 set -euo pipefail
@@ -68,7 +69,6 @@ if is_api_mode "gemini"; then
     else
         exit_code=$?
     fi
-warn_effort_ignored_in_cli "Gemini"
 else
     # --- CLI Mode (Antigravity CLI: agy) ---
     log_api_mode_status "gemini"
@@ -88,13 +88,35 @@ else
     # Strip SSH_* markers so agy consults the macOS Keychain (see agy_env /
     # AGY_ENV_PREFIX in lib/common.sh). Use the exec-safe prefix array — not the
     # agy_env function — because run_query dispatches through GNU timeout.
-    run_query \
-        "Gemini" \
-        "$TEMP_OUTPUT" \
-        "$GEMINI_TIMEOUT_SECONDS" \
-        "${AGY_ENV_PREFIX[@]}" "$GEMINI_CMD" -p "$FULL_QUERY" --model "$GEMINI_MODEL" </dev/null
+    #
+    # Optional CLI effort: when GEMINI_REASONING_EFFORT is set, pass --effort.
+    # agy accepts only a subset (e.g. low|medium|high); unsupported values fail
+    # at the provider and surface as diagnosed errors — no local allowlist.
+    GEMINI_ARGS=("${AGY_ENV_PREFIX[@]}" "$GEMINI_CMD" -p "$FULL_QUERY" --model "$GEMINI_MODEL")
+    effort_ok=true
+    if [[ -n "${GEMINI_REASONING_EFFORT:-}" ]]; then
+        source "$SCRIPT_DIR/lib/api.sh"
+        if ! cli_effort=$(validate_reasoning_effort "$GEMINI_REASONING_EFFORT" "$CONSULTANT_NAME"); then
+            effort_ok=false
+            exit_code=1
+        else
+            GEMINI_ARGS+=(--effort "$cli_effort")
+        fi
+    fi
 
-    exit_code=$?
+    if [[ "$effort_ok" == "true" ]]; then
+        # Keep failures inside an explicit conditional so `set -e` cannot skip
+        # exit_code assignment (same guard as the API branch).
+        if run_query \
+                "Gemini" \
+                "$TEMP_OUTPUT" \
+                "$GEMINI_TIMEOUT_SECONDS" \
+                "${GEMINI_ARGS[@]}" </dev/null; then
+            exit_code=0
+        else
+            exit_code=$?
+        fi
+    fi
 fi
 
 # --- Calculate latency ---

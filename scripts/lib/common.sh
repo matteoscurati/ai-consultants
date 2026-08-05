@@ -509,7 +509,7 @@ warn_effort_ignored_in_cli() {
     if is_api_mode "$agent"; then
         return 0
     fi
-    log_warn "[$agent] $var is ignored in CLI mode - no consultant CLI exposes a reasoning-effort flag. Set it in the CLI's own configuration, or switch this consultant to API mode."
+    log_warn "[$agent] $var is ignored in CLI mode - this consultant's CLI does not expose a reasoning-effort flag. Set it in the CLI's own configuration, or switch this consultant to API mode."
 }
 
 # Log API mode status for debugging
