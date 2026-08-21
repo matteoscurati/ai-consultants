@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 11 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
-**Version**: 3.4.0
+**Version**: 3.5.0
 
 ## Distribution
 
@@ -789,6 +789,18 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v3.5.0
+
+- **The catalog now distinguishes an advisory panel's normal premium tier from subscription-only maximum targets.** `get_model_for_tier()` accepts an explicit transport, while `apply_model_tier maximum` selects K3-256k and MiniMax M3 and promotes Qwen3.8-Max only when `QWEN3_USE_API=true`, the wire is OpenAI-compatible, the endpoint is a Token Plan `/chat/completions` URL, and a key is present (`scripts/config.sh:581-737`). The Qwen effort is marked tier-managed, cleared when leaving maximum, and never overwrites a user pin. Gemini 3.7, Fable 5, and the new Mistral API IDs remain catalogued opt-ins after their exact transports failed authentication or timed out; normal runs do not inherit delegation-kit's routing gates.
+- **Mistral CLI and API names are no longer conflated.** `MISTRAL_CLI_MODEL=mistral-medium-3.5` reaches Vibe through `VIBE_ACTIVE_MODEL`; `MISTRAL_MODEL` remains API-only. Vibe verifies its bounded read-only interface, runs `plan` for one turn in a mode-700 temporary workspace, and treats empty or post-launch failures as failures (`scripts/query_mistral.sh:47-143`). The current machine passed the exact Vibe smoke; no Mistral API key was available, so the new API IDs were not promoted.
+- **Cursor now means Cursor.** The old `CURSOR_CMD=agent` resolved to Grok on this machine. Runtime, configure, and doctor now default to `cursor-agent`, validate the Cursor help surface, bound model-inventory calls, require Composer 2.5, and invoke `--mode ask --trust` only against an ephemeral workspace (`scripts/query_cursor.sh:33-132`, `scripts/configure.sh:322-363`). The local Cursor account is not logged in, so runtime authentication remains a user gate rather than something this release works around.
+- **Model identity evidence is additive and honest.** Every envelope carries the requested ID and one of `provider-reported`, `capability-probed`, or `requested-only`; API model strings are syntax-validated before adoption (`scripts/lib/common.sh:935-1068`, `scripts/lib/api_query.sh:162-194`). `modelUsage` remains billing participation, not content identity. The shared billing resolver prefers a known effective ID, then the explicit requested ID, and uses consultant fallback only for legacy responses that lack the new metadata (`scripts/lib/costs.sh:311-430`).
+- **The reliability boundary is finite.** Cursor/Gemini/Mistral capability probes and Cursor configure/doctor probes have explicit time limits. An HTTP 200 with an empty body increments the retry counter, including at the shipped `MAX_RETRIES=2`, instead of spinning indefinitely (`scripts/lib/api.sh`, `scripts/test_api_transport.sh`). Google `thinkingConfig` is emitted only for Gemini 3.7; the proven 3.1 API body remains byte-compatible.
+- **Managed migrations are exact and pins survive.** `configure` upgrades only the historical managed Cursor command, GLM 5.2, and Grok 4.5 values. Environment/`--set` model values and any `# ai-consultants:pin` entry remain user-owned. The new catalog-parity gate checks all 44 consultant/tier cells and all 16 Gemini/Mistral transport cells against `docs/cost_rates.json`, requiring every automatic target to be priced or explicitly unpriced.
+- **Promotion evidence is recorded without overstating it.** Exact ai-consultants smokes passed for Mistral Vibe Medium 3.5, GLM 5.3, Grok 4.6, K3-256k, Qwen3.8-Max Token Plan, and MiniMax M3. Gemini 3.7 lacked agy/API auth, Mistral API lacked a key, Fable 5 timed out, and Cursor lacked login; those stay opt-in/unverified. Cross-family Opus 5/max review first returned `NO-SHIP` with four blockers, then `SHIP` after the hermeticity, trust, probe, thinking, billing, retry, and parity findings were fixed. Final gate: 22/22 suites, 443/443 core checks, ShellCheck and npm tarball green.
+
+  Deliberate residuals: Cursor and Vibe isolate the workspace but retain ambient HOME for their authenticated CLI state; unpriced credit/subscription models are disclosed but cannot be enforced by a dollar budget; provider/requested model substitutions are available in raw JSON but not yet summarized in the human report.
 
 ### v3.4.0
 - **Gemini was unreachable from an SSH session, and no amount of re-authenticating helped.** `agy` picks its credential store from the environment: seeing `SSH_CLIENT`, `SSH_CONNECTION`, or `SSH_TTY` it switches to a file-based token store and never consults the macOS Keychain. A user who signed in locally therefore lost Gemini entirely over SSH, and signing in again landed the new credential in the Keychain the CLI had already decided to ignore. Reproduced live before fixing (`agy models` → "Please sign in"; the same command under `env -u SSH_CLIENT -u SSH_CONNECTION -u SSH_TTY` → full inventory), and confirmed again end to end after. Found by reading delegation-kit's 0.13.1 fix and checking whether the same failure applied here — it did, in the very session doing the work.

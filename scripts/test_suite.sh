@@ -1556,11 +1556,17 @@ test_model_for_tier() {
     assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "maximum")"     "maximum catalog includes Qwen3.8-Max"
     assert_equals "MiniMax-M3"            "$(get_model_for_tier "minimax" "maximum")"   "maximum tier confines MiniMax M3"
 
-    apply_model_tier maximum
-    assert_equals "gemini-3.1-pro-preview" "$GEMINI_API_MODEL" "maximum preset exports Gemini API ID"
-    assert_equals "mistral-medium-3.5" "$MISTRAL_CLI_MODEL" "maximum preset exports Mistral CLI ID"
-    assert_equals "mistral-large-3" "$MISTRAL_MODEL" "maximum preset preserves the previously managed Mistral API model"
-    assert_equals "qwen3.7-max" "$QWEN3_MODEL" "maximum preset does not redirect an unconfigured Qwen transport"
+    local maximum_unconfigured
+    maximum_unconfigured=$(
+        QWEN3_USE_API=false
+        QWEN3_FORMAT=qwen
+        QWEN3_API_URL=https://dashscope.example.test/api
+        unset QWEN3_API_KEY QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
+        apply_model_tier maximum
+        printf '%s|%s|%s|%s\n' "$GEMINI_API_MODEL" "$MISTRAL_CLI_MODEL" "$MISTRAL_MODEL" "$QWEN3_MODEL"
+    )
+    assert_equals "gemini-3.1-pro-preview|mistral-medium-3.5|mistral-large-3|qwen3.7-max" \
+        "$maximum_unconfigured" "maximum exports are hermetic without Token Plan"
 
     local qwen_tier_output
     qwen_tier_output=$(
@@ -1581,11 +1587,13 @@ test_model_for_tier() {
     assert_equals "qwen3-32b|" "$(sed -n '2p' <<<"$qwen_tier_output")" "leaving maximum clears only the managed Qwen effort"
     assert_equals "qwen3.8-max|low" "$(sed -n '3p' <<<"$qwen_tier_output")" "maximum preserves a user-pinned Qwen effort"
 
-    apply_model_tier economy
-    assert_equals "Gemini 3.6 Flash (Low)" "$GEMINI_MODEL" "economy preset keeps unverified Gemini 3.7 opt-in"
-    assert_equals "gemini-3.1-pro-preview" "$GEMINI_API_MODEL" "economy preset keeps unverified Gemini 3.7 API opt-in"
-    assert_equals "devstral-small-2" "$MISTRAL_CLI_MODEL" "economy preset exports Devstral CLI alias"
-    assert_equals "mistral-large-3" "$MISTRAL_MODEL" "economy preset keeps unverified Mistral Small 4 opt-in"
+    local economy_exports
+    economy_exports=$(
+        apply_model_tier economy
+        printf '%s|%s|%s|%s\n' "$GEMINI_MODEL" "$GEMINI_API_MODEL" "$MISTRAL_CLI_MODEL" "$MISTRAL_MODEL"
+    )
+    assert_equals "Gemini 3.6 Flash (Low)|gemini-3.1-pro-preview|devstral-small-2|mistral-large-3" \
+        "$economy_exports" "economy exports are transport-stable and hermetic"
 
     # Unknown tier returns empty
     assert_equals "" "$(get_model_for_tier "claude" "mythical")" "unknown tier returns empty"

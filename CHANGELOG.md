@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [3.5.0] - 2026-08-21
+
+### Added
+- **A separate `maximum` tier powers `max_quality` without changing normal premium runs.** It selects the exact-transport-smoked Kimi K3-256k and MiniMax M3 targets, plus Qwen3.8-Max only when an authenticated Token Plan endpoint is already configured; otherwise Qwen remains on 3.7-Max.
+- Responses now record `metadata.requested_model` and `metadata.model_identity_source` (`provider-reported`, `capability-probed`, or `requested-only`) while the top-level `model` remains the strongest effective identifier the transport can attest.
+- Dedicated Cursor, Mistral, and MiniMax adapter suites plus transport, retry, migration, identity, pricing, and catalog-parity coverage; the full gate now runs 22 suites and 443 core checks.
+
+### Changed
+- **Mistral Vibe now uses its own model namespace.** `MISTRAL_CLI_MODEL=mistral-medium-3.5` is passed through `VIBE_ACTIVE_MODEL`; `MISTRAL_MODEL` remains the API-only setting. Vibe runs its read-only `plan` agent for one bounded turn in a temporary workspace.
+- **The promoted defaults move to GLM 5.3 and Grok 4.6.** Cursor stays on Composer 2.5 across tiers and now uses the unambiguous `cursor-agent` executable.
+- Pricing and unpriced disclosures now cover Fable 5, Gemini 3.7 Flash, Mistral Medium 3.5/Large 3/Small 4, Grok 4.6, MiniMax M3/M2.7/M2.5, GLM 5.3, Qwen3.8-Max, and K3-256k. Provider-reported revisions use the requested catalog model for billing without relabeling effective identity.
+- Gemini 3.7 Flash, the new Mistral API IDs, and Claude Fable 5 remain explicit opt-ins because their exact ai-consultants transport smoke could not authenticate or complete. No alternate credential, model, or transport was substituted.
+
+### Fixed
+- **Cursor no longer resolves the unrelated `agent` binary (Grok on affected machines).** The adapter and doctor validate Cursor's interface and account model inventory, use `--mode ask --trust` only for an ephemeral workspace, and never use force-allow mode.
+- Capability and inventory probes for Cursor, Gemini, and Mistral are bounded; a missing model is distinguished from an unavailable/auth-required inventory, and static diagnostics no longer risk `grep -q`/SIGPIPE false negatives.
+- Empty HTTP 200 responses consume a finite retry and fail closed instead of spinning forever; provider-returned model IDs are syntax-validated before they can become response or billing identity.
+- `configure` migrates only the exact managed historical values `CURSOR_CMD=agent`, `GLM_MODEL=glm-5.2`, and `GROK_MODEL=grok-4.5`; values carrying `# ai-consultants:pin` remain untouched.
+
 ## [3.4.0] - 2026-08-05
 
 ### Fixed
