@@ -303,6 +303,27 @@ _billable_response_files() {
     done
 }
 
+# Resolve the catalog key used for billing without relabeling the response's
+# effective identity. A provider-reported dated revision may be absent from the
+# catalog; in that case the explicit requested_model is the only defensible
+# pricing key. Consultant premium fallbacks are used only for legacy responses
+# that carry no requested_model at all.
+_billing_model_for_response() {
+    local f="$1" effective requested consultant
+    effective=$(jq -r '.model // "default"' "$f" 2>/dev/null)
+    requested=$(jq -r '.metadata.requested_model // empty' "$f" 2>/dev/null)
+    consultant=$(jq -r '.consultant // empty' "$f" 2>/dev/null)
+
+    if get_rate_from_file "$effective" input >/dev/null 2>&1 \
+        || is_unpriced_model "$effective"; then
+        printf '%s\n' "$effective"
+    elif [[ -n "$requested" ]]; then
+        printf '%s\n' "$requested"
+    else
+        resolve_model_for_cost "$effective" "$consultant"
+    fi
+}
+
 # Calculate total session cost from responses
 # Usage: calculate_session_cost <responses_dir>
 #
@@ -323,7 +344,7 @@ calculate_session_cost() {
         fi
 
         local model input_tokens output_tokens
-        model=$(jq -r '.model // "default"' "$f" 2>/dev/null)
+        model=$(_billing_model_for_response "$f")
         input_tokens=$(jq -r '.metadata.tokens_input // empty' "$f" 2>/dev/null)
         output_tokens=$(jq -r '.metadata.tokens_output // empty' "$f" 2>/dev/null)
 
@@ -373,7 +394,8 @@ format_cost_caveats() {
     local responses_dir="${1:-}"
     [[ -d "$responses_dir" ]] || return 0
 
-    local unpriced="" estimated=0 unknown=0 priced=0 f
+    local estimated=0 unknown=0 priced=0 f
+    local unpriced_models=()
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
 
@@ -389,13 +411,14 @@ format_cost_caveats() {
             *)         unknown=$((unknown + 1)) ;;
         esac
 
-        local model
-        model=$(jq -r '.model // ""' "$f" 2>/dev/null)
+        local model seen item
+        model=$(_billing_model_for_response "$f")
         is_unpriced_model "$model" || continue
-        case ",$unpriced," in
-            *",$model,"*) ;;
-            *) unpriced="${unpriced:+$unpriced,}$model" ;;
-        esac
+        seen=false
+        for item in "${unpriced_models[@]+"${unpriced_models[@]}"}"; do
+            [[ "$item" == "$model" ]] && seen=true
+        done
+        [[ "$seen" == "true" ]] || unpriced_models+=("$model")
     done < <(_billable_response_files "$responses_dir")
 
     local parts=""
@@ -405,7 +428,9 @@ format_cost_caveats() {
     if [[ $unknown -gt 0 ]]; then
         parts="${parts:+$parts; }$unknown contributed no token data"
     fi
-    if [[ -n "$unpriced" ]]; then
+    local unpriced=""
+    if (( ${#unpriced_models[@]} > 0 )); then
+        unpriced=$(IFS=,; printf '%s' "${unpriced_models[*]}")
         parts="${parts:+$parts; }excludes ${unpriced//,/, } (credit-billed, no per-token price)"
     fi
 
@@ -695,11 +720,12 @@ get_model_tier() {
 
 # Get economic model for a consultant
 # Delegates to get_model_for_tier() in config.sh (single source of truth)
-# Usage: get_economic_model <consultant>
+# Usage: get_economic_model <consultant> [cli|api]
 get_economic_model() {
     local consultant="$1"
+    local transport="${2:-}"
     if type get_model_for_tier &>/dev/null; then
-        get_model_for_tier "$consultant" "economy"
+        get_model_for_tier "$consultant" "economy" "$transport"
     else
         echo ""
     fi

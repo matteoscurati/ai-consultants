@@ -37,6 +37,8 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
     "tokens_output": 300,
     "latency_ms": 2345,
     "model_version": "gemini-3.1-pro-preview",
+    "requested_model": "gemini-3.1-pro-preview",
+    "model_identity_source": "provider-reported",
     "cli_version": "0.27.0",
     "cli_compatibility": "capability-probed",
     "timestamp": "2024-01-14T12:34:56Z"
@@ -198,6 +200,8 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
     "tokens_output": 300,
     "latency_ms": 2345,
     "model_version": "gemini-3.1-pro-preview",
+    "requested_model": "gemini-3.1-pro-preview",
+    "model_identity_source": "provider-reported",
     "timestamp": "2024-01-14T12:34:56Z"
   }
 }
@@ -210,7 +214,9 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
 | `tokens_input` | integer | Prompt tokens, when the provider reported them (API mode only) |
 | `tokens_output` | integer | Completion tokens, when the provider reported them (API mode only) |
 | `latency_ms` | integer | Response time in ms |
-| `model_version` | string | Exact model version |
+| `model_version` | string | Best effective model identifier available to the transport |
+| `requested_model` | string | Model identifier requested before provider resolution |
+| `model_identity_source` | string | `provider-reported` \| `capability-probed` \| `requested-only` |
 | `cli_version` | string | Observed CLI version for provenance; never a compatibility gate |
 | `cli_compatibility` | string | Capability-probe result: `capability-probed` or `incompatible` |
 | `timestamp` | string | ISO 8601 timestamp |
@@ -335,6 +341,8 @@ jq 'has("consultant") and has("response") and has("confidence")' output.json
     "tokens_source": "estimated",
     "latency_ms": 1850,
     "model_version": "gemini-3.1-pro-preview",
+    "requested_model": "gemini-3.1-pro-preview",
+    "model_identity_source": "requested-only",
     "timestamp": "2024-01-14T12:34:56Z"
   }
 }

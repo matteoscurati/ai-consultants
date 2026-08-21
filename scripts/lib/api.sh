@@ -265,13 +265,15 @@ build_anthropic_request() {
 }
 
 # Build request body for Google AI API (Gemini API mode)
-# Usage: build_google_ai_request <prompt> [model]
+# Usage: build_google_ai_request <prompt> [thinking_level]
 # Note: Model is appended to URL, not in request body for Google AI
 build_google_ai_request() {
     local prompt="$1"
+    local thinking_level="${2:-}"
 
     jq -n \
         --arg prompt "$prompt" \
+        --arg thinking_level "$thinking_level" \
         '{
             contents: [
                 { parts: [{ text: $prompt }] }
@@ -279,7 +281,10 @@ build_google_ai_request() {
             generationConfig: {
                 maxOutputTokens: 4096
             }
-        }'
+        }
+        | if $thinking_level == "" then .
+          else .generationConfig.thinkingConfig = {thinkingLevel: $thinking_level}
+          end'
 }
 
 # =============================================================================
@@ -567,6 +572,10 @@ run_api_query() {
                     break
                 else
                     log_warn "[$consultant_name] Empty response body"
+                    ((attempt++)) || true
+                    if (( attempt <= MAX_RETRIES )); then
+                        sleep "$RETRY_DELAY_SECONDS"
+                    fi
                 fi
                 ;;
             auth)

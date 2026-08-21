@@ -12,7 +12,7 @@ Read this file when the user asks about presets, strategies, bash usage, best pr
 | `high-stakes` | Expanded panel (5 of 11) | Critical decisions |
 | `security` | Security-focused (4) | Security reviews |
 | `cost-capped` | Budget-friendly | Low cost |
-| `max_quality` | 8 of 11, premium models | Critical decisions |
+| `max_quality` | 8 of 11, maximum tier | Critical decisions |
 | `medium` | 4, standard models | General questions |
 | `fast` | 2, economy models | Quick checks |
 

@@ -189,6 +189,7 @@ test_cli_pins_model_and_headless_contract() {
     assert_eq "cli" "$(jq -r '.metadata.transport' "$output_file")" "response records CLI transport"
     assert_eq "user-build-a" "$(jq -r '.metadata.cli_version' "$output_file")" "CLI version is recorded as provenance"
     assert_eq "capability-probed" "$(jq -r '.metadata.cli_compatibility' "$output_file")" "response records capability-based compatibility"
+    assert_eq "capability-probed" "$(jq -r '.metadata.model_identity_source' "$output_file")" "CLI model identity comes from the inventory"
 }
 
 test_alternate_compatible_version_is_accepted() {
@@ -285,6 +286,7 @@ test_unavailable_cli_falls_back_to_api() {
     assert_eq "grok-4.5" "$(jq -r '.model' "$output_file")" "API fallback uses grok-4.5"
     assert_eq "api_fallback" "$(jq -r '.metadata.transport' "$output_file")" "response records API fallback transport"
     assert_eq "30" "$(jq -r '.metadata.tokens_used' "$output_file")" "API fallback preserves measured token usage"
+    assert_eq "provider-reported" "$(jq -r '.metadata.model_identity_source' "$output_file")" "API fallback records provider-reported identity"
 }
 
 test_missing_cli_falls_back_to_api() {

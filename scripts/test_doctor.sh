@@ -348,6 +348,19 @@ test_main_json_reports_missing_enabled_cli() {
     assert_eq "1" "$rc" "missing enabled CLI returns unhealthy status after completing diagnostics"
 }
 
+test_cursor_wrong_binary_is_diagnosed() {
+    local tmp out rc=0
+    tmp=$(mktemp -d)
+    out=$(HOME="$tmp" XDG_CONFIG_HOME="$tmp/config" XDG_CACHE_HOME="$tmp/cache" \
+        XDG_STATE_HOME="$tmp/state" XDG_DATA_HOME="$tmp/data" \
+        CURSOR_CMD=true ENABLE_CURSOR=true "$DOCTOR" --json 2>/dev/null) || rc=$?
+    rm -rf "$tmp"
+    assert_eq 1 "$(echo "$out" | jq '[.doctor.issues[] | select(.description == "CURSOR_CMD does not identify Cursor Agent")] | length')" \
+        "doctor diagnoses an installed non-Cursor binary"
+    assert_eq 1 "$rc" "wrong Cursor binary makes static doctor unhealthy"
+}
+
 run_test "Test 18: missing enabled CLI completes JSON diagnosis" test_main_json_reports_missing_enabled_cli
+run_test "Test 19: wrong Cursor binary is diagnosed" test_cursor_wrong_binary_is_diagnosed
 
 test_summary "doctor"

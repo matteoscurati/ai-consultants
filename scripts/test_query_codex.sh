@@ -88,6 +88,10 @@ make_gemini_stub() {
     cat > "$path" <<'EOF'
 #!/bin/bash
 set -u
+if [[ "${1:-}" == "models" ]]; then
+    printf '%s\n' 'Gemini 3.1 Pro (High)'
+    exit 0
+fi
 printf '%s\n' "$@" > "${GEMINI_ARGS_FILE}"
 printf '%s\n' '{"response":{"summary":"Gemini answered","detailed":"ok","approach":"cli","pros":[],"cons":[],"caveats":[]},"confidence":{"score":9,"reasoning":"test"}}'
 EOF

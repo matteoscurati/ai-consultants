@@ -20,6 +20,21 @@ fi
 
 APPROACH="${STUB_APPROACH:-approach-alpha}"
 
+# Capability/inventory probes used by the Gemini and Mistral adapters. These
+# branches perform no model call and keep the shared E2E stub compatible with
+# the real adapters' fail-before-dispatch checks.
+if [[ "${1:-}" == "models" ]]; then
+    printf '%s\n' 'Gemini 3.1 Pro (High)' 'Gemini 3.6 Flash (High)' 'Gemini 3.6 Flash (Low)'
+    exit 0
+fi
+if [[ " $* " == *" --help "* ]]; then
+    printf '%s\n' \
+        '--prompt --output --agent --workdir --max-turns' \
+        'builtin: default, plan, accept-edits' \
+        'VIBE_* Override any config field'
+    exit 0
+fi
+
 jq -n --arg approach "$APPROACH" '{
     consultant: "Claude",
     model: "stub-model",

@@ -941,6 +941,8 @@ build_response_metadata() {
     local tokens_in="${6:-}"
     local tokens_out="${7:-}"
     local provider_cost="${8:-}"
+    local requested_model="${9:-$model}"
+    local model_identity_source="${10:-requested-only}"
 
     jq -n \
         --argjson latency "$latency" \
@@ -952,7 +954,10 @@ build_response_metadata() {
         --arg t_in "$tokens_in" \
         --arg t_out "$tokens_out" \
         --arg provider_cost "$provider_cost" \
-        '{tokens_used: $tokens, tokens_source: $source, latency_ms: $latency, model_version: $model, timestamp: $timestamp}
+        --arg requested_model "$requested_model" \
+        --arg model_identity_source "$model_identity_source" \
+        '{tokens_used: $tokens, tokens_source: $source, latency_ms: $latency, model_version: $model,
+          requested_model: $requested_model, model_identity_source: $model_identity_source, timestamp: $timestamp}
          + (if $t_in  != "" then {tokens_input:  ($t_in  | tonumber)} else {} end)
          + (if $t_out != "" then {tokens_output: ($t_out | tonumber)} else {} end)
          + (if $provider_cost != "" then {provider_cost_usd: ($provider_cost | tonumber)} else {} end)
@@ -972,13 +977,15 @@ build_structured_response() {
     local tokens_in="${8:-}"
     local tokens_out="${9:-}"
     local provider_cost="${10:-}"
+    local requested_model="${11:-$model}"
+    local model_identity_source="${12:-requested-only}"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --argjson inner "$inner_json" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost" "$requested_model" "$model_identity_source")" \
         '{consultant: $consultant, model: $model, persona: $persona, response: $inner.response, confidence: $inner.confidence, metadata: $metadata}'
 }
 
@@ -995,13 +1002,15 @@ build_fallback_response() {
     local tokens_in="${8:-}"
     local tokens_out="${9:-}"
     local provider_cost="${10:-}"
+    local requested_model="${11:-$model}"
+    local model_identity_source="${12:-requested-only}"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --arg response "$response_text" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost" "$requested_model" "$model_identity_source")" \
         '{consultant: $consultant, model: $model, persona: $persona,
           response: {summary: "Unstructured response - see detailed", detailed: $response, approach: "unknown", pros: [], cons: [], caveats: ["Unstructured output from consultant"]},
           confidence: {score: 5, reasoning: "Confidence not provided by consultant", uncertainty_factors: ["Non-standard response format"]},
@@ -1016,13 +1025,15 @@ build_error_response() {
     local persona="$3"
     local error_msg="$4"
     local latency="$5"
+    local requested_model="${6:-$model}"
+    local model_identity_source="${7:-requested-only}"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --arg error "$error_msg" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model" "$error_msg")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "$error_msg" 0 unknown "" "" "" "$requested_model" "$model_identity_source")" \
         '{consultant: $consultant, model: $model, persona: $persona,
           response: {summary: "ERROR: Consultation failed", detailed: $error, approach: "error", pros: [], cons: [], caveats: []},
           confidence: {score: 0, reasoning: "Consultation failed", uncertainty_factors: ["Execution error"]},
@@ -1188,6 +1199,9 @@ process_consultant_response() {
     local latency_ms="$7"
     local native_json_field="${8:-}"
     local input_text="${9:-}"
+    local requested_model="${10:-$model}"
+    local model_identity_source="${11:-requested-only}"
+    local effective_model="${12:-$model}"
 
     if [[ $exit_code -eq 0 && -f "$temp_output" && -s "$temp_output" ]]; then
         local raw_response inner_response
@@ -1214,13 +1228,13 @@ process_consultant_response() {
 
         # Use shared helpers for response building
         if echo "$inner_response" | jq -e '.response.summary' > /dev/null 2>&1; then
-            build_structured_response "$consultant" "$model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
+            build_structured_response "$consultant" "$effective_model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "$requested_model" "$model_identity_source" > "$output_file"
         else
-            build_fallback_response "$consultant" "$model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
+            build_fallback_response "$consultant" "$effective_model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "$requested_model" "$model_identity_source" > "$output_file"
         fi
     else
         rm -f "$temp_output"
-        build_error_response "$consultant" "$model" "$persona" "Query failed with exit code $exit_code" "$latency_ms" > "$output_file"
+        build_error_response "$consultant" "$effective_model" "$persona" "Query failed with exit code $exit_code" "$latency_ms" "$requested_model" "$model_identity_source" > "$output_file"
     fi
 
     return $exit_code

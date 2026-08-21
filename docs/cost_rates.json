@@ -8,6 +8,10 @@
       "input": 0.005,
       "output": 0.025
     },
+    "claude-fable-5": {
+      "input": 0.01,
+      "output": 0.05
+    },
     "gemini-3.1-pro-preview": {
       "input": 0.00125,
       "output": 0.005
@@ -25,6 +29,18 @@
       "input": 0.0015,
       "output": 0.0075
     },
+    "gemini-3.7-flash": {
+      "input": 0.00075,
+      "output": 0.00375
+    },
+    "Gemini 3.7 Flash (High)": {
+      "input": 0.00075,
+      "output": 0.00375
+    },
+    "Gemini 3.7 Flash (Low)": {
+      "input": 0.00075,
+      "output": 0.00375
+    },
     "gpt-5.6-sol": {
       "input": 0.005,
       "output": 0.030
@@ -41,6 +57,22 @@
       "input": 0.002,
       "output": 0.006
     },
+    "mistral-medium-3-5": {
+      "input": 0.0015,
+      "output": 0.0075
+    },
+    "mistral-medium-3.5": {
+      "input": 0.0015,
+      "output": 0.0075
+    },
+    "mistral-large-2512": {
+      "input": 0.0005,
+      "output": 0.0015
+    },
+    "mistral-small-2603": {
+      "input": 0.00015,
+      "output": 0.0006
+    },
     "deepseek-v4-pro": {
       "input": 0.000435,
       "output": 0.00087
@@ -50,6 +82,10 @@
       "output": 0.002
     },
     "grok-4.5": {
+      "input": 0.002,
+      "output": 0.006
+    },
+    "grok-4.6": {
       "input": 0.002,
       "output": 0.006
     },
@@ -66,8 +102,12 @@
       "output": 0.0025
     },
     "minimax-m2.7": {
-      "input": 0.00025,
-      "output": 0.001
+      "input": 0.0003,
+      "output": 0.0012
+    },
+    "minimax-m3": {
+      "input": 0.0003,
+      "output": 0.0012
     },
     "kimi-code/k3": {
       "input": 0.0005,
@@ -141,8 +181,8 @@
       "output": 0.0016
     },
     "minimax-m2.5": {
-      "input": 0.000255,
-      "output": 0.001
+      "input": 0.0003,
+      "output": 0.0012
     },
     "_comment_legacy": "Legacy models for backwards compatibility",
     "Gemini 3.5 Flash (High)": {
@@ -357,11 +397,21 @@
     "qwen3.8-max-preview": {
       "input": 0,
       "output": 0
+    },
+    "glm-5.3": {
+      "input": 0,
+      "output": 0
+    },
+    "kimi-code/k3-256k": {
+      "input": 0,
+      "output": 0
     }
   },
   "unpriced_models": [
     "qwen3.8-max",
-    "qwen3.8-max-preview"
+    "qwen3.8-max-preview",
+    "glm-5.3",
+    "kimi-code/k3-256k"
   ],
   "consultant_fallbacks": {
     "_comment": "Premium defaults - Updated Aug 2026",
@@ -370,8 +420,8 @@
     "codex": "gpt-5.6-sol",
     "mistral": "mistral-large-3",
     "deepseek": "deepseek-v4-pro",
-    "glm": "glm-5.2",
-    "grok": "grok-4.5",
+    "glm": "glm-5.3",
+    "grok": "grok-4.6",
     "qwen3": "qwen3.7-max",
     "cursor": "composer-2.5",
     "kimi": "kimi-code/k3",
@@ -379,31 +429,44 @@
   },
   "model_tiers": {
     "_comment": "Model tiers for apply_model_tier() function",
+    "maximum": {
+      "claude": "claude-opus-5",
+      "gemini": "Gemini 3.1 Pro (High)",
+      "codex": "gpt-5.6-sol",
+      "mistral": "mistral-medium-3.5",
+      "deepseek": "deepseek-v4-pro",
+      "glm": "glm-5.3",
+      "grok": "grok-4.6",
+      "qwen3": "qwen3.8-max",
+      "cursor": "composer-2.5",
+      "kimi": "kimi-code/k3-256k",
+      "minimax": "MiniMax-M3"
+    },
     "premium": {
       "claude": "claude-opus-5",
       "gemini": "Gemini 3.1 Pro (High)",
       "codex": "gpt-5.6-sol",
-      "mistral": "mistral-large-3",
+      "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-v4-pro",
-      "glm": "glm-5.2",
-      "grok": "grok-4.5",
+      "glm": "glm-5.3",
+      "grok": "grok-4.6",
       "qwen3": "qwen3.7-max",
       "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
-      "minimax": "minimax-m2.7"
+      "minimax": "MiniMax-M2.7"
     },
     "standard": {
       "claude": "claude-sonnet-5",
       "gemini": "Gemini 3.6 Flash (High)",
       "codex": "gpt-5.6-terra",
-      "mistral": "mistral-medium-latest",
+      "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-v4-flash",
-      "glm": "glm-5.2",
-      "grok": "grok-4.1-fast",
+      "glm": "glm-5.3",
+      "grok": "grok-4.5",
       "qwen3": "qwen3.6-35b-a3b",
-      "cursor": "composer-2",
+      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
-      "minimax": "minimax-m2.7"
+      "minimax": "MiniMax-M2.7"
     },
     "economy": {
       "claude": "claude-haiku-4-5",
@@ -412,12 +475,32 @@
       "mistral": "devstral-small-2",
       "deepseek": "deepseek-v4-flash",
       "glm": "glm-4-flash",
-      "grok": "grok-4.1-fast",
+      "grok": "grok-4.5",
       "qwen3": "qwen3-32b",
-      "cursor": "gemini-3-flash",
+      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
-      "minimax": "minimax-m2.5"
+      "minimax": "MiniMax-M2.5"
     }
+  },
+  "transport_model_tiers": {
+    "_comment": "Transport-specific namespaces used by Gemini and Mistral; the legacy model_tiers table reflects their CLI values.",
+    "gemini": {
+      "maximum": {"cli": "Gemini 3.1 Pro (High)", "api": "gemini-3.1-pro-preview"},
+      "premium": {"cli": "Gemini 3.1 Pro (High)", "api": "gemini-3.1-pro-preview"},
+      "standard": {"cli": "Gemini 3.6 Flash (High)", "api": "gemini-3.1-pro-preview"},
+      "economy": {"cli": "Gemini 3.6 Flash (Low)", "api": "gemini-3.1-pro-preview"}
+    },
+    "mistral": {
+      "maximum": {"cli": "mistral-medium-3.5", "api": "mistral-large-3"},
+      "premium": {"cli": "mistral-medium-3.5", "api": "mistral-large-3"},
+      "standard": {"cli": "mistral-medium-3.5", "api": "mistral-large-3"},
+      "economy": {"cli": "devstral-small-2", "api": "mistral-large-3"}
+    }
+  },
+  "opt_in_targets": {
+    "gemini": ["gemini-3.7-flash", "Gemini 3.7 Flash (High)", "Gemini 3.7 Flash (Low)"],
+    "mistral_api": ["mistral-medium-3-5", "mistral-large-2512", "mistral-small-2603"],
+    "claude": ["claude-fable-5"]
   },
   "default_rate": {
     "input": 0.005,

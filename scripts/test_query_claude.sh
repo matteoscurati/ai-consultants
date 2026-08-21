@@ -38,6 +38,10 @@ test_cli_json_usage_and_cost() {
         "CLI provider usage is marked measured"
     assert_eq "0.42" "$(jq -r '.metadata.provider_cost_usd' "$output")" \
         "CLI provider cost is persisted"
+    assert_eq "claude-opus-5" "$(jq -r '.metadata.requested_model' "$output")" \
+        "Claude records the requested content model separately"
+    assert_eq "requested-only" "$(jq -r '.metadata.model_identity_source' "$output")" \
+        "modelUsage billing participants are not misreported as content identity"
     assert_eq "0.420000" "$(calculate_session_cost "$TMP")" \
         "session cost uses Claude CLI costUSD exactly"
 }

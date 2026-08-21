@@ -242,6 +242,22 @@ check_cli_consultant() {
         return 0
     fi
 
+    if [[ "$name" == "Cursor" ]]; then
+        local cursor_help cursor_flag cursor_ok=true
+        cursor_help=$(run_with_timeout 8 "$cmd" --help 2>&1 || true)
+        grep -Fq 'Start the Cursor Agent' <<<"$cursor_help" || cursor_ok=false
+        for cursor_flag in --print --output-format --mode --model --list-models --workspace --trust; do
+            grep -q -- "$cursor_flag" <<<"$cursor_help" || cursor_ok=false
+        done
+        if [[ "$cursor_ok" != "true" ]]; then
+        _print "  ✗ Cursor: '$cmd' is not a compatible Cursor Agent (identity/help probe failed)"
+        add_issue "consultant" "CURSOR_CMD does not identify Cursor Agent" \
+            "set CURSOR_CMD=cursor-agent and install it from https://cursor.com"
+        check_fail
+        return 0
+        fi
+    fi
+
     # Get version (--version is standard and fast, no timeout needed).
     # Gemini/agy must run under agy_env so an SSH session still reaches the
     # Keychain credential store (see agy_env in lib/common.sh).
@@ -578,10 +594,13 @@ check_synthesis() {
         return 0
     fi
 
-    # Check for claude CLI (preferred)
-    if command -v claude &> /dev/null; then
+    # Check for the configured Claude CLI (preferred). Bound --version: some
+    # builds wait on credential/keychain setup when HOME is isolated, and a
+    # static doctor must never hang on a provenance string.
+    if command -v "$CLAUDE_CMD" &> /dev/null; then
         local claude_version
-        claude_version=$(claude --version 2>/dev/null | head -1 || echo "unknown")
+        claude_version=$(run_with_timeout 5 "$CLAUDE_CMD" --version 2>/dev/null | head -1 || true)
+        [[ -n "$claude_version" ]] || claude_version="version unknown"
         _print "  ✓ Claude CLI: $claude_version"
         check_pass
     else
@@ -777,7 +796,7 @@ suggest_configuration() {
         "ENABLE_GEMINI:${GEMINI_CMD:-agy}"
         "ENABLE_CODEX:${CODEX_CMD:-codex}"
         "ENABLE_MISTRAL:${MISTRAL_CMD:-vibe}"
-        "ENABLE_CURSOR:${CURSOR_CMD:-agent}"
+        "ENABLE_CURSOR:${CURSOR_CMD:-cursor-agent}"
         "ENABLE_KIMI:${KIMI_CMD:-kimi}"
         "ENABLE_CLAUDE:${CLAUDE_CMD:-claude}"
         "ENABLE_QWEN3:${QWEN3_CMD:-qwen}"
@@ -861,7 +880,7 @@ _count_available_consultants() {
         "GEMINI|ENABLE_GEMINI|${GEMINI_CMD:-agy}"
         "CODEX|ENABLE_CODEX|${CODEX_CMD:-codex}"
         "MISTRAL|ENABLE_MISTRAL|${MISTRAL_CMD:-vibe}"
-        "CURSOR|ENABLE_CURSOR|${CURSOR_CMD:-agent}"
+        "CURSOR|ENABLE_CURSOR|${CURSOR_CMD:-cursor-agent}"
         "KIMI|ENABLE_KIMI|${KIMI_CMD:-kimi}"
         "CLAUDE|ENABLE_CLAUDE|${CLAUDE_CMD:-claude}"
         "QWEN3|ENABLE_QWEN3|${QWEN3_CMD:-qwen}"

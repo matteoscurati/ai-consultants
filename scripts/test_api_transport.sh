@@ -146,6 +146,16 @@ test_openai_body_with_effort() {
     assert_eq "4" "$(jq -r '. | keys | length' <<<"$body")" "exactly one key added"
 }
 
+test_google_ai_body_with_thinking_level() {
+    local body
+    body=$(build_google_ai_request hello high)
+    assert_eq high "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' <<<"$body")" \
+        "Google AI request carries Gemini thinking level"
+    body=$(build_google_ai_request hello)
+    assert_eq false "$(jq -r 'has("thinkingConfig") or (.generationConfig | has("thinkingConfig"))' <<<"$body")" \
+        "unset Gemini effort preserves the legacy request body"
+}
+
 test_gemini_api_model_metadata() {
     local td fake_curl output_file
     td=$(mktemp -d "${TMPDIR:-/tmp}/gemini_model.XXXXXX")
@@ -156,24 +166,30 @@ test_gemini_api_model_metadata() {
 #!/bin/bash
 out=""
 headers=""
+body=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -o) shift; out="$1" ;;
         -D) shift; headers="$1" ;;
+        -d) shift; body="$1" ;;
     esac
     shift
 done
+[[ -z "${REQUEST_BODY_FILE:-}" ]] || printf '%s' "$body" > "$REQUEST_BODY_FILE"
 printf '%s\n' '{"candidates":[{"content":{"parts":[{"text":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}]}}],"usageMetadata":{"promptTokenCount":1000,"candidatesTokenCount":1000}}' > "$out"
 : > "$headers"
 printf '200'
 EOF
     chmod +x "$fake_curl"
 
+    local body_file="$td/body.json"
     if ! PATH="$td:$PATH" \
         GEMINI_USE_API=true \
         GEMINI_API_KEY=test-key \
         GEMINI_API_MODEL=gemini-api-test-model \
         GEMINI_MODEL="Gemini CLI Display Model" \
+        GEMINI_REASONING_EFFORT=high \
+        REQUEST_BODY_FILE="$body_file" \
         MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_gemini.sh" "test API metadata" "" "$output_file" \
         >/dev/null 2>&1; then
@@ -184,6 +200,96 @@ EOF
 
     assert_eq "gemini-api-test-model" "$(jq -r '.model' "$output_file")" \
         "Gemini API response records the API model used for billing"
+    assert_eq "gemini-api-test-model" "$(jq -r '.metadata.requested_model' "$output_file")" \
+        "Gemini API metadata records the requested model"
+    assert_eq "requested-only" "$(jq -r '.metadata.model_identity_source' "$output_file")" \
+        "missing provider model is labeled requested-only"
+    assert_eq false "$(jq -r '.generationConfig | has("thinkingConfig")' "$body_file")" \
+        "non-3.7 Gemini API model preserves the legacy request body"
+
+    PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+        GEMINI_API_MODEL=gemini-3.7-flash GEMINI_REASONING_EFFORT=high \
+        REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_gemini.sh" "test 3.7 thinking" "" "$output_file" >/dev/null 2>&1
+    assert_eq high "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' "$body_file")" \
+        "Gemini 3.7 API request transports the selected thinking level"
+    rm -rf "$td"
+}
+
+test_api_provider_model_identity_and_glm_failures() {
+    local td fake_curl output request rc=0
+    td=$(mktemp -d "${TMPDIR:-/tmp}/api_identity.XXXXXX")
+    fake_curl="$td/curl"
+    output="$td/output.json"
+    request="$td/curl-called"
+
+    cat > "$fake_curl" <<'EOF'
+#!/bin/bash
+out=""; headers=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in -o) shift; out="$1" ;; -D) shift; headers="$1" ;; esac
+    shift
+done
+[[ -z "${CURL_CALLED_FILE:-}" ]] || printf 'call\n' >> "$CURL_CALLED_FILE"
+: > "$headers"
+case "${CURL_FAKE_MODE:-success}" in
+  success)
+    printf '%s\n' '{"model":"glm-5.3-202608","choices":[{"message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
+    printf 200 ;;
+  invalid_model)
+    printf '%s\n' '{"model":"glm*cheap","choices":[{"message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
+    printf 200 ;;
+  empty) : > "$out"; printf 200 ;;
+  server) printf '%s\n' '{"error":{"message":"unavailable"}}' > "$out"; printf 500 ;;
+esac
+EOF
+    chmod +x "$fake_curl"
+
+    if ! PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 GLM_FORMAT=openai \
+        CURL_CALLED_FILE="$request" RATE_LIMIT_DIR="$td/rate" MAX_RETRIES=1 \
+        run_api_consultant GLM test "" "$output" >/dev/null 2>&1; then
+        assert_eq success failure "GLM provider-identity query completes"
+    else
+        assert_eq glm-5.3-202608 "$(jq -r '.model' "$output")" "provider-reported model is the top-level effective identity"
+        assert_eq glm-5.3 "$(jq -r '.metadata.requested_model' "$output")" "requested GLM model is preserved"
+        assert_eq provider-reported "$(jq -r '.metadata.model_identity_source' "$output")" "GLM API identity is provider-reported"
+    fi
+
+    PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 GLM_FORMAT=openai \
+        CURL_FAKE_MODE=invalid_model RATE_LIMIT_DIR="$td/rate-invalid" MAX_RETRIES=1 \
+        run_api_consultant GLM test "" "$output" >/dev/null 2>&1
+    assert_eq glm-5.3 "$(jq -r '.model' "$output")" "invalid provider model identifier cannot replace requested identity"
+    assert_eq requested-only "$(jq -r '.metadata.model_identity_source' "$output")" "invalid provider model identifier downgrades identity evidence"
+
+    rm -f "$request"
+    rc=0
+    PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL="" CURL_CALLED_FILE="$request" MAX_RETRIES=1 \
+        run_api_consultant GLM test "" "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$rc" "missing GLM model fails before dispatch"
+    assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" "missing GLM model never calls curl"
+
+    rc=0
+    PATH="$td:$PATH" GLM_API_KEY="" GLM_MODEL=glm-5.3 MAX_RETRIES=1 \
+        run_api_consultant GLM test "" "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$rc" "missing GLM auth fails closed"
+
+    for mode in empty server; do
+        rc=0
+        PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 CURL_FAKE_MODE="$mode" \
+            RATE_LIMIT_DIR="$td/rate-$mode" MAX_RETRIES=1 \
+            run_api_consultant GLM test "" "$output" >/dev/null 2>&1 || rc=$?
+        assert_eq 1 "$rc" "GLM $mode provider response fails closed"
+        assert_eq error "$(jq -r '.response.approach' "$output")" "GLM $mode failure writes an error envelope"
+    done
+
+    rm -f "$request"
+    rc=0
+    PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 CURL_FAKE_MODE=empty \
+        CURL_CALLED_FILE="$request" RATE_LIMIT_DIR="$td/rate-empty-two" \
+        MAX_RETRIES=2 RETRY_DELAY_SECONDS=0 \
+        run_api_consultant GLM test "" "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$rc" "empty provider response still fails with the shipped retry count"
+    assert_eq 2 "$(wc -l < "$request" | tr -d ' ')" "empty provider response consumes exactly two attempts"
     rm -rf "$td"
 }
 
@@ -239,7 +345,9 @@ run_test "build_openai_request: default body (back-compat gate)" test_openai_bod
 run_test "get_api_format: \${AGENT}_FORMAT override" test_format_override
 run_test "validate_reasoning_effort" test_effort_validation
 run_test "build_openai_request: with reasoning_effort" test_openai_body_with_effort
+run_test "build_google_ai_request: with thinking level" test_google_ai_body_with_thinking_level
 run_test "Gemini API mode records API model" test_gemini_api_model_metadata
+run_test "API provider model identity and GLM failure modes" test_api_provider_model_identity_and_glm_failures
 run_test "Anthropic thinking blocks and request budget" test_anthropic_thinking_blocks_and_budget
 run_test "Anthropic truncation fails closed" test_anthropic_max_tokens_is_failure
 

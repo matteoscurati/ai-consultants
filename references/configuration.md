@@ -243,11 +243,13 @@ CODEX_MODEL=gpt-5.6-sol
 CLAUDE_MODEL=claude-opus-5
 CLAUDE_API_MAX_TOKENS=16384  # API only: adaptive thinking + visible output
 MISTRAL_MODEL=mistral-large-3
+MISTRAL_CLI_MODEL=mistral-medium-3.5
 CURSOR_MODEL=composer-2.5
+CURSOR_CMD=cursor-agent
 KIMI_MODEL=kimi-code/k3
 QWEN3_MODEL=qwen3.7-max
-GLM_MODEL=glm-5.2
-GROK_MODEL=grok-4.5
+GLM_MODEL=glm-5.3
+GROK_MODEL=grok-4.6
 DEEPSEEK_MODEL=deepseek-v4-pro
 MINIMAX_MODEL=MiniMax-M2.7
 ```
@@ -273,12 +275,30 @@ compatibility is also capability-probed: prompt mode, `stream-json`, provider
 inventory, and the requested model must be present. No numeric CLI version is
 used as a gate.
 
+`MISTRAL_MODEL` is used only by the HTTP API. Vibe receives
+`MISTRAL_CLI_MODEL` through `VIBE_ACTIVE_MODEL` and runs its read-only `plan`
+agent in a temporary workspace. The current Vibe default is
+`mistral-medium-3.5`. The official API IDs `mistral-medium-3-5`,
+`mistral-large-2512`, and `mistral-small-2603` are catalogued opt-ins until an
+authenticated API smoke passes in this project.
+
+`CURSOR_CMD` defaults to `cursor-agent`. The adapter rejects a same-named or
+legacy `agent` binary unless its help surface identifies Cursor Agent, verifies
+`CURSOR_MODEL` in the account inventory, uses `--mode ask`, and runs in an
+isolated temporary workspace. It never uses `--force`.
+
+`metadata.requested_model` records what ai-consultants asked for, while
+`metadata.model_identity_source` is `provider-reported`, `capability-probed`,
+or `requested-only`. The top-level `model` remains the strongest effective
+identifier the transport can honestly attest.
+
 ## Model Quality Tiers (v2.5)
 
 ```bash
 # Set all consultants to a tier programmatically
 source scripts/config.sh
 apply_model_tier "premium"   # Latest flagship models
+apply_model_tier "maximum"   # max_quality-only / separate-plan models
 apply_model_tier "standard"  # Good quality at reasonable cost
 apply_model_tier "economy"   # Optimized for speed and low cost
 ```

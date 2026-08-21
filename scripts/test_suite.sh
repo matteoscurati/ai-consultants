@@ -744,6 +744,20 @@ test_cost_per1k_contract() {
     assert_equals "0.012" "$(get_output_cost_per_1k 'Gemini 3.1 Pro (High)')" "Gemini 3.1 Pro output resolves (not default_rate)"
     assert_equals "0.002" "$(get_input_cost_per_1k 'grok-4.5')" "Grok 4.5 input rate is 2 USD/MTok"
     assert_equals "0.006" "$(get_output_cost_per_1k 'grok-4.5')" "Grok 4.5 output rate is 6 USD/MTok"
+    assert_equals "0.01" "$(get_input_cost_per_1k claude-fable-5)" "Fable 5 input is 10 USD/MTok"
+    assert_equals "0.05" "$(get_output_cost_per_1k claude-fable-5)" "Fable 5 output is 50 USD/MTok"
+    assert_equals "0.00075" "$(get_input_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional input rate is current"
+    assert_equals "0.00375" "$(get_output_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional output rate is current"
+    assert_equals "0.0015" "$(get_input_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API input is priced"
+    assert_equals "0.0075" "$(get_output_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API output is priced"
+    assert_equals "0.002" "$(get_input_cost_per_1k mistral-large-3)" "active Mistral API fallback input stays catalogued"
+    assert_equals "0.006" "$(get_output_cost_per_1k mistral-large-3)" "active Mistral API fallback output stays catalogued"
+    assert_equals "0.002" "$(get_input_cost_per_1k grok-4.6)" "Grok 4.6 input is 2 USD/MTok"
+    assert_equals "0.006" "$(get_output_cost_per_1k grok-4.6)" "Grok 4.6 output is 6 USD/MTok"
+    assert_equals "0.0005" "$(get_input_cost_per_1k composer-2.5)" "active Cursor model input stays catalogued"
+    assert_equals "0.0025" "$(get_output_cost_per_1k composer-2.5)" "active Cursor model output stays catalogued"
+    assert_equals "0.0003" "$(get_input_cost_per_1k MiniMax-M3)" "maximum MiniMax M3 input is catalogued"
+    assert_equals "0.0012" "$(get_output_cost_per_1k MiniMax-M3)" "maximum MiniMax M3 output is catalogued"
 
     if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
 }
@@ -807,6 +821,13 @@ test_response_tokens() {
     assert_equals "0"       "$(echo "$md" | jq -r '.tokens_used')"   "legacy call defaults to 0"
     assert_equals "unknown" "$(echo "$md" | jq -r '.tokens_source')" "legacy call is marked unknown"
     assert_equals "null"    "$(echo "$md" | jq -r '.tokens_input')"  "legacy call omits the split"
+    assert_equals "gpt-5.5" "$(echo "$md" | jq -r '.metadata.requested_model // .requested_model')" \
+        "legacy metadata defaults requested_model to model"
+    assert_equals "requested-only" "$(echo "$md" | jq -r '.model_identity_source')" \
+        "legacy metadata labels model identity honestly"
+    md=$(build_response_metadata 1500 "provider-effective" "" 0 unknown "" "" "" "requested-id" "provider-reported")
+    assert_equals "requested-id" "$(echo "$md" | jq -r '.requested_model')" "requested model is additive metadata"
+    assert_equals "provider-reported" "$(echo "$md" | jq -r '.model_identity_source')" "provider identity source is preserved"
 
     # Every builder must survive BOTH arities under `set -u`. The fallback
     # builder shipped briefly using $tokens_in without declaring it, which
@@ -849,6 +870,17 @@ test_response_tokens() {
     printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
     assert_equals "0.115000" "$(calculate_session_cost "$rd")" "measured split priced as measured, not re-split 60/40"
     assert_equals "" "$(format_cost_caveats "$rd")" "a fully measured, priced run discloses nothing"
+
+    # Keep the provider's versioned effective identity without mispricing it:
+    # requested_model supplies the catalog key when that revision has no row.
+    printf '{"consultant":"Codex","model":"gpt-5.5-202608","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"requested_model":"gpt-5.5","model_identity_source":"provider-reported","tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
+    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "provider revision uses requested-model pricing without relabeling identity"
+
+    printf '{"consultant":"Codex","model":"unknown-provider-revision","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"requested_model":"custom-unknown","model_identity_source":"provider-reported","tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
+    assert_equals "0.107500" "$(calculate_session_cost "$rd")" "unknown requested model uses default rate, not consultant premium fallback"
+
+    printf '{"consultant":"Codex","model":"unknown-legacy-model","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
+    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "legacy response without requested_model retains consultant fallback"
 
     # Claude CLI reports exact costUSD, including adaptive-thinking tokens and
     # cache pricing. It must win over reconstructing cost from visible output.
@@ -913,6 +945,8 @@ test_unpriced_models() {
 
     assert_equals "0" "$(get_input_cost_per_1k qwen3.8-max)"  "3.8 max input is 0, not the default rate"
     assert_equals "0" "$(get_output_cost_per_1k qwen3.8-max)" "3.8 max output is 0, not the default rate"
+    assert_equals "0" "$(get_input_cost_per_1k glm-5.3)" "GLM 5.3 coding-plan transport is unpriced"
+    assert_equals "0" "$(get_output_cost_per_1k kimi-code/k3-256k)" "K3-256k subscription transport is unpriced"
 
     # The catalogued priced model must be untouched by this change.
     assert_equals "0.0012" "$(get_input_cost_per_1k qwen3.7-max)" "qwen3.7-max input unchanged"
@@ -927,6 +961,11 @@ test_unpriced_models() {
         assert_equals "no" "yes"  "qwen3.7-max is NOT flagged unpriced"
     else
         assert_equals "no" "no"   "qwen3.7-max is NOT flagged unpriced"
+    fi
+    if is_unpriced_model "glm-5.3" && is_unpriced_model "kimi-code/k3-256k"; then
+        assert_equals yes yes "GLM 5.3 and K3-256k are explicitly unpriced"
+    else
+        assert_equals yes no "GLM 5.3 and K3-256k are explicitly unpriced"
     fi
 
     # The disclosure must reflect the responses on disk. It deliberately
@@ -1100,7 +1139,8 @@ test_model_tiers() {
 test_economic_models() {
     suite "costs.sh: get_economic_model"
 
-    assert_equals "Gemini 3.6 Flash (Low)" "$(get_economic_model "gemini")" "gemini economy is Gemini 3.6 Flash (Low) (agy)"
+    assert_equals "Gemini 3.6 Flash (Low)" "$(get_economic_model "gemini" cli)" "Gemini CLI economy is hermetic"
+    assert_equals "gemini-3.1-pro-preview" "$(get_economic_model "gemini" api)" "Gemini API economy is hermetic"
     assert_equals "gpt-5.6-luna"     "$(get_economic_model "codex")"  "codex economy is gpt-5.6-luna"
     assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
     assert_equals "MiniMax-M2.5"     "$(get_economic_model "minimax")" "minimax economy is MiniMax-M2.5"
@@ -1477,8 +1517,14 @@ test_model_for_tier() {
     assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-5"
     assert_equals "claude-sonnet-5"       "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-5"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
-    assert_equals "Gemini 3.1 Pro (High)" "$(get_model_for_tier "gemini" "premium")" "gemini premium is Gemini 3.1 Pro (High) (agy)"
-    assert_equals "Gemini 3.6 Flash (Low)" "$(get_model_for_tier "gemini" "economy")" "gemini economy is Gemini 3.6 Flash (Low) (agy)"
+    assert_equals "Gemini 3.1 Pro (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is Gemini 3.1 Pro (High)"
+    assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium" api)" "gemini API premium uses the provider ID"
+    assert_equals "Gemini 3.6 Flash (Low)" "$(get_model_for_tier "gemini" "economy" cli)" "unverified Gemini 3.7 stays out of CLI economy tier"
+    assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "standard" api)" "unverified Gemini 3.7 stays out of API standard tier"
+    assert_equals "mistral-medium-3.5" "$(get_model_for_tier "mistral" "premium" cli)" "Mistral CLI premium uses the Vibe alias"
+    assert_equals "mistral-large-3" "$(get_model_for_tier "mistral" "premium" api)" "unverified Mistral API targets stay out of premium"
+    assert_equals "mistral-large-3" "$(get_model_for_tier "mistral" "standard" api)" "unverified Mistral Large 3 ID stays opt-in"
+    assert_equals "mistral-large-3" "$(get_model_for_tier "mistral" "economy" api)" "unverified Mistral Small 4 ID stays opt-in"
     assert_equals "MiniMax-M2.7"           "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M2.7"
     assert_equals "MiniMax-M2.5"           "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M2.5"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "premium")"    "kimi premium is K3"
@@ -1490,9 +1536,9 @@ test_model_for_tier() {
     assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
     assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "premium")"   "cursor premium is composer-2.5"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
-    assert_equals "glm-5.2"               "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.2"
-    assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.5"
-    assert_equals "grok-4.1-fast"         "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.1-fast"
+    assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3"
+    assert_equals "grok-4.6"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.6"
+    assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.5"
     assert_equals "qwen3.7-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.7-max"
     # qwen3.8-max is opt-in only: it needs a Qwen Cloud Token Plan
     # subscription and a different endpoint, so promoting it to the default
@@ -1500,14 +1546,79 @@ test_model_for_tier() {
     # explicitly so the contract is self-documenting rather than implied.
     assert_not_equals "qwen3.8-max" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in Token Plan model"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
-    assert_equals "composer-2"            "$(get_model_for_tier "cursor" "standard")"   "cursor standard is composer-2"
-    assert_equals "gemini-3-flash"        "$(get_model_for_tier "cursor" "economy")"    "cursor economy is gemini-3-flash"
+    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "standard")"   "cursor standard remains composer-2.5"
+    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "economy")"    "cursor economy remains composer-2.5"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-v4-flash"
-    assert_equals "glm-5.2"               "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.2"
-    assert_equals "grok-4.1-fast"         "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.1-fast"
+    assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3"
+    assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.5"
+    assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "maximum")"    "timed-out Fable 5 stays out of maximum tier"
+    assert_equals "kimi-code/k3-256k"     "$(get_model_for_tier "kimi" "maximum")"      "maximum tier confines K3-256k"
+    assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "maximum")"     "maximum catalog includes Qwen3.8-Max"
+    assert_equals "MiniMax-M3"            "$(get_model_for_tier "minimax" "maximum")"   "maximum tier confines MiniMax M3"
+
+    apply_model_tier maximum
+    assert_equals "gemini-3.1-pro-preview" "$GEMINI_API_MODEL" "maximum preset exports Gemini API ID"
+    assert_equals "mistral-medium-3.5" "$MISTRAL_CLI_MODEL" "maximum preset exports Mistral CLI ID"
+    assert_equals "mistral-large-3" "$MISTRAL_MODEL" "maximum preset preserves the previously managed Mistral API model"
+    assert_equals "qwen3.7-max" "$QWEN3_MODEL" "maximum preset does not redirect an unconfigured Qwen transport"
+
+    local qwen_tier_output
+    qwen_tier_output=$(
+        QWEN3_USE_API=true
+        QWEN3_FORMAT=openai
+        QWEN3_API_URL=https://token-plan.example.test/compatible-mode/v1/chat/completions
+        QWEN3_API_KEY="test"
+        unset QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
+        apply_model_tier maximum
+        printf '%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT"
+        apply_model_tier economy
+        printf '%s|%s\n' "$QWEN3_MODEL" "${QWEN3_REASONING_EFFORT+x}"
+        QWEN3_REASONING_EFFORT=low
+        apply_model_tier maximum
+        printf '%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT"
+    )
+    assert_equals "qwen3.8-max|xhigh" "$(sed -n '1p' <<<"$qwen_tier_output")" "configured Token Plan promotes Qwen3.8-Max with managed xhigh"
+    assert_equals "qwen3-32b|" "$(sed -n '2p' <<<"$qwen_tier_output")" "leaving maximum clears only the managed Qwen effort"
+    assert_equals "qwen3.8-max|low" "$(sed -n '3p' <<<"$qwen_tier_output")" "maximum preserves a user-pinned Qwen effort"
+
+    apply_model_tier economy
+    assert_equals "Gemini 3.6 Flash (Low)" "$GEMINI_MODEL" "economy preset keeps unverified Gemini 3.7 opt-in"
+    assert_equals "gemini-3.1-pro-preview" "$GEMINI_API_MODEL" "economy preset keeps unverified Gemini 3.7 API opt-in"
+    assert_equals "devstral-small-2" "$MISTRAL_CLI_MODEL" "economy preset exports Devstral CLI alias"
+    assert_equals "mistral-large-3" "$MISTRAL_MODEL" "economy preset keeps unverified Mistral Small 4 opt-in"
 
     # Unknown tier returns empty
     assert_equals "" "$(get_model_for_tier "claude" "mythical")" "unknown tier returns empty"
+}
+
+test_model_catalog_parity() {
+    suite "config/cost catalog: tier and pricing parity"
+
+    local tier consultant transport resolved documented
+    for tier in maximum premium standard economy; do
+        for consultant in claude gemini codex mistral cursor deepseek glm grok qwen3 kimi minimax; do
+            transport=native
+            case "$consultant" in gemini|mistral) transport=cli ;; esac
+            resolved=$(get_model_for_tier "$consultant" "$tier" "$transport")
+            documented=$(jq -r --arg t "$tier" --arg c "$consultant" '.model_tiers[$t][$c] // ""' "$COST_RATES_FILE")
+            assert_equals "$documented" "$resolved" "$consultant/$tier matches model_tiers"
+            if get_rate_from_file "$resolved" input >/dev/null 2>&1 || is_unpriced_model "$resolved"; then
+                assert_equals covered covered "$consultant/$tier has price or explicit unpriced status"
+            else
+                assert_equals covered missing "$consultant/$tier has price or explicit unpriced status"
+            fi
+        done
+    done
+
+    for consultant in gemini mistral; do
+        for tier in maximum premium standard economy; do
+            for transport in cli api; do
+                resolved=$(get_model_for_tier "$consultant" "$tier" "$transport")
+                documented=$(jq -r --arg c "$consultant" --arg t "$tier" --arg x "$transport" '.transport_model_tiers[$c][$t][$x] // ""' "$COST_RATES_FILE")
+                assert_equals "$documented" "$resolved" "$consultant/$tier/$transport matches transport_model_tiers"
+            done
+        done
+    done
 }
 
 # =============================================================================
@@ -1625,6 +1736,7 @@ main() {
 
     # config.sh tests
     test_model_for_tier
+    test_model_catalog_parity
 
     # Integration tests
     test_consultant_list_completeness

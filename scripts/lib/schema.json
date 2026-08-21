@@ -165,7 +165,16 @@
         },
         "model_version": {
           "type": "string",
-          "description": "Exact model version string"
+          "description": "Best effective model identifier available from the provider, a capability probe, or the request"
+        },
+        "requested_model": {
+          "type": "string",
+          "description": "Model identifier requested by ai-consultants before provider resolution"
+        },
+        "model_identity_source": {
+          "type": "string",
+          "enum": ["provider-reported", "capability-probed", "requested-only"],
+          "description": "Strength of the evidence behind model/model_version"
         },
         "cli_version": {
           "type": "string",

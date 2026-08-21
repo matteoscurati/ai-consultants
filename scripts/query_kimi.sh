@@ -90,13 +90,15 @@ kimi_cli_supports_required_interface || {
 # Pass --model explicitly: KIMI_MODEL is a project-level override, while the
 # CLI otherwise falls back to the user's config.toml and may silently use an
 # older alias.
-run_query \
-    "Kimi" \
-    "$TEMP_OUTPUT" \
-    "$KIMI_TIMEOUT_SECONDS" \
-    "$KIMI_CMD" --model "$KIMI_MODEL" -p "$FULL_QUERY" --output-format stream-json </dev/null
-
-exit_code=$?
+if run_query \
+        "Kimi" \
+        "$TEMP_OUTPUT" \
+        "$KIMI_TIMEOUT_SECONDS" \
+        "$KIMI_CMD" --model "$KIMI_MODEL" -p "$FULL_QUERY" --output-format stream-json </dev/null; then
+    exit_code=0
+else
+    exit_code=$?
+fi
 
 # Extract the model's response from the stream-json output: the
 # {"role":"assistant","content":...} line's .content is our JSON envelope (as a
@@ -121,7 +123,8 @@ PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
+    "$MODEL_USED" "capability-probed" "$MODEL_USED"
 
 if [[ -s "$OUTPUT_FILE" ]]; then
     response_tmp=$(mktemp)

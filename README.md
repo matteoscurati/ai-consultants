@@ -375,20 +375,22 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Google Gemini** | `agy` | The Architect | Design patterns, scalability, enterprise |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, quick wins, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Problems, edge cases, vulnerabilities |
-| **Cursor** | `agent` | The Integrator | Full-stack perspective |
+| **Cursor** | `cursor-agent` | The Integrator | Full-stack perspective |
 | **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis, connecting ideas |
 | **Qwen3** | `qwen` | The Analyst | Data-driven analysis |
 | **Grok** | `grok` | The Provocateur | Challenge conventions |
 | **MiniMax** | `mmx` | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
-Grok uses Grok Build with `grok-4.5` in an isolated, tool-free sandbox. Prompts
+Grok uses Grok Build with `grok-4.6` in an isolated, tool-free sandbox. Prompts
 are passed through a private file rather than process arguments. It falls back
 to the xAI API only when the CLI is missing, cannot launch, or has no usable
 authentication and `GROK_API_KEY` is configured; post-launch request failures
 are surfaced without a silent API charge. Qwen3 and MiniMax can also switch
 from their CLI to API transport. Gemini, Codex, Claude, and Mistral are
-CLI/API switchable. Grok and Kimi compatibility is capability-probed before
+CLI/API switchable. Gemini, Cursor, Grok, and Kimi verify the requested model
+against the CLI inventory before dispatch when that inventory exists. Grok and
+Kimi compatibility is capability-probed before
 dispatch: the requested model, headless arguments, and structured-output
 surface must be available. Any CLI version is accepted when those checks pass;
 the observed version is response provenance only.
@@ -397,7 +399,7 @@ the observed version is response provenance only.
 
 | Consultant | Default Model | Persona | Focus |
 |------------|---------------|---------|-------|
-| **GLM** | glm-5.2 | The Methodologist | Structured approaches |
+| **GLM** | glm-5.3 | The Methodologist | Structured approaches |
 | **DeepSeek** | deepseek-v4-pro | The Code Specialist | Algorithms, code generation |
 
 ### Installing Consultant CLIs
@@ -413,7 +415,7 @@ curl https://cursor.com/install -fsS | bash  # Cursor
 # Optional CLI-based consultants
 curl -L code.kimi.com/install.sh | bash            # Kimi K3
 npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
-curl -fsSL https://x.ai/cli/install.sh | bash # Grok Build (grok-4.5)
+curl -fsSL https://x.ai/cli/install.sh | bash # Grok Build (grok-4.6)
 npm install -g mmx-cli                       # MiniMax
 
 ```
@@ -436,7 +438,7 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 | Preset | Tier | Agents | Use Case |
 |--------|------|--------|----------|
-| `max_quality` | Premium | 8 of 11 | Critical decisions |
+| `max_quality` | Maximum | 8 of 11 | Critical decisions |
 | `medium` | Standard | 4 | General questions |
 | `fast` | Economy | 2 | Quick checks |
 
@@ -445,19 +447,31 @@ parallel and returns the coverage union.
 
 ### Models by Tier
 
-| Consultant | Premium | Standard | Economy |
-|------------|---------|----------|---------|
-| Claude | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
-| Gemini | Gemini 3.1 Pro (High) | Gemini 3.6 Flash (High) | Gemini 3.6 Flash (Low) |
-| Codex | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna |
-| Mistral | mistral-large-3 | mistral-medium-latest | devstral-small-2 |
-| Cursor | composer-2.5 | composer-2 | gemini-3-flash |
-| DeepSeek | deepseek-v4-pro | deepseek-v4-flash | deepseek-v4-flash |
-| GLM | glm-5.2 | glm-5.2 | glm-4-flash |
-| Grok | grok-4.5 | grok-4.1-fast | grok-4.1-fast |
-| Qwen3 | qwen3.7-max | qwen3.6-35b-a3b | qwen3-32b |
-| Kimi | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
-| MiniMax | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
+| Consultant | `max_quality` | Premium | Standard | Economy |
+|------------|---------------|---------|----------|---------|
+| Claude | claude-opus-5 | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
+| Gemini | Gemini 3.1 Pro (High) | Gemini 3.1 Pro (High) | Gemini 3.6 Flash (High) | Gemini 3.6 Flash (Low) |
+| Codex | gpt-5.6-sol | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna |
+| Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | devstral-small-2 |
+| Mistral API | mistral-large-3 | mistral-large-3 | mistral-large-3 | mistral-large-3 |
+| Cursor | composer-2.5 | composer-2.5 | composer-2.5 | composer-2.5 |
+| DeepSeek | deepseek-v4-pro | deepseek-v4-pro | deepseek-v4-flash | deepseek-v4-flash |
+| GLM | glm-5.3 | glm-5.3 | glm-5.3 | glm-4-flash |
+| Grok | grok-4.6 | grok-4.6 | grok-4.5 | grok-4.5 |
+| Qwen3 | qwen3.8-max when Token Plan is configured; otherwise qwen3.7-max | qwen3.7-max | qwen3.6-35b-a3b | qwen3-32b |
+| Kimi | kimi-code/k3-256k | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
+| MiniMax | MiniMax-M3 | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
+
+Promotion is transport-specific. Gemini 3.7 Flash, the new Mistral API IDs
+(`mistral-medium-3-5`, `mistral-large-2512`, `mistral-small-2603`), and Claude
+Fable 5 are catalogued opt-ins because this release could not complete an exact
+authenticated smoke for those transports. Select them explicitly only after
+your own `doctor --live`/adapter check. They are never promoted automatically;
+selecting a preset later intentionally reapplies that preset's tier and can
+replace an explicit model override for the run.
+Qwen3.8-Max is likewise selected by `max_quality` only when API mode already
+points at an authenticated OpenAI-compatible Token Plan `/chat/completions`
+endpoint; the preset never repoints a DashScope key or CLI installation.
 
 ### Usage
 
@@ -475,6 +489,7 @@ parallel and returns the coverage union.
 # Programmatic tier selection
 source scripts/config.sh
 apply_model_tier "premium"   # Set all to premium models
+apply_model_tier "maximum"   # max_quality-only / separate-plan models
 apply_model_tier "economy"   # Set all to economy models
 ```
 
@@ -488,7 +503,7 @@ Choose how many consultants to use:
 
 | Preset | Consultants | Tier | Use Case |
 |--------|-------------|------|----------|
-| `max_quality` | 8 of 11 | Premium | Critical decisions |
+| `max_quality` | 8 of 11 | Maximum | Critical decisions |
 | `medium` | 4 | Standard | General questions |
 | `fast` | 2 | Economy | Quick checks |
 | `minimal` | 2 (Gemini + Codex) | Default | Quick questions, low cost |
@@ -552,7 +567,8 @@ later run to adapt when a CLI or credential changes. Environment variables,
 `--set`, and unmarked values remain explicit user choices, except for the exact
 historical generated Claude default described below.
 Managed model defaults use `# ai-consultants:default`; `configure` upgrades the
-historical unmarked `CLAUDE_MODEL=claude-opus-4-8` default to Opus 5. To keep
+historical unmarked `CLAUDE_MODEL=claude-opus-4-8` default to Opus 5 and upgrades
+the exact managed Cursor, GLM, and Grok defaults. To keep
 4.8 intentionally, run
 `ai-consultants configure --set CLAUDE_MODEL=claude-opus-4-8`; explicit model
 overrides are stored with `# ai-consultants:pin`.
@@ -573,6 +589,7 @@ ENABLE_SMART_ROUTING=true    # Auto-select consultants by question category
 MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=true to enforce)
 KIMI_MODEL=kimi-code/k3      # Pin the Kimi consultant to K3
 CLAUDE_API_MAX_TOKENS=16384  # Shared thinking + visible-output budget in API mode
+MISTRAL_CLI_MODEL=mistral-medium-3.5 # Vibe alias; MISTRAL_MODEL remains API-only
 ```
 
 Full reference: [`references/configuration.md`](references/configuration.md). Copy-paste workflows: [`docs/RECIPES.md`](docs/RECIPES.md). For category-aware preset suggestions: `ai-consultants doctor --suggest-preset --question "..."`.

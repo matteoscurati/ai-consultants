@@ -66,8 +66,11 @@ MMX_ARGS+=("--message" "$FULL_QUERY")
 
 # run_query reads stdin via `cat`; mmx ignores stdin here (prompt is in --message),
 # so redirect from /dev/null to give `cat` an immediate EOF instead of blocking.
-run_query "$CONSULTANT_NAME" "$TEMP_OUTPUT" "$MINIMAX_TIMEOUT_SECONDS" "${MMX_ARGS[@]}" </dev/null
-exit_code=$?
+if run_query "$CONSULTANT_NAME" "$TEMP_OUTPUT" "$MINIMAX_TIMEOUT_SECONDS" "${MMX_ARGS[@]}" </dev/null; then
+    exit_code=0
+else
+    exit_code=$?
+fi
 
 # --- Calculate latency ---
 END_TIME=$(get_timestamp_ms)

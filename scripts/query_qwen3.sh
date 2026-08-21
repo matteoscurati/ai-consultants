@@ -90,13 +90,15 @@ else
     fi
     QWEN_ARGS+=("-p" "-")
 
-    echo "$FULL_QUERY" | run_query \
-        "Qwen3" \
-        "$TEMP_OUTPUT" \
-        "$QWEN3_TIMEOUT_SECONDS" \
-        "${QWEN_ARGS[@]}"
-
-    exit_code=$?
+    if echo "$FULL_QUERY" | run_query \
+            "Qwen3" \
+            "$TEMP_OUTPUT" \
+            "$QWEN3_TIMEOUT_SECONDS" \
+            "${QWEN_ARGS[@]}"; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
 fi
 
 # --- Calculate latency ---
@@ -108,11 +110,18 @@ LATENCY_MS=$((END_TIME - START_TIME))
 # the CLI uses its OWN configured model, which this script cannot know. Naming
 # any specific model here would mislabel the response.
 MODEL_USED="${QWEN3_MODEL:-unknown}"
+MODEL_IDENTITY_SOURCE="requested-only"
+EFFECTIVE_MODEL="$MODEL_USED"
+if is_api_mode "qwen3"; then
+    EFFECTIVE_MODEL="${_API_RESPONSE_MODEL:-$MODEL_USED}"
+    MODEL_IDENTITY_SOURCE="${_API_MODEL_IDENTITY_SOURCE:-requested-only}"
+fi
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
+    "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL"
 
 cat "$OUTPUT_FILE"
 exit $exit_code

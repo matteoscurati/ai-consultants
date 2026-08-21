@@ -6,11 +6,14 @@ This page documents the per-token rates used by the cost tracking system.
 
 ## Model Quality Tiers (v2.5+)
 
-Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `get_model_for_tier()` to select models programmatically.
+Automatic selection has three normal tiers plus the `maximum` tier used by
+`max_quality`. Use `apply_model_tier()` or `get_model_for_tier()` to select
+models programmatically.
 
 | Tier | Description | Cost Level |
 |------|-------------|------------|
 | **Premium** | Latest flagship models (default) | Highest |
+| **Maximum** | Smoke-tested separate-plan or highest-cost targets | Varies / may be unpriced |
 | **Standard** | Good quality at reasonable cost | Medium |
 | **Economy** | Optimized for speed and low cost | Lowest |
 
@@ -23,30 +26,37 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | Gemini 3.1 Pro (High) | Premium | $0.002 | Gemini (agy CLI) |
 | Gemini 3.6 Flash (High) | Standard | $0.0015 | Gemini (agy CLI) |
 | Gemini 3.6 Flash (Low) | Economy | $0.0015 | Gemini (agy CLI) |
+| Gemini 3.7 Flash (High/Low) | Opt-in | $0.00075 | Gemini (CLI/API; promotional through 2026-12-31) |
 | gpt-5.6-sol | Premium | $0.005 | Codex |
 | gpt-5.6-terra | Standard | $0.002 | Codex |
 | gpt-5.6-luna | Economy | $0.0002 | Codex |
 | claude-opus-5 | Premium | $0.005 | Claude |
+| claude-fable-5 | Opt-in | $0.010 | Claude |
 | claude-sonnet-5 | Standard | $0.003 | Claude |
 | claude-haiku-4-5 | Economy | $0.001 | Claude |
 | mistral-large-3 | Premium | $0.002 | Mistral |
-| mistral-medium-latest | Standard | $0.001 | Mistral |
+| mistral-medium-3.5 / mistral-medium-3-5 | Premium CLI / API opt-in | $0.0015 | Mistral |
+| mistral-large-2512 | API opt-in | $0.0005 | Mistral |
+| mistral-small-2603 | API opt-in | $0.00015 | Mistral |
 | devstral-small-2 | Economy | $0.00 | Mistral |
-| composer-2.5 | Premium | $0.0005 | Cursor |
-| composer-2 | Standard | $0.0005 | Cursor |
-| gemini-3-flash | Economy | $0.0005 | Cursor |
+| composer-2.5 | Maximum/Premium/Standard/Economy | $0.0005 | Cursor |
+| composer-2 | Legacy | $0.0005 | Cursor |
+| gemini-3-flash | Legacy | $0.0005 | Cursor |
 | deepseek-v4-pro | Premium | $0.000435 | DeepSeek |
 | deepseek-v4-flash | Standard/Economy | $0.00014 | DeepSeek |
-| glm-5.2 | Premium/Standard | $0.00098 | GLM |
+| glm-5.3 | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
 | glm-4-flash | Economy | $0.001 | GLM |
-| grok-4.5 | Premium | $0.002 | Grok |
-| grok-4.1-fast | Standard/Economy | $0.0002 | Grok |
+| grok-4.6 | Maximum/Premium | $0.002 | Grok |
+| grok-4.5 | Standard/Economy | $0.002 | Grok |
 | qwen3.7-max | Premium | $0.0012 | Qwen3 |
 | qwen3.6-35b-a3b | Standard | $0.000163 | Qwen3 |
 | qwen3-32b | Economy | $0.0004 | Qwen3 |
-| MiniMax-M2.7 | Premium/Standard | $0.00025 | MiniMax |
-| MiniMax-M2.5 | Economy | $0.000255 | MiniMax |
+| qwen3.8-max | Maximum | Unpriced | Qwen3 Token Plan |
+| MiniMax-M3 | Maximum | $0.0003 | MiniMax (≤512k standard input) |
+| MiniMax-M2.7 | Premium/Standard | $0.0003 | MiniMax |
+| MiniMax-M2.5 | Economy | $0.0003 | MiniMax |
 | kimi-code/k3 | Premium/Standard/Economy | $0.0005 | Kimi |
+| kimi-code/k3-256k | Maximum | Unpriced | Kimi subscription |
 | default | - | $0.005 | Fallback |
 
 ### Output Tokens
@@ -56,30 +66,37 @@ Since v2.5, models are organized into three tiers. Use `apply_model_tier()` or `
 | Gemini 3.1 Pro (High) | Premium | $0.012 | Gemini (agy CLI) |
 | Gemini 3.6 Flash (High) | Standard | $0.0075 | Gemini (agy CLI) |
 | Gemini 3.6 Flash (Low) | Economy | $0.0075 | Gemini (agy CLI) |
+| Gemini 3.7 Flash (High/Low) | Opt-in | $0.00375 | Gemini (CLI/API; promotional through 2026-12-31) |
 | gpt-5.6-sol | Premium | $0.030 | Codex |
 | gpt-5.6-terra | Standard | $0.012 | Codex |
 | gpt-5.6-luna | Economy | $0.0012 | Codex |
 | claude-opus-5 | Premium | $0.025 | Claude |
+| claude-fable-5 | Opt-in | $0.050 | Claude |
 | claude-sonnet-5 | Standard | $0.015 | Claude |
 | claude-haiku-4-5 | Economy | $0.005 | Claude |
 | mistral-large-3 | Premium | $0.006 | Mistral |
-| mistral-medium-latest | Standard | $0.003 | Mistral |
+| mistral-medium-3.5 / mistral-medium-3-5 | Premium CLI / API opt-in | $0.0075 | Mistral |
+| mistral-large-2512 | API opt-in | $0.0015 | Mistral |
+| mistral-small-2603 | API opt-in | $0.0006 | Mistral |
 | devstral-small-2 | Economy | $0.00 | Mistral |
-| composer-2.5 | Premium | $0.0025 | Cursor |
-| composer-2 | Standard | $0.0025 | Cursor |
-| gemini-3-flash | Economy | $0.003 | Cursor |
+| composer-2.5 | Maximum/Premium/Standard/Economy | $0.0025 | Cursor |
+| composer-2 | Legacy | $0.0025 | Cursor |
+| gemini-3-flash | Legacy | $0.003 | Cursor |
 | deepseek-v4-pro | Premium | $0.00087 | DeepSeek |
 | deepseek-v4-flash | Standard/Economy | $0.00028 | DeepSeek |
-| glm-5.2 | Premium/Standard | $0.00308 | GLM |
+| glm-5.3 | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
 | glm-4-flash | Economy | $0.003 | GLM |
-| grok-4.5 | Premium | $0.006 | Grok |
-| grok-4.1-fast | Standard/Economy | $0.0005 | Grok |
+| grok-4.6 | Maximum/Premium | $0.006 | Grok |
+| grok-4.5 | Standard/Economy | $0.006 | Grok |
 | qwen3.7-max | Premium | $0.006 | Qwen3 |
 | qwen3.6-35b-a3b | Standard | $0.0009 | Qwen3 |
 | qwen3-32b | Economy | $0.0016 | Qwen3 |
-| MiniMax-M2.7 | Premium/Standard | $0.001 | MiniMax |
-| MiniMax-M2.5 | Economy | $0.001 | MiniMax |
+| qwen3.8-max | Maximum | Unpriced | Qwen3 Token Plan |
+| MiniMax-M3 | Maximum | $0.0012 | MiniMax (≤512k standard input) |
+| MiniMax-M2.7 | Premium/Standard | $0.0012 | MiniMax |
+| MiniMax-M2.5 | Economy | $0.0012 | MiniMax |
 | kimi-code/k3 | Premium/Standard/Economy | $0.002 | Kimi |
+| kimi-code/k3-256k | Maximum | Unpriced | Kimi subscription |
 | default | - | $0.015 | Fallback |
 
 ## Cost Estimation per Session
@@ -155,7 +172,18 @@ This is a conservative estimate. Actual costs may vary.
 
 ### Data Source
 
-Rates are defined in `scripts/lib/costs.sh` and are periodically updated to reflect official provider pricing.
+Rates are defined in `docs/cost_rates.json` and are periodically updated from
+the providers' official pricing pages: [Anthropic](https://platform.claude.com/docs/en/about-claude/models/choosing-a-model),
+[Google](https://ai.google.dev/gemini-api/docs/pricing),
+[Mistral](https://docs.mistral.ai/getting-started/models/models_overview/),
+[xAI](https://docs.x.ai/developers/models), and
+[MiniMax](https://platform.minimax.io/docs/guides/pricing-paygo). Gemini 3.7's
+listed rate is the promotion effective through December 31, 2026.
+
+`glm-5.3`, `qwen3.8-max`, and `kimi-code/k3-256k` are explicitly unpriced on
+the transports used here. Their zero catalog entries prevent the estimator from
+inventing a dollar figure; session reports disclose their exclusion rather than
+presenting them as free.
 
 ### Dependencies
 

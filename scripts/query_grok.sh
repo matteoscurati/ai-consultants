@@ -5,7 +5,7 @@
 #
 # Environment variables:
 #   GROK_CMD        - Grok Build command (default: grok)
-#   GROK_MODEL      - Model to use in both transports (default: grok-4.5)
+#   GROK_MODEL      - Model to use in both transports (default: grok-4.6)
 #   GROK_TIMEOUT    - Timeout in seconds (default: 180)
 #   GROK_USE_API    - Force the API path when true (default: CLI-first auto)
 #   GROK_API_KEY    - xAI API key used by the fallback
@@ -305,12 +305,19 @@ fi
 END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
+MODEL_IDENTITY_SOURCE="${_API_MODEL_IDENTITY_SOURCE:-requested-only}"
+EFFECTIVE_MODEL="${_API_RESPONSE_MODEL:-$GROK_MODEL}"
+if [[ "$TRANSPORT" == "cli" && "$GROK_CLI_COMPATIBILITY" == "capability-probed" ]]; then
+    MODEL_IDENTITY_SOURCE="capability-probed"
+    EFFECTIVE_MODEL="$GROK_MODEL"
+fi
 
 # The response builder intentionally returns the consultant exit code. Keep it
 # inside a conditional so `set -e` cannot skip transport metadata and cleanup
 # on the failure path.
 if process_consultant_response "$CONSULTANT_NAME" "$GROK_MODEL" "$PERSONA_NAME" \
-        "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"; then
+        "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
+        "$GROK_MODEL" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL"; then
     :
 else
     :
