@@ -516,6 +516,32 @@ test_build_full_query() {
     assert_equals "" "$result" "both empty returns empty"
 }
 
+test_response_normalization() {
+    suite "common.sh: response normalization and quality"
+
+    local input="$TEST_TMPDIR/normalize-input" output="$TEST_TMPDIR/normalize-output.json" rc
+
+    printf '%s\n' '"{\"response\":{\"summary\":\"double ok\"},\"confidence\":{\"score\":7}}"' > "$input"
+    rc=0
+    process_consultant_response Test test-model Tester "$input" "$output" 0 100 >/dev/null 2>&1 || rc=$?
+    assert_equals 0 "$rc" "double-encoded JSON response succeeds"
+    assert_equals "double ok" "$(jq -r '.response.summary' "$output")" "double-encoded JSON is unwrapped"
+    assert_equals structured "$(jq -r '.metadata.response_quality' "$output")" "structured quality is explicit"
+
+    printf '%s' '{"response":{"summary":"truncated"}' > "$input"
+    rc=0
+    process_consultant_response Test test-model Tester "$input" "$output" 0 100 >/dev/null 2>&1 || rc=$?
+    assert_equals 1 "$rc" "truncated JSON-looking response fails closed"
+    assert_equals error "$(jq -r '.metadata.response_quality' "$output")" "truncated JSON is marked error"
+
+    printf '%s\n' 'Concrete markdown recommendation' 'More detail' > "$input"
+    rc=0
+    process_consultant_response Test test-model Tester "$input" "$output" 0 100 >/dev/null 2>&1 || rc=$?
+    assert_equals 0 "$rc" "valid prose remains a usable fallback"
+    assert_equals fallback "$(jq -r '.metadata.response_quality' "$output")" "prose quality is explicit"
+    assert_equals "Concrete markdown recommendation" "$(jq -r '.response.summary' "$output")" "fallback summary preserves provider content"
+}
+
 # =============================================================================
 # TESTS: common.sh - Known agent registry
 # =============================================================================
@@ -644,6 +670,8 @@ test_system_prompt_builder() {
     result=$(build_system_prompt "Gemini")
     assert_contains "Architect" "$result" "system prompt includes persona"
     assert_contains "JSON" "$result" "system prompt includes output format instruction"
+    assert_contains "under 5000 characters" "$result" "system prompt bounds provider output"
+    assert_contains "Do not use tools" "$result" "advisory prompt forbids workspace/tool exploration"
 
     result=$(build_query_with_persona "Codex" "How to refactor?")
     assert_contains "Pragmatist" "$result" "query includes Codex persona"
@@ -825,6 +853,8 @@ test_response_tokens() {
         "legacy metadata defaults requested_model to model"
     assert_equals "requested-only" "$(echo "$md" | jq -r '.model_identity_source')" \
         "legacy metadata labels model identity honestly"
+    assert_equals "9 estimated 8 1" "$(resolve_response_tokens '12345678' '1234' 4)" \
+        "multi-turn CLI estimate conservatively multiplies prompt tokens"
     md=$(build_response_metadata 1500 "provider-effective" "" 0 unknown "" "" "" "requested-id" "provider-reported")
     assert_equals "requested-id" "$(echo "$md" | jq -r '.requested_model')" "requested model is additive metadata"
     assert_equals "provider-reported" "$(echo "$md" | jq -r '.model_identity_source')" "provider identity source is preserved"
@@ -1556,7 +1586,7 @@ test_model_for_tier() {
     local max_quality_state
     max_quality_state=$(
         apply_preset max_quality
-        printf '%s|%s|%s|' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT"
+        printf '%s|%s|%s|%s|%s|%s|' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT" "$CLAUDE_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT_SECONDS" "$MINIMAX_MAX_TOKENS"
         local enabled=0 flag
         for flag in ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KIMI ENABLE_CLAUDE \
             ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX; do
@@ -1564,7 +1594,7 @@ test_model_for_tier() {
         done
         printf '%s\n' "$enabled"
     )
-    assert_equals "xhigh|max|max|10" "$max_quality_state" "max_quality enables all 10 consultants at each provider's highest effort"
+    assert_equals "xhigh|max|max|240|600|16384|10" "$max_quality_state" "max_quality enables all 10 consultants with highest efforts and reasoning budgets"
 
     local maximum_effort_lifecycle
     maximum_effort_lifecycle=$(
@@ -1583,16 +1613,19 @@ test_model_for_tier() {
         GROK_REASONING_EFFORT=low
         GLM_REASONING_EFFORT=medium
         DEEPSEEK_REASONING_EFFORT=high
+        CLAUDE_TIMEOUT_SECONDS=240
+        DEEPSEEK_TIMEOUT_SECONDS=180
+        MINIMAX_MAX_TOKENS=4096
         unset _AI_CONSULTANTS_TIER_GROK_EFFORT_MANAGED _AI_CONSULTANTS_TIER_GLM_EFFORT_MANAGED
         unset _AI_CONSULTANTS_TIER_DEEPSEEK_EFFORT_MANAGED
         apply_model_tier maximum
         apply_model_tier maximum
-        printf '%s|%s|%s|' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT"
+        printf '%s|%s|%s|%s|%s|%s|' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT" "$CLAUDE_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT_SECONDS" "$MINIMAX_MAX_TOKENS"
         apply_model_tier standard
-        printf '%s|%s|%s\n' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT"
+        printf '%s|%s|%s|%s|%s|%s\n' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT" "$CLAUDE_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT_SECONDS" "$MINIMAX_MAX_TOKENS"
     )
-    assert_equals "xhigh|max|max|low|medium|high" "$maximum_effort_lifecycle" \
-        "maximum temporarily overrides and then restores user-pinned provider efforts"
+    assert_equals "xhigh|max|max|240|600|16384|low|medium|high|240|180|4096" "$maximum_effort_lifecycle" \
+        "maximum temporarily overrides and then restores provider efforts and timeouts"
 
     local maximum_unconfigured
     maximum_unconfigured=$(
@@ -1612,18 +1645,45 @@ test_model_for_tier() {
         QWEN3_FORMAT=openai
         QWEN3_API_URL=https://token-plan.example.test/compatible-mode/v1/chat/completions
         QWEN3_API_KEY="test"
+        QWEN3_TIMEOUT_SECONDS=180
+        QWEN3_MAX_QUALITY_TIMEOUT=600
         unset QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
+        unset _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR
         apply_model_tier maximum
-        printf '%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT"
+        printf '%s|%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT" "$QWEN3_TIMEOUT_SECONDS"
         apply_model_tier economy
-        printf '%s|%s\n' "$QWEN3_MODEL" "${QWEN3_REASONING_EFFORT+x}"
+        printf '%s|%s|%s\n' "$QWEN3_MODEL" "${QWEN3_REASONING_EFFORT+x}" "$QWEN3_TIMEOUT_SECONDS"
         QWEN3_REASONING_EFFORT=low
         apply_model_tier maximum
-        printf '%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT"
+        printf '%s|%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT" "$QWEN3_TIMEOUT_SECONDS"
     )
-    assert_equals "qwen3.8-max|xhigh" "$(sed -n '1p' <<<"$qwen_tier_output")" "configured Token Plan promotes Qwen3.8-Max with managed xhigh"
-    assert_equals "qwen3-32b|" "$(sed -n '2p' <<<"$qwen_tier_output")" "leaving maximum clears only the managed Qwen effort"
-    assert_equals "qwen3.8-max|low" "$(sed -n '3p' <<<"$qwen_tier_output")" "maximum preserves a user-pinned Qwen effort"
+    assert_equals "qwen3.8-max|xhigh|600" "$(sed -n '1p' <<<"$qwen_tier_output")" "configured Token Plan promotes Qwen3.8-Max with managed xhigh and extended timeout"
+    assert_equals "qwen3-32b||180" "$(sed -n '2p' <<<"$qwen_tier_output")" "leaving maximum clears managed Qwen effort and restores timeout"
+    assert_equals "qwen3.8-max|low|600" "$(sed -n '3p' <<<"$qwen_tier_output")" "maximum preserves a user-pinned Qwen effort while extending timeout"
+
+    local child_tier_state
+    child_tier_state=$(
+        QWEN3_USE_API=true
+        QWEN3_FORMAT=openai
+        QWEN3_API_URL=https://token-plan.example.test/compatible-mode/v1/chat/completions
+        QWEN3_API_KEY="test"
+        QWEN3_TIMEOUT=180
+        QWEN3_TIMEOUT_SECONDS=180
+        DEEPSEEK_TIMEOUT=180
+        DEEPSEEK_TIMEOUT_SECONDS=180
+        CODEX_API_MAX_TOKENS=4096
+        MISTRAL_API_MAX_TOKENS=4096
+        GROK_API_MAX_TOKENS=4096
+        MINIMAX_API_MAX_TOKENS=4096
+        apply_model_tier maximum
+        bash -c 'source "'"$SCRIPT_DIR"'/lib/common.sh" >/dev/null 2>&1; printf "%s|%s|%s|%s|%s|%s|%s|%s\n" "$QWEN3_TIMEOUT" "$QWEN3_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT" "$DEEPSEEK_TIMEOUT_SECONDS" "$CODEX_API_MAX_TOKENS" "$MISTRAL_API_MAX_TOKENS" "$GROK_API_MAX_TOKENS" "$MINIMAX_API_MAX_TOKENS"'
+        apply_model_tier economy
+        printf '%s|%s|%s|%s|%s|%s|%s|%s\n' "$QWEN3_TIMEOUT" "$QWEN3_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT" "$DEEPSEEK_TIMEOUT_SECONDS" "$CODEX_API_MAX_TOKENS" "$MISTRAL_API_MAX_TOKENS" "$GROK_API_MAX_TOKENS" "$MINIMAX_API_MAX_TOKENS"
+    )
+    assert_equals "600|600|600|600|16384|16384|16384|16384" "$(sed -n '1p' <<<"$child_tier_state")" \
+        "maximum timeout and API budgets survive child-process config re-source"
+    assert_equals "180|180|180|180|4096|4096|4096|4096" "$(sed -n '2p' <<<"$child_tier_state")" \
+        "leaving maximum restores public timeouts and API budgets"
 
     local economy_exports
     economy_exports=$(
@@ -1741,6 +1801,7 @@ main() {
     test_consultant_validation
     test_api_mode_helpers
     test_build_full_query
+    test_response_normalization
     test_known_agents
 
     # personas.sh tests

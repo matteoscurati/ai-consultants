@@ -7,6 +7,7 @@
 #   GROK_CMD        - Grok Build command (default: grok)
 #   GROK_MODEL      - Model to use in both transports (default: grok-4.6)
 #   GROK_TIMEOUT    - Timeout in seconds (default: 180)
+#   GROK_MAX_TURNS  - Bounded advisory turns (default: 4)
 #   GROK_USE_API    - Force the API path when true (default: CLI-first auto)
 #   GROK_API_KEY    - xAI API key used by the fallback
 #   XAI_API_KEY     - Official xAI key name; accepted as a GROK_API_KEY alias
@@ -44,7 +45,16 @@ GROK_SUPPORTS_REASONING_EFFORT=false
 GROK_CLI_EFFORT=""
 _GROK_CAPABILITY_ERROR=""
 _GROK_REQUEST_LAUNCHED=false
+_GROK_MODEL_PROBE_ERROR=""
 exit_code=1
+
+if ! [[ "$GROK_MAX_TURNS" =~ ^[1-9][0-9]*$ ]]; then
+    log_error "[$CONSULTANT_NAME] GROK_MAX_TURNS must be a positive integer (got: $GROK_MAX_TURNS)"
+    build_error_response "$CONSULTANT_NAME" "$GROK_MODEL" "$(get_persona_name "$CONSULTANT_NAME")" \
+        "Invalid GROK_MAX_TURNS" 0 "$GROK_MODEL" requested-only > "$OUTPUT_FILE"
+    cat "$OUTPUT_FILE"
+    exit 1
+fi
 
 cleanup() {
     rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"
@@ -163,14 +173,18 @@ grok_cli_exposes_requested_model() {
 
     if ! models=$(env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
             "$GROK_CMD" models 2>&1); then
-        printf '%s\n' "$models"
+        if grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
+            _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
+        else
+            _GROK_MODEL_PROBE_ERROR="Grok Build CLI model inventory failed"
+        fi
         return 1
     fi
     grep -Fq "You are logged in with grok.com." <<< "$models" || {
-        printf '%s\n' "$models"
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
         return 1
     }
-    awk -v requested="$GROK_MODEL" '
+    if ! awk -v requested="$GROK_MODEL" '
         {
             line = $0
             sub(/^[[:space:]*]+/, "", line)
@@ -178,7 +192,11 @@ grok_cli_exposes_requested_model() {
             if (fields[1] == requested) found = 1
         }
         END { exit(found ? 0 : 1) }
-    ' <<< "$models"
+    ' <<< "$models"; then
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI does not expose the requested model $GROK_MODEL"
+        return 1
+    fi
+    return 0
 }
 
 grok_cli_is_unavailable() {
@@ -199,7 +217,7 @@ grok_cli_is_unavailable() {
     # model errors, timeouts, empty output, or other post-launch failures here;
     # those must surface instead of silently creating a billable API request.
     grep -Eiq \
-        'not authenticated|authentication( is)? required|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)' \
+        'not authenticated|authentication( is)? (required|unavailable)|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)' \
         "$error_file"
 }
 
@@ -251,9 +269,8 @@ else
             exit_code=69
         elif ! grok_cli_exposes_requested_model \
                 "$isolated_home" "$isolated_grok_home" > "${TEMP_OUTPUT}.err"; then
-            printf 'Grok Build CLI does not expose the requested model %s\n' \
-                "$GROK_MODEL" >> "${TEMP_OUTPUT}.err"
-            log_warn "[$CONSULTANT_NAME] Grok Build CLI does not expose $GROK_MODEL"
+            printf '%s\n' "${_GROK_MODEL_PROBE_ERROR:-Grok Build CLI model inventory failed}" > "${TEMP_OUTPUT}.err"
+            log_warn "[$CONSULTANT_NAME] ${_GROK_MODEL_PROBE_ERROR:-Grok Build CLI model inventory failed}"
             exit_code=69
         else
             # Official Grok Build headless contract:
@@ -273,7 +290,7 @@ else
                 --no-subagents
                 --no-memory
                 --disable-web-search
-                --max-turns 1
+                --max-turns "$GROK_MAX_TURNS"
                 --permission-mode dontAsk
                 --sandbox strict
                 --tools ""
@@ -350,10 +367,12 @@ fi
 # on the failure path.
 if process_consultant_response "$CONSULTANT_NAME" "$GROK_MODEL" "$PERSONA_NAME" \
         "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
-        "$GROK_MODEL" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL"; then
+        "$GROK_MODEL" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL" \
+        "$((GROK_MAX_TURNS * MAX_RETRIES))"; then
     :
 else
-    :
+    response_rc=$?
+    [[ $exit_code -ne 0 ]] || exit_code=$response_rc
 fi
 
 # Preserve which route actually answered without changing the shared schema.

@@ -211,12 +211,37 @@ test_process_consultant_response_fence() {
         "Fenced JSON is de-fenced and parsed as structured response"
     assert_equal "8" "$(jq -r '.confidence.score' "$tmp_out" 2>/dev/null)" \
         "Fenced JSON confidence score preserved"
+    assert_equal "structured" "$(jq -r '.metadata.response_quality' "$tmp_out")" \
+        "structured response quality is explicit"
 
     # Case 2: bare JSON (Flash behavior) must still parse unchanged
     printf '{"response":{"summary":"bare ok"},"confidence":{"score":9}}\n' > "$tmp_in"
     process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 >/dev/null 2>&1 || true
     assert_equal "bare ok" "$(jq -r '.response.summary' "$tmp_out" 2>/dev/null)" \
         "Bare JSON still parses as structured response (no regression)"
+
+    # Case 3: a JSON string that contains the response envelope is unwrapped.
+    printf '%s\n' '"{\"response\":{\"summary\":\"double ok\"},\"confidence\":{\"score\":7}}"' > "$tmp_in"
+    process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 >/dev/null 2>&1 || true
+    assert_equal "double ok" "$(jq -r '.response.summary' "$tmp_out")" \
+        "Double-encoded JSON response is normalized"
+
+    # Case 4: malformed JSON-looking output is an error, not a confidence-5 fallback.
+    printf '%s' '{"response":{"summary":"truncated"}' > "$tmp_in"
+    local rc=0
+    process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 \
+        >/dev/null 2>&1 || rc=$?
+    assert_equal "1" "$rc" "Truncated JSON-looking response fails closed"
+    assert_equal "error" "$(jq -r '.metadata.response_quality' "$tmp_out")" \
+        "Truncated JSON is marked as an error"
+
+    # Case 5: genuine prose remains usable as an explicit fallback with a real summary.
+    printf '%s\n' 'Concrete markdown recommendation' 'More detail' > "$tmp_in"
+    process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 >/dev/null 2>&1 || true
+    assert_equal "fallback" "$(jq -r '.metadata.response_quality' "$tmp_out")" \
+        "Unstructured prose is marked as fallback"
+    assert_equal "Concrete markdown recommendation" "$(jq -r '.response.summary' "$tmp_out")" \
+        "Fallback preserves a meaningful summary"
 
     rm -f "$tmp_in" "$tmp_out"
 }

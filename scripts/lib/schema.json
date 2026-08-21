@@ -176,6 +176,11 @@
           "enum": ["provider-reported", "capability-probed", "requested-only"],
           "description": "Strength of the evidence behind model/model_version"
         },
+        "response_quality": {
+          "type": "string",
+          "enum": ["structured", "fallback", "error", "unknown"],
+          "description": "Whether the provider satisfied the JSON contract, returned usable prose, failed, or predates quality tagging."
+        },
         "cli_version": {
           "type": "string",
           "description": "Observed consultant CLI version for provenance only; compatibility is not decided from this string."

@@ -147,6 +147,7 @@ export GEMINI_USE_API
 # Model: "gpt-5.6-sol" (default), "gpt-5.6-terra", "gpt-5.6-luna", etc.
 CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-sol}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
+CODEX_API_MAX_TOKENS="${CODEX_API_MAX_TOKENS:-4096}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
 # =============================================================================
@@ -158,15 +159,23 @@ CODEX_CMD="${CODEX_CMD:-codex}"
 # independently through VIBE_ACTIVE_MODEL at dispatch time.
 MISTRAL_MODEL="${MISTRAL_MODEL:-mistral-large-3}"
 MISTRAL_CLI_MODEL="${MISTRAL_CLI_MODEL:-mistral-medium-3.5}"
+MISTRAL_API_MAX_TOKENS="${MISTRAL_API_MAX_TOKENS:-4096}"
 MISTRAL_TIMEOUT_SECONDS="${MISTRAL_TIMEOUT:-180}"
 MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
+MISTRAL_MAX_TURNS="${MISTRAL_MAX_TURNS:-4}"
 
 # =============================================================================
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
 # =============================================================================
 
 QWEN3_MODEL="${QWEN3_MODEL:-qwen3.7-max}"
-QWEN3_TIMEOUT_SECONDS="${QWEN3_TIMEOUT:-180}"
+if [[ -n "${QWEN3_TIMEOUT+x}" ]]; then
+    QWEN3_TIMEOUT_SECONDS="$QWEN3_TIMEOUT"
+elif [[ -z "${QWEN3_TIMEOUT_SECONDS+x}" ]]; then
+    QWEN3_TIMEOUT_SECONDS=180
+fi
+QWEN3_MAX_QUALITY_TIMEOUT="${QWEN3_MAX_QUALITY_TIMEOUT:-600}"
+QWEN3_API_MAX_TOKENS="${QWEN3_API_MAX_TOKENS:-16384}"
 QWEN3_CMD="${QWEN3_CMD:-qwen}"
 QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
 QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
@@ -179,6 +188,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 
 GLM_MODEL="${GLM_MODEL:-glm-5.3}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
+GLM_API_MAX_TOKENS="${GLM_API_MAX_TOKENS:-16384}"
 GLM_API_URL="${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
 # API key: Set GLM_API_KEY environment variable
@@ -190,6 +200,8 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 GROK_CMD="${GROK_CMD:-grok}"
 GROK_MODEL="${GROK_MODEL:-grok-4.6}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
+GROK_API_MAX_TOKENS="${GROK_API_MAX_TOKENS:-4096}"
+GROK_MAX_TURNS="${GROK_MAX_TURNS:-4}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
 # Grok Build's official credential name is XAI_API_KEY. Keep the historical
@@ -216,7 +228,13 @@ export GROK_USE_API
 # =============================================================================
 
 DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v4-pro}"
-DEEPSEEK_TIMEOUT_SECONDS="${DEEPSEEK_TIMEOUT:-180}"
+if [[ -n "${DEEPSEEK_TIMEOUT+x}" ]]; then
+    DEEPSEEK_TIMEOUT_SECONDS="$DEEPSEEK_TIMEOUT"
+elif [[ -z "${DEEPSEEK_TIMEOUT_SECONDS+x}" ]]; then
+    DEEPSEEK_TIMEOUT_SECONDS=180
+fi
+DEEPSEEK_MAX_QUALITY_TIMEOUT="${DEEPSEEK_MAX_QUALITY_TIMEOUT:-600}"
+DEEPSEEK_API_MAX_TOKENS="${DEEPSEEK_API_MAX_TOKENS:-16384}"
 DEEPSEEK_API_URL="${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}"
 DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # API key: Set DEEPSEEK_API_KEY environment variable
@@ -228,6 +246,10 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 MINIMAX_CMD="${MINIMAX_CMD:-mmx}"
 MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M2.7}"
 MINIMAX_TIMEOUT_SECONDS="${MINIMAX_TIMEOUT:-180}"
+MINIMAX_API_MAX_TOKENS="${MINIMAX_API_MAX_TOKENS:-4096}"
+MINIMAX_MAX_TOKENS="${MINIMAX_MAX_TOKENS:-4096}"
+MINIMAX_MAX_QUALITY_TOKENS="${MINIMAX_MAX_QUALITY_TOKENS:-16384}"
+MAX_QUALITY_API_MAX_TOKENS="${MAX_QUALITY_API_MAX_TOKENS:-16384}"
 MINIMAX_API_URL="${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}"
 MINIMAX_FORMAT="${MINIMAX_FORMAT:-openai}"
 # CLI mode (default) uses the mmx CLI (npm i -g mmx-cli; auth: mmx auth login).
@@ -467,6 +489,9 @@ USE_COMPACT_PROMPTS="${USE_COMPACT_PROMPTS:-true}"
 
 # Extract only essential fields for synthesis (instead of full JSON)
 SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
+SYNTH_DETAIL_MAX_CHARS="${SYNTH_DETAIL_MAX_CHARS:-4000}"
+SYNTHESIS_TIMEOUT="${SYNTHESIS_TIMEOUT:-240}"
+SYNTHESIS_TOTAL_TIMEOUT="${SYNTHESIS_TOTAL_TIMEOUT:-480}"
 
 # =============================================================================
 # TOKEN COST OPTIMIZATION (v2.3)
@@ -664,6 +689,7 @@ apply_model_tier() {
     local tier="$1"
     local effort_provider effort_var managed_var prior_set_var prior_value_var
     local effort_spec effort_target
+    local api_provider api_tokens_var api_managed_var api_prior_var
 
     # Validate tier name
     case "$tier" in
@@ -700,6 +726,24 @@ apply_model_tier() {
         unset QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
     fi
 
+    # Qwen3.8-Max at xhigh can legitimately take longer than the normal tier.
+    # Preserve the caller's timeout and restore it when leaving maximum.
+    case "$tier" in
+        maximum|max_quality|max-quality) ;;
+        *)
+            if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" == "true" ]]; then
+                export QWEN3_TIMEOUT_SECONDS="$_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR"
+                if [[ "${_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET:-false}" == "true" ]]; then
+                    export QWEN3_TIMEOUT="$_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR"
+                else
+                    unset QWEN3_TIMEOUT
+                fi
+                unset _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR \
+                    _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
+            fi
+            ;;
+    esac
+
     # Maximum temporarily overrides these provider efforts so the preset can
     # honor its name even when the ambient config pins a lower value. Preserve
     # that prior state and restore it when a later tier is applied; otherwise a
@@ -721,6 +765,29 @@ apply_model_tier() {
                     unset "$managed_var" "$prior_set_var" "$prior_value_var"
                 fi
             done
+            if [[ "${_AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_MANAGED:-false}" == "true" ]]; then
+                export DEEPSEEK_TIMEOUT_SECONDS="$_AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_PRIOR"
+                if [[ "${_AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR_SET:-false}" == "true" ]]; then
+                    export DEEPSEEK_TIMEOUT="$_AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR"
+                else
+                    unset DEEPSEEK_TIMEOUT
+                fi
+                unset _AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_PRIOR \
+                    _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR_SET _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR
+            fi
+            if [[ "${_AI_CONSULTANTS_TIER_MINIMAX_TOKENS_MANAGED:-false}" == "true" ]]; then
+                export MINIMAX_MAX_TOKENS="$_AI_CONSULTANTS_TIER_MINIMAX_TOKENS_PRIOR"
+                unset _AI_CONSULTANTS_TIER_MINIMAX_TOKENS_MANAGED _AI_CONSULTANTS_TIER_MINIMAX_TOKENS_PRIOR
+            fi
+            for api_provider in CODEX MISTRAL GROK MINIMAX; do
+                api_tokens_var="${api_provider}_API_MAX_TOKENS"
+                api_managed_var="_AI_CONSULTANTS_TIER_${api_provider}_API_TOKENS_MANAGED"
+                api_prior_var="_AI_CONSULTANTS_TIER_${api_provider}_API_TOKENS_PRIOR"
+                if [[ "${!api_managed_var:-false}" == "true" ]]; then
+                    export "$api_tokens_var=${!api_prior_var}"
+                    unset "$api_managed_var" "$api_prior_var"
+                fi
+            done
             ;;
     esac
 
@@ -739,8 +806,31 @@ apply_model_tier() {
                     export QWEN3_REASONING_EFFORT=xhigh
                     export _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED=true
                 fi
+                if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" != "true" ]]; then
+                    export _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR="$QWEN3_TIMEOUT_SECONDS"
+                    if declare -p QWEN3_TIMEOUT >/dev/null 2>&1; then
+                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET=true
+                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR="$QWEN3_TIMEOUT"
+                    else
+                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET=false
+                        unset _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
+                    fi
+                    export _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED=true
+                fi
+                export QWEN3_TIMEOUT="$QWEN3_MAX_QUALITY_TIMEOUT"
+                export QWEN3_TIMEOUT_SECONDS="$QWEN3_MAX_QUALITY_TIMEOUT"
             else
                 export QWEN3_MODEL="qwen3.7-max"
+                if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" == "true" ]]; then
+                    export QWEN3_TIMEOUT_SECONDS="$_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR"
+                    if [[ "${_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET:-false}" == "true" ]]; then
+                        export QWEN3_TIMEOUT="$_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR"
+                    else
+                        unset QWEN3_TIMEOUT
+                    fi
+                    unset _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR \
+                        _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
+                fi
             fi
             ;;
         *)
@@ -772,6 +862,34 @@ apply_model_tier() {
                     export "$managed_var=true"
                 fi
                 export "$effort_var=$effort_target"
+            done
+            if [[ "${_AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_MANAGED:-false}" != "true" ]]; then
+                export _AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_PRIOR="$DEEPSEEK_TIMEOUT_SECONDS"
+                if declare -p DEEPSEEK_TIMEOUT >/dev/null 2>&1; then
+                    export _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR_SET=true
+                    export _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR="$DEEPSEEK_TIMEOUT"
+                else
+                    export _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR_SET=false
+                    unset _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR
+                fi
+                export _AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_MANAGED=true
+            fi
+            export DEEPSEEK_TIMEOUT="$DEEPSEEK_MAX_QUALITY_TIMEOUT"
+            export DEEPSEEK_TIMEOUT_SECONDS="$DEEPSEEK_MAX_QUALITY_TIMEOUT"
+            if [[ "${_AI_CONSULTANTS_TIER_MINIMAX_TOKENS_MANAGED:-false}" != "true" ]]; then
+                export _AI_CONSULTANTS_TIER_MINIMAX_TOKENS_PRIOR="$MINIMAX_MAX_TOKENS"
+                export _AI_CONSULTANTS_TIER_MINIMAX_TOKENS_MANAGED=true
+            fi
+            export MINIMAX_MAX_TOKENS="$MINIMAX_MAX_QUALITY_TOKENS"
+            for api_provider in CODEX MISTRAL GROK MINIMAX; do
+                api_tokens_var="${api_provider}_API_MAX_TOKENS"
+                api_managed_var="_AI_CONSULTANTS_TIER_${api_provider}_API_TOKENS_MANAGED"
+                api_prior_var="_AI_CONSULTANTS_TIER_${api_provider}_API_TOKENS_PRIOR"
+                if [[ "${!api_managed_var:-false}" != "true" ]]; then
+                    export "$api_prior_var=${!api_tokens_var}"
+                    export "$api_managed_var=true"
+                fi
+                export "$api_tokens_var=$MAX_QUALITY_API_MAX_TOKENS"
             done
             ;;
     esac

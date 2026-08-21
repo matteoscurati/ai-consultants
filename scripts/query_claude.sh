@@ -43,6 +43,29 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution (CLI or API mode) ---
 TEMP_OUTPUT=$(mktemp)
+CLAUDE_SUPPORTS_AUTH_STATUS=false
+
+claude_cli_supports_advisory_contract() {
+    local help flag
+    if ! help=$(run_with_timeout 8 "$CLAUDE_CMD" --help 2>&1); then
+        return 1
+    fi
+    for flag in --print --model --output-format --no-session-persistence \
+        --setting-sources --tools --strict-mcp-config --mcp-config --permission-mode; do
+        grep -q -- "$flag" <<<"$help" || return 1
+    done
+    if grep -Eq '^[[:space:]]+auth([[:space:]]|$)' <<<"$help"; then
+        CLAUDE_SUPPORTS_AUTH_STATUS=true
+    fi
+}
+
+claude_cli_is_authenticated() {
+    local status
+    if ! status=$(run_with_timeout 12 "$CLAUDE_CMD" auth status 2>&1); then
+        return 1
+    fi
+    printf '%s' "$status" | jq -e '.loggedIn == true' >/dev/null 2>&1
+}
 
 if is_api_mode "claude"; then
     # --- API Mode ---
@@ -70,11 +93,29 @@ else
     log_api_mode_status "claude"
     check_command "$CLAUDE_CMD" "Claude CLI" "Visit https://docs.anthropic.com/en/docs/claude-code" || exit 1
 
+    if ! claude_cli_supports_advisory_contract; then
+        log_error "[$CONSULTANT_NAME] Claude CLI help probe timed out or lacks the stateless advisory interface"
+        exit_code=1
+        effort_ok=false
+    elif [[ "$CLAUDE_SUPPORTS_AUTH_STATUS" == "true" ]]; then
+        if ! claude_cli_is_authenticated; then
+            log_error "[$CONSULTANT_NAME] Claude CLI reports logged-out auth or its auth probe timed out"
+            exit_code=1
+            effort_ok=false
+        else
+            effort_ok=true
+        fi
+    else
+        log_warn "[$CONSULTANT_NAME] Claude CLI does not expose 'auth status'; dispatch will surface authentication errors"
+        effort_ok=true
+    fi
+
     # Optional CLI effort control. Unset leaves the CLI's own default alone;
     # when set, pass --effort through after the shared validation gate. Do not
     # invent a local allowlist — the provider rejects what it does not accept.
-    CLAUDE_ARGS=("$CLAUDE_CMD" --print --model "$MODEL_USED" --output-format json)
-    effort_ok=true
+    CLAUDE_ARGS=("$CLAUDE_CMD" --print --model "$MODEL_USED" --output-format json \
+        --no-session-persistence --setting-sources "" --tools "" \
+        --strict-mcp-config --mcp-config '{"mcpServers":{}}' --permission-mode plan)
     if [[ -n "${CLAUDE_REASONING_EFFORT:-}" ]]; then
         source "$SCRIPT_DIR/lib/api.sh"
         if ! cli_effort=$(validate_reasoning_effort "$CLAUDE_REASONING_EFFORT" "$CONSULTANT_NAME"); then
@@ -151,11 +192,21 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
     clear_api_token_split
     rm -f "$TEMP_OUTPUT"
 
-    # Try to parse as structured JSON
-    if echo "$RAW_RESPONSE" | jq -e '.response.summary' > /dev/null 2>&1; then
-        build_structured_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+    if NORMALIZED_RESPONSE=$(normalize_consultant_response_text "$RAW_RESPONSE"); then
+        normalization_rc=0
     else
-        build_fallback_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+        normalization_rc=$?
+    fi
+    if [[ $normalization_rc -eq 0 ]]; then
+        build_structured_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$NORMALIZED_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+    elif [[ $normalization_rc -eq 1 ]]; then
+        build_fallback_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$NORMALIZED_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+    else
+        log_error "[$CONSULTANT_NAME] Provider returned malformed, truncated, or schema-invalid JSON"
+        build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" \
+            "Provider returned malformed, truncated, or schema-invalid JSON" "$LATENCY_MS" \
+            "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" > "$OUTPUT_FILE"
+        exit_code=1
     fi
 else
     rm -f "$TEMP_OUTPUT"

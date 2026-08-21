@@ -26,7 +26,7 @@ generate_fallback_synthesis() {
     local consultants_json="[]"
 
     for f in "$responses_dir"/*.json; do
-        if _is_consultant_response_file "$f"; then
+        if _is_successful_consultant_response_file "$f"; then
             local conf=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
             local name=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
             total_confidence=$((total_confidence + conf))
@@ -116,9 +116,14 @@ CONFIDENCE_SCORES=()
 # pipeline metadata (voting/orchestration/stance_options...) can't steal a slot
 # from a genuine consultant answer.
 SYNTH_MAX="${SYNTH_MAX:-10}"
+SYNTH_DETAIL_MAX_CHARS="${SYNTH_DETAIL_MAX_CHARS:-4000}"
+if ! [[ "$SYNTH_DETAIL_MAX_CHARS" =~ ^[1-9][0-9]*$ ]]; then
+    log_error "SYNTH_DETAIL_MAX_CHARS must be a positive integer (got: $SYNTH_DETAIL_MAX_CHARS)"
+    exit 1
+fi
 SYNTH_COLLECTED=0
 while IFS= read -r response_file; do
-    if _is_consultant_response_file "$response_file"; then
+    if _is_successful_consultant_response_file "$response_file"; then
         CONSULTANT=$(jq -r '.consultant // "unknown"' "$response_file" 2>/dev/null)
         CONFIDENCE=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
 
@@ -133,10 +138,13 @@ while IFS= read -r response_file; do
             PROS=$(jq -r '(.response.pros // []) | join("; ")' "$response_file" 2>/dev/null)
             CONS=$(jq -r '(.response.cons // []) | join("; ")' "$response_file" 2>/dev/null)
             CONF_REASONING=$(jq -r '.confidence.reasoning // "N/A"' "$response_file" 2>/dev/null)
+            RESPONSE_QUALITY=$(jq -r '.metadata.response_quality // "unknown"' "$response_file" 2>/dev/null)
+            DETAIL=$(jq -r '.response.detailed // ""' "$response_file" 2>/dev/null | cut -c1-"$SYNTH_DETAIL_MAX_CHARS")
 
             COMBINED_RESPONSES+="
-**$CONSULTANT** (conf:$CONFIDENCE/10, approach:$APPROACH)
+**$CONSULTANT** (conf:$CONFIDENCE/10, approach:$APPROACH, quality:$RESPONSE_QUALITY)
 Summary: $SUMMARY
+Detail: $DETAIL
 +: $PROS | -: $CONS
 Reasoning: $CONF_REASONING
 ---
@@ -156,6 +164,10 @@ $(cat "$response_file")
 done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null)
 
 NUM_CONSULTANTS=${#CONSULTANTS[@]}
+if [[ "$NUM_CONSULTANTS" -eq 0 ]]; then
+    log_error "No successful consultant responses found in $RESPONSES_DIR"
+    exit 1
+fi
 log_info "Found $NUM_CONSULTANTS responses to synthesize"
 
 # --- Get synthesis strategy ---
@@ -294,19 +306,76 @@ RULES:
 
 # --- Execute synthesis ---
 TEMP_OUTPUT=$(mktemp)
+SYNTHESIS_PAYLOAD_FILE="${TEMP_OUTPUT}.payload"
 
-# Resolve which CLI to use (avoids invoking agent, walks fallback chain)
-SYNTH_CLI=$(resolve_synthesis_cli 2>/dev/null || echo "")
+# Try the configured/selected synthesizer first, then the remaining ready
+# families. A timeout or provider failure is unavailability, not a reason to
+# discard nine valid consultant responses into a local placeholder.
+synthesis_started_at=$(date +%s)
+SELECTED_SYNTH_CLI=$(resolve_synthesis_cli 2>/dev/null || echo "")
+SYNTH_CANDIDATES=()
+SYNTH_CANDIDATE_NAMES=" "
+if [[ -n "$SELECTED_SYNTH_CLI" ]]; then
+    SYNTH_CANDIDATES+=("$SELECTED_SYNTH_CLI")
+    SYNTH_CANDIDATE_NAMES+="$SELECTED_SYNTH_CLI "
+fi
+for candidate in gemini codex claude; do
+    if [[ "$SYNTH_CANDIDATE_NAMES" != *" $candidate "* ]]; then
+        SYNTH_CANDIDATES+=("$candidate")
+        SYNTH_CANDIDATE_NAMES+="$candidate "
+    fi
+done
 
-if [[ -n "$SYNTH_CLI" ]]; then
-    log_info "Running synthesis with $SYNTH_CLI..."
-    build_synthesis_args "$SYNTH_CLI" "$SYNTHESIS_PROMPT"
-    echo "$SYNTHESIS_PROMPT" | "${SYNTHESIS_ARGS[@]}" > "$TEMP_OUTPUT" 2>/dev/null
-    exit_code=$?
-else
-    log_warn "No synthesis CLI available, using local fallback"
-    # Fallback: generate basic synthesis without LLM
+SYNTH_CLI=""
+exit_code=1
+avoid_synth=$(_consultant_to_cli "$(get_self_consultant_name)")
+if ! [[ "${SYNTHESIS_TIMEOUT:-240}" =~ ^[1-9][0-9]*$ \
+    && "${SYNTHESIS_TOTAL_TIMEOUT:-480}" =~ ^[1-9][0-9]*$ ]]; then
+    log_error "SYNTHESIS_TIMEOUT and SYNTHESIS_TOTAL_TIMEOUT must be positive integers"
+    exit 1
+fi
+for candidate in "${SYNTH_CANDIDATES[@]}"; do
+    [[ "$candidate" == "$avoid_synth" ]] && continue
+    if [[ "$candidate" != "$SELECTED_SYNTH_CLI" ]] && ! _synthesis_cli_ready "$candidate"; then
+        continue
+    fi
+
+    : > "$TEMP_OUTPUT"
+    rm -f "$SYNTHESIS_PAYLOAD_FILE"
+    log_info "Running synthesis with $candidate..."
+    if ! build_synthesis_args "$candidate" "$SYNTHESIS_PROMPT" "$SYNTHESIS_PAYLOAD_FILE"; then
+        log_warn "Could not build synthesis invocation for $candidate"
+        continue
+    fi
+    elapsed=$(( $(date +%s) - synthesis_started_at ))
+    remaining=$(( SYNTHESIS_TOTAL_TIMEOUT - elapsed ))
+    (( remaining > 0 )) || break
+    provider_timeout="$SYNTHESIS_TIMEOUT"
+    (( provider_timeout <= remaining )) || provider_timeout="$remaining"
+    if printf '%s' "$SYNTHESIS_PROMPT" | run_with_timeout "$provider_timeout" \
+            "${SYNTHESIS_ARGS[@]}" > "$TEMP_OUTPUT" 2>/dev/null; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
+    if [[ "$candidate" == "codex" && $exit_code -eq 0 ]]; then
+        if [[ -s "$SYNTHESIS_PAYLOAD_FILE" ]]; then
+            cp "$SYNTHESIS_PAYLOAD_FILE" "$TEMP_OUTPUT"
+        else
+            exit_code=1
+        fi
+    fi
+    if [[ $exit_code -eq 0 && -s "$TEMP_OUTPUT" ]]; then
+        SYNTH_CLI="$candidate"
+        break
+    fi
+    log_warn "Synthesis with $candidate failed (exit $exit_code); trying the next ready provider"
+done
+
+if [[ -z "$SYNTH_CLI" ]]; then
+    log_warn "No synthesis CLI completed successfully, using local fallback"
     generate_fallback_synthesis "$RESPONSES_DIR" > "$TEMP_OUTPUT"
+    SYNTH_CLI="local-fallback"
     exit_code=0
 fi
 
@@ -328,16 +397,25 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         else
             # Fallback: create minimal structure
             generate_fallback_synthesis "$RESPONSES_DIR" > "$OUTPUT_FILE"
+            SYNTH_CLI="local-fallback"
         fi
     fi
 
+    annotated_output=$(mktemp)
+    if jq --arg provider "$SYNTH_CLI" '.synthesis_provider = $provider' \
+            "$OUTPUT_FILE" > "$annotated_output"; then
+        mv "$annotated_output" "$OUTPUT_FILE"
+    else
+        rm -f "$annotated_output"
+    fi
+
     log_success "Synthesis completed: $OUTPUT_FILE"
-    rm -f "$TEMP_OUTPUT"
+    rm -f "$TEMP_OUTPUT" "$SYNTHESIS_PAYLOAD_FILE"
     cat "$OUTPUT_FILE"
 else
     log_error "Synthesis failed"
     generate_fallback_synthesis "$RESPONSES_DIR" > "$OUTPUT_FILE"
-    rm -f "$TEMP_OUTPUT"
+    rm -f "$TEMP_OUTPUT" "$SYNTHESIS_PAYLOAD_FILE"
     cat "$OUTPUT_FILE"
     exit 1
 fi

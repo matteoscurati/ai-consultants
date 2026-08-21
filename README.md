@@ -447,6 +447,18 @@ accepted reasoning effort: Grok Build uses `xhigh`, while GLM and DeepSeek use
 `max`. Unsupported transport capabilities fail explicitly instead of reducing
 effort silently.
 
+The maximum preset also applies the transport budgets proven by the live panel
+smoke: four bounded advisory turns for Mistral/Grok, a 600-second Token Plan
+window for Qwen3.8-Max, a 600-second DeepSeek reasoning window, and larger
+OpenAI-compatible output budgets for Qwen, GLM, and DeepSeek. MiniMax M3
+likewise receives a 16,384-token completion budget in the maximum tier and a
+provider-specific compact Markdown contract through mmx's native system channel.
+Provider output is tagged `structured`, `fallback`, or `error`;
+malformed/truncated JSON fails
+closed, while usable prose remains available to synthesis with its quality
+disclosed. Synthesis excludes error envelopes and retains bounded response
+detail instead of reducing every consultant to its summary.
+
 ### Models by Tier
 
 | Consultant | `max_quality` | Premium | Standard | Economy |

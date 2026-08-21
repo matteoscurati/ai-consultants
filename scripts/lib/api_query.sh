@@ -132,15 +132,24 @@ run_api_mode_query() {
             # The DashScope envelope has no reasoning_effort field. Say so
             # rather than accepting the setting and dropping it.
             if [[ -n "$effort" ]]; then
-                log_warn "[$consultant_name] $effort_var is ignored on the '$api_format' wire format (no reasoning_effort field). Set ${consultant_name^^}_FORMAT=openai and an OpenAI-compatible ${consultant_name^^}_API_URL to use it."
+                local consultant_upper
+                consultant_upper=$(to_upper "$consultant_name")
+                log_warn "[$consultant_name] $effort_var is ignored on the '$api_format' wire format (no reasoning_effort field). Set ${consultant_upper}_FORMAT=openai and an OpenAI-compatible ${consultant_upper}_API_URL to use it."
             fi
             request_body=$(build_qwen_request "$query" "$model")
             ;;
         *)  # openai format
+            local max_tokens_var api_max_tokens
+            max_tokens_var="$(to_upper "$consultant_name")_API_MAX_TOKENS"
+            api_max_tokens="${!max_tokens_var:-4096}"
+            if ! [[ "$api_max_tokens" =~ ^[1-9][0-9]*$ ]]; then
+                log_error "[$consultant_name] $max_tokens_var must be a positive integer (got: $api_max_tokens)"
+                return 1
+            fi
             if [[ -n "$effort" ]]; then
-                request_body=$(build_openai_request "$query" "$model" 4096 "$effort")
+                request_body=$(build_openai_request "$query" "$model" "$api_max_tokens" "$effort")
             else
-                request_body=$(build_openai_request "$query" "$model")
+                request_body=$(build_openai_request "$query" "$model" "$api_max_tokens")
             fi
             ;;
     esac
@@ -164,6 +173,14 @@ run_api_mode_query() {
     # Parse response based on format
     local raw_response
     raw_response=$(cat "$temp_response")
+
+    # Publish measured usage before any parse/truncation return. A provider can
+    # bill the entire completion budget and still return finish_reason=length;
+    # that failed response must remain visible to cost and budget accounting.
+    local _t_in _t_out
+    read -r _t_in _t_out <<< "$(extract_token_split "$raw_response" "$api_format")"
+    log_debug "[$consultant_name] Tokens used: $((_t_in + _t_out)) (in=$_t_in out=$_t_out)"
+    set_api_token_split "$_t_in" "$_t_out"
 
     case "$api_format" in
         google_ai)
@@ -200,6 +217,17 @@ run_api_mode_query() {
         return 1
     fi
 
+    # OpenAI-compatible reasoning models can spend the entire completion budget
+    # in reasoning_content and return an empty visible answer with
+    # finish_reason=length (observed live with DeepSeek V4 Pro/max). Never admit
+    # that partial response into synthesis; callers can raise *_API_MAX_TOKENS.
+    if [[ "$api_format" == "openai" ]] \
+        && [[ "$(jq -r '.choices[0].finish_reason // empty' <<<"$raw_response" 2>/dev/null)" == "length" ]]; then
+        log_error "[$consultant_name] API response was truncated at ${api_max_tokens:-the configured} max tokens"
+        rm -f "$temp_response"
+        return 1
+    fi
+
     local parsed_content
     case "$api_format" in
         google_ai)
@@ -224,19 +252,6 @@ run_api_mode_query() {
 
     # Write parsed content to output
     echo "$parsed_content" > "$output_file"
-
-    # Publish token usage for the response builder.
-    #
-    # These figures used to be logged and thrown away, so every response carried
-    # the hardcoded tokens_used: 0 from build_response_metadata and every cost
-    # report came out at $0.00. The provider's prompt/completion SPLIT is kept,
-    # not just the total: output rates run several times input rates, so
-    # re-splitting a total 60/40 overstates cost while still reading as
-    # "measured".
-    local _t_in _t_out
-    read -r _t_in _t_out <<< "$(extract_token_split "$raw_response" "$api_format")"
-    log_debug "[$consultant_name] Tokens used: $((_t_in + _t_out)) (in=$_t_in out=$_t_out)"
-    set_api_token_split "$_t_in" "$_t_out"
 
     rm -f "$temp_response"
     return 0
@@ -313,8 +328,15 @@ run_api_consultant() {
     local latency=$((end_time - start_time))
 
     if [[ $exit_code -ne 0 ]]; then
+        local _err_tok=0 _err_src=unknown _err_in="" _err_out=""
+        if [[ -n "$_API_TOKEN_SPLIT" ]]; then
+            read -r _err_tok _err_src _err_in _err_out <<< "$(resolve_response_tokens "$full_query" "")"
+            clear_api_token_split
+        fi
         build_error_response "$consultant_name" "${model:-unknown}" "API Consultant" \
-            "API query failed (exit code: $exit_code)" "$latency" > "$output_file"
+            "API query failed (exit code: $exit_code)" "$latency" \
+            "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" \
+            "$_err_tok" "$_err_src" "$_err_in" "$_err_out" > "$output_file"
         rm -f "$temp_response"
         return 1
     fi
@@ -333,13 +355,26 @@ run_api_consultant() {
         return 1
     fi
 
-    # Try to parse as structured JSON response
-    if echo "$parsed_content" | jq -e '.response' >/dev/null 2>&1; then
-        build_structured_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
-            "$parsed_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" > "$output_file"
+    local normalized_content normalization_rc
+    if normalized_content=$(normalize_consultant_response_text "$parsed_content"); then
+        normalization_rc=0
     else
+        normalization_rc=$?
+    fi
+
+    if [[ $normalization_rc -eq 0 ]]; then
+        build_structured_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
+            "$normalized_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" > "$output_file"
+    elif [[ $normalization_rc -eq 1 ]]; then
         build_fallback_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
-            "$parsed_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" > "$output_file"
+            "$normalized_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" > "$output_file"
+    else
+        log_error "[$consultant_name] Provider returned malformed, truncated, or schema-invalid JSON"
+        build_error_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
+            "Provider returned malformed, truncated, or schema-invalid JSON" "$latency" \
+            "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" \
+            "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
+        return 1
     fi
 
     log_success "[$consultant_name] Response generated"

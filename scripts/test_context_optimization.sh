@@ -233,7 +233,9 @@ test_query_file_flag() {
     local stderr
     # We expect non-zero exit (no consultants enabled), but the stderr must
     # NOT mention "--query-file requires" (parser-level failure).
-    stderr=$(ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false \
+    stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" DEFAULT_PRESET="" \
+        ENABLE_SYNTHESIS=false ENABLE_CLASSIFICATION=false \
+        ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false \
         ENABLE_KIMI=false ENABLE_CLAUDE=false \
         ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false \
         ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
@@ -250,7 +252,8 @@ test_query_file_flag() {
 # -----------------------------------------------------------------------------
 test_query_file_missing() {
     local stderr
-    stderr=$("$SCRIPT_DIR/consult_all.sh" --query-file /nonexistent/path.txt 2>&1 >/dev/null || true)
+    stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" DEFAULT_PRESET="" ENABLE_SYNTHESIS=false \
+        "$SCRIPT_DIR/consult_all.sh" --query-file /nonexistent/path.txt 2>&1 >/dev/null || true)
     assert_match "--query-file requires" "$stderr" \
         "--query-file rejects nonexistent path"
 }
@@ -262,7 +265,8 @@ test_query_file_conflict() {
     local qfile="$_TMPDIR/q.txt"
     echo "from file" > "$qfile"
     local stderr
-    stderr=$("$SCRIPT_DIR/consult_all.sh" --query-file "$qfile" "from cli" 2>&1 >/dev/null || true)
+    stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" DEFAULT_PRESET="" ENABLE_SYNTHESIS=false \
+        "$SCRIPT_DIR/consult_all.sh" --query-file "$qfile" "from cli" 2>&1 >/dev/null || true)
     assert_match "conflicts with a positional query" "$stderr" \
         "--query-file + positional query rejected"
 }

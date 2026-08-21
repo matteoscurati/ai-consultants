@@ -119,9 +119,10 @@ Always evaluate: follows patterns? easy to modify? edge cases handled? intent cl
 
 # Instruction to force structured JSON output with confidence (token-optimized v2.1)
 OUTPUT_FORMAT_INSTRUCTION='Respond ONLY in valid JSON:
-{"response":{"summary":"<2-3 sentences max 500 chars>","detailed":"<full response>","approach":"<name>","pros":[],"cons":[],"caveats":[]},"confidence":{"score":<1-10>,"reasoning":"<why>"}}
+{"response":{"summary":"<2-3 sentences max 500 chars>","detailed":"<max 2500 chars>","approach":"<name>","pros":[],"cons":[],"caveats":[]},"confidence":{"score":<1-10>,"reasoning":"<why>"}}
 Score: 1-3=uncertain, 4-6=moderate, 7-9=confident, 10=certain.
-Optional fields: code_snippets[{language,code,description}], alternatives[{name,reason_not_chosen}], uncertainty_factors[].
+Keep the entire JSON under 5000 characters. Omit code snippets and optional fields unless the user explicitly requests them.
+Do not use tools, inspect files, or read the workspace; answer solely from the supplied question and context.
 No text outside JSON.'
 
 # =============================================================================

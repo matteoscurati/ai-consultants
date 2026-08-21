@@ -721,7 +721,7 @@ if [[ "$ENABLE_SYNTHESIS" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
         log_info "Generating automatic synthesis..."
         SYNTHESIS_FILE="$OUTPUT_DIR/synthesis.json"
 
-        if "$SCRIPT_DIR/synthesize.sh" "$OUTPUT_DIR" "$SYNTHESIS_FILE" "$QUERY" > /dev/null 2>&1; then
+        if "$SCRIPT_DIR/synthesize.sh" "$OUTPUT_DIR" "$SYNTHESIS_FILE" "$QUERY" > /dev/null; then
             log_success "Synthesis generated: $SYNTHESIS_FILE"
         else
             log_warn "Synthesis failed, using fallback"
@@ -787,18 +787,19 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
     # Quick Summary Table (v2.3)
     echo "## Quick Summary"
     echo ""
-    echo "| Consultant | Confidence | Approach |"
-    echo "|------------|------------|----------|"
+    echo "| Consultant | Quality | Confidence | Approach |"
+    echo "|------------|---------|------------|----------|"
     for i in "${!NAMES[@]}"; do
         name="${NAMES[$i]}"
         output_file="${OUTPUT_FILES[$i]}"
         result="${RESULTS[$i]}"
         if [[ "$result" == *":OK" ]] && [[ -s "$output_file" ]]; then
             conf=$(jq -r '.confidence.score // "?"' "$output_file" 2>/dev/null)
+            quality=$(jq -r '.metadata.response_quality // "unknown"' "$output_file" 2>/dev/null)
             appr=$(jq -r '.response.approach // "N/A"' "$output_file" 2>/dev/null | head -c 30)
-            echo "| $name | $conf/10 | $appr |"
+            echo "| $name | $quality | $conf/10 | $appr |"
         else
-            echo "| $name | - | (no response) |"
+            echo "| $name | error | - | (no response) |"
         fi
     done
     echo ""
@@ -809,6 +810,10 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
     # Synthesis (if available)
     if [[ -n "$SYNTHESIS_FILE" && -f "$SYNTHESIS_FILE" ]]; then
         echo "## Automatic Synthesis"
+        echo ""
+
+        synthesis_provider=$(jq -r '.synthesis_provider // "unknown"' "$SYNTHESIS_FILE" 2>/dev/null)
+        echo "**Synthesis Provider**: $synthesis_provider"
         echo ""
 
         recommendation=$(jq -r '.weighted_recommendation.summary // "N/A"' "$SYNTHESIS_FILE" 2>/dev/null)

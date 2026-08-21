@@ -57,6 +57,13 @@ can authenticate and complete a smoke. Grok, GLM, and DeepSeek receive their
 highest accepted reasoning effort in this preset (`xhigh`, `max`, and `max`
 respectively); no failed target is silently replaced.
 
+Maximum-quality transports use smoke-tested runtime budgets: four advisory
+turns for Mistral/Grok, extended Qwen/DeepSeek timeouts, and larger response
+budgets for reasoning APIs and a compact native-system Markdown contract for
+MiniMax M3. Responses carry an explicit `structured`,
+`fallback`, or `error` quality. Truncated JSON fails closed; usable prose is
+retained and disclosed, and synthesis consumes successful envelopes only.
+
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 
 ## Requirements

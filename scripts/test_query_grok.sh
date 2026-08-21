@@ -203,6 +203,7 @@ test_cli_pins_model_and_headless_contract() {
     assert_match '(^|[[:space:]])--no-auto-update($|[[:space:]])' "$args" "documented no-auto-update flag is used when supported"
     assert_match '(^|[[:space:]])dontAsk($|[[:space:]])' "$args" "CLI permissions fail closed"
     assert_match '(^|[[:space:]])strict($|[[:space:]])' "$args" "CLI uses the strict sandbox"
+    assert_match '(^|[[:space:]])--max-turns[[:space:]]+4($|[[:space:]])' "$args" "CLI receives the smoke-tested advisory turn budget"
     assert_match '(^|[[:space:]])--tools($|[[:space:]])' "$args" "CLI removes all built-in tools"
     assert_match '(^|[[:space:]])MCPTool($|[[:space:]])' "$args" "CLI denies MCP tools"
     assert_match 'Test CLI' "$(cat "$prompt_capture")" "prompt-file contains the consultation"
@@ -432,6 +433,19 @@ test_capability_incompatible_cli_with_key_does_not_fall_back() {
         "capability mismatch remains visible on the CLI envelope"
 }
 
+test_invalid_turn_budget_never_dispatches() {
+    local fake="$TMP_ROOT/grok-invalid-turns" request="$TMP_ROOT/grok-invalid-turns.request"
+    local output="$TMP_ROOT/grok-invalid-turns.json" rc=0
+    make_grok_stub "$fake" success
+    GROK_CMD="$fake" GROK_USE_API=false GROK_MODEL=grok-4.6 GROK_MAX_TURNS=0 \
+        GROK_ARGS_FILE="$TMP_ROOT/grok-invalid-turns.args" GROK_REQUEST_FILE="$request" \
+        GROK_API_KEY="" XAI_API_KEY="" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_grok.sh" test "" "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$rc" "invalid Grok turn budget fails"
+    assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" \
+        "invalid Grok turn budget never dispatches"
+}
+
 run_test "Test 1: CLI headless contract and model pin" test_cli_pins_model_and_headless_contract
 run_test "Test 2: alternate compatible version is accepted" test_alternate_compatible_version_is_accepted
 run_test "Test 3: incompatible version is rejected before dispatch" test_incompatible_version_is_rejected_before_dispatch
@@ -442,4 +456,5 @@ run_test "Test 7: large context uses prompt-file" test_large_context_uses_prompt
 run_test "Test 8: Grok CLI highest reasoning effort" test_cli_highest_reasoning_effort
 run_test "Test 9: post-launch auth-shaped failure does not fall back" test_post_launch_auth_error_does_not_fall_back
 run_test "Test 10: capability-incompatible CLI with key does not fall back" test_capability_incompatible_cli_with_key_does_not_fall_back
+run_test "Test 11: invalid Grok turn budget does not dispatch" test_invalid_turn_budget_never_dispatches
 test_summary "query_grok"

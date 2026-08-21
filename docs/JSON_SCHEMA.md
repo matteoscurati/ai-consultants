@@ -217,6 +217,7 @@ Present only if Multi-Agent Debate is enabled (round >= 2):
 | `model_version` | string | Best effective model identifier available to the transport |
 | `requested_model` | string | Model identifier requested before provider resolution |
 | `model_identity_source` | string | `provider-reported` \| `capability-probed` \| `requested-only` |
+| `response_quality` | string | `structured` \| `fallback` \| `error` \| `unknown` |
 | `cli_version` | string | Observed CLI version for provenance; never a compatibility gate |
 | `cli_compatibility` | string | Capability-probe result: `capability-probed` or `incompatible` |
 | `timestamp` | string | ISO 8601 timestamp |

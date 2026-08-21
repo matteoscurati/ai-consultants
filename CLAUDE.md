@@ -429,6 +429,20 @@ missing, cannot launch, or lacks usable authentication and `GROK_API_KEY` is
 available. A timeout, model error, empty response, or other post-launch failure
 is surfaced and never silently rerouted to the API.
 
+The live full-panel smoke defines the `max_quality` runtime envelope, not just
+the model names. Mistral and Grok receive four bounded advisory turns plus an
+explicit no-tools/workspace instruction. Qwen3.8-Max gets a 600-second Token
+Plan timeout; DeepSeek V4 Pro/max gets 600 seconds and 16,384 completion tokens;
+GLM gets 16,384; MiniMax M3 gets 16,384 plus a compact Markdown contract in
+mmx's native system channel. OpenAI-compatible
+`finish_reason=length` is an error. Every
+response records `metadata.response_quality=structured|fallback|error`:
+malformed JSON-looking output fails closed, while real markdown/prose is kept
+as an explicit fallback. Synthesis filters error envelopes and includes bounded
+detail from structured and fallback responses. Claude CLI consultations are
+preflighted, stateless (`--no-session-persistence`), setting-source-free,
+tool-free, and MCP-free; a hung/help/auth probe fails before a paid dispatch.
+
 ## v2.4 Features
 
 ### Budget Enforcement (Opt-in)
