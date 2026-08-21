@@ -27,7 +27,7 @@ test_meta() {
     assert_eq "codex"   "$BREW_CASK"   "codex brew cask name"
     _cli_meta vibe
     assert_eq "mistral-vibe" "$PIP_PKG" "vibe python package"
-    _cli_meta agent
+    _cli_meta cursor-agent
     assert_match "cursor.com" "$INSTALLER" "cursor has a curl installer"
     _cli_meta claude
     assert_eq "claude-code@latest" "$BREW_CASK" "claude brew cask (@latest)"
@@ -51,7 +51,7 @@ test_detect() {
     detect_method claude __absent__; assert_eq "brew-cask" "$DETECT_METHOD" "claude -> brew-cask"; assert_eq "claude-code@latest" "$DETECT_ARG" "claude cask arg (@latest)"
     detect_method vibe   __absent__; assert_eq "uv"        "$DETECT_METHOD" "vibe -> uv"
     detect_method agy    __absent__; assert_eq "installer" "$DETECT_METHOD" "agy -> installer"
-    detect_method agent  __absent__; assert_eq "installer" "$DETECT_METHOD" "cursor -> installer"
+    detect_method cursor-agent __absent__; assert_eq "installer" "$DETECT_METHOD" "cursor -> installer"
     detect_method grok   __absent__; assert_eq "self"      "$DETECT_METHOD" "Grok Build -> self-update"
 
     # Nothing owns it and there is no self/installer/manual path -> unknown.

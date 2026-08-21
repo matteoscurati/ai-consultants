@@ -108,6 +108,12 @@ LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
+MODEL_IDENTITY_SOURCE="requested-only"
+EFFECTIVE_MODEL="$MODEL_USED"
+if is_api_mode "claude"; then
+    EFFECTIVE_MODEL="${_API_RESPONSE_MODEL:-$MODEL_USED}"
+    MODEL_IDENTITY_SOURCE="${_API_MODEL_IDENTITY_SOURCE:-requested-only}"
+fi
 
 # --- Post-processing: wrap in full schema using shared helpers ---
 if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
@@ -117,8 +123,8 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         if ! echo "$CLI_ENVELOPE" | jq -e \
                 '.type == "result" and (.result | type == "string")' >/dev/null 2>&1; then
             rm -f "$TEMP_OUTPUT"
-            build_error_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-                "Claude CLI returned an invalid JSON result envelope" "$LATENCY_MS" > "$OUTPUT_FILE"
+            build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" \
+                "Claude CLI returned an invalid JSON result envelope" "$LATENCY_MS" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
             cat "$OUTPUT_FILE"
             exit 1
         fi
@@ -147,13 +153,13 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
 
     # Try to parse as structured JSON
     if echo "$RAW_RESPONSE" | jq -e '.response.summary' > /dev/null 2>&1; then
-        build_structured_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" > "$OUTPUT_FILE"
+        build_structured_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
     else
-        build_fallback_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" > "$OUTPUT_FILE"
+        build_fallback_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
     fi
 else
     rm -f "$TEMP_OUTPUT"
-    build_error_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" "Query failed with exit code $exit_code" "$LATENCY_MS" > "$OUTPUT_FILE"
+    build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "Query failed with exit code $exit_code" "$LATENCY_MS" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
 fi
 
 cat "$OUTPUT_FILE"

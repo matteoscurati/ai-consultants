@@ -155,7 +155,7 @@ QWEN3_API_KEY=your-dashscope-key
 ENABLE_GROK=true
 GROK_USE_API=false
 GROK_API_KEY=your-xai-key
-GROK_MODEL=grok-4.5
+GROK_MODEL=grok-4.6
 
 ENABLE_GLM=false
 ENABLE_DEEPSEEK=false
@@ -195,7 +195,8 @@ source of truth is [`scripts/config.sh`](../scripts/config.sh).
 `qwen3.8-max` is **not** served by DashScope/ModelStudio. It is reachable
 only through a Qwen Cloud **Token Plan** subscription, which has its own base URL
 and its own API key. This is opt-in: nothing below is a default, and the panel's
-premium Qwen model remains `qwen3.7-max`.
+premium Qwen model remains `qwen3.7-max`; `max_quality` selects the separately
+smoke-tested `qwen3.8-max` Token Plan target.
 
 Understand the tradeoffs before enabling it:
 

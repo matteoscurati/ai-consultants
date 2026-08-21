@@ -180,7 +180,7 @@ Functions in `lib/common.sh`:
 ### Configuration Presets
 ```bash
 # Quality Tier Presets (v2.5)
-./scripts/consult_all.sh --preset max_quality "question"  # 8 of 11 consultants + premium models + peer review
+./scripts/consult_all.sh --preset max_quality "question"  # 8 of 11 consultants + maximum tier + peer review
 ./scripts/consult_all.sh --preset medium "question"       # 4 consultants + standard models
 ./scripts/consult_all.sh --preset fast "question"         # 2 consultants + economy models
 
@@ -364,11 +364,12 @@ The `doctor.sh` script now shows CLI/API mode status:
 ## v2.5 Features
 
 ### Model Quality Tiers
-Three tiers of models are available for each consultant, configurable via `apply_model_tier()`:
+Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier()`:
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
 | **premium** | Latest flagship models | claude-opus-5, Gemini 3.1 Pro (High), gpt-5.6-sol |
+| **maximum** | Smoke-tested separate-plan targets used by max_quality | K3-256k, Qwen3.8-Max, MiniMax M3 |
 | **standard** | Good quality at reasonable cost | claude-sonnet-5, Gemini 3.6 Flash (High), gpt-5.6-terra |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.6 Flash (Low), gpt-5.6-luna |
 
@@ -378,6 +379,7 @@ Three tiers of models are available for each consultant, configurable via `apply
 # Programmatic usage
 source scripts/config.sh
 apply_model_tier "premium"   # Set all consultants to premium models
+apply_model_tier "maximum"   # max_quality-only / separate-plan models
 apply_model_tier "standard"  # Set all consultants to standard models
 apply_model_tier "economy"   # Set all consultants to economy models
 
@@ -390,7 +392,7 @@ get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 Three new presets leverage the model tiers:
 
 ```bash
-# Maximum quality - all premium models + debate + peer review
+# Maximum quality - maximum tier + debate + peer review
 ./scripts/consult_all.sh --preset max_quality "critical architecture decision"
 
 # Balanced quality - standard models, 4 consultants, light debate
@@ -408,11 +410,11 @@ All consultants now use premium models by default:
 | Claude | claude-opus-5 |
 | Gemini | Gemini 3.1 Pro (High) (via agy CLI) |
 | Codex | gpt-5.6-sol |
-| Mistral | mistral-large-3 |
+| Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
 | Cursor | composer-2.5 |
 | DeepSeek | deepseek-v4-pro |
-| GLM | glm-5.2 |
-| Grok | grok-4.5 |
+| GLM | glm-5.3 |
+| Grok | grok-4.6 |
 | Qwen3 | qwen3.7-max |
 | Kimi | kimi-code/k3 |
 | MiniMax | MiniMax-M2.7 |
@@ -420,7 +422,7 @@ All consultants now use premium models by default:
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
 
 Grok is CLI-first through the official Grok Build `grok` command, with
-`grok-4.5` passed explicitly in headless mode. The prompt is delivered with
+`grok-4.6` passed explicitly in headless mode. The prompt is delivered with
 `--prompt-file`; HOME and CWD are isolated, built-in/MCP tools are denied, and
 the strict sandbox prevents user or project extensions from joining the
 consultation. The xAI Chat Completions path is retained only when the CLI is
@@ -619,6 +621,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
 | `CODEX_MODEL` | gpt-5.6-sol | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
+| `MISTRAL_CLI_MODEL` | mistral-medium-3.5 | Vibe CLI model alias |
 | `SYNTHESIS_STRATEGY` | coverage | Synthesis strategy (coverage=union of distinct points) |
 | `ENABLE_SEMANTIC_CACHE` | true | Semantic response caching (v2.3) |
 | `CACHE_TTL_HOURS` | 24 | Cache expiration in hours (v2.3) |
@@ -643,7 +646,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `agy` CLI - Antigravity CLI (Gemini consultant; successor to the deprecated Gemini CLI, v2.15)
 - `codex` CLI - OpenAI Codex
 - `vibe` CLI - Mistral Vibe
-- `agent` CLI - Cursor
+- `cursor-agent` CLI - Cursor (validated by capability, read-only ask mode)
 - `kimi` CLI - Kimi Code (v2.9)
 - `claude` CLI - Claude (v2.2, also used for synthesis)
 - `qwen` CLI - Qwen via qwen-code (v2.7, optional)

@@ -46,6 +46,12 @@ run_api_mode_query() {
     local output_file="$4"
     local timeout_seconds="${5:-180}"
 
+    # Published for the caller in this shell after a successful response.
+    # Never infer provider identity from the requested value when the response
+    # omits it: callers record requested-only explicitly in that case.
+    _API_RESPONSE_MODEL=""
+    _API_MODEL_IDENTITY_SOURCE="requested-only"
+
     # Get API configuration
     local api_format
     api_format=$(get_api_format "$consultant_name")
@@ -82,10 +88,28 @@ run_api_mode_query() {
 
     case "$api_format" in
         google_ai)
+            # Gemini 3.7 exposes low|medium|high thinking levels on the native
+            # Google AI wire. The shared syntax validator is intentionally
+            # broader for OpenAI-compatible providers, so fail before spending
+            # a request when Google receives an unsupported level.
+            local google_thinking_level=""
             if [[ -n "$effort" ]]; then
-                log_warn "[$consultant_name] $effort_var is not supported on the 'google_ai' wire format and is ignored."
+                case "$model" in
+                    gemini-3.7-flash*)
+                        case "$effort" in
+                            low|medium|high) google_thinking_level="$effort" ;;
+                            *)
+                                log_error "[$consultant_name] $effort_var=$effort is unsupported for Gemini 3.7 on the 'google_ai' wire format (expected low|medium|high)"
+                                return 1
+                                ;;
+                        esac
+                        ;;
+                    *)
+                        log_warn "[$consultant_name] $effort_var is only transported to Gemini 3.7 on the 'google_ai' wire format and is ignored for $model."
+                        ;;
+                esac
             fi
-            request_body=$(build_google_ai_request "$query")
+            request_body=$(build_google_ai_request "$query" "$google_thinking_level")
             # Google AI appends model to URL; use x-goog-api-key header for security
             final_api_url="${api_url}/${model}:generateContent"
             auth_style="google_ai"
@@ -140,6 +164,31 @@ run_api_mode_query() {
     # Parse response based on format
     local raw_response
     raw_response=$(cat "$temp_response")
+
+    case "$api_format" in
+        google_ai)
+            _API_RESPONSE_MODEL=$(jq -r '.modelVersion // empty' <<<"$raw_response" 2>/dev/null || true)
+            _API_RESPONSE_MODEL="${_API_RESPONSE_MODEL#models/}"
+            ;;
+        anthropic)
+            _API_RESPONSE_MODEL=$(jq -r '.model // empty' <<<"$raw_response" 2>/dev/null || true)
+            ;;
+        qwen)
+            _API_RESPONSE_MODEL=$(jq -r '.model // .output.model // empty' <<<"$raw_response" 2>/dev/null || true)
+            ;;
+        *)
+            _API_RESPONSE_MODEL=$(jq -r '.model // empty' <<<"$raw_response" 2>/dev/null || true)
+            ;;
+    esac
+    if [[ -n "$_API_RESPONSE_MODEL" && "$_API_RESPONSE_MODEL" != "null" \
+        && "$_API_RESPONSE_MODEL" =~ ^[A-Za-z0-9._/-]{1,128}$ ]]; then
+        _API_MODEL_IDENTITY_SOURCE="provider-reported"
+    else
+        if [[ -n "$_API_RESPONSE_MODEL" && "$_API_RESPONSE_MODEL" != "null" ]]; then
+            log_warn "[$consultant_name] Provider returned an invalid model identifier; retaining requested-only identity"
+        fi
+        _API_RESPONSE_MODEL="$model"
+    fi
 
     # Anthropic counts adaptive thinking and visible output against the same
     # max_tokens budget. A max_tokens stop is therefore an incomplete answer,
@@ -228,6 +277,13 @@ run_api_consultant() {
     local model="${!model_var:-}"
     local timeout_seconds="${!timeout_var:-180}"
 
+    if [[ -z "$model" ]]; then
+        log_error "[$consultant_name] API model is not configured: $model_var"
+        build_error_response "$consultant_name" "unknown" "API Consultant" \
+            "API model is not configured: $model_var" 0 "" "requested-only" > "$output_file"
+        return 1
+    fi
+
     # Build full query from query + context
     local full_query
     full_query=$(build_full_query "$query" "$context_file")
@@ -275,11 +331,11 @@ run_api_consultant() {
 
     # Try to parse as structured JSON response
     if echo "$parsed_content" | jq -e '.response' >/dev/null 2>&1; then
-        build_structured_response "$consultant_name" "${model:-unknown}" "API Consultant" \
-            "$parsed_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
+        build_structured_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
+            "$parsed_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" > "$output_file"
     else
-        build_fallback_response "$consultant_name" "${model:-unknown}" "API Consultant" \
-            "$parsed_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
+        build_fallback_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
+            "$parsed_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" > "$output_file"
     fi
 
     log_success "[$consultant_name] Response generated"

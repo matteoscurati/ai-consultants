@@ -45,6 +45,15 @@ if [[ "${1:-}" == "--version" ]]; then
     exit 0
 fi
 
+if [[ "${1:-}" == "models" ]]; then
+    if [[ "${AGY_FAKE_MODE:-compatible}" == "missing_model" ]]; then
+        printf '%s\n' 'Gemini 3.7 Flash (High)'
+    else
+        printf '%s\n' 'Gemini 3.1 Pro (High)' 'Gemini 3.7 Flash (High)' 'Gemini 3.7 Flash (Low)'
+    fi
+    exit 0
+fi
+
 [[ -z "${AGY_ARGS_FILE:-}" ]] || printf '%s\n' "$@" > "$AGY_ARGS_FILE"
 [[ -z "${AGY_REQUEST_FILE:-}" ]] || : > "$AGY_REQUEST_FILE"
 
@@ -90,10 +99,32 @@ test_cli_consultation_under_ssh_markers() {
     assert_eq "Gemini" "$(jq -r '.consultant' "$output_file")" "response is from Gemini"
     assert_eq "Gemini 3.1 Pro (High)" "$(jq -r '.model' "$output_file")" "response reports pinned model"
     assert_eq "Gemini answered" "$(jq -r '.response.summary' "$output_file")" "structured response is preserved"
+    assert_eq "Gemini 3.1 Pro (High)" "$(jq -r '.metadata.requested_model' "$output_file")" \
+        "metadata records requested CLI model"
+    assert_eq "capability-probed" "$(jq -r '.metadata.model_identity_source' "$output_file")" \
+        "Gemini CLI identity comes from the model inventory"
     assert_match '(^|[[:space:]])--model[[:space:]]+Gemini 3\.1 Pro \(High\)($|[[:space:]])' \
         "$(tr '\n' ' ' < "$args_file")" "agy receives --model flag"
 }
 
+test_missing_model_is_rejected_before_dispatch() {
+    local fake_agy="$TMP_ROOT/agy-missing-model"
+    local request_file="$TMP_ROOT/missing-model-request"
+    local output_file="$TMP_ROOT/missing-model-response.json"
+    make_agy_stub "$fake_agy"
+
+    if GEMINI_CMD="$fake_agy" GEMINI_USE_API=false \
+        GEMINI_MODEL="Gemini 3.1 Pro (High)" AGY_FAKE_MODE=missing_model \
+        AGY_REQUEST_FILE="$request_file" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_gemini.sh" "Test missing model" "" "$output_file" >/dev/null 2>&1; then
+        assert_eq "failure" "success" "missing Gemini model is rejected"
+        return
+    fi
+    assert_eq "false" "$([[ -e "$request_file" ]] && echo true || echo false)" \
+        "missing Gemini model never starts a request"
+}
+
 run_test "Test 1: agy_env strips SSH markers and passes args" test_agy_env_strips_ssh_markers
 run_test "Test 2: CLI consultation succeeds under SSH markers" test_cli_consultation_under_ssh_markers
+run_test "Test 3: missing requested model is rejected before dispatch" test_missing_model_is_rejected_before_dispatch
 test_summary "query_gemini"

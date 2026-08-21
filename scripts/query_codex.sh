@@ -184,6 +184,12 @@ LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
 MODEL_USED="${CODEX_MODEL:-gpt-5.6-sol}"
+MODEL_IDENTITY_SOURCE="requested-only"
+EFFECTIVE_MODEL="$MODEL_USED"
+if is_api_mode "codex"; then
+    EFFECTIVE_MODEL="${_API_RESPONSE_MODEL:-$MODEL_USED}"
+    MODEL_IDENTITY_SOURCE="${_API_MODEL_IDENTITY_SOURCE:-requested-only}"
+fi
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---
@@ -191,7 +197,8 @@ PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 # so a non-zero return does not abort under set -e before we cat the output
 # file and exit with that code.
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" || true
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
+    "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL" || true
 
 cat "$OUTPUT_FILE"
 exit $exit_code

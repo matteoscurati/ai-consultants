@@ -153,7 +153,11 @@ CODEX_CMD="${CODEX_CMD:-codex}"
 # MISTRAL VIBE CONFIGURATION - The Devil's Advocate
 # =============================================================================
 
+# The Vibe CLI and Mistral API use different model namespaces. Keep
+# MISTRAL_MODEL as the long-standing API setting, and select the CLI alias
+# independently through VIBE_ACTIVE_MODEL at dispatch time.
 MISTRAL_MODEL="${MISTRAL_MODEL:-mistral-large-3}"
+MISTRAL_CLI_MODEL="${MISTRAL_CLI_MODEL:-mistral-medium-3.5}"
 MISTRAL_TIMEOUT_SECONDS="${MISTRAL_TIMEOUT:-180}"
 MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
 
@@ -163,7 +167,7 @@ MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
 
 CURSOR_MODEL="${CURSOR_MODEL:-composer-2.5}"
 CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
-CURSOR_CMD="${CURSOR_CMD:-agent}"
+CURSOR_CMD="${CURSOR_CMD:-cursor-agent}"
 
 # =============================================================================
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
@@ -181,7 +185,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 # GLM CONFIGURATION - The Code Specialist (API-based)
 # =============================================================================
 
-GLM_MODEL="${GLM_MODEL:-glm-5.2}"
+GLM_MODEL="${GLM_MODEL:-glm-5.3}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
 GLM_API_URL="${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
@@ -192,7 +196,7 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 # =============================================================================
 
 GROK_CMD="${GROK_CMD:-grok}"
-GROK_MODEL="${GROK_MODEL:-grok-4.5}"
+GROK_MODEL="${GROK_MODEL:-grok-4.6}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
@@ -571,25 +575,54 @@ fi
 # MODEL QUALITY TIERS (v2.5)
 # =============================================================================
 
-# Get model name for a specific consultant and tier (single source of truth)
-# Usage: get_model_for_tier <consultant> <tier>
+# Get the provider-specific model name for a consultant, tier, and transport.
+# Usage: get_model_for_tier <consultant> <tier> [cli|api]
 # Returns: model name, or empty string for an unknown consultant/tier.
 get_model_for_tier() {
     local consultant="$1"
     local tier="${2:-premium}"
+    local transport="${3:-}"
     consultant=$(echo "$consultant" | tr '[:upper:]' '[:lower:]')
 
+    if [[ -z "$transport" ]]; then
+        case "$consultant" in
+            gemini|mistral)
+                local mode_var mode_value
+                mode_var="$(echo "$consultant" | tr '[:lower:]' '[:upper:]')_USE_API"
+                mode_value="${!mode_var:-false}"
+                [[ "$mode_value" == "true" ]] && transport="api" || transport="cli"
+                ;;
+            *) transport="native" ;;
+        esac
+    fi
+
     case "$tier" in
+        maximum|max_quality|max-quality)
+            case "$consultant" in
+                claude)   echo "claude-opus-5" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.1 Pro (High)" ;;
+                codex)    echo "gpt-5.6-sol" ;;
+                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
+                cursor)   echo "composer-2.5" ;;
+                deepseek) echo "deepseek-v4-pro" ;;
+                glm)      echo "glm-5.3" ;;
+                grok)     echo "grok-4.6" ;;
+                qwen3)    echo "qwen3.8-max" ;;
+                kimi)     echo "kimi-code/k3-256k" ;;
+                minimax)  echo "MiniMax-M3" ;;
+                *)        echo "" ;;
+            esac
+            ;;
         premium|max|best)
             case "$consultant" in
                 claude)   echo "claude-opus-5" ;;
-                gemini)   echo "Gemini 3.1 Pro (High)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.1 Pro (High)" ;;
                 codex)    echo "gpt-5.6-sol" ;;
-                mistral)  echo "mistral-large-3" ;;
+                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
-                glm)      echo "glm-5.2" ;;
-                grok)     echo "grok-4.5" ;;
+                glm)      echo "glm-5.3" ;;
+                grok)     echo "grok-4.6" ;;
                 qwen3)    echo "qwen3.7-max" ;;
                 kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
@@ -599,13 +632,13 @@ get_model_for_tier() {
         standard|medium|balanced)
             case "$consultant" in
                 claude)   echo "claude-sonnet-5" ;;
-                gemini)   echo "Gemini 3.6 Flash (High)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.6 Flash (High)" ;;
                 codex)    echo "gpt-5.6-terra" ;;
-                mistral)  echo "mistral-medium-latest" ;;
-                cursor)   echo "composer-2" ;;
+                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
+                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
-                glm)      echo "glm-5.2" ;;  # Same as premium (no mid-tier GLM)
-                grok)     echo "grok-4.1-fast" ;;
+                glm)      echo "glm-5.3" ;;  # Same as premium (no mid-tier GLM)
+                grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3.6-35b-a3b" ;;  # Open-weight MoE (35B total, 3B active)
                 kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
@@ -615,13 +648,13 @@ get_model_for_tier() {
         economy|fast|quick)
             case "$consultant" in
                 claude)   echo "claude-haiku-4-5" ;;
-                gemini)   echo "Gemini 3.6 Flash (Low)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.6 Flash (Low)" ;;
                 codex)    echo "gpt-5.6-luna" ;;
-                mistral)  echo "devstral-small-2" ;;
-                cursor)   echo "gemini-3-flash" ;;
+                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "devstral-small-2" ;;
+                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
                 glm)      echo "glm-4-flash" ;;
-                grok)     echo "grok-4.1-fast" ;;
+                grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3-32b" ;;
                 kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.5" ;;
@@ -634,7 +667,7 @@ get_model_for_tier() {
 }
 
 # Apply model tier to all consultants
-# Usage: apply_model_tier <tier: premium|standard|economy>
+# Usage: apply_model_tier <tier: maximum|premium|standard|economy>
 # Premium = latest flagship models, highest quality
 # Standard = good balance of quality and cost
 # Economy = optimized for speed and low cost
@@ -643,15 +676,15 @@ apply_model_tier() {
 
     # Validate tier name
     case "$tier" in
-        premium|max|best|standard|medium|balanced|economy|fast|quick) ;;
+        maximum|max_quality|max-quality|premium|max|best|standard|medium|balanced|economy|fast|quick) ;;
         *)
             echo "Unknown model tier: $tier" >&2
-            echo "Available tiers: premium, standard, economy" >&2
+            echo "Available tiers: maximum, premium, standard, economy" >&2
             return 1
             ;;
     esac
 
-    local consultants="claude gemini codex mistral cursor deepseek glm grok qwen3 minimax kimi"
+    local consultants="claude codex cursor deepseek glm grok minimax kimi"
     for c in $consultants; do
         local model
         model=$(get_model_for_tier "$c" "$tier")
@@ -661,6 +694,48 @@ apply_model_tier() {
             export "$var_name=$model"
         fi
     done
+
+    # Gemini and Mistral intentionally carry both transport-specific IDs so a
+    # later transport choice cannot send a CLI display name to an HTTP API (or
+    # an API slug to a CLI). Gemini 3.7 uses one API ID plus a thinking level.
+    export GEMINI_MODEL="$(get_model_for_tier gemini "$tier" cli)"
+    export GEMINI_API_MODEL="$(get_model_for_tier gemini "$tier" api)"
+    export MISTRAL_CLI_MODEL="$(get_model_for_tier mistral "$tier" cli)"
+    export MISTRAL_MODEL="$(get_model_for_tier mistral "$tier" api)"
+
+    # Clear only an effort value that a previous tier application injected.
+    # An ambient/user-pinned QWEN3_REASONING_EFFORT is never overwritten.
+    if [[ "${_AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED:-false}" == "true" ]]; then
+        unset QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
+    fi
+
+    case "$tier" in
+        maximum|max_quality|max-quality)
+            # Qwen3.8-Max exists only on the OpenAI-compatible Token Plan
+            # transport. Do not redirect a DashScope key or a CLI user to that
+            # separate paid endpoint just because they selected max_quality.
+            if [[ "${QWEN3_USE_API:-false}" == "true" \
+                && "${QWEN3_FORMAT:-qwen}" == "openai" \
+                && "${QWEN3_API_URL:-}" == *token-plan* \
+                && "${QWEN3_API_URL:-}" == */chat/completions \
+                && -n "${QWEN3_API_KEY:-}" ]]; then
+                export QWEN3_MODEL="qwen3.8-max"
+                if [[ -z "${QWEN3_REASONING_EFFORT:-}" ]]; then
+                    export QWEN3_REASONING_EFFORT=xhigh
+                    export _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED=true
+                fi
+            else
+                export QWEN3_MODEL="qwen3.7-max"
+            fi
+            ;;
+        *)
+            export QWEN3_MODEL="$(get_model_for_tier qwen3 "$tier")"
+            ;;
+    esac
+
+    # Gemini 3.7 is catalogued but not auto-selected until an exact agy/API
+    # smoke can authenticate. The active automatic tiers remain on proven 3.1/
+    # 3.6 targets and therefore leave any user-pinned effort untouched.
 
     return 0
 }
@@ -725,8 +800,8 @@ apply_preset() {
             ;;
         # --- Quality Tier Presets (v2.5) ---
         max_quality|max-quality)
-            # Maximum quality - all premium models + all features
-            apply_model_tier "premium"
+            # Maximum quality - costly/separate-plan models stay confined here.
+            apply_model_tier "maximum"
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
             export ENABLE_CURSOR=true ENABLE_KIMI=true
             export ENABLE_CLAUDE=true ENABLE_QWEN3=true ENABLE_MINIMAX=true

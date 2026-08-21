@@ -45,6 +45,31 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution (CLI or API mode) ---
 TEMP_OUTPUT=$(mktemp)
+trap 'rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"' EXIT
+MODEL_IDENTITY_SOURCE="requested-only"
+EFFECTIVE_MODEL=""
+GEMINI_PROBE_REASON=""
+
+gemini_cli_exposes_requested_model() {
+    local inventory requested_norm
+    if ! inventory=$(run_with_timeout 10 "${AGY_ENV_PREFIX[@]}" "$GEMINI_CMD" models 2>&1); then
+        GEMINI_PROBE_REASON="Antigravity model inventory timed out, failed, or requires login"
+        printf '%s\n' "$inventory" >&2
+        return 1
+    fi
+    requested_norm=$(printf '%s' "$GEMINI_MODEL" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]')
+    if ! printf '%s\n' "$inventory" | awk -v requested="$requested_norm" '
+        {
+            line = tolower($0)
+            gsub(/[^[:alnum:]]/, "", line)
+            if (index(line, requested) > 0) found = 1
+        }
+        END { exit(found ? 0 : 1) }
+    '; then
+        GEMINI_PROBE_REASON="Antigravity model inventory does not include $GEMINI_MODEL"
+        return 1
+    fi
+}
 
 if is_api_mode "gemini"; then
     # --- API Mode ---
@@ -73,6 +98,11 @@ else
     # --- CLI Mode (Antigravity CLI: agy) ---
     log_api_mode_status "gemini"
     check_command "$GEMINI_CMD" "Antigravity CLI" "curl -fsSL https://antigravity.google/cli/install.sh | bash" || exit 1
+    if ! gemini_cli_exposes_requested_model; then
+        log_error "[$CONSULTANT_NAME] $GEMINI_PROBE_REASON"
+        exit 1
+    fi
+    MODEL_IDENTITY_SOURCE="capability-probed"
 
     # agy prints the model's response as plain text -- there is no CLI envelope
     # to unwrap. The persona instruction forces the model to emit our JSON schema
@@ -129,8 +159,11 @@ LATENCY_MS=$((END_TIME - START_TIME))
 # namespaces.
 if is_api_mode "gemini"; then
     MODEL_USED="$GEMINI_API_MODEL"
+    EFFECTIVE_MODEL="${_API_RESPONSE_MODEL:-$MODEL_USED}"
+    MODEL_IDENTITY_SOURCE="${_API_MODEL_IDENTITY_SOURCE:-requested-only}"
 else
     MODEL_USED="$GEMINI_MODEL"
+    EFFECTIVE_MODEL="$MODEL_USED"
 fi
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
@@ -140,7 +173,8 @@ PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 # strips), so extracting ".response" here would strip a level. The old Gemini
 # CLI wrapped output in {"response": "..."} and needed that argument.
 process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"
+    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
+    "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL"
 
 cat "$OUTPUT_FILE"
 exit $exit_code

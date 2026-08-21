@@ -294,6 +294,7 @@ Get API key: [Mistral Console](https://console.mistral.ai/api-keys/)
 curl https://cursor.com/install -fsS | bash
 
 # Uses Cursor subscription - no additional key needed
+cursor-agent status
 ```
 
 ### Claude CLI (The Synthesizer) - v2.2
@@ -338,6 +339,9 @@ your user-level Kimi configuration:
 export KIMI_MODEL=kimi-code/k3
 ./scripts/query_kimi.sh "Review this API boundary"
 ```
+
+`max_quality` selects `kimi-code/k3-256k`, whose availability is verified from
+the Kimi provider inventory before the request.
 
 ### MiniMax (CLI via mmx) - v2.21
 

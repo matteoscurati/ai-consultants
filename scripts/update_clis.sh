@@ -35,7 +35,7 @@ _CLI_ENTRIES=(
     "Gemini|GEMINI_CMD|agy"
     "Codex|CODEX_CMD|codex"
     "Mistral|MISTRAL_CMD|vibe"
-    "Cursor|CURSOR_CMD|agent"
+    "Cursor|CURSOR_CMD|cursor-agent"
     "Kimi|KIMI_CMD|kimi"
     "Claude|CLAUDE_CMD|claude"
     "Qwen3|QWEN3_CMD|qwen"
@@ -63,7 +63,7 @@ _cli_meta() {
         agy)      INSTALLER="curl -fsSL https://antigravity.google/cli/install.sh | bash" ;;
         codex)    NPM_PKG="@openai/codex"; BREW_CASK="codex" ;;
         vibe)     PIP_PKG="mistral-vibe" ;;
-        agent)    INSTALLER="curl https://cursor.com/install -fsS | bash" ;;
+        cursor-agent) INSTALLER="curl https://cursor.com/install -fsS | bash" ;;
         kimi)     SELF_SUB="upgrade"; INSTALLER="curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash" ;;
         claude)   BREW_CASK="claude-code@latest"; NPM_PKG="@anthropic-ai/claude-code"; SELF_SUB="update" ;;
         qwen)     NPM_PKG="@qwen-code/qwen-code" ;;

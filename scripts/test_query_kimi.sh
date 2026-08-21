@@ -65,6 +65,8 @@ test_compatible_cli_pins_model() {
     assert_eq "kimi-code/k3" "$(jq -r '.model' "$output_file")" "response metadata reports kimi-code/k3"
     assert_eq "user-build-a" "$(jq -r '.metadata.cli_version' "$output_file")" "CLI version is recorded as provenance"
     assert_eq "capability-probed" "$(jq -r '.metadata.cli_compatibility' "$output_file")" "response records capability-based compatibility"
+    assert_eq "kimi-code/k3" "$(jq -r '.metadata.requested_model' "$output_file")" "response records the requested model"
+    assert_eq "capability-probed" "$(jq -r '.metadata.model_identity_source' "$output_file")" "model identity comes from the provider inventory"
 }
 
 test_alternate_compatible_version_is_accepted() {
