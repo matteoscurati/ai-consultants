@@ -106,10 +106,32 @@ test_define_only_hook_runs_no_installer_work() {
         "sourcing define-only exposes prune_removed_commands"
 }
 
+# ---------------------------------------------------------------------------
+test_shipped_surfaces_exclude_removed_cursor_consultant() {
+    local project_root command_file
+    project_root="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+    for command_file in \
+        "$project_root/.claude/commands/ai-consultants:consult.md" \
+        "$project_root/.codex/commands/ai-consultants:consult.md" \
+        "$project_root/.gemini/commands/ai-consultants:consult.md"; do
+        assert_eq "0" "$(grep -c 'Cursor' "$command_file" || true)" \
+            "installed command description excludes the removed Cursor consultant"
+    done
+
+    assert_eq "0" "$(grep -cE 'CURSOR_|cursor\.json|Cursor - The Integrator' \
+        "$project_root/templates/consultation_report.md" || true)" \
+        "packaged report template excludes Cursor placeholders and artifacts"
+    assert_eq "0" "$(awk '/^## Changelog/{exit} {print}' "$project_root/README.md" | \
+        grep -c 'cursor\.json' || true)" \
+        "current README output tree excludes cursor.json"
+}
+
 run_test "Test 1: prunes commands removed upstream" test_prunes_commands_removed_upstream
 run_test "Test 2: leaves other tools' commands alone" test_leaves_other_tools_commands_alone
 run_test "Test 3: fresh install is a clean no-op" test_no_installed_commands_is_a_clean_no_op
 run_test "Test 4: missing commands dir is a clean no-op" test_missing_commands_dir_is_a_clean_no_op
 run_test "Test 5: define-only hook exposes helpers without installing" test_define_only_hook_runs_no_installer_work
+run_test "Test 6: shipped surfaces exclude removed Cursor consultant" test_shipped_surfaces_exclude_removed_cursor_consultant
 
 test_summary "install"

@@ -161,7 +161,7 @@ ENABLE_SMART_ROUTING=true \
   ./scripts/consult_all.sh "Review this code" file.py
 
 # Test single consultant
-ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false ENABLE_CURSOR=false \
+ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false \
   ./scripts/consult_all.sh "Quick syntax question"
 ```
 

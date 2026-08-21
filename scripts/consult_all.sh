@@ -61,11 +61,11 @@ Usage: ./consult_all.sh [options] "Your question" [file1[@TAG]] [file2[@TAG]] ..
 Options:
   --preset <name>      Use a configuration preset:
                          minimal      - 2 models, fast and cheap
-                         balanced     - 4 models, good coverage
-                         thorough     - 5 models, comprehensive
-                         high-stakes  - All models + debate
-                         max_quality  - 8 of 11 consultants + premium models + peer review
-                         medium       - 4 models + standard models + light debate
+                         balanced     - 3 models, good coverage
+                         thorough     - 3 models, comprehensive
+                         high-stakes  - Broad premium panel + debate
+                         max_quality  - All 10 + maximum models/max effort
+                         medium       - 3 models + standard models
                          fast         - 2 models + economy models, no debate
                          security     - Security-focused + debate
                          cost-capped  - Budget-conscious options
@@ -316,7 +316,7 @@ else
 
     # All enabled consultants - use a compact loop
     # Order matches ALL_CONSULTANTS in config.sh for consistency
-    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral CURSOR:Cursor KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek MINIMAX:MiniMax"
+    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek MINIMAX:MiniMax"
     for _entry in $_consultant_map; do
         _flag="${_entry%%:*}"
         _name="${_entry#*:}"

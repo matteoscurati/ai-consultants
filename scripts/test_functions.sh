@@ -227,8 +227,8 @@ test_get_consultant_error_reason() {
     ef=$(mktemp)
 
     # Not-installed: the [ERROR] line wins.
-    printf '[INFO] Consulting Cursor...\n[ERROR] Cursor CLI not found (command: agent)\n' > "$ef"
-    assert_equal "[ERROR] Cursor CLI not found (command: agent)" "$(get_consultant_error_reason "$ef")" \
+    printf '[INFO] Consulting Example...\n[ERROR] Example CLI not found (command: example)\n' > "$ef"
+    assert_equal "[ERROR] Example CLI not found (command: example)" "$(get_consultant_error_reason "$ef")" \
         "picks the explicit error line"
 
     # Auth failure embedded in the orchestrator's failure log.
@@ -238,7 +238,7 @@ test_get_consultant_error_reason() {
 
     # Real .err from run_query: log_error prepends "[HH:MM:SS] [LEVEL] [Name]
     # All N attempts failed:" -- strip that boilerplate, keep the CLI's own error.
-    printf '[12:54:32] [ERROR] [Cursor] All 2 attempts failed: Error: Out of credits\n' > "$ef"
+    printf '[12:54:32] [ERROR] [Example] All 2 attempts failed: Error: Out of credits\n' > "$ef"
     assert_equal "Error: Out of credits" "$(get_consultant_error_reason "$ef")" \
         "strips the log-prefix boilerplate, keeps the real reason"
 
@@ -294,10 +294,10 @@ test_render_diagnosed_failure() {
     assert_equal "| GLM | 401 Unauthorized |" "$(render_diagnosed_failure 'GLM|401 Unauthorized' table)" \
         "table: '| name | reason |'"
     # A pipe in the reason must be escaped in table mode (would mangle the markdown row).
-    assert_equal "| Cursor | a \\| b failed |" "$(render_diagnosed_failure 'Cursor|a | b failed' table)" \
+    assert_equal "| Example | a \\| b failed |" "$(render_diagnosed_failure 'Example|a | b failed' table)" \
         "table escapes a pipe in the reason"
     # Split keeps the full reason even when it contains pipes (name has no pipe).
-    assert_equal "  - Cursor: a | b failed" "$(render_diagnosed_failure 'Cursor|a | b failed')" \
+    assert_equal "  - Example: a | b failed" "$(render_diagnosed_failure 'Example|a | b failed')" \
         "console keeps the full reason (pipes and all)"
 }
 

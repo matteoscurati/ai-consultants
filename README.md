@@ -1,6 +1,6 @@
 # AI Consultants v3.5.0
 
-> **Coverage, not a single guess.** A panel of up to 11 frontier models from different vendors fans out on your question in parallel and hands you the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses.
+> **Coverage, not a single guess.** A panel of up to 10 frontier models from different vendors fans out on your question in parallel and hands you the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses.
 
 [![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -40,7 +40,7 @@ A single model gives you a single guess — and it misses whatever falls in its 
 - **Cross-vendor diversity → coverage** — different model families have different blind spots, so the union covers what any one misses. On open-ended questions ("what could go wrong with this design?", "enumerate the risks") a diverse panel covers materially more of the answer space than one strong model — or than sampling one model repeatedly.
 - **Parallel fan-out** — every consultant runs at once; no serial deliberation rounds.
 - **Coverage synthesis** — the default synthesis is the deduplicated *union* of every distinct point, not a single voted winner (use `--strategy compare_only` for a side-by-side, or `majority` for a blended recommendation).
-- **11 supported consultants** with distinct personas (Architect, Pragmatist, Devil's Advocate, …) — the personas deliberately decorrelate the panel.
+- **10 supported consultants** with distinct personas (Architect, Pragmatist, Devil's Advocate, …) — the personas deliberately decorrelate the panel.
 - **Best for breadth** — threat-modeling, design review, "what am I missing?", exhaustive enumeration. For a single-answer factual or defect-finding question, one strong model is usually enough.
 
 ---
@@ -307,7 +307,7 @@ cd ai-consultants
 
 SkillPort translates skill commands to the native agent format.
 
-**Self-Exclusion:** Cursor consultant is automatically excluded when invoked from Cursor.
+Cursor remains a supported host through SkillPort; it is not itself a consultant in the panel.
 
 **Verify:**
 
@@ -375,7 +375,6 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Google Gemini** | `agy` | The Architect | Design patterns, scalability, enterprise |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, quick wins, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Problems, edge cases, vulnerabilities |
-| **Cursor** | `cursor-agent` | The Integrator | Full-stack perspective |
 | **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis, connecting ideas |
 | **Qwen3** | `qwen` | The Analyst | Data-driven analysis |
@@ -388,7 +387,7 @@ to the xAI API only when the CLI is missing, cannot launch, or has no usable
 authentication and `GROK_API_KEY` is configured; post-launch request failures
 are surfaced without a silent API charge. Qwen3 and MiniMax can also switch
 from their CLI to API transport. Gemini, Codex, Claude, and Mistral are
-CLI/API switchable. Gemini, Cursor, Grok, and Kimi verify the requested model
+CLI/API switchable. Gemini, Grok, and Kimi verify the requested model
 against the CLI inventory before dispatch when that inventory exists. Grok and
 Kimi compatibility is capability-probed before
 dispatch: the requested model, headless arguments, and structured-output
@@ -410,7 +409,6 @@ At least 2 consultant CLIs are required:
 curl -fsSL https://antigravity.google/cli/install.sh | bash  # Gemini (Antigravity CLI: agy)
 npm install -g @openai/codex           # Codex
 pip install mistral-vibe               # Mistral
-curl https://cursor.com/install -fsS | bash  # Cursor
 
 # Optional CLI-based consultants
 curl -L code.kimi.com/install.sh | bash            # Kimi K3
@@ -438,12 +436,16 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 | Preset | Tier | Agents | Use Case |
 |--------|------|--------|----------|
-| `max_quality` | Maximum | 8 of 11 | Critical decisions |
-| `medium` | Standard | 4 | General questions |
+| `max_quality` | Maximum + max effort | All 10 | Critical decisions |
+| `medium` | Standard | 3 | General questions |
 | `fast` | Economy | 2 | Quick checks |
 
 A preset only chooses the **consultant set and model tier** — every run then fans out in
 parallel and returns the coverage union.
+For `max_quality`, Grok, GLM, and DeepSeek are also pinned to their highest
+accepted reasoning effort: Grok Build uses `xhigh`, while GLM and DeepSeek use
+`max`. Unsupported transport capabilities fail explicitly instead of reducing
+effort silently.
 
 ### Models by Tier
 
@@ -454,7 +456,6 @@ parallel and returns the coverage union.
 | Codex | gpt-5.6-sol | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna |
 | Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | devstral-small-2 |
 | Mistral API | mistral-large-3 | mistral-large-3 | mistral-large-3 | mistral-large-3 |
-| Cursor | composer-2.5 | composer-2.5 | composer-2.5 | composer-2.5 |
 | DeepSeek | deepseek-v4-pro | deepseek-v4-pro | deepseek-v4-flash | deepseek-v4-flash |
 | GLM | glm-5.3 | glm-5.3 | glm-5.3 | glm-4-flash |
 | Grok | grok-4.6 | grok-4.6 | grok-4.5 | grok-4.5 |
@@ -503,14 +504,14 @@ Choose how many consultants to use:
 
 | Preset | Consultants | Tier | Use Case |
 |--------|-------------|------|----------|
-| `max_quality` | 8 of 11 | Maximum | Critical decisions |
-| `medium` | 4 | Standard | General questions |
+| `max_quality` | All 10 | Maximum + max effort | Critical decisions |
+| `medium` | 3 | Standard | General questions |
 | `fast` | 2 | Economy | Quick checks |
 | `minimal` | 2 (Gemini + Codex) | Default | Quick questions, low cost |
-| `balanced` | 4 (+ Mistral + Cursor) | Default | Standard consultations |
-| `thorough` | 4 | Default | Comprehensive analysis |
-| `high-stakes` | Expanded panel (5 of 11) | Default | Critical decisions |
-| `security` | Security-focused (4) | Default | Security reviews |
+| `balanced` | 3 (+ Mistral) | Default | Standard consultations |
+| `thorough` | 3 | Default | Comprehensive analysis |
+| `high-stakes` | Expanded panel (4 of 10) | Default | Critical decisions |
+| `security` | Security-focused (3) | Default | Security reviews |
 | `cost-capped` | Budget-conscious | Default | Minimal API costs |
 
 **Bash:**
@@ -568,7 +569,7 @@ later run to adapt when a CLI or credential changes. Environment variables,
 historical generated Claude default described below.
 Managed model defaults use `# ai-consultants:default`; `configure` upgrades the
 historical unmarked `CLAUDE_MODEL=claude-opus-4-8` default to Opus 5 and upgrades
-the exact managed Cursor, GLM, and Grok defaults. To keep
+the exact managed GLM and Grok defaults. To keep
 4.8 intentionally, run
 `ai-consultants configure --set CLAUDE_MODEL=claude-opus-4-8`; explicit model
 overrides are stored with `# ai-consultants:pin`.
@@ -656,7 +657,7 @@ Classify -> Route -> Fan out (parallel) -> Coverage synthesis
  category  smart       Gemini (8)          union of every
           routing      Codex (7)           distinct point,
                        Mistral (6)         deduplicated
-                       Cursor (9)
+                       Kimi (7)
 ```
 
 1. **Classify** the question into a category.
@@ -673,7 +674,7 @@ Each consultation generates:
 ├── gemini.json          # Individual responses
 ├── codex.json           #   with confidence scores
 ├── mistral.json
-├── cursor.json
+├── grok.json
 ├── synthesis.json       # Coverage union
 └── report.md            # Human-readable report
 ```

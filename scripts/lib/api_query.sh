@@ -301,8 +301,12 @@ run_api_consultant() {
     temp_response=$(mktemp)
 
     # Use run_api_mode_query which handles all the API format/auth logic
-    run_api_mode_query "$consultant_name" "$model" "$full_query" "$temp_response" "$timeout_seconds"
-    local exit_code=$?
+    local exit_code
+    if run_api_mode_query "$consultant_name" "$model" "$full_query" "$temp_response" "$timeout_seconds"; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
 
     local end_time
     end_time=$(get_timestamp_ms)

@@ -33,7 +33,6 @@ test_full_pipeline() {
         XDG_DATA_HOME="$TEST_TMPDIR/xdg/data" \
         INVOKING_AGENT=none \
         ENABLE_CLAUDE=true ENABLE_CODEX=true ENABLE_GEMINI=true ENABLE_MISTRAL=true \
-        ENABLE_CURSOR=false \
         ENABLE_KIMI=false ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false \
         ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
         CLAUDE_CMD="$STUB_CLI" CODEX_CMD="$STUB_CLI" GEMINI_CMD="$STUB_CLI" MISTRAL_CMD="$STUB_CLI" \

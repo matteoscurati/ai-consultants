@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AI Consultants is a multi-model coverage system that queries up to 11 AI consultants (Gemini, Codex, Mistral, Cursor, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
+AI Consultants is a multi-model coverage system that queries up to 10 AI consultants (Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
 
@@ -180,14 +180,14 @@ Functions in `lib/common.sh`:
 ### Configuration Presets
 ```bash
 # Quality Tier Presets (v2.5)
-./scripts/consult_all.sh --preset max_quality "question"  # 8 of 11 consultants + maximum tier + peer review
-./scripts/consult_all.sh --preset medium "question"       # 4 consultants + standard models
+./scripts/consult_all.sh --preset max_quality "question"  # all 10 consultants + maximum tier/max effort
+./scripts/consult_all.sh --preset medium "question"       # 3 consultants + standard models
 ./scripts/consult_all.sh --preset fast "question"         # 2 consultants + economy models
 
 # Use Case Presets
 ./scripts/consult_all.sh --preset minimal "question"    # Gemini + Codex
-./scripts/consult_all.sh --preset balanced "question"   # + Mistral + Cursor
-./scripts/consult_all.sh --preset high-stakes "question" # All + debate
+./scripts/consult_all.sh --preset balanced "question"   # + Mistral
+./scripts/consult_all.sh --preset high-stakes "question" # Broad premium panel + debate
 ```
 
 Presets are defined in `config.sh` via `apply_preset()` function.
@@ -369,7 +369,7 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 | Tier | Description | Example Models |
 |------|-------------|----------------|
 | **premium** | Latest flagship models | claude-opus-5, Gemini 3.1 Pro (High), gpt-5.6-sol |
-| **maximum** | Smoke-tested separate-plan targets used by max_quality | K3-256k, Qwen3.8-Max, MiniMax M3 |
+| **maximum** | All 10 consultants; maximum targets and highest provider effort | K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
 | **standard** | Good quality at reasonable cost | claude-sonnet-5, Gemini 3.6 Flash (High), gpt-5.6-terra |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.6 Flash (Low), gpt-5.6-luna |
 
@@ -392,7 +392,7 @@ get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 Three new presets leverage the model tiers:
 
 ```bash
-# Maximum quality - maximum tier + debate + peer review
+# Maximum quality - all consultants + maximum models and provider effort
 ./scripts/consult_all.sh --preset max_quality "critical architecture decision"
 
 # Balanced quality - standard models, 4 consultants, light debate
@@ -411,7 +411,6 @@ All consultants now use premium models by default:
 | Gemini | Gemini 3.1 Pro (High) (via agy CLI) |
 | Codex | gpt-5.6-sol |
 | Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
-| Cursor | composer-2.5 |
 | DeepSeek | deepseek-v4-pro |
 | GLM | glm-5.3 |
 | Grok | grok-4.6 |
@@ -646,7 +645,6 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `agy` CLI - Antigravity CLI (Gemini consultant; successor to the deprecated Gemini CLI, v2.15)
 - `codex` CLI - OpenAI Codex
 - `vibe` CLI - Mistral Vibe
-- `cursor-agent` CLI - Cursor (validated by capability, read-only ask mode)
 - `kimi` CLI - Kimi Code (v2.9)
 - `claude` CLI - Claude (v2.2, also used for synthesis)
 - `qwen` CLI - Qwen via qwen-code (v2.7, optional)

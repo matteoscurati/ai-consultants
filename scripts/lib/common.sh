@@ -199,7 +199,7 @@ run_query() {
         # Execute the command with timeout, passing stdin
         # Keep failures inside an explicit conditional. Without this guard,
         # callers running with `set -e` can exit here before retry handling and
-        # the final diagnostic are emitted (observed with Cursor and Qwen).
+        # the final diagnostic are emitted (observed with several CLIs).
         local exit_code
         if echo "$stdin_content" | run_with_timeout "$timeout_seconds" "${cmd[@]}" > "$output_file" 2> "$error_file"; then
             exit_code=0
@@ -298,7 +298,7 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GROK MINIMAX"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GROK MINIMAX"
 KNOWN_API_AGENTS="GLM DEEPSEEK"
 
 # Every non-consultant ENABLE_* flag declared in config.sh. This is a denylist
@@ -543,7 +543,6 @@ get_self_consultant_name() {
         mistral|vibe|mistral_vibe)      echo "MISTRAL" ;;
         kimi|kimi_code|kimicode)        echo "KIMI" ;;
         qwen|qwen3|qwen_code|qwencode)  echo "QWEN3" ;;
-        cursor)                         echo "CURSOR" ;;
         *)                              echo "" ;;
     esac
 }
@@ -638,7 +637,7 @@ validate_consultant_name() {
     upper=$(to_upper "$name")
 
     # Check against known agents
-    local valid_agents="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX"
+    local valid_agents="GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX"
     for agent in $valid_agents; do
         if [[ "$upper" == "$agent" ]]; then
             return 0
@@ -1287,7 +1286,6 @@ _consultant_to_cli() {
         MISTRAL) echo "mistral" ;;
         KIMI)    echo "kimi" ;;
         QWEN3)   echo "qwen" ;;
-        CURSOR)  echo "cursor" ;;
         *)       echo "" ;;
     esac
 }

@@ -22,13 +22,13 @@ if [[ " $* " == *" --help "* ]]; then
     cat <<'HELP'
 --prompt-file --model --cwd --output-format --no-plan --no-subagents
 --no-memory --disable-web-search --max-turns --permission-mode --sandbox
---tools --deny --verbatim --no-auto-update
+--tools --deny --verbatim --no-auto-update --reasoning-effort
   models  List available models
 HELP
     exit 0
 fi
 if [[ "${1:-}" == "models" ]]; then
-    printf 'You are logged in with grok.com.\n\nAvailable models:\n  * grok-4.5 (default)\n'
+    printf 'You are logged in with grok.com.\n\nAvailable models:\n  * %s (default)\n' "${GROK_MODEL:-grok-4.5}"
     exit 0
 fi
 printf '%s\n' "$@" > "$GROK_ARGS_FILE"
@@ -64,7 +64,7 @@ if [[ " $* " == *" --help "* ]]; then
     cat <<'HELP'
 --prompt-file --model --cwd --output-format --no-plan --no-subagents
 --no-memory --disable-web-search --max-turns --permission-mode --sandbox
---tools --deny --verbatim
+--tools --deny --verbatim --reasoning-effort
   models  List available models
 HELP
     exit 0
@@ -75,6 +75,30 @@ fi
 }
 echo "Authentication required. Run grok login." >&2
 exit 1
+EOF
+    elif [[ "$mode" == "auth_after_launch" ]]; then
+        cat > "$path" <<'EOF'
+#!/bin/bash
+if [[ "${1:-}" == "--version" ]]; then
+    printf 'grok %s\n' "${GROK_FAKE_VERSION:-user-build-a}"
+    exit 0
+fi
+if [[ " $* " == *" --help "* ]]; then
+    cat <<'HELP'
+--prompt-file --model --cwd --output-format --no-plan --no-subagents
+--no-memory --disable-web-search --max-turns --permission-mode --sandbox
+--tools --deny --verbatim --reasoning-effort
+  models  List available models
+HELP
+    exit 0
+fi
+if [[ "${1:-}" == "models" ]]; then
+    printf 'You are logged in with grok.com.\n\nAvailable models:\n  * %s (default)\n' "${GROK_MODEL:-grok-4.5}"
+    exit 0
+fi
+[[ -z "${GROK_REQUEST_FILE:-}" ]] || : > "$GROK_REQUEST_FILE"
+echo '401 Unauthorized after request launch' >&2
+exit 42
 EOF
     elif [[ "$mode" == "incompatible" ]]; then
         cat > "$path" <<'EOF'
@@ -106,13 +130,13 @@ if [[ " $* " == *" --help "* ]]; then
     cat <<'HELP'
 --prompt-file --model --cwd --output-format --no-plan --no-subagents
 --no-memory --disable-web-search --max-turns --permission-mode --sandbox
---tools --deny --verbatim
+--tools --deny --verbatim --reasoning-effort
   models  List available models
 HELP
     exit 0
 fi
 if [[ "${1:-}" == "models" ]]; then
-    printf 'You are logged in with grok.com.\n\nAvailable models:\n  * grok-4.5 (default)\n'
+    printf 'You are logged in with grok.com.\n\nAvailable models:\n  * %s (default)\n' "${GROK_MODEL:-grok-4.5}"
     exit 0
 fi
 [[ -z "${GROK_REQUEST_FILE:-}" ]] || : > "$GROK_REQUEST_FILE"
@@ -338,6 +362,76 @@ test_large_context_uses_prompt_file() {
     assert_eq "0" "$(grep -c -x -- '-p' "$args_file" || true)" "large prompt is absent from argv"
 }
 
+test_cli_highest_reasoning_effort() {
+    local fake_grok="$TMP_ROOT/grok-max-effort"
+    local args_file="$TMP_ROOT/max-effort-args"
+    local output_file="$TMP_ROOT/max-effort-response.json"
+    make_grok_stub "$fake_grok" success
+
+    if ! GROK_CMD="$fake_grok" GROK_USE_API=false GROK_MODEL=grok-4.6 \
+        GROK_REASONING_EFFORT=xhigh GROK_ARGS_FILE="$args_file" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_grok.sh" "Test highest effort" "" "$output_file" >/dev/null 2>&1; then
+        assert_eq success failure "Grok highest-effort CLI query completes"
+        return
+    fi
+
+    assert_match '(^|[[:space:]])--reasoning-effort[[:space:]]+xhigh($|[[:space:]])' \
+        "$(tr '\n' ' ' < "$args_file")" "Grok CLI receives its highest reasoning effort"
+}
+
+test_post_launch_auth_error_does_not_fall_back() {
+    local fake_bin="$TMP_ROOT/post-launch-auth-bin"
+    local fake_grok="$fake_bin/grok"
+    local output_file="$TMP_ROOT/post-launch-auth-response.json"
+    local request_file="$TMP_ROOT/post-launch-auth-request"
+    local curl_called="$TMP_ROOT/post-launch-auth-curl-called"
+    mkdir -p "$fake_bin"
+    make_grok_stub "$fake_grok" auth_after_launch
+    make_curl_stub "$fake_bin/curl"
+
+    if PATH="$fake_bin:$PATH" GROK_CMD="$fake_grok" GROK_USE_API=false GROK_MODEL=grok-4.6 \
+        GROK_REASONING_EFFORT=xhigh GROK_API_KEY=test-key XAI_API_KEY="" \
+        GROK_REQUEST_FILE="$request_file" CURL_CALLED_FILE="$curl_called" \
+        RATE_LIMIT_DIR="$TMP_ROOT/rate-post-launch-auth" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_grok.sh" "Auth-shaped failure after launch" "" "$output_file" >/dev/null 2>&1; then
+        assert_eq failure success "post-launch auth-shaped failure is surfaced"
+        return
+    fi
+
+    assert_eq true "$([[ -e "$request_file" ]] && echo true || echo false)" \
+        "auth-shaped failure occurs after CLI request launch"
+    assert_eq false "$([[ -e "$curl_called" ]] && echo true || echo false)" \
+        "post-launch auth-shaped failure cannot trigger API fallback"
+    assert_eq cli "$(jq -r '.metadata.transport' "$output_file")" \
+        "post-launch auth-shaped failure remains attributed to the CLI transport"
+}
+
+test_capability_incompatible_cli_with_key_does_not_fall_back() {
+    local fake_bin="$TMP_ROOT/incompatible-with-key-bin"
+    local output_file="$TMP_ROOT/incompatible-with-key-response.json"
+    local request_file="$TMP_ROOT/incompatible-with-key-request"
+    local curl_called="$TMP_ROOT/incompatible-with-key-curl-called"
+    mkdir -p "$fake_bin"
+    make_grok_stub "$fake_bin/grok" incompatible
+    make_curl_stub "$fake_bin/curl"
+
+    if PATH="$fake_bin:$PATH" GROK_CMD="$fake_bin/grok" GROK_USE_API=false \
+        GROK_MODEL=grok-4.6 GROK_API_KEY=test-key XAI_API_KEY="" \
+        GROK_REQUEST_FILE="$request_file" CURL_CALLED_FILE="$curl_called" \
+        RATE_LIMIT_DIR="$TMP_ROOT/rate-incompatible-with-key" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_grok.sh" "Capability mismatch" "" "$output_file" >/dev/null 2>&1; then
+        assert_eq failure success "capability-incompatible CLI with key is surfaced"
+        return
+    fi
+
+    assert_eq false "$([[ -e "$request_file" ]] && echo true || echo false)" \
+        "capability-incompatible CLI never launches a request"
+    assert_eq false "$([[ -e "$curl_called" ]] && echo true || echo false)" \
+        "capability-incompatible CLI cannot trigger API fallback"
+    assert_eq incompatible "$(jq -r '.metadata.cli_compatibility' "$output_file")" \
+        "capability mismatch remains visible on the CLI envelope"
+}
+
 run_test "Test 1: CLI headless contract and model pin" test_cli_pins_model_and_headless_contract
 run_test "Test 2: alternate compatible version is accepted" test_alternate_compatible_version_is_accepted
 run_test "Test 3: incompatible version is rejected before dispatch" test_incompatible_version_is_rejected_before_dispatch
@@ -345,4 +439,7 @@ run_test "Test 4: post-launch failure does not fall back" test_post_launch_failu
 run_test "Test 5: authentication-unavailable CLI falls back to xAI API" test_unavailable_cli_falls_back_to_api
 run_test "Test 6: missing CLI falls back to xAI API" test_missing_cli_falls_back_to_api
 run_test "Test 7: large context uses prompt-file" test_large_context_uses_prompt_file
+run_test "Test 8: Grok CLI highest reasoning effort" test_cli_highest_reasoning_effort
+run_test "Test 9: post-launch auth-shaped failure does not fall back" test_post_launch_auth_error_does_not_fall_back
+run_test "Test 10: capability-incompatible CLI with key does not fall back" test_capability_incompatible_cli_with_key_does_not_fall_back
 test_summary "query_grok"

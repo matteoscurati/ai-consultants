@@ -360,6 +360,6 @@ echo ""
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-log_info "Using another CLI? (Codex, Gemini, Cursor, Kimi)"
+log_info "Using another host agent? (Codex, Gemini, Cursor, Kimi)"
 echo "     See: https://github.com/matteoscurati/ai-consultants#supported-cli-agents"
 echo ""

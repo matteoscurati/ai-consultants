@@ -1,6 +1,6 @@
 ---
 name: ai-consultants
-description: Consult Gemini, Codex, Mistral Vibe, Cursor, Claude, Kimi, Qwen, MiniMax, GLM, Grok, and DeepSeek as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
+description: Consult Gemini, Codex, Mistral Vibe, Claude, Kimi, Qwen, MiniMax, GLM, Grok, and DeepSeek as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
 license: MIT
 compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
@@ -34,7 +34,6 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 | **Google Gemini** | `agy` | The Architect | Design patterns, scalability |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Edge cases, vulnerabilities |
-| **Cursor** | `cursor-agent` | The Integrator | Full-stack perspective |
 | **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis |
 | **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
@@ -43,18 +42,20 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 
 **API-only consultants**: GLM (The Methodologist), DeepSeek (The Code Specialist)
 
-**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.6` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers; Cursor uses `cursor-agent --mode ask` in an isolated workspace.
+**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.6` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers.
 
 Grok and Kimi are compatible by capability rather than by CLI version. Before
 dispatch, their adapters verify the required headless arguments, requested
 model, and structured-output surface. Compatible version changes are accepted;
 the observed version is recorded only as response provenance.
 
-The `max_quality` preset uses the separately smoke-tested K3-256k and MiniMax
-M3 targets, plus Qwen3.8-Max when an authenticated Token Plan transport is
+The `max_quality` preset enables all 10 consultants. It uses the separately
+smoke-tested K3-256k and MiniMax M3 targets, plus Qwen3.8-Max when an authenticated Token Plan transport is
 already configured. Gemini 3.7 Flash, Claude Fable 5, and the
 new Mistral API IDs remain explicit opt-ins until their exact local transports
-can authenticate and complete a smoke; no failed target is silently replaced.
+can authenticate and complete a smoke. Grok, GLM, and DeepSeek receive their
+highest accepted reasoning effort in this preset (`xhigh`, `max`, and `max`
+respectively); no failed target is silently replaced.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 

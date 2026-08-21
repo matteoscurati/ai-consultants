@@ -134,7 +134,7 @@ _arm_run() {  # <extra env assignments...> -- <consult_all args...> ; echoes the
 _only_strong() {
   local up; up=$(to_upper "$STRONG_CONSULTANT")
   local a
-  for a in GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
+  for a in GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
     if [[ "$a" == "$up" ]]; then echo "ENABLE_$a=true"; else echo "ENABLE_$a=false"; fi
   done
   echo "ENABLE_DEBATE=false"
@@ -147,7 +147,7 @@ _only_strong() {
 # re-exports ENABLE_PEER_REVIEW and would override an env override.
 _full_panel() {
   local a
-  for a in GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
+  for a in GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
     echo "ENABLE_$a=true"
   done
   echo "ENABLE_PEER_REVIEW=false"

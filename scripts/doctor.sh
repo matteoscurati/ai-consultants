@@ -242,22 +242,6 @@ check_cli_consultant() {
         return 0
     fi
 
-    if [[ "$name" == "Cursor" ]]; then
-        local cursor_help cursor_flag cursor_ok=true
-        cursor_help=$(run_with_timeout 8 "$cmd" --help 2>&1 || true)
-        grep -Fq 'Start the Cursor Agent' <<<"$cursor_help" || cursor_ok=false
-        for cursor_flag in --print --output-format --mode --model --list-models --workspace --trust; do
-            grep -q -- "$cursor_flag" <<<"$cursor_help" || cursor_ok=false
-        done
-        if [[ "$cursor_ok" != "true" ]]; then
-        _print "  ✗ Cursor: '$cmd' is not a compatible Cursor Agent (identity/help probe failed)"
-        add_issue "consultant" "CURSOR_CMD does not identify Cursor Agent" \
-            "set CURSOR_CMD=cursor-agent and install it from https://cursor.com"
-        check_fail
-        return 0
-        fi
-    fi
-
     # Get version (--version is standard and fast, no timeout needed).
     # Gemini/agy must run under agy_env so an SSH session still reaches the
     # Keychain credential store (see agy_env in lib/common.sh).
@@ -284,7 +268,6 @@ check_cli_consultants() {
     check_cli_consultant "Gemini" "$GEMINI_CMD" "curl -fsSL https://antigravity.google/cli/install.sh | bash" "GEMINI"
     check_cli_consultant "Codex" "$CODEX_CMD" "npm install -g @openai/codex" "CODEX"
     check_cli_consultant "Mistral Vibe" "$MISTRAL_CMD" "pip install mistral-vibe" "MISTRAL"
-    check_cli_consultant "Cursor" "$CURSOR_CMD" "Visit https://cursor.com to install" "CURSOR"
     check_cli_consultant "Kimi" "$KIMI_CMD" "curl -L code.kimi.com/install.sh | bash" "KIMI"
     check_cli_consultant "Claude" "$CLAUDE_CMD" "See https://docs.anthropic.com/claude-code" "CLAUDE"
     check_cli_consultant "Qwen" "$QWEN3_CMD" "npm install -g @qwen-code/qwen-code@latest" "QWEN3"
@@ -420,7 +403,7 @@ check_configuration() {
 
     # Count enabled consultants using a compact loop
     local enabled_count=0
-    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_CURSOR ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX"
+    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX"
     for flag in $consultant_flags; do
         [[ "${!flag:-false}" == "true" ]] && { ((enabled_count++)) || true; }
     done
@@ -796,7 +779,6 @@ suggest_configuration() {
         "ENABLE_GEMINI:${GEMINI_CMD:-agy}"
         "ENABLE_CODEX:${CODEX_CMD:-codex}"
         "ENABLE_MISTRAL:${MISTRAL_CMD:-vibe}"
-        "ENABLE_CURSOR:${CURSOR_CMD:-cursor-agent}"
         "ENABLE_KIMI:${KIMI_CMD:-kimi}"
         "ENABLE_CLAUDE:${CLAUDE_CMD:-claude}"
         "ENABLE_QWEN3:${QWEN3_CMD:-qwen}"
@@ -880,7 +862,6 @@ _count_available_consultants() {
         "GEMINI|ENABLE_GEMINI|${GEMINI_CMD:-agy}"
         "CODEX|ENABLE_CODEX|${CODEX_CMD:-codex}"
         "MISTRAL|ENABLE_MISTRAL|${MISTRAL_CMD:-vibe}"
-        "CURSOR|ENABLE_CURSOR|${CURSOR_CMD:-cursor-agent}"
         "KIMI|ENABLE_KIMI|${KIMI_CMD:-kimi}"
         "CLAUDE|ENABLE_CLAUDE|${CLAUDE_CMD:-claude}"
         "QWEN3|ENABLE_QWEN3|${QWEN3_CMD:-qwen}"
@@ -1107,7 +1088,7 @@ check_live_consultants() {
     # name|enable-flag — mirrors consult_all's selection set.
     local entries=(
         "Gemini|ENABLE_GEMINI"   "Codex|ENABLE_CODEX"   "Mistral|ENABLE_MISTRAL"
-        "Cursor|ENABLE_CURSOR"    "Kimi|ENABLE_KIMI"
+        "Kimi|ENABLE_KIMI"
         "Claude|ENABLE_CLAUDE"
         "Qwen3|ENABLE_QWEN3"     "GLM|ENABLE_GLM"       "Grok|ENABLE_GROK"
         "DeepSeek|ENABLE_DEEPSEEK" "MiniMax|ENABLE_MINIMAX"

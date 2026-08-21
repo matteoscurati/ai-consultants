@@ -7,8 +7,8 @@
   "properties": {
     "consultant": {
       "type": "string",
-      "description": "Name of the consultant (Gemini, Codex, Mistral, Cursor, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax)",
-      "enum": ["Gemini", "Codex", "Mistral", "Cursor", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"]
+      "description": "Name of the consultant (Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax)",
+      "enum": ["Gemini", "Codex", "Mistral", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"]
     },
     "model": {
       "type": "string",

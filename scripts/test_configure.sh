@@ -419,10 +419,10 @@ test_catalog_default_migrations_and_pins() {
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "unverified Mistral API default is not migrated"
     assert_eq mistral-medium-3.5 "$(read_env "$cfg/.env" MISTRAL_CLI_MODEL)" "new Mistral CLI field is populated"
-    assert_eq cursor-agent "$(read_env "$cfg/.env" CURSOR_CMD)" "managed Cursor command migrates"
+    assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed Cursor command is dropped"
     assert_eq glm-5.3 "$(read_env "$cfg/.env" GLM_MODEL)" "managed GLM default migrates"
     assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "managed Grok default migrates"
-    for key in CURSOR_CMD GLM_MODEL GROK_MODEL; do
+    for key in GLM_MODEL GROK_MODEL; do
         assert_contains "$(grep "^${key}=" "$cfg/.env")" "# ai-consultants:default" "$key migration records managed provenance"
     done
 
@@ -430,12 +430,11 @@ test_catalog_default_migrations_and_pins() {
     mkdir -p "$cfg"
     printf '%s\n' \
         'MISTRAL_MODEL=mistral-large-3 # ai-consultants:pin' \
-        'CURSOR_CMD=agent # ai-consultants:pin' \
         'GLM_MODEL=glm-5.2 # ai-consultants:pin' \
         'GROK_MODEL=grok-4.5 # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "pinned Mistral API model survives"
-    assert_eq agent "$(read_env "$cfg/.env" CURSOR_CMD)" "pinned Cursor command survives"
+    assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed pinned Cursor command is dropped"
     assert_eq glm-5.2 "$(read_env "$cfg/.env" GLM_MODEL)" "pinned GLM model survives"
     assert_eq grok-4.5 "$(read_env "$cfg/.env" GROK_MODEL)" "pinned Grok model survives"
 }

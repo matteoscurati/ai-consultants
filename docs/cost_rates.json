@@ -423,7 +423,6 @@
     "glm": "glm-5.3",
     "grok": "grok-4.6",
     "qwen3": "qwen3.7-max",
-    "cursor": "composer-2.5",
     "kimi": "kimi-code/k3",
     "minimax": "minimax-m2.7"
   },
@@ -438,7 +437,6 @@
       "glm": "glm-5.3",
       "grok": "grok-4.6",
       "qwen3": "qwen3.8-max",
-      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3-256k",
       "minimax": "MiniMax-M3"
     },
@@ -451,7 +449,6 @@
       "glm": "glm-5.3",
       "grok": "grok-4.6",
       "qwen3": "qwen3.7-max",
-      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.7"
     },
@@ -464,7 +461,6 @@
       "glm": "glm-5.3",
       "grok": "grok-4.5",
       "qwen3": "qwen3.6-35b-a3b",
-      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.7"
     },
@@ -477,7 +473,6 @@
       "glm": "glm-4-flash",
       "grok": "grok-4.5",
       "qwen3": "qwen3-32b",
-      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.5"
     }

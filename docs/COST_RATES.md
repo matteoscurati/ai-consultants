@@ -39,9 +39,9 @@ models programmatically.
 | mistral-large-2512 | API opt-in | $0.0005 | Mistral |
 | mistral-small-2603 | API opt-in | $0.00015 | Mistral |
 | devstral-small-2 | Economy | $0.00 | Mistral |
-| composer-2.5 | Maximum/Premium/Standard/Economy | $0.0005 | Cursor |
-| composer-2 | Legacy | $0.0005 | Cursor |
-| gemini-3-flash | Legacy | $0.0005 | Cursor |
+| composer-2.5 | Legacy | $0.0005 | Removed Cursor consultant |
+| composer-2 | Legacy | $0.0005 | Removed Cursor consultant |
+| gemini-3-flash | Legacy | $0.0005 | Removed Cursor consultant |
 | deepseek-v4-pro | Premium | $0.000435 | DeepSeek |
 | deepseek-v4-flash | Standard/Economy | $0.00014 | DeepSeek |
 | glm-5.3 | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
@@ -79,9 +79,9 @@ models programmatically.
 | mistral-large-2512 | API opt-in | $0.0015 | Mistral |
 | mistral-small-2603 | API opt-in | $0.0006 | Mistral |
 | devstral-small-2 | Economy | $0.00 | Mistral |
-| composer-2.5 | Maximum/Premium/Standard/Economy | $0.0025 | Cursor |
-| composer-2 | Legacy | $0.0025 | Cursor |
-| gemini-3-flash | Legacy | $0.003 | Cursor |
+| composer-2.5 | Legacy | $0.0025 | Removed Cursor consultant |
+| composer-2 | Legacy | $0.0025 | Removed Cursor consultant |
+| gemini-3-flash | Legacy | $0.003 | Removed Cursor consultant |
 | deepseek-v4-pro | Premium | $0.00087 | DeepSeek |
 | deepseek-v4-flash | Standard/Economy | $0.00028 | DeepSeek |
 | glm-5.3 | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |

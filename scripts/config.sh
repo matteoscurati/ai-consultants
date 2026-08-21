@@ -162,14 +162,6 @@ MISTRAL_TIMEOUT_SECONDS="${MISTRAL_TIMEOUT:-180}"
 MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
 
 # =============================================================================
-# CURSOR CONFIGURATION - The Integrator
-# =============================================================================
-
-CURSOR_MODEL="${CURSOR_MODEL:-composer-2.5}"
-CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
-CURSOR_CMD="${CURSOR_CMD:-cursor-agent}"
-
-# =============================================================================
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
 # =============================================================================
 
@@ -287,10 +279,10 @@ CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 # Use this array when iterating over consultants programmatically.
 
 # All available consultants (ordered by typical usage)
-ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
+ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
 
 # CLI-based consultants (use CLI tools, some support CLI/API switching)
-CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "Grok" "MiniMax")
+CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "Grok" "MiniMax")
 
 # API-only consultants (use HTTP API directly, no CLI available)
 API_CONSULTANTS=("GLM" "DeepSeek")
@@ -304,7 +296,6 @@ API_CONSULTANTS=("GLM" "DeepSeek")
 ENABLE_GEMINI="${ENABLE_GEMINI:-true}"
 ENABLE_CODEX="${ENABLE_CODEX:-true}"
 ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
-ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 ENABLE_KIMI="${ENABLE_KIMI:-true}"       # Kimi Code (v2.9)
 ENABLE_CLAUDE="${ENABLE_CLAUDE:-true}"   # Auto-disabled when invoked by Claude Code
 ENABLE_QWEN3="${ENABLE_QWEN3:-true}"     # qwen-code CLI (v2.7); API opt-in
@@ -321,7 +312,8 @@ ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
 
 # Agent that invoked this skill - used for self-exclusion to prevent
 # an agent from consulting itself.
-# Values: claude, codex, gemini, cursor, mistral, kimi, qwen3, or "unknown"
+# Values: claude, codex, gemini, mistral, kimi, qwen3, or "unknown".
+# Cursor may still be the host, but maps to no panel consultant.
 # Example: INVOKING_AGENT=claude ./scripts/consult_all.sh "question"
 INVOKING_AGENT="${INVOKING_AGENT:-unknown}"
 
@@ -354,7 +346,8 @@ SYNTHESIS_CMD="${SYNTHESIS_CMD:-claude}"
 # =============================================================================
 
 # Default preset to use when no --preset flag is provided
-# Options: minimal, balanced, thorough, high-stakes, security, cost-capped
+# Options: minimal, balanced, thorough, high-stakes, security, cost-capped,
+#          max_quality, medium, fast
 # Leave empty to use individual ENABLE_* settings
 DEFAULT_PRESET="${DEFAULT_PRESET:-}"
 
@@ -603,7 +596,6 @@ get_model_for_tier() {
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.1 Pro (High)" ;;
                 codex)    echo "gpt-5.6-sol" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.3" ;;
                 grok)     echo "grok-4.6" ;;
@@ -619,7 +611,6 @@ get_model_for_tier() {
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.1 Pro (High)" ;;
                 codex)    echo "gpt-5.6-sol" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.3" ;;
                 grok)     echo "grok-4.6" ;;
@@ -635,7 +626,6 @@ get_model_for_tier() {
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.6 Flash (High)" ;;
                 codex)    echo "gpt-5.6-terra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
                 glm)      echo "glm-5.3" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-4.5" ;;
@@ -651,7 +641,6 @@ get_model_for_tier() {
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.6 Flash (Low)" ;;
                 codex)    echo "gpt-5.6-luna" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "devstral-small-2" ;;
-                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
                 glm)      echo "glm-4-flash" ;;
                 grok)     echo "grok-4.5" ;;
@@ -673,6 +662,8 @@ get_model_for_tier() {
 # Economy = optimized for speed and low cost
 apply_model_tier() {
     local tier="$1"
+    local effort_provider effort_var managed_var prior_set_var prior_value_var
+    local effort_spec effort_target
 
     # Validate tier name
     case "$tier" in
@@ -684,7 +675,7 @@ apply_model_tier() {
             ;;
     esac
 
-    local consultants="claude codex cursor deepseek glm grok minimax kimi"
+    local consultants="claude codex deepseek glm grok minimax kimi"
     for c in $consultants; do
         local model
         model=$(get_model_for_tier "$c" "$tier")
@@ -708,6 +699,30 @@ apply_model_tier() {
     if [[ "${_AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED:-false}" == "true" ]]; then
         unset QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
     fi
+
+    # Maximum temporarily overrides these provider efforts so the preset can
+    # honor its name even when the ambient config pins a lower value. Preserve
+    # that prior state and restore it when a later tier is applied; otherwise a
+    # documented sequence such as maximum -> economy leaks maximum reasoning.
+    case "$tier" in
+        maximum|max_quality|max-quality) ;;
+        *)
+            for effort_provider in GROK GLM DEEPSEEK; do
+                effort_var="${effort_provider}_REASONING_EFFORT"
+                managed_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_MANAGED"
+                prior_set_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_SET"
+                prior_value_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_VALUE"
+                if [[ "${!managed_var:-false}" == "true" ]]; then
+                    if [[ "${!prior_set_var:-false}" == "true" ]]; then
+                        export "$effort_var=${!prior_value_var:-}"
+                    else
+                        unset "$effort_var"
+                    fi
+                    unset "$managed_var" "$prior_set_var" "$prior_value_var"
+                fi
+            done
+            ;;
+    esac
 
     case "$tier" in
         maximum|max_quality|max-quality)
@@ -737,6 +752,30 @@ apply_model_tier() {
     # smoke can authenticate. The active automatic tiers remain on proven 3.1/
     # 3.6 targets and therefore leave any user-pinned effort untouched.
 
+    case "$tier" in
+        maximum|max_quality|max-quality)
+            for effort_spec in GROK:xhigh GLM:max DEEPSEEK:max; do
+                effort_provider="${effort_spec%%:*}"
+                effort_target="${effort_spec#*:}"
+                effort_var="${effort_provider}_REASONING_EFFORT"
+                managed_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_MANAGED"
+                prior_set_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_SET"
+                prior_value_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_VALUE"
+                if [[ "${!managed_var:-false}" != "true" ]]; then
+                    if declare -p "$effort_var" >/dev/null 2>&1; then
+                        export "$prior_set_var=true"
+                        export "$prior_value_var=${!effort_var}"
+                    else
+                        export "$prior_set_var=false"
+                        unset "$prior_value_var"
+                    fi
+                    export "$managed_var=true"
+                fi
+                export "$effort_var=$effort_target"
+            done
+            ;;
+    esac
+
     return 0
 }
 
@@ -746,13 +785,13 @@ apply_model_tier() {
 
 # Presets allow quick configuration for different use cases:
 #   minimal      - 2 models (fast, cheap): Gemini + Codex
-#   balanced     - 4 models (good coverage): + Mistral + Cursor
-#   thorough     - 4 models (comprehensive)
+#   balanced     - 3 models (good coverage): Gemini + Codex + Mistral
+#   thorough     - 3 models (comprehensive)
 #   high-stakes  - Broad premium panel + debate (maximum rigor)
 #
 # Quality Tiers (v2.5):
-#   max_quality  - 8 of 11 consultants + premium models + peer review
-#   medium       - 4 consultants + standard models + light debate
+#   max_quality  - all 10 consultants + maximum models/effort
+#   medium       - 3 consultants + standard models
 #   fast         - 2 consultants + economy models, no debate
 #
 # Usage: ./consult_all.sh --preset balanced "Your question"
@@ -760,7 +799,7 @@ apply_model_tier() {
 # Helper: Disable all consultants
 _disable_all_consultants() {
     export ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false
-    export ENABLE_CURSOR=false ENABLE_KIMI=false ENABLE_CLAUDE=false
+    export ENABLE_KIMI=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
     export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
 }
@@ -779,19 +818,19 @@ apply_preset() {
             ;;
         balanced)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_MISTRAL=true
             ;;
         thorough)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_MISTRAL=true
             ;;
         high-stakes)
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
-            export ENABLE_CURSOR=true ENABLE_CLAUDE=true
+            export ENABLE_CLAUDE=true
             ;;
         security)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_MISTRAL=true
             ;;
         cost-capped)
             apply_model_tier "economy"
@@ -803,14 +842,13 @@ apply_preset() {
             # Maximum quality - costly/separate-plan models stay confined here.
             apply_model_tier "maximum"
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
-            export ENABLE_CURSOR=true ENABLE_KIMI=true
-            export ENABLE_CLAUDE=true ENABLE_QWEN3=true ENABLE_MINIMAX=true
+            export ENABLE_KIMI=true ENABLE_CLAUDE=true ENABLE_QWEN3=true
+            export ENABLE_GLM=true ENABLE_GROK=true ENABLE_DEEPSEEK=true ENABLE_MINIMAX=true
             ;;
         medium)
             # Balanced quality - standard models, good coverage
             apply_model_tier "standard"
-            export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
             ;;
         fast)
             # Super fast - economy models, minimal consultants
@@ -834,14 +872,14 @@ list_presets() {
 Available presets:
 
 Quality Tiers (v2.5):
-  max_quality  8 of 11 consultants + premium models + peer review
-  medium       4 consultants + standard models + light debate
+  max_quality  All 10 consultants + maximum models and max provider effort
+  medium       3 consultants + standard models
   fast         2 consultants + economy models, no debate
 
 Use Cases:
   minimal      2 models (Gemini + Codex) - Fast, cheap
-  balanced     4 models (+ Mistral + Cursor) - Good coverage [DEFAULT]
-  thorough     4 models - Comprehensive analysis
+  balanced     3 models (Gemini + Codex + Mistral) - Good coverage [DEFAULT]
+  thorough     3 models - Comprehensive analysis
   high-stakes  Broad premium panel + debate - Maximum rigor for critical decisions
   security     Security-focused models + debate - For security reviews
   cost-capped  Budget-conscious options - Minimal API costs

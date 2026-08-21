@@ -234,7 +234,6 @@ test_query_file_flag() {
     # We expect non-zero exit (no consultants enabled), but the stderr must
     # NOT mention "--query-file requires" (parser-level failure).
     stderr=$(ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false \
-        ENABLE_CURSOR=false \
         ENABLE_KIMI=false ENABLE_CLAUDE=false \
         ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false \
         ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \

@@ -754,8 +754,8 @@ test_cost_per1k_contract() {
     assert_equals "0.006" "$(get_output_cost_per_1k mistral-large-3)" "active Mistral API fallback output stays catalogued"
     assert_equals "0.002" "$(get_input_cost_per_1k grok-4.6)" "Grok 4.6 input is 2 USD/MTok"
     assert_equals "0.006" "$(get_output_cost_per_1k grok-4.6)" "Grok 4.6 output is 6 USD/MTok"
-    assert_equals "0.0005" "$(get_input_cost_per_1k composer-2.5)" "active Cursor model input stays catalogued"
-    assert_equals "0.0025" "$(get_output_cost_per_1k composer-2.5)" "active Cursor model output stays catalogued"
+    assert_equals "0.0005" "$(get_input_cost_per_1k composer-2.5)" "legacy Composer input remains catalogued"
+    assert_equals "0.0025" "$(get_output_cost_per_1k composer-2.5)" "legacy Composer output remains catalogued"
     assert_equals "0.0003" "$(get_input_cost_per_1k MiniMax-M3)" "maximum MiniMax M3 input is catalogued"
     assert_equals "0.0012" "$(get_output_cost_per_1k MiniMax-M3)" "maximum MiniMax M3 output is catalogued"
 
@@ -831,7 +831,7 @@ test_response_tokens() {
 
     # Every builder must survive BOTH arities under `set -u`. The fallback
     # builder shipped briefly using $tokens_in without declaring it, which
-    # would have aborted on any unstructured reply for all 11 consultants;
+    # would have aborted on any unstructured reply for every consultant;
     # only one consultant's own suite happened to exercise that path.
     local inner='{"response":{"summary":"s"},"confidence":{"score":8}}'
     assert_exit_code_success "structured builder, legacy arity" \
@@ -1534,7 +1534,6 @@ test_model_for_tier() {
     assert_equals "gpt-5.6-sol"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-5.6-sol"
     assert_equals "gpt-5.6-terra"         "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.6-terra"
     assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
-    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "premium")"   "cursor premium is composer-2.5"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
     assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3"
     assert_equals "grok-4.6"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.6"
@@ -1546,8 +1545,6 @@ test_model_for_tier() {
     # explicitly so the contract is self-documenting rather than implied.
     assert_not_equals "qwen3.8-max" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in Token Plan model"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
-    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "standard")"   "cursor standard remains composer-2.5"
-    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "economy")"    "cursor economy remains composer-2.5"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-v4-flash"
     assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.5"
@@ -1555,6 +1552,47 @@ test_model_for_tier() {
     assert_equals "kimi-code/k3-256k"     "$(get_model_for_tier "kimi" "maximum")"      "maximum tier confines K3-256k"
     assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "maximum")"     "maximum catalog includes Qwen3.8-Max"
     assert_equals "MiniMax-M3"            "$(get_model_for_tier "minimax" "maximum")"   "maximum tier confines MiniMax M3"
+
+    local max_quality_state
+    max_quality_state=$(
+        apply_preset max_quality
+        printf '%s|%s|%s|' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT"
+        local enabled=0 flag
+        for flag in ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KIMI ENABLE_CLAUDE \
+            ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX; do
+            [[ "${!flag}" == "true" ]] && enabled=$((enabled + 1))
+        done
+        printf '%s\n' "$enabled"
+    )
+    assert_equals "xhigh|max|max|10" "$max_quality_state" "max_quality enables all 10 consultants at each provider's highest effort"
+
+    local maximum_effort_lifecycle
+    maximum_effort_lifecycle=$(
+        unset GROK_REASONING_EFFORT GLM_REASONING_EFFORT DEEPSEEK_REASONING_EFFORT
+        unset _AI_CONSULTANTS_TIER_GROK_EFFORT_MANAGED _AI_CONSULTANTS_TIER_GLM_EFFORT_MANAGED
+        unset _AI_CONSULTANTS_TIER_DEEPSEEK_EFFORT_MANAGED
+        apply_model_tier maximum
+        apply_model_tier economy
+        printf '%s|%s|%s\n' "${GROK_REASONING_EFFORT-unset}" \
+            "${GLM_REASONING_EFFORT-unset}" "${DEEPSEEK_REASONING_EFFORT-unset}"
+    )
+    assert_equals "unset|unset|unset" "$maximum_effort_lifecycle" \
+        "leaving maximum clears tier-managed provider efforts"
+
+    maximum_effort_lifecycle=$(
+        GROK_REASONING_EFFORT=low
+        GLM_REASONING_EFFORT=medium
+        DEEPSEEK_REASONING_EFFORT=high
+        unset _AI_CONSULTANTS_TIER_GROK_EFFORT_MANAGED _AI_CONSULTANTS_TIER_GLM_EFFORT_MANAGED
+        unset _AI_CONSULTANTS_TIER_DEEPSEEK_EFFORT_MANAGED
+        apply_model_tier maximum
+        apply_model_tier maximum
+        printf '%s|%s|%s|' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT"
+        apply_model_tier standard
+        printf '%s|%s|%s\n' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT"
+    )
+    assert_equals "xhigh|max|max|low|medium|high" "$maximum_effort_lifecycle" \
+        "maximum temporarily overrides and then restores user-pinned provider efforts"
 
     local maximum_unconfigured
     maximum_unconfigured=$(
@@ -1604,7 +1642,7 @@ test_model_catalog_parity() {
 
     local tier consultant transport resolved documented
     for tier in maximum premium standard economy; do
-        for consultant in claude gemini codex mistral cursor deepseek glm grok qwen3 kimi minimax; do
+        for consultant in claude gemini codex mistral deepseek glm grok qwen3 kimi minimax; do
             transport=native
             case "$consultant" in gemini|mistral) transport=cli ;; esac
             resolved=$(get_model_for_tier "$consultant" "$tier" "$transport")
@@ -1637,7 +1675,7 @@ test_consultant_list_completeness() {
     suite "integration: ALL_CONSULTANTS completeness"
 
     local count=${#ALL_CONSULTANTS[@]}
-    assert_equals "11" "$count" "ALL_CONSULTANTS has 11 entries"
+    assert_equals "10" "$count" "ALL_CONSULTANTS has 10 entries"
 
     # Verify key consultants are present
     local all_str="${ALL_CONSULTANTS[*]}"
@@ -1645,6 +1683,7 @@ test_consultant_list_completeness() {
     assert_contains "Claude" "$all_str" "Claude in ALL_CONSULTANTS"
     assert_contains "MiniMax" "$all_str" "MiniMax in ALL_CONSULTANTS"
     assert_contains "Kimi" "$all_str" "Kimi in ALL_CONSULTANTS"
+    assert_not_contains "Cursor" "$all_str" "Cursor removed from ALL_CONSULTANTS"
     assert_not_contains "Amp" "$all_str" "Amp removed from ALL_CONSULTANTS"
     assert_not_contains "Kilo" "$all_str" "Kilo removed from ALL_CONSULTANTS"
     assert_not_contains "Aider" "$all_str" "Aider removed from ALL_CONSULTANTS"
