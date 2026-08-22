@@ -1,119 +1,96 @@
 #!/bin/bash
-# analyze.sh - Compute the verdict for the panel-vs-baseline experiment.
+# analyze.sh - v2 COVERAGE verdict.
 #
-# Joins grades (correctness per item/arm) with results (tokens + arm-B consensus),
-# computes per-arm hit rate and the paired sign tests B-vs-A and B-vs-C, then prints
-# which pre-registered decision branch fires. It does NOT decide anything beyond
-# printing that branch — the decision rule is frozen in PREREGISTRATION.md.
+# Coverage rate per arm; the decisive comparison of DISCORDANT pairs (items W catches that
+# A misses vs items A catches that W misses); cost per covered defect; and adversarial
+# -verification pruning stats. Prints the pre-registered branch; decides nothing beyond
+# that (the rule is frozen in PREREGISTRATION.md).
 #
-# Usage: analyze.sh <grades.jsonl> <results.jsonl>
-#
-# Inputs:
-#   grades.jsonl   {id, arm, grade}          grade in {YES, NO, ERR}
-#   results.jsonl  {id, arm, tokens, consensus?}
+# Usage: analyze.sh <coverage.jsonl> <verified.jsonl>
+#   coverage.jsonl  {id, arm, covered}      covered in {YES, NO}
+#   verified.jsonl  {id, arm, verified:[...], pruned, tokens, consensus?}
 set -euo pipefail
+COV="${1:-}"; VER="${2:-}"
+[[ -f "$COV" && -f "$VER" ]] || { echo "usage: analyze.sh <coverage.jsonl> <verified.jsonl>" >&2; exit 1; }
 
-GRADES="${1:-}"; RESULTS="${2:-}"
-[[ -f "$GRADES" && -f "$RESULTS" ]] || { echo "usage: analyze.sh <grades.jsonl> <results.jsonl>" >&2; exit 1; }
-
-# A grade of ERR is a grader failure, not a wrong answer — exclude those items from
-# the pair rather than silently scoring them NO, and report how many were dropped.
-errs=$(jq -rs '[.[] | select(.grade=="ERR")] | length' "$GRADES")
-
-echo "=== Per-arm hit rate ==="
-for arm in A B C; do
+echo "=== Coverage rate per arm (verified finding contains the keyed defect) ==="
+for arm in A W C; do
   jq -rs --arg arm "$arm" '
     [.[] | select(.arm==$arm)] as $g
-    | ($g | map(select(.grade=="YES")) | length) as $hit
-    | ($g | map(select(.grade=="YES" or .grade=="NO")) | length) as $dec
-    | "  arm \($arm): \($hit)/\($dec) correct" + (if $dec==0 then " (no decided items)" else " (\((100*$hit/$dec)|floor)%)" end)
-  ' "$GRADES"
+    | ($g | map(select(.covered=="YES")) | length) as $hit
+    | ($g | length) as $tot
+    | "  arm \($arm): \($hit)/\($tot) covered" + (if $tot>0 then " (\((100*$hit/$tot)|floor)%)" else "" end)
+  ' "$COV"
 done
-[[ "$errs" -gt 0 ]] && echo "  ($errs item(s) dropped: grader returned ERR)"
 
-# Paired sign test: for each id, B vs X. win = B correct & X wrong; loss = reverse.
-# Ties and any ERR-involving pair are undecided and excluded.
-_sign() {
-  local other="$1"
-  jq -rs --arg other "$other" '
-    (reduce .[] as $r ({}; .[$r.id][$r.arm] = $r.grade)) as $m
-    | [ $m | to_entries[] | .value | select(.B != null and .[$other] != null)
-        | select(.B != "ERR" and .[$other] != "ERR")
-        | if .B=="YES" and .[$other]=="NO" then "win"
-          elif .B=="NO" and .[$other]=="YES" then "loss"
-          else "tie" end ] as $p
-    | ($p | map(select(.=="win")) | length) as $w
-    | ($p | map(select(.=="loss")) | length) as $l
-    | "\($w) \($l) \(($w+$l))"
-  ' "$GRADES"
+# Discordant-pair counts for W vs a baseline. Echoes "<W_only> <base_only> <discordant>".
+_disc() {
+  local base="$1"
+  jq -rs --arg base "$base" '
+    (reduce .[] as $r ({}; .[$r.id][$r.arm] = $r.covered)) as $m
+    | [ $m | to_entries[] | .value | select(.W != null and .[$base] != null)
+        | if .W=="YES" and .[$base]=="NO" then "wonly"
+          elif .W=="NO" and .[$base]=="YES" then "bonly"
+          else "concord" end ] as $p
+    | ($p | map(select(.=="wonly")) | length) as $w
+    | ($p | map(select(.=="bonly")) | length) as $b
+    | "\($w) \($b) \($w+$b)"
+  ' "$COV"
 }
-
-read -r BA_w BA_l BA_d < <(_sign A)
-read -r BC_w BC_l BC_d < <(_sign C)
+read -r WA_w WA_b WA_d < <(_disc A)
+read -r WC_w WC_b WC_d < <(_disc C)
 
 echo ""
-echo "=== Paired sign test (B vs baseline) ==="
-echo "  B vs A: $BA_w wins, $BA_l losses, $BA_d decided pairs"
-echo "  B vs C: $BC_w wins, $BC_l losses, $BC_d decided pairs"
+echo "=== Uncorrelated value (discordant pairs) ==="
+echo "  W vs A: W caught+A missed = $WA_w | A caught+W missed = $WA_b | discordant = $WA_d"
+echo "  W vs C: W caught+C missed = $WC_w | C caught+W missed = $WC_b | discordant = $WC_d"
 
-# Pre-registered margin: B "beats" X when wins exceed losses AND wins clear a sign-test
-# threshold. For ~30 decided pairs a two-sided sign test at alpha~0.05 needs ~21/30;
-# generalize as wins >= ceil(0.68 * decided) with wins > losses. Below that margin the
-# two arms are "roughly equal" (B ~= X), which is the load-bearing B~=C outcome.
-_beats() {  # <wins> <losses> <decided>  -> "yes" | "no"
+# W "beats" baseline when extra catches exceed the baseline's AND clear a sign-test margin
+# on the discordant pairs: wins >= ceil(0.68 * discordant), wins > losses.
+_beats() { # <wins> <losses> <discordant> -> yes|no
   local w="$1" l="$2" d="$3"
   [[ "$d" -eq 0 ]] && { echo no; return; }
-  local need=$(( (68 * d + 99) / 100 ))   # ceil(0.68*d)
+  local need=$(( (68 * d + 99) / 100 ))
   if [[ "$w" -gt "$l" && "$w" -ge "$need" ]]; then echo yes; else echo no; fi
 }
-
-B_beats_A=$(_beats "$BA_w" "$BA_l" "$BA_d")
-B_beats_C=$(_beats "$BC_w" "$BC_l" "$BC_d")
-A_beats_B=$(_beats "$BA_l" "$BA_w" "$BA_d")   # is A better than B?
+W_beats_A=$(_beats "$WA_w" "$WA_b" "$WA_d")
+A_beats_W=$(_beats "$WA_b" "$WA_w" "$WA_d")
+W_beats_C=$(_beats "$WC_w" "$WC_b" "$WC_d")
 
 echo ""
 echo "=== Pre-registered decision (see PREREGISTRATION.md) ==="
-if [[ "$B_beats_A" == "yes" && "$B_beats_C" == "yes" ]]; then
-  echo "  -> INVEST: B beats both A and C. The deliberation machinery earns its complexity."
-elif [[ "$A_beats_B" == "yes" ]]; then
-  echo "  -> CODEX VINDICATED: A beats B. The machinery subtracts value."
+if [[ "$W_beats_A" == "yes" && ( "$W_beats_C" == "yes" || "$WC_w" -ge "$WC_b" ) ]]; then
+  echo "  -> WORKFLOW EARNS IT: the cross-vendor union covers defects A misses, and W >= C."
+  echo "     Keep fan-out + adversarial verify + union; CUT the consensus machinery"
+  echo "     (voting, lexical consensus, capability weighting, panic mode)."
+elif [[ "$A_beats_W" == "yes" ]]; then
+  echo "  -> CODEX VINDICATED: A covers as much as W. The panel adds no coverage over one shot."
+elif [[ "$W_beats_A" == "yes" && "$WC_w" -lt "$WC_b" ]]; then
+  echo "  -> VOLUME, NOT DIVERSITY: W beats A but not C — self-consistency ties the panel."
+  echo "     A single strong model sampled k times + verify is the cheaper equal."
 else
-  echo "  -> CUT TO MINIMAL CORE: B does not clear both baselines (B ~= C). Model diversity"
-  echo "     may be real but multi-round deliberation is not — candidate for removal:"
-  echo "     voting, lexical consensus, panic mode, convergence loops, capability weighting."
+  echo "  -> INCONCLUSIVE at this n: no arm clears the discordant-pair margin. Need more items."
 fi
 
-# --- Secondary metric: does arm-B consensus predict when arm A is wrong? ------
 echo ""
-echo "=== Secondary: arm-B consensus vs arm-A correctness ==="
-# Join: for each id, arm-A grade (from grades) and arm-B consensus (from results).
-join_tmp=$(mktemp)
-jq -rs '[.[] | select(.arm=="A")] | map({(.id): .grade}) | add // {}' "$GRADES" > "$join_tmp.ag"
-jq -rs '[.[] | select(.arm=="B" and (.consensus!=null))] | map({(.id): .consensus}) | add // {}' "$RESULTS" > "$join_tmp.bc"
-jq -rn --slurpfile ag "$join_tmp.ag" --slurpfile bc "$join_tmp.bc" '
-  ($ag[0]) as $A | ($bc[0]) as $C
-  | [ $C | to_entries[] | select($A[.key] != null) | {id:.key, cons:.value, a:$A[.key]} ] as $rows
-  | ($rows | map(select(.a=="YES")) | map(.cons)) as $right
-  | ($rows | map(select(.a=="NO"))  | map(.cons)) as $wrong
-  | "  mean arm-B consensus when A correct: " + (if ($right|length)>0 then ((($right|add)/($right|length))|floor|tostring) else "n/a" end)
-    + "  (n=\($right|length))",
-    "  mean arm-B consensus when A wrong:   " + (if ($wrong|length)>0 then ((($wrong|add)/($wrong|length))|floor|tostring) else "n/a" end)
-    + "  (n=\($wrong|length))",
-    "  (if the second is meaningfully lower, the panel is worth keeping as an uncertainty meter)"
-'
-rm -f "$join_tmp" "$join_tmp.ag" "$join_tmp.bc"
-
-# --- Token-spend check: confirm arms were actually matched -------------------
-echo ""
-echo "=== Token spend per arm (should be roughly matched B vs C) ==="
-for arm in A B C; do
-  jq -rs --arg arm "$arm" '
-    [.[] | select(.arm==$arm and (.tokens!=null)) | .tokens] as $t
-    | if ($t|length)>0 then "  arm \($arm): mean \((($t|add)/($t|length))|floor) tokens/item (n=\($t|length))"
-      else "  arm \($arm): no token data" end
-  ' "$RESULTS"
+echo "=== Cost (tokens per item and per covered defect) ==="
+for arm in A W C; do
+  tok=$(jq -rs --arg arm "$arm" '[.[]|select(.arm==$arm)|.tokens]|if length>0 then (add/length|floor) else 0 end' "$VER")
+  hit=$(jq -rs --arg arm "$arm" '[.[]|select(.arm==$arm and .covered=="YES")]|length' "$COV" 2>/dev/null || echo 0)
+  cnt=$(jq -rs --arg arm "$arm" '[.[]|select(.arm==$arm)]|length' "$VER")
+  perdef="n/a"; [[ "$hit" -gt 0 ]] && perdef=$(( tok * cnt / hit ))
+  echo "  arm $arm: ~$tok tok/item, $hit covered  -> ~$perdef tok per covered defect"
 done
 
 echo ""
-echo "Reminder: a verdict is only valid if grade.sh --calibrate passed AND the post-run"
-echo "hand-label of 10 random verdicts agrees >=90% (PREREGISTRATION.md)."
+echo "=== Adversarial verification pruning ==="
+for arm in A W C; do
+  read -r pr kp < <(jq -rs --arg arm "$arm" '
+    [.[]|select(.arm==$arm)] as $g
+    | "\(($g|map(.pruned)|add)//0) \(($g|map(.verified|length)|add)//0)"' "$VER")
+  echo "  arm $arm: pruned ${pr:-0} findings, kept ${kp:-0}"
+done
+
+echo ""
+echo "Reminder: a verdict is only valid if grade.sh --calibrate passed AND a hand-label of"
+echo "10 random grader verdicts AND 10 verifier decisions each agrees >=90% (PREREGISTRATION.md)."

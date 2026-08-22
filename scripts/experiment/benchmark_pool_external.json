@@ -1,0 +1,113 @@
+{
+  "_comment": "External candidate pool (hard-bug hunt). Same schema as benchmark_pool.json. difficulty_probe.sh filters: only Gemini-MISSES promote to benchmark.json.",
+  "questions": [
+    {
+      "id": "ext-numpy2-copy-false",
+      "source": "NumPy 2.0 migration guide (numpy.org/doc/2.0)",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "class": "api-version-contract",
+      "prompt": "This function worked unchanged on numpy 1.26. It now runs against numpy >= 2.0. Name the most serious defect and why.\n\nimport numpy as np\n\ndef to_feature_matrix(rows):\n    # rows: e.g. a list of python lists, or an int/float64 ndarray.\n    # Build a float32 matrix without paying for an extra copy on the hot path.\n    arr = np.array(rows, dtype=np.float32, copy=False)\n    arr /= 255.0\n    return arr\n",
+      "key": "answer must identify that in numpy >= 2.0 np.array(x, dtype=np.float32, copy=False) RAISES ValueError (\"Unable to avoid copy while creating an array as requested\") whenever a copy is actually required — which is the case for a python list or any ndarray whose dtype/layout differs from float32. numpy 1.x treated copy=False as \"copy only if needed\" and succeeded; on 2.0 copy=False means \"never copy, else raise\", so the function now crashes for essentially all realistic inputs. The fix is copy=None (the new default) or np.asarray.\n"
+    },
+    {
+      "id": "ext-sqlalchemy-async-expire",
+      "source": "SQLAlchemy 2.0 asyncio docs",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "class": "api-version-contract",
+      "prompt": "This uses the SQLAlchemy 2.0 asyncio extension (AsyncSession). Name the most serious defect and why.\n\nfrom sqlalchemy.ext.asyncio import AsyncSession\n\nasync def create_user(session: AsyncSession, name: str) -> str:\n    user = User(name=name)\n    session.add(user)\n    await session.commit()\n    # read back the DB-generated id and the name we just stored\n    return f\"created user {user.id}: {user.name}\"\n",
+      "key": "answer must identify that AsyncSession defaults to expire_on_commit=True, so await session.commit() expires all attributes on user; the subsequent user.id / user.name access is no longer an in-memory read but triggers an implicit refresh SELECT, and issuing IO implicitly under asyncio raises MissingGreenlet (\"greenlet_spawn has not been called; can't call await_only() here\"). The function raises instead of returning. Fix: expire_on_commit=False on the session/sessionmaker, or await session.refresh(user) before access.\n"
+    },
+    {
+      "id": "ext-pandas-groupby-dropna",
+      "source": "pandas-dev/pandas#61339",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "class": "api-version-contract",
+      "prompt": "Some rows have a missing (NaN) region. Name the most serious defect and why.\n\nimport pandas as pd\n\ndef revenue_by_region(df: pd.DataFrame) -> pd.Series:\n    # df columns: \"region\" (string; missing/NaN for some rows), \"amount\" (float)\n    # Total revenue per region.\n    return df.groupby(\"region\")[\"amount\"].sum()\n",
+      "key": "answer must identify that DataFrame.groupby defaults to dropna=True, so every row whose region is NaN/NA is silently excluded from the result; the per-region totals therefore omit all missing-region rows and revenue_by_region(df).sum() understates df[\"amount\"].sum() by the missing-region amount — silent data loss, not an error. Fix: groupby(\"region\", dropna=False), or handle the missing keys before grouping.\n"
+    },
+    {
+      "id": "ext-go-sqlite-interrupt-race",
+      "source": "gitlab.com/cznic/sqlite commit cba9cdc",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "class": "concurrency",
+      "prompt": "This is inside a Go SQLite driver's statement execution path. s.c is a *conn that is SHARED and reused for later statements on the same connection. Name the most serious defect and why.\n\n// done also gates the exec loop:  ... && atomic.LoadInt32(&done) == 0\nvar done int32\nif ctx != nil && ctx.Done() != nil {\n    donech := make(chan struct{})\n\n    go func() {\n        select {\n        case <-ctx.Done():\n            atomic.AddInt32(&done, 1)\n            s.c.interrupt(s.c.db) // interrupts the shared *connection*\n        case <-donech:\n        }\n    }()\n\n    defer func() {\n        close(donech)\n    }()\n}\n// ... run this statement, then return ...\n",
+      "key": "answer must identify that when a statement completes at ~the same time its context is canceled, both ctx.Done() and donech are ready and select may choose ctx.Done(), calling s.c.interrupt AFTER this statement already finished. Because the connection is shared/reused, that interrupt aborts the NEXT, unrelated statement (whose own context was never canceled) with SQLITE_INTERRUPT. The completion side only close(donech)s; nothing makes finishing win the finish-vs-cancel race (needs a first-increment-wins guard so a cancel arriving after completion skips the interrupt).\n"
+    },
+    {
+      "id": "ext-openjdk-racy-double-read",
+      "source": "openjdk/jdk commit 85bac8c",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "class": "concurrency",
+      "prompt": "This Java accessor lazily initializes a shared secret. The field is written by JarFile's static initializer (possibly from another thread) via setJavaUtilJarAccess. Name the most serious defect and why.\n\nprivate static JavaUtilJarAccess javaUtilJarAccess;   // non-volatile\n\npublic static JavaUtilJarAccess javaUtilJarAccess() {\n    if (javaUtilJarAccess == null) {          // read #1\n        ensureClassInitialized(JarFile.class); // installs the shared secret\n    }\n    return javaUtilJarAccess;                  // read #2 — independent racy read\n}\n\npublic static void setJavaUtilJarAccess(JavaUtilJarAccess access) {\n    javaUtilJarAccess = access;                // plain (non-volatile) write\n}\n",
+      "key": "answer must identify that javaUtilJarAccess is read TWICE as two independent accesses of a non-volatile field with no happens-before vs the concurrent write in setJavaUtilJarAccess. Under the Java Memory Model the second read (in return) may observe an OLDER value than the first: read #1 sees non-null (so init is skipped), yet read #2 returns null — handing the caller null and an NPE even though the secret was already installed. Fix: read the field once into a local and return that local (re-load after ensureClassInitialized), eliminating the two-reads-disagree window.\n"
+    },
+    {
+      "id": "ext-rust-arc-getmut-relaxed",
+      "source": "rust-lang/rust PR#52031 (RustBelt)",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "class": "concurrency",
+      "prompt": "This is from a Rust standard-library Arc implementation. Name the most serious defect and why.\n\nfn is_unique(&mut self) -> bool {\n    // The acquire label here ensures a happens-before relationship with any\n    // writes to `strong` prior to decrements of the `weak` count (via drop,\n    // which uses Release).\n    if self.inner().weak.compare_exchange(1, usize::MAX, Acquire, Relaxed).is_ok() {\n        // Due to the previous acquire read, this will observe any writes to\n        // `strong` that were due to upgrading weak pointers; only strong\n        // clones remain, which require that the strong count is > 1 anyway.\n        let unique = self.inner().strong.load(Relaxed) == 1;\n\n        self.inner().weak.store(1, Release);\n        unique\n    } else {\n        false\n    }\n}\n\npub fn get_mut(this: &mut Self) -> Option<&mut T> {\n    if this.is_unique() {\n        // SAFETY: refcount is 1, so we hand out the only reference to the data.\n        unsafe { Some(&mut this.ptr.as_mut().data) }\n    } else {\n        None\n    }\n}\n",
+      "key": "answer must identify that is_unique loads the strong count with Ordering::Relaxed. When another thread drops the second-to-last Arc, that drop decrements strong with Release and returns early WITHOUT touching weak — so the Acquire CAS on weak synchronizes with nothing relevant. With the Relaxed load, the get_mut caller establishes no happens-before with the dropping thread's prior accesses to the data, so the subsequent &mut T races with that thread — undefined behavior. Fix: load strong with Acquire. (The misleading comment defending Relaxed is wrong; the bug was found by formal verification, not review.)\n"
+    },
+    {
+      "id": "ext-jwtgo-aud-bypass",
+      "source": "jwt-go CVE-2020-26160 (commit ec0a89a)",
+      "category": "SECURITY",
+      "difficulty": "hard",
+      "class": "crypto-security",
+      "prompt": "This Go function verifies a JWT's audience (\"aud\") claim. Name the most serious defect and why.\n\nfunc (m MapClaims) VerifyAudience(cmp string, req bool) bool {\n\taud, _ := m[\"aud\"].(string)\n\treturn verifyAud(aud, cmp, req)\n}\n\nfunc verifyAud(aud string, cmp string, required bool) bool {\n\tif aud == \"\" {\n\t\treturn !required\n\t}\n\tif subtle.ConstantTimeCompare([]byte(aud), []byte(cmp)) != 0 {\n\t\treturn true\n\t}\n\treturn false\n}\n",
+      "key": "answer must identify that the JWT aud claim is legally a JSON array, but m[\"aud\"].(string) is a comma-ok type assertion that SILENTLY yields \"\" (not an error) when aud is an array; verifyAud then treats empty audience as \"no audience present\" and returns !required, so with req=false (the common default) audience validation is BYPASSED and a token minted for any/other audience is accepted (jwt-go CVE-2020-26160). Fix: decode aud as a string slice and check every value.\n"
+    },
+    {
+      "id": "ext-pyrsa-bleichenbacher",
+      "source": "python-rsa CVE-2016-1494 (filippo.io writeup)",
+      "category": "SECURITY",
+      "difficulty": "hard",
+      "class": "crypto-security",
+      "prompt": "This Python function verifies an RSA PKCS#1 v1.5 signature. Name the most serious defect and why.\n\ndef verify(message, signature, pub_key):\n    blocksize = common.byte_size(pub_key.n)\n    encrypted = transform.bytes2int(signature)\n    decrypted = core.decrypt_int(encrypted, pub_key.e, pub_key.n)\n    clearsig = transform.int2bytes(decrypted, blocksize)\n\n    if clearsig[0:2] != b('\\x00\\x01'):\n        raise VerificationError('Verification failed')\n\n    try:\n        sep_idx = clearsig.index(b('\\x00'), 2)\n    except ValueError:\n        raise VerificationError('Verification failed')\n\n    (method_name, signature_hash) = _find_method_hash(clearsig[sep_idx+1:])\n    message_hash = _hash(message, method_name)\n\n    if message_hash != signature_hash:\n        raise VerificationError('Verification failed')\n    return True\n\ndef _find_method_hash(method_hash):\n    for (hashname, asn1code) in HASH_ASN1.items():\n        if not method_hash.startswith(asn1code):\n            continue\n        return (hashname, method_hash[len(asn1code):])\n    raise VerificationError('Verification failed')\n",
+      "key": "answer must identify that verification PARSES the decrypted block instead of reconstructing the expected one: it never checks that the padding between 00 01 and the 00 separator is all 0xFF, and _find_method_hash matches the ASN.1 DigestInfo prefix without requiring the hash to be the LAST bytes of the block, so trailing bytes after the hash are ignored. With a small exponent (e=3) an attacker forges a signature for an arbitrary message via a perfect cube containing a valid-looking 00 01 FF.. 00 <DER> <hash> prefix plus garbage (Bleichenbacher'06, python-rsa CVE-2016-1494). Fix: construct the full expected block and compare byte-for-byte.\n"
+    },
+    {
+      "id": "ext-jdk-psychic-ecdsa",
+      "source": "JDK CVE-2022-21449",
+      "category": "SECURITY",
+      "difficulty": "hard",
+      "class": "crypto-security",
+      "prompt": "This Java method verifies an ECDSA signature over a digest. Name the most serious defect and why.\n\npublic boolean verifySignedDigest(byte[] digest, byte[] sig, ECPoint pp) {\n    IntegerFieldModuloP orderField = ecOps.getOrderField();\n    int length = (orderField.getSize().bitLength() + 7) / 8;\n    byte[] r, s;\n    int encodeLength = sig.length / 2;\n    if (sig.length % 2 != 0 || encodeLength > length) {\n        return false;\n    } else if (encodeLength == length) {\n        r = Arrays.copyOf(sig, length);\n        s = Arrays.copyOfRange(sig, length, length * 2);\n    } else {\n        r = new byte[length];\n        s = new byte[length];\n        System.arraycopy(sig, 0, r, length - encodeLength, encodeLength);\n        System.arraycopy(sig, encodeLength, s, length - encodeLength, encodeLength);\n    }\n    ArrayUtil.reverse(r);\n    ArrayUtil.reverse(s);\n    IntegerModuloP ri = orderField.getElement(r);\n    IntegerModuloP si = orderField.getElement(s);\n    // ... compute w = s^-1, u1, u2, R = u1*G + u2*Pub, return (R.x mod n == r) ...\n}\n",
+      "key": "answer must identify that verifySignedDigest never validates that r and s lie in [1, n-1] (are non-zero) before the verification math. With r = s = 0 the reconstructed point and comparison degenerate so the equation holds trivially, so a blank/all-zero signature validates against ANY message and ANY public key — total ECDSA bypass (\"Psychic Signatures\", JDK CVE-2022-21449). Fix: reject unless r and s are >= 1 and < n before any verification math.\n"
+    },
+    {
+      "id": "ext-urllib3-303-body-leak",
+      "source": "urllib3 CVE-2023-45803 (commit 4e50fbc)",
+      "category": "SECURITY",
+      "difficulty": "hard",
+      "class": "cross-module",
+      "prompt": "This is a Python HTTP client's redirect handling, spanning two files. A POST gets a 303 redirect. Name the most serious defect and why.\n\n# ---- File A: connectionpool.py (urlopen, redirect branch) ----\nredirect_location = redirect and response.get_redirect_location()\nif redirect_location:\n    if response.status == 303:\n        method = \"GET\"                  # RFC 9110: 303 -> GET\n    # body and headers forwarded UNCHANGED to the redirected request:\n    return self.urlopen(method, redirect_location,\n        body=body, headers=headers,     # still the original POST body + Content-Length\n        retries=retries, redirect=redirect, **response_kw)\n\n# ---- File B: connection.py (request -> send path) ----\ndef request(self, method, url, body=None, headers=None):\n    for k, v in headers.items():\n        self.putheader(k, v)            # re-emits the original Content-Length\n    self.endheaders()\n    if body is not None:\n        self.send(body)                 # transmits the POST body on the now-GET request\n",
+      "key": "answer must identify that on a 303 the method is rewritten POST->GET but the request body and content-specific headers (Content-Length/Content-Type) are forwarded to the redirect target UNCHANGED, so the original body — potentially sensitive and now sent to a different, attacker-chosen host — is transmitted on a GET that must carry no body (urllib3 CVE-2023-45803). The \"a GET has no body\" invariant spans both functions and neither enforces it. Fix: set body=None and strip the content headers on the 303 branch.\n"
+    },
+    {
+      "id": "ext-navidrome-nfc-nfd",
+      "source": "navidrome PR#4890",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "class": "cross-module",
+      "prompt": "This Go code (two components of a music server) stores scanned file paths and later matches playlist entries to them. Playlist import reports \"path not found\" for some tracks. Name the most serious defect and why.\n\n// ---- File A: scanner stores each path exactly as the OS walker reports it ----\n// macOS (APFS/HFS+) yields NFD (decomposed); Linux/Windows typically NFC (composed).\nfunc (s *scanner) saveMediaFile(mf *model.MediaFile) error {\n    // mf.Path is NOT Unicode-normalized before insert\n    return s.ds.MediaFile(ctx).Put(mf)          // stores the OS-form path\n}\n\n// ---- File B: playlist import resolves an M3U line to a DB row ----\nfunc (r *playlistRepo) matchPaths(resolvedPaths []string) ([]model.MediaFile, error) {\n    resolvedPaths = slice.Map(resolvedPaths, func(p string) string {\n        return strings.ToLower(norm.NFD.String(p))   // Apple Music M3U is NFC -> forced to NFD\n    })\n    // FindByPaths issues:  WHERE path COLLATE NOCASE IN (?, ?, ...)\n    // COLLATE NOCASE case-folds ASCII only; it does NO Unicode NFC/NFD unification.\n    return r.ds.MediaFile(ctx).FindByPaths(resolvedPaths)\n}\n",
+      "key": "answer must identify that the scanner persists paths in whatever normalization form the OS produced (NFD on macOS, NFC elsewhere) while the import path forces its own form and relies on SQLite COLLATE NOCASE, which does only ASCII case-folding and NO Unicode NFC/NFD normalization; a canonically-equivalent path stored in a different form therefore never matches, so any track whose name has accented/combining characters yields \"path not found\". The producer and consumer independently pick normalization and the comparator normalizes neither. Fix: query all NFC/NFD x raw/lower candidate forms.\n"
+    },
+    {
+      "id": "ext-assertj-bigdecimal-scale",
+      "source": "assertj-core#533",
+      "category": "BUG_DEBUG",
+      "difficulty": "hard",
+      "class": "cross-module",
+      "prompt": "This Java code builds an index of allowed prices, then validates incoming orders against it. Valid orders are sometimes rejected. Name the most serious defect and why.\n\n// ---- Piece A: build the index from configuration ----\n// Config strings are \"9.9\", \"19.9\"  ->  BigDecimal scale = 1\nSet<BigDecimal> allowedPrices = new HashSet<>();\nfor (String s : config.getPriceList()) {\n    allowedPrices.add(new BigDecimal(s));       // e.g. new BigDecimal(\"9.9\")\n}\n\n// ---- Piece B: validate an incoming order ----\n// order price arrives from JSON/DB as \"9.90\"  ->  BigDecimal scale = 2\nBigDecimal price = order.getUnitPrice();        // new BigDecimal(\"9.90\")\nif (!allowedPrices.contains(price)) {           // HashSet.contains -> BigDecimal.equals\n    throw new InvalidPriceException(price);\n}\n",
+      "key": "answer must identify that BigDecimal.equals (used by every hash/equals-based collection) compares unscaled value AND scale, so new BigDecimal(\"9.90\") (scale 2) is NOT equal to new BigDecimal(\"9.9\") (scale 1) even though compareTo returns 0; because the producer and consumer draw scale from different sources, the HashSet.contains membership test silently fails for numerically-identical prices and rejects valid orders. Each half is locally correct; the mismatch is only in the interaction. Fix: compare by compareTo (isEqualByComparingTo) or normalize scale with stripTrailingZeros before inserting.\n"
+    }
+  ]
+}

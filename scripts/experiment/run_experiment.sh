@@ -1,38 +1,38 @@
 #!/bin/bash
-# run_experiment.sh - Drive the panel-vs-baseline experiment: arms A/B/C per question.
+# run_experiment.sh - v2 COVERAGE experiment: does a cross-vendor fan-out, verified,
+# catch defects a single model misses? See PREREGISTRATION.md.
 #
-# Arm A: single strong model, one shot (all consultants disabled except STRONG).
-# Arm B: full panel, default deliberation (--preset max_quality).
-# Arm C: the same strong model sampled k times + one synthesis pass (self-consistency),
-#        k per question sized to match arm B's token spend.
+# Arm A: single strong model, one shot -> its one finding (direct query; consult_all
+#        refuses <2 consultants).
+# Arm W: the panel as a WORKFLOW -> fan out to the working roster with debate/consensus
+#        OFF, take the UNION of each consultant's independent finding. (The consensus
+#        machinery is deliberately not used; the adversarial verify happens in verify.sh.)
+# Arm C: the same strong model sampled k times -> the union of its k findings. k sized to
+#        arm W's token spend (K_MAX caps it). Isolates diverse models from more tries.
 #
-# Emits results.jsonl: one {id, arm, answer, tokens, consensus?} line per (item, arm).
-# Grade it with grade.sh and read the verdict with analyze.sh.
+# Emits findings.jsonl: one {id, arm, findings:[...], tokens, consensus?} line per (item,arm).
+# Then: verify.sh (adversarial prune) -> grade.sh (coverage vs key) -> analyze.sh (verdict).
 #
-# THIS SPENDS REAL MODEL CALLS. Read PREREGISTRATION.md and freeze it before a real run.
-# Use --smoke first: it fabricates arm outputs with the shipped response builders and
-# proves the plumbing (token summing, answer extraction, results emission) for $0.
+# THIS SPENDS REAL MODEL CALLS. --smoke fabricates findings for $0 to prove the plumbing.
 #
 # Usage:
 #   run_experiment.sh --smoke [benchmark.json] [outdir]     # no model calls
+#   run_experiment.sh --pilot [benchmark.json] [outdir]     # real, directional (not frozen)
 #   run_experiment.sh --run   [benchmark.json] [outdir]     # real; needs a frozen prereg
 #
-# Env (real run):
-#   STRONG_CONSULTANT   arm-A/C consultant name (default: Claude)
-#   MAX_SESSION_COST    per-run budget guard (default: 0.50)
+# Env: STRONG_CONSULTANT (arm A/C, default Claude), K_MAX (arm C cap, default 12),
+#      MAX_SESSION_COST (per-run budget guard, default 0.50),
+#      EXPERIMENT_SKIP_CONSULTANTS (uppercase ids to drop from arm W, default CURSOR).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$SCRIPT_DIR/.." && pwd)"          # scripts/
-source "$REPO/lib/common.sh" >/dev/null 2>&1  # build_* helpers, to_upper, _is_consultant_response_file
-source "$REPO/lib/costs.sh"  >/dev/null 2>&1  # _billable_response_files
+REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$REPO/lib/common.sh" >/dev/null 2>&1
+source "$REPO/lib/costs.sh"  >/dev/null 2>&1
 
 STRONG_CONSULTANT="${STRONG_CONSULTANT:-Claude}"
 
-# Sum provider/estimated token counts over the billable response files in a dir.
-# Reuses _billable_response_files (which already excludes voting/synthesis/peer_review,
-# includes round_N/, and drops cache hits + escalation copies). No per-run token total
-# is written by the product, so this is the one arithmetic piece the experiment owns.
+# Sum tokens over the billable response files in a dir.
 _sum_tokens() {
   local dir="$1" total=0 t
   while IFS= read -r f; do
@@ -44,85 +44,67 @@ _sum_tokens() {
   echo "$total"
 }
 
-# Pull the synthesized answer a grader reads (arms B and C).
-_answer_of() {
-  jq -r '.weighted_recommendation.summary // .weighted_recommendation.approach // ""' "$1" 2>/dev/null
-}
-
-# Arm A is a single model: score its OWN response, not a synthesis-of-one. A single
-# -consultant synthesis pass adds a failure mode (it can degrade to "Manual review
-# required" under load) that has nothing to do with the model's answer quality — the
-# pilot hit exactly that. Reads the first consultant response file in the dir.
-_consultant_answer_of() {
-  local dir="$1" f
+# Union of independent findings in a dir: each consultant response's summary/detailed,
+# as a JSON array. This is arm W's fan-out and arm A/C's finding set.
+_findings_of() {
+  local dir="$1"
+  local -a arr=()
+  local f txt
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
-    jq -r '.response.summary // .response.detailed // ""' "$f" 2>/dev/null
-    return
+    txt=$(jq -r '.response.summary // .response.detailed // ""' "$f" 2>/dev/null)
+    [[ -n "$txt" ]] && arr+=("$txt")
   done < <(_billable_response_files "$dir" 2>/dev/null)
+  if [[ ${#arr[@]} -eq 0 ]]; then echo "[]"; else printf '%s\n' "${arr[@]}" | jq -R . | jq -s .; fi
 }
 
-# Arm-B consensus, from the metrics file the product already writes.
+# Arm-W consensus (informative only; NOT used for coverage scoring).
 _consensus_of() {
   jq -r '.quality_metrics.consensus_score // empty' "$1/optimization_metrics.json" 2>/dev/null
 }
 
-_emit() {  # <out> <id> <arm> <answer> <tokens> [consensus]
-  local out="$1" id="$2" arm="$3" ans="$4" tok="$5" cons="${6:-}"
+_emit() {  # <out> <id> <arm> <findings_json> <tokens> [consensus]
+  local out="$1" id="$2" arm="$3" findings="$4" tok="$5" cons="${6:-}"
   if [[ -n "$cons" ]]; then
-    jq -nc --arg id "$id" --arg arm "$arm" --arg a "$ans" --argjson t "$tok" --argjson c "$cons" \
-      '{id:$id, arm:$arm, answer:$a, tokens:$t, consensus:$c}' >> "$out"
+    jq -nc --arg id "$id" --arg arm "$arm" --argjson f "$findings" --argjson t "$tok" --argjson c "$cons" \
+      '{id:$id, arm:$arm, findings:$f, tokens:$t, consensus:$c}' >> "$out"
   else
-    jq -nc --arg id "$id" --arg arm "$arm" --arg a "$ans" --argjson t "$tok" \
-      '{id:$id, arm:$arm, answer:$a, tokens:$t}' >> "$out"
+    jq -nc --arg id "$id" --arg arm "$arm" --argjson f "$findings" --argjson t "$tok" \
+      '{id:$id, arm:$arm, findings:$f, tokens:$t}' >> "$out"
   fi
 }
 
-# --- SMOKE MODE: fabricate arm dirs with the real builders, no model calls ---
-# Proves token summing + answer extraction + results emission end to end for $0.
+# --- SMOKE: fabricate findings with the shipped builders, no model calls ($0) ---
 _smoke() {
   local bench="$1" outdir="$2"
-  mkdir -p "$outdir"; local out="$outdir/results.jsonl"; : > "$out"
-  echo "SMOKE: fabricating arm outputs with shipped builders (no model calls)" >&2
-
+  mkdir -p "$outdir"; local out="$outdir/findings.jsonl"; : > "$out"
+  echo "SMOKE: fabricating findings (no model calls)" >&2
   local id
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
-    for arm in A B C; do
+    # Arm A: 1 finding. Arm W: 3 distinct (one "correct"). Arm C: 2 findings.
+    for arm in A W C; do
       local d="$outdir/$id/$arm"; mkdir -p "$d"
-      # Fabricate 1 (A), 3 (B), 2 (C) consultant responses with known token counts.
-      local n=1; [[ "$arm" == B ]] && n=3; [[ "$arm" == C ]] && n=2
+      local n=1; [[ "$arm" == W ]] && n=3; [[ "$arm" == C ]] && n=2
       local i
       for ((i=1; i<=n; i++)); do
-        local inner='{"response":{"summary":"smoke answer '"$id"'/'"$arm"'/'"$i"'","approach":"a'"$i"'"},"confidence":{"score":8}}'
+        local summ="smoke finding $id/$arm/$i"
+        [[ "$arm" == W && $i -eq 2 ]] && summ="the keyed defect for $id"   # W includes a correct one
+        local inner='{"response":{"summary":"'"$summ"'","approach":"a'"$i"'"},"confidence":{"score":8}}'
         build_structured_response "SmokeC$i" "smoke-model" "P" "$inner" 100 $((1000*i)) measured $((600*i)) $((400*i)) > "$d/c$i.json"
       done
-      # Synthesis: reuse the real builder to stand in for synthesize.sh output shape.
-      jq -nc --arg s "synth $id/$arm" '{weighted_recommendation:{summary:$s, approach:"syn"}}' > "$d/synthesis.json"
-      [[ "$arm" == B ]] && jq -nc '{quality_metrics:{consensus_score:75}}' > "$d/optimization_metrics.json"
-
-      local ans tok cons; ans=$(_answer_of "$d/synthesis.json"); tok=$(_sum_tokens "$d")
-      cons=""; [[ "$arm" == B ]] && cons=$(_consensus_of "$d")
-      _emit "$out" "$id" "$arm" "$ans" "$tok" "$cons"
+      local cons=""; [[ "$arm" == W ]] && { jq -nc '{quality_metrics:{consensus_score:40}}' > "$d/optimization_metrics.json"; cons=$(_consensus_of "$d"); }
+      _emit "$out" "$id" "$arm" "$(_findings_of "$d")" "$(_sum_tokens "$d")" "$cons"
     done
   done < <(jq -r '.questions[].id' "$bench")
-
-  echo "SMOKE: wrote $(wc -l < "$out") result lines -> $out" >&2
+  echo "SMOKE: wrote $(wc -l < "$out") lines -> $out" >&2
   echo "$out"
 }
 
 # --- REAL MODE ---------------------------------------------------------------
-
-# Shared per-run environment: cache OFF (else arm C's samples collapse and token
-# accounting is void), budget guard ON, and an EMPTY config dir so the maintainer's
-# own .env cannot change which consultants participate.
 _CFG_DIR=""
-_arm_run() {  # <extra env assignments...> -- <consult_all args...> ; echoes the run dir
+_arm_run() {  # <env...> -- <consult_all args...> ; echoes the run dir
   local -a envs=() ; while [[ "$1" != "--" ]]; do envs+=("$1"); shift; done; shift
-  # INVOKING_AGENT="" so self-exclusion does not drop the strong model (Claude)
-  # from arm A, where it is the ONLY consultant.
-  # ${envs[@]+...}: empty-array-safe expansion — bash 3.2 (stock macOS) treats a
-  # bare "${envs[@]}" on an empty array as unbound under set -u.
   env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" INVOKING_AGENT="" \
       ENABLE_SEMANTIC_CACHE=false ENABLE_BUDGET_LIMIT=true \
       MAX_SESSION_COST="${MAX_SESSION_COST:-0.50}" \
@@ -130,40 +112,29 @@ _arm_run() {  # <extra env assignments...> -- <consult_all args...> ; echoes the
       "$REPO/consult_all.sh" "$@" 2>/dev/null | tail -1
 }
 
-# Env string that disables every consultant except the strong one (arm A / arm C base).
-_only_strong() {
-  local up; up=$(to_upper "$STRONG_CONSULTANT")
-  local a
-  for a in GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
-    if [[ "$a" == "$up" ]]; then echo "ENABLE_$a=true"; else echo "ENABLE_$a=false"; fi
-  done
+# Arm W env: the user's real working roster, as a pure FAN-OUT — debate and orchestration
+# OFF (that machinery is the consensus part we do NOT measure), peer review OFF. Clear
+# DEFAULT_PRESET (e.g. "balanced" caps the panel at 4). Drop down consultants.
+_arm_w_env() {
+  echo "DEFAULT_PRESET="
   echo "ENABLE_DEBATE=false"
-}
-
-# Env string for arm B: the full roster with deliberation, but peer review OFF.
-# Peer review runs AFTER synthesis and cannot change the synthesized recommendation
-# (the artifact arm B is scored on), so dropping it cuts the slowest stage without
-# altering what is measured. Set explicitly (not via --preset) because a preset
-# re-exports ENABLE_PEER_REVIEW and would override an env override.
-_full_panel() {
+  echo "ORCHESTRATION_MODE=fixed"
+  echo "DEBATE_ROUNDS=0"
+  echo "ENABLE_PEER_REVIEW=false"
+  local down=" ${EXPERIMENT_SKIP_CONSULTANTS:-CURSOR} "
   local a
   for a in GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX; do
-    echo "ENABLE_$a=true"
+    if [[ "$down" == *" $a "* ]]; then echo "ENABLE_$a=false"; else echo "ENABLE_$a=true"; fi
   done
-  echo "ENABLE_PEER_REVIEW=false"
 }
 
 _run() {
   local bench="$1" outdir="$2" mode="${3:-run}"
-  mkdir -p "$outdir"; local out="$outdir/results.jsonl"; : > "$out"
+  mkdir -p "$outdir"; local out="$outdir/findings.jsonl"; : > "$out"
 
-  # A binding run requires the pre-registration frozen. A --pilot is explicitly
-  # NOT the binding run (underpowered n, directional only), so it skips the guard
-  # but must never be reported as the pre-registered verdict.
   if [[ "$mode" != "pilot" && ! -f "$SCRIPT_DIR/.frozen" ]]; then
     echo "REFUSING: PREREGISTRATION.md is not frozen (scripts/experiment/.frozen absent)." >&2
-    echo "Freeze the pre-registration and 'touch scripts/experiment/.frozen' before a real run." >&2
-    echo "For a non-binding shakedown on the seed set, use --pilot." >&2
+    echo "Freeze it, or use --pilot for a non-binding shakedown." >&2
     exit 1
   fi
   [[ "$mode" == "pilot" ]] && echo "PILOT MODE — directional only, NOT the pre-registered verdict." >&2
@@ -171,17 +142,8 @@ _run() {
   local strong_query="$REPO/query_$(to_lower "$STRONG_CONSULTANT").sh"
   [[ -x "$strong_query" ]] || { echo "REFUSING: no query script for STRONG_CONSULTANT=$STRONG_CONSULTANT ($strong_query)" >&2; exit 1; }
 
-  _CFG_DIR=$(mktemp -d); trap 'rm -rf "$_CFG_DIR"' RETURN
-  # Carry the user's CREDENTIALS into the isolated config (keys + endpoint URLs),
-  # but NOT their ENABLE_*/model lines — arm composition is set explicitly per arm.
-  # The pilot learned this the hard way: an empty config dir isolated for
-  # hermeticity also stripped the API keys the API-based consultants (GLM/Grok/
-  # DeepSeek/Qwen) need, silently collapsing arm B from 8 live to 3. Copy only the
-  # credential lines so composition stays controlled while auth survives.
-  local real_env="${AI_CONSULTANTS_CONFIG_DIR:-$HOME/.config/ai-consultants}/.env"
-  if [[ -f "$real_env" ]]; then
-    grep -E '^[A-Za-z0-9_]+_API_(KEY|URL)=' "$real_env" > "$_CFG_DIR/.env" 2>/dev/null || true
-  fi
+  # Use the user's REAL config (keys + transport); arms control composition via env.
+  _CFG_DIR="${AI_CONSULTANTS_CONFIG_DIR:-$HOME/.config/ai-consultants}"
 
   local id q ctx
   while IFS= read -r id; do
@@ -189,47 +151,41 @@ _run() {
     ctx=$(mktemp); printf '%s\n' "$q" > "$ctx"
     echo "== $id ==" >&2
 
-    # Arm A: single strong model, one shot.
-    local -a only=(); local ln
-    while IFS= read -r ln; do only+=("$ln"); done < <(_only_strong)
-    local dirA; dirA=$(_arm_run "${only[@]}" -- --query-file "$ctx")
-    if [[ -d "$dirA" ]]; then
-      _emit "$out" "$id" A "$(_consultant_answer_of "$dirA")" "$(_sum_tokens "$dirA")"
-    else echo "  arm A produced no dir" >&2; fi
+    # Arm A: single strong model, one shot (direct query) -> one finding.
+    local dirA="$outdir/$id/A"; mkdir -p "$dirA"
+    env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" INVOKING_AGENT="" ENABLE_SEMANTIC_CACHE=false \
+      "$strong_query" "" "$ctx" "$dirA/response.json" >/dev/null 2>&1 || true
+    _emit "$out" "$id" A "$(_findings_of "$dirA")" "$(_sum_tokens "$dirA")"
 
-    # Arm B: full panel (peer review off — see _full_panel). Its token total sizes arm C.
-    local -a fp=(); local fpl
-    while IFS= read -r fpl; do fp+=("$fpl"); done < <(_full_panel)
-    local dirB; dirB=$(_arm_run "${fp[@]}" -- --query-file "$ctx")
-    local tokB=0 consB=""
-    if [[ -d "$dirB" ]]; then
-      tokB=$(_sum_tokens "$dirB"); consB=$(_consensus_of "$dirB")
-      _emit "$out" "$id" B "$(_answer_of "$dirB/synthesis.json")" "$tokB" "$consB"
-    else echo "  arm B produced no dir" >&2; fi
+    # Arm W: fan-out union (debate/consensus off). Its token total sizes arm C.
+    local -a we=(); local wl
+    while IFS= read -r wl; do we+=("$wl"); done < <(_arm_w_env)
+    local dirW; dirW=$(_arm_run "${we[@]}" -- --query-file "$ctx" || true)
+    local tokW=0 consW=""
+    if [[ -d "$dirW" ]]; then
+      tokW=$(_sum_tokens "$dirW"); consW=$(_consensus_of "$dirW")
+      _emit "$out" "$id" W "$(_findings_of "$dirW")" "$tokW" "$consW"
+    else echo "  arm W produced no dir" >&2; fi
 
-    # Arm C: same model sampled k times + synthesize. k matches arm B's spend.
+    # Arm C: same model x k -> union of k findings. k matches arm W's spend.
     local dirC="$outdir/$id/C"; mkdir -p "$dirC"
-    # One sample first to size k, then the rest.
     env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" ENABLE_SEMANTIC_CACHE=false \
       "$strong_query" "" "$ctx" "$dirC/sample_1.json" >/dev/null 2>&1 || true
     local per; per=$(_sum_tokens "$dirC"); [[ "$per" -gt 0 ]] || per=1
-    local k=2; [[ "$tokB" -gt 0 ]] && k=$(( (tokB + per/2) / per )); [[ "$k" -lt 2 ]] && k=2
-    # Hard cap: a failed sample makes per~0 and would explode k to tokB. Bound it.
+    local k=2; [[ "$tokW" -gt 0 ]] && k=$(( (tokW + per/2) / per )); [[ "$k" -lt 2 ]] && k=2
     local kmax="${K_MAX:-12}"; [[ "$k" -gt "$kmax" ]] && k=$kmax
     local i
     for ((i=2; i<=k; i++)); do
       env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" ENABLE_SEMANTIC_CACHE=false \
         "$strong_query" "" "$ctx" "$dirC/sample_$i.json" >/dev/null 2>&1 || true
     done
-    env AI_CONSULTANTS_CONFIG_DIR="$_CFG_DIR" \
-      "$REPO/synthesize.sh" "$dirC" "$dirC/synthesis.json" "$q" >/dev/null 2>&1 || true
-    _emit "$out" "$id" C "$(_answer_of "$dirC/synthesis.json")" "$(_sum_tokens "$dirC")"
+    _emit "$out" "$id" C "$(_findings_of "$dirC")" "$(_sum_tokens "$dirC")"
     echo "  arm C: k=$k samples" >&2
 
     rm -f "$ctx"
   done < <(jq -r '.questions[].id' "$bench")
 
-  echo "results -> $out" >&2
+  echo "findings -> $out" >&2
   echo "$out"
 }
 
