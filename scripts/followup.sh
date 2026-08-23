@@ -9,6 +9,7 @@
 #   ./followup.sh --clarify "Codex and Mistral disagree on Y"
 #   ./followup.sh --all "Reformulate with focus on performance"
 #   ./followup.sh --session <session_id> "Question"
+#   ./followup.sh --query-file <private_file>
 
 set -euo pipefail
 
@@ -24,6 +25,8 @@ MODE="default"
 TARGET_CONSULTANT=""
 SESSION_ID=""
 INSTRUCTION=""
+INSTRUCTION_FILE=""
+POSITIONAL_INSTRUCTIONS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -36,13 +39,24 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --consultant|-c)
+            [[ -n "${2:-}" ]] || { log_error "$1 requires a consultant"; exit 1; }
             MODE="single"
             TARGET_CONSULTANT="$2"
             shift 2
             ;;
         --session|-s)
+            [[ -n "${2:-}" ]] || { log_error "$1 requires a session ID"; exit 1; }
             SESSION_ID="$2"
             shift 2
+            ;;
+        --query-file)
+            if [[ -n "${2:-}" && -f "$2" ]]; then
+                INSTRUCTION_FILE="$2"
+                shift 2
+            else
+                log_error "--query-file requires an existing file path"
+                exit 1
+            fi
             ;;
         --help|-h)
             echo "Usage: $0 [options] \"instruction\""
@@ -52,6 +66,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --all              Send follow-up to all consultants"
             echo "  --consultant, -c   Send only to a specific consultant"
             echo "  --session, -s      Use a specific session (default: current)"
+            echo "  --query-file       Read the follow-up instruction from a file"
             echo "  --help, -h         Show this message"
             echo ""
             echo "Examples:"
@@ -61,11 +76,27 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            INSTRUCTION="$1"
+            POSITIONAL_INSTRUCTIONS+=("$1")
             shift
             ;;
     esac
 done
+
+# Resolve the instruction source before session work. Follow-ups have no
+# context-file positional arguments, so --query-file conflicts with any
+# positional text instead of silently reinterpreting it.
+if [[ -n "$INSTRUCTION_FILE" ]]; then
+    if [[ ${#POSITIONAL_INSTRUCTIONS[@]} -gt 0 ]]; then
+        log_error "--query-file conflicts with a positional follow-up instruction"
+        exit 1
+    fi
+    INSTRUCTION=$(cat "$INSTRUCTION_FILE")
+elif [[ ${#POSITIONAL_INSTRUCTIONS[@]} -eq 1 ]]; then
+    INSTRUCTION="${POSITIONAL_INSTRUCTIONS[0]}"
+elif [[ ${#POSITIONAL_INSTRUCTIONS[@]} -gt 1 ]]; then
+    log_error "Pass the follow-up instruction as one quoted argument or use --query-file"
+    exit 1
+fi
 
 # =============================================================================
 # VALIDATION
@@ -112,6 +143,24 @@ fi
 # Build complete context
 FOLLOW_UP_CONTEXT=$(build_follow_up_context "$INSTRUCTION")
 
+FOLLOWUP_CONTEXT_FILE=""
+_cleanup_followup_context_file() {
+    local runtime_base="${TMPDIR:-/tmp}"
+    runtime_base="${runtime_base%/}"
+    if [[ -n "$FOLLOWUP_CONTEXT_FILE" && -f "$FOLLOWUP_CONTEXT_FILE" \
+        && "$FOLLOWUP_CONTEXT_FILE" == "$runtime_base"/ai-consultants-followup.* ]]; then
+        rm -f -- "$FOLLOWUP_CONTEXT_FILE"
+    fi
+    FOLLOWUP_CONTEXT_FILE=""
+}
+_followup_runtime_base="${TMPDIR:-/tmp}"
+_followup_runtime_base="${_followup_runtime_base%/}"
+FOLLOWUP_CONTEXT_FILE=$(mktemp "$_followup_runtime_base/ai-consultants-followup.XXXXXX")
+chmod 600 "$FOLLOWUP_CONTEXT_FILE"
+printf '%s' "$FOLLOW_UP_CONTEXT" > "$FOLLOWUP_CONTEXT_FILE"
+trap _cleanup_followup_context_file EXIT
+unset _followup_runtime_base
+
 # =============================================================================
 # EXECUTE FOLLOW-UP
 # =============================================================================
@@ -131,23 +180,36 @@ case "$MODE" in
             exit 1
         fi
 
-        log_info "Follow-up to $TARGET_CONSULTANT..."
-
-        case "$TARGET_CONSULTANT" in
-            Gemini|gemini)
-                "$SCRIPT_DIR/query_gemini.sh" "$FOLLOW_UP_CONTEXT" "" "$FOLLOW_UP_DIR/gemini.json"
-                ;;
-            Codex|codex)
-                "$SCRIPT_DIR/query_codex.sh" "$FOLLOW_UP_CONTEXT" "" "$FOLLOW_UP_DIR/codex.json"
-                ;;
-            Mistral|mistral)
-                "$SCRIPT_DIR/query_mistral.sh" "$FOLLOW_UP_CONTEXT" "" "$FOLLOW_UP_DIR/mistral.json"
-                ;;
+        _target_lower=$(to_lower "$TARGET_CONSULTANT")
+        case "$_target_lower" in
+            qwen) _target_lower=qwen3 ;;
+            gemini|codex|mistral|kimi|claude|qwen3|glm|grok|deepseek|minimax) ;;
             *)
                 log_error "Unknown consultant: $TARGET_CONSULTANT"
                 exit 1
                 ;;
         esac
+
+        if should_skip_consultant "$_target_lower"; then
+            log_error "Refusing follow-up self-consultation: $TARGET_CONSULTANT is the invoking agent"
+            exit 1
+        fi
+
+        _target_enable_var="ENABLE_$(to_upper "$_target_lower")"
+        if [[ "${!_target_enable_var:-false}" != "true" ]]; then
+            log_error "Consultant is disabled: $TARGET_CONSULTANT"
+            exit 1
+        fi
+
+        _target_script="$SCRIPT_DIR/query_${_target_lower}.sh"
+        if [[ ! -x "$_target_script" ]]; then
+            log_error "Consultant adapter unavailable: $TARGET_CONSULTANT"
+            exit 1
+        fi
+
+        log_info "Follow-up to $TARGET_CONSULTANT..."
+        "$_target_script" "" "$FOLLOWUP_CONTEXT_FILE" "$FOLLOW_UP_DIR/${_target_lower}.json"
+        unset _target_lower _target_script _target_enable_var
         ;;
 
     clarify)
@@ -156,15 +218,16 @@ case "$MODE" in
 
 NOTE: This is a CLARIFICATION request on a point of disagreement between consultants.
 Explain your reasoning in detail and why your position differs from others."
+        printf '%s' "$CLARIFY_PROMPT" > "$FOLLOWUP_CONTEXT_FILE"
 
         log_info "Requesting clarification from all consultants..."
-        "$SCRIPT_DIR/consult_all.sh" "$CLARIFY_PROMPT"
+        "$SCRIPT_DIR/consult_all.sh" --query-file "$FOLLOWUP_CONTEXT_FILE"
         ;;
 
     all|default)
         # Follow-up to all consultants
         log_info "Follow-up to all consultants..."
-        "$SCRIPT_DIR/consult_all.sh" "$FOLLOW_UP_CONTEXT"
+        "$SCRIPT_DIR/consult_all.sh" --query-file "$FOLLOWUP_CONTEXT_FILE"
         ;;
 esac
 
@@ -174,6 +237,8 @@ esac
 
 # Record follow-up in session
 add_follow_up "$INSTRUCTION" "$FOLLOW_UP_DIR"
+_cleanup_followup_context_file
+trap - EXIT
 
 log_success "Follow-up completed"
 log_info "Responses in: $FOLLOW_UP_DIR"

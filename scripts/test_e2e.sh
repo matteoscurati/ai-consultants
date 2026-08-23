@@ -1,6 +1,6 @@
 #!/bin/bash
 # test_e2e.sh - Offline end-to-end integration test for the full consult_all.sh
-# pipeline (classify -> route -> collect -> vote/consensus -> report).
+# pipeline (classify -> route -> parallel collection -> coverage report).
 #
 # Drives consult_all.sh with real CLI-based consultants (Claude, Codex,
 # Gemini, Mistral) whose CLI_CMD env vars are pointed at a stub "CLI"
@@ -77,6 +77,47 @@ test_full_pipeline() {
         "optimization_metrics.json records successful_responses (got: $success_responses)"
 }
 
+test_claude_host_excludes_itself_and_calls_other_consultants() {
+    local run_out rc output_dir consultant
+
+    run_out=$(
+        HOME="$TEST_TMPDIR/claude-home" \
+        XDG_CACHE_HOME="$TEST_TMPDIR/claude-xdg/cache" \
+        XDG_STATE_HOME="$TEST_TMPDIR/claude-xdg/state" \
+        XDG_DATA_HOME="$TEST_TMPDIR/claude-xdg/data" \
+        INVOKING_AGENT=claude \
+        ENABLE_CLAUDE=true ENABLE_CODEX=true ENABLE_GEMINI=true ENABLE_MISTRAL=true \
+        ENABLE_KIMI=false ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false \
+        ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
+        CLAUDE_CMD="$STUB_CLI" CODEX_CMD="$STUB_CLI" GEMINI_CMD="$STUB_CLI" MISTRAL_CMD="$STUB_CLI" \
+        ENABLE_SEMANTIC_CACHE=false \
+        ENABLE_SYNTHESIS=false \
+        ENABLE_SMART_ROUTING=false \
+        ENABLE_HEALTH_GATE=false \
+        "$SCRIPT_DIR/consult_all.sh" "Which boundary should a host agent preserve?" \
+        2>"$TEST_TMPDIR/claude-host.err"
+    )
+    rc=$?
+    output_dir=$(echo "$run_out" | tail -n 1)
+
+    assert_eq "0" "$rc" "Claude-hosted consultation exits 0"
+    assert_eq "1" "$([[ -d "$output_dir" ]] && echo 1 || echo 0)" \
+        "Claude-hosted consultation produces an output directory"
+    assert_eq "0" "$([[ -e "$output_dir/claude.json" || -e "$output_dir/claude.err" ]] && echo 1 || echo 0)" \
+        "Claude host produces no Claude consultant artifacts"
+
+    for consultant in gemini codex mistral; do
+        assert_eq "1" "$([[ -s "$output_dir/$consultant.json" ]] && echo 1 || echo 0)" \
+            "Claude host dispatches $consultant"
+    done
+
+    assert_eq "3" "$(jq -r '.quality_metrics.total_consultants' "$output_dir/optimization_metrics.json")" \
+        "Claude self-exclusion leaves exactly the three other enabled consultants"
+    assert_eq "3" "$(jq -r '.quality_metrics.successful_responses' "$output_dir/optimization_metrics.json")" \
+        "all non-Claude consultants return successfully"
+}
+
 run_test "Test 1: full offline consult_all.sh pipeline with stubbed CLIs" test_full_pipeline
+run_test "Test 2: Claude host excludes itself and dispatches other consultants" test_claude_host_excludes_itself_and_calls_other_consultants
 
 test_summary "test_e2e"

@@ -260,7 +260,8 @@ _parse_tagged_path() {
 _truncate_file() {
     local file_path="$1"
     local original_size="$2"
-    echo "# File: $file_path (truncated: ${original_size} bytes, showing first ${MAX_CONTEXT_FILE_BYTES})
+    local display_path="${3:-$file_path}"
+    echo "# File: $display_path (truncated: ${original_size} bytes, showing first ${MAX_CONTEXT_FILE_BYTES})
 $(head -c "$MAX_CONTEXT_FILE_BYTES" -- "$file_path")
 # ... [truncated] ..."
 }
@@ -270,6 +271,7 @@ _optimize_file_content() {
     local file_path="$1"
     local mode="$2"
     local lang="$3"
+    local display_path="${4:-$file_path}"
 
     local original_size
     original_size=$(wc -c < "$file_path" | tr -d ' ')
@@ -288,7 +290,7 @@ _optimize_file_content() {
                 ;;
 
             basic)
-                optimized_content=$(_truncate_file "$file_path" "$original_size")
+                optimized_content=$(_truncate_file "$file_path" "$original_size" "$display_path")
                 opt_type="truncated"
                 ;;
 
@@ -296,14 +298,14 @@ _optimize_file_content() {
                 if _supports_ast_extraction "$lang" && [[ "$_HAS_CODE_OPTIMIZER" == "true" ]]; then
                     local extracted=""
                     if extracted=$(optimize_code_file "$file_path" 2>/dev/null) && [[ -n "$extracted" ]]; then
-                        optimized_content="# File: $file_path (AST skeleton: ${original_size} bytes -> optimized)
+                        optimized_content="# File: $display_path (AST skeleton: ${original_size} bytes -> optimized)
 $extracted"
                         opt_type="ast_skeleton"
                     fi
                 fi
                 # Fallback to truncation
                 if [[ -z "$optimized_content" ]]; then
-                    optimized_content=$(_truncate_file "$file_path" "$original_size")
+                    optimized_content=$(_truncate_file "$file_path" "$original_size" "$display_path")
                     opt_type="truncated"
                 fi
                 ;;
@@ -357,7 +359,7 @@ $extracted"
                 fi
 
                 opt_type="${applied_opts:-truncated}"
-                optimized_content="# File: $file_path (optimized: ${original_size} bytes -> ${temp_size} bytes, mode: $opt_type)
+                optimized_content="# File: $display_path (optimized: ${original_size} bytes -> ${temp_size} bytes, mode: $opt_type)
 $temp_content"
                 ;;
         esac
@@ -366,9 +368,19 @@ $temp_content"
     # Record statistics and output
     local optimized_size
     optimized_size=$(echo -n "$optimized_content" | wc -c | tr -d ' ')
-    _record_file_stats "$file_path" "$original_size" "$optimized_size" "$opt_type"
+    _record_file_stats "$display_path" "$original_size" "$optimized_size" "$opt_type"
     log_debug "Optimized $file_path: $original_size -> $optimized_size bytes (mode: $opt_type)"
     echo "$optimized_content"
+}
+
+_context_display_path() {
+    local path="$1" stage_root="${CONTEXT_STAGE_ROOT:-}"
+    stage_root="${stage_root%/}"
+    if [[ -n "$stage_root" && "$path" == "$stage_root"/* ]]; then
+        printf '%s' "${path#"$stage_root"/}"
+    else
+        printf '%s' "$path"
+    fi
 }
 
 # =============================================================================
@@ -599,22 +611,23 @@ _reset_stats
         for i in "${!FILES[@]}"; do
             file_path="${FILES[$i]}"
             file_tag="${FILE_TAGS[$i]:-PRIMARY}"
+            display_path=$(_context_display_path "$file_path")
             if [[ -f "$file_path" ]]; then
                 # Extract extension for syntax highlighting
                 extension="${file_path##*.}"
                 lang=$(_get_lang_for_extension "$extension")
 
-                echo "### File: \`$file_path\` ($file_tag)"
+                echo "### File: \`$display_path\` ($file_tag)"
                 echo ""
 
                 echo "\`\`\`$lang"
                 # Use intelligent optimization
-                _optimize_file_content "$file_path" "$EFFECTIVE_MODE" "$lang"
+                _optimize_file_content "$file_path" "$EFFECTIVE_MODE" "$lang" "$display_path"
                 echo ""
                 echo "\`\`\`"
                 echo ""
             else
-                echo "### File: \`$file_path\` ($file_tag)"
+                echo "### File: \`$display_path\` ($file_tag)"
                 echo ""
                 echo "*File not found*"
                 echo ""

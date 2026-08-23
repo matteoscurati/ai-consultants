@@ -905,14 +905,14 @@ _recommend_combo() {
     # Without this short-circuit, e.g. "minimal" preset with count=0 would
     # produce an unrunnable suggestion.
     if (( count < 2 )); then
-        echo "minimal|coverage|Only ${count} consultant(s) currently usable — install more CLIs (run: ai-consultants doctor --suggest-config) before deliberating"
+        echo "minimal|coverage|Only ${count} consultant(s) currently usable — install more CLIs (run: ai-consultants doctor --suggest-config) before consulting"
         return 0
     fi
 
     case "$category" in
         SECURITY)
             if (( count >= 5 )); then
-                echo "balanced|security_first|SECURITY detected; ${count} consultants available; debate is mandatory for SECURITY"
+                echo "balanced|security_first|SECURITY detected; ${count} consultants available; security-first synthesis selected"
             else
                 # Only mention Mistral as priority if it's actually available
                 local mistral_note=""
@@ -925,9 +925,9 @@ _recommend_combo() {
             ;;
         ARCHITECTURE)
             if (( count >= 5 )); then
-                echo "high-stakes|risk_averse|ARCHITECTURE detected; ${count} consultants — high-stakes adds debate, risk_averse weights conservative answers"
+                echo "high-stakes|risk_averse|ARCHITECTURE detected; ${count} consultants — high-stakes broadens the panel, risk_averse prioritizes conservative risks"
             else
-                echo "balanced|risk_averse|ARCHITECTURE detected; ${count} consultants — debate is mandatory for ARCHITECTURE"
+                echo "balanced|risk_averse|ARCHITECTURE detected; ${count} consultants — risk-aware synthesis selected"
             fi
             ;;
         QUICK_SYNTAX)

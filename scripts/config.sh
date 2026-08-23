@@ -905,12 +905,12 @@ apply_model_tier() {
 #   minimal      - 2 models (fast, cheap): Gemini + Codex
 #   balanced     - 3 models (good coverage): Gemini + Codex + Mistral
 #   thorough     - 3 models (comprehensive)
-#   high-stakes  - Broad premium panel + debate (maximum rigor)
+#   high-stakes  - Broad premium panel for critical decisions
 #
 # Quality Tiers (v2.5):
 #   max_quality  - all 10 consultants + maximum models/effort
 #   medium       - 3 consultants + standard models
-#   fast         - 2 consultants + economy models, no debate
+#   fast         - 2 consultants + economy models
 #
 # Usage: ./consult_all.sh --preset balanced "Your question"
 
@@ -992,14 +992,14 @@ Available presets:
 Quality Tiers (v2.5):
   max_quality  All 10 consultants + maximum models and max provider effort
   medium       3 consultants + standard models
-  fast         2 consultants + economy models, no debate
+  fast         2 consultants + economy models
 
 Use Cases:
   minimal      2 models (Gemini + Codex) - Fast, cheap
   balanced     3 models (Gemini + Codex + Mistral) - Good coverage [DEFAULT]
   thorough     3 models - Comprehensive analysis
-  high-stakes  Broad premium panel + debate - Maximum rigor for critical decisions
-  security     Security-focused models + debate - For security reviews
+  high-stakes  Broad premium panel - Maximum breadth for critical decisions
+  security     Security-focused models - For security reviews
   cost-capped  Budget-conscious options - Minimal API costs
 
 Usage: ./consult_all.sh --preset <name> "Your question"

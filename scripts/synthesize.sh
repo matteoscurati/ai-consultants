@@ -1,8 +1,8 @@
 #!/bin/bash
 # synthesize.sh - Auto-synthesis engine for AI Consultants
 #
-# Analyzes responses from all consultants and generates an automatic synthesis
-# with consensus score, weighted recommendation, and comparison table.
+# Analyzes responses from all consultants and generates the coverage union of
+# their distinct recommendations, risks, edge cases, and evidence.
 #
 # Usage: ./synthesize.sh <responses_dir> <output_file>
 #
@@ -20,52 +20,35 @@ source "$SCRIPT_DIR/lib/common.sh"
 generate_fallback_synthesis() {
     local responses_dir="$1"
 
-    # Calculate basic statistics
-    local total_confidence=0
     local count=0
     local consultants_json="[]"
 
     for f in "$responses_dir"/*.json; do
         if _is_successful_consultant_response_file "$f"; then
-            local conf=$(jq -r '.confidence.score // 5' "$f" 2>/dev/null)
             local name=$(jq -r '.consultant // "unknown"' "$f" 2>/dev/null)
-            total_confidence=$((total_confidence + conf))
             count=$((count + 1))
             consultants_json=$(echo "$consultants_json" | jq --arg n "$name" '. + [$n]')
         fi
     done
 
-    local avg_confidence=5
-    if [[ $count -gt 0 ]]; then
-        avg_confidence=$((total_confidence / count))
-    fi
-
     jq -n \
         --arg timestamp "$(date -Iseconds)" \
+        --arg strategy "${SYNTHESIS_STRATEGY:-coverage}" \
         --argjson count "$count" \
-        --argjson avg_conf "$avg_confidence" \
         --argjson consultants "$consultants_json" \
         '{
-            synthesis_version: "2.0-fallback",
+            synthesis_version: "3.0-fallback",
             timestamp: $timestamp,
+            strategy: $strategy,
             consultants_analyzed: $count,
-            consensus: {
-                score: 50,
-                level: "unknown",
-                description: "Automatic synthesis not available - manual analysis required",
-                agreed_points: [],
-                disagreed_points: []
-            },
+            coverage: [],
             weighted_recommendation: {
                 approach: "manual_review",
                 summary: "Manual review of responses required",
                 detailed: "Automatic synthesis was not possible. Please consult individual responses.",
-                confidence_weighted_score: $avg_conf,
                 supporting_consultants: $consultants,
-                dissenting_consultants: [],
                 incorporated_insights: []
             },
-            comparison_table: [],
             risk_assessment: {
                 overall_risk: "unknown",
                 risks: []
@@ -225,51 +208,24 @@ $COMBINED_RESPONSES
 Analyze carefully and produce ONLY valid JSON (no text before or after):
 
 {
-  \"synthesis_version\": \"2.2\",
+  \"synthesis_version\": \"3.0\",
   \"timestamp\": \"$(date -Iseconds)\",
   \"strategy\": \"$SYNTHESIS_STRATEGY\",
   \"consultants_analyzed\": $NUM_CONSULTANTS,
-  \"consensus\": {
-    \"score\": <0-100>,
-    \"level\": \"<high|medium|low|none>\",
-    \"description\": \"<description of consensus level>\",
-    \"agreed_points\": [\"<points where >= 3 agree>\"],
-    \"disagreed_points\": [
-      {
-        \"topic\": \"<topic>\",
-        \"positions\": {
-          \"<consultant_name>\": \"<position for each consultant that responded, or N/A if they did not address this topic>\"
-        }
-      }
-    ]
-  },
+  \"coverage\": [
+    {
+      \"point\": \"<distinct recommendation, risk, edge case, trade-off, or evidence>\",
+      \"raised_by\": [\"<consultant names>\"],
+      \"kind\": \"<recommendation|risk|edge_case|trade_off|evidence>\"
+    }
+  ],
   \"weighted_recommendation\": {
     \"approach\": \"<recommended approach>\",
     \"summary\": \"<summary in 2-3 sentences>\",
     \"detailed\": \"<detailed explanation>\",
-    \"confidence_weighted_score\": <1-10 weighted by confidence>,
     \"supporting_consultants\": [\"<who supports>\"],
-    \"dissenting_consultants\": [\"<who dissents>\"],
     \"incorporated_insights\": [\"<insights from each consultant included>\"]
   },
-  \"comparison_table\": [
-    {
-      \"aspect\": \"Approach\",
-      \"<consultant_name>\": \"<value for each consultant that responded>\"
-    },
-    {
-      \"aspect\": \"Complexity\",
-      \"<consultant_name>\": \"<value for each consultant that responded>\"
-    },
-    {
-      \"aspect\": \"Scalability\",
-      \"<consultant_name>\": \"<value for each consultant that responded>\"
-    },
-    {
-      \"aspect\": \"Risks\",
-      \"<consultant_name>\": \"<value for each consultant that responded>\"
-    }
-  ],
   \"risk_assessment\": {
     \"overall_risk\": \"<low|medium|high>\",
     \"risks\": [
@@ -288,19 +244,14 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
       \"rationale\": \"<why>\"
     }
   ],
-  \"follow_up_questions\": [\"<questions for further clarification>\"],
-  \"debate_evolution\": {
-    \"initial_positions\": {},
-    \"shifts\": [],
-    \"final_stance\": \"<final stance of the panel>\"
-  }
+  \"follow_up_questions\": [\"<questions for further clarification>\"]
 }
 
 RULES:
-- consensus.score: 100% = all agree, 75-99% = 3+ agree, 50-74% = 2v2, 25-49% = strong disagreement, 0-24% = no convergence
-- confidence_weighted_score = weighted average by confidence of consultants supporting the approach
-- Include ALL consultants that responded in comparison_table (use consultant name as key, \"N/A\" if no data)
-- For disagreed_points, include all consultants that took a position on that topic
+- Build the union of every DISTINCT point. Deduplicate near-identical items but preserve points raised by only one consultant.
+- Attribute every coverage item through raised_by.
+- Do not calculate consensus, vote for a winner, or invent debate evolution.
+- Preserve usable fallback responses while keeping their quality disclosure.
 - Respond ONLY with valid JSON, no markdown or additional text
 "
 

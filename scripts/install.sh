@@ -234,7 +234,7 @@ if [[ "$UNINSTALL_MODE" == "true" ]]; then
 
     # Remove commands (with confirmation)
     if [[ -d "$COMMANDS_DIR" ]]; then
-        ai_commands=$(find "$COMMANDS_DIR" -name "ai-consultants*.md" -o -name "consult*.md" 2>/dev/null || true)
+        ai_commands=$(find "$COMMANDS_DIR" -maxdepth 1 -type f -name "ai-consultants:*.md" 2>/dev/null || true)
         if [[ -n "$ai_commands" ]]; then
             echo "$ai_commands" | while read -r cmd_file; do
                 rm -f "$cmd_file"

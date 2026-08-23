@@ -4,7 +4,7 @@
 
 AI Consultants is a multi-model coverage system that queries up to 10 AI consultants (Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
 
-**Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
+**Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
 **Version**: 3.5.0
 
@@ -176,6 +176,13 @@ Functions in `lib/common.sh`:
 - `get_self_consultant_name()` - Maps invoking agent to consultant name
 - `should_skip_consultant()` - Returns true if consultant should be excluded
 - `log_self_exclusion_status()` - Debug logging for exclusion
+- `resolve_synthesis_cli()` - Refuses the invoking agent as synthesis provider
+
+Agent hosts must set `INVOKING_AGENT` explicitly and run `consult_all.sh`
+instead of individual adapters. A Claude-hosted run must produce no
+`claude.json`, and its `synthesis_provider` must not be `claude`; the equivalent
+invariant applies to Codex and Gemini. See `SKILL.md` for the full execution
+contract.
 
 ### Configuration Presets
 ```bash
@@ -187,14 +194,15 @@ Functions in `lib/common.sh`:
 # Use Case Presets
 ./scripts/consult_all.sh --preset minimal "question"    # Gemini + Codex
 ./scripts/consult_all.sh --preset balanced "question"   # + Mistral
-./scripts/consult_all.sh --preset high-stakes "question" # Broad premium panel + debate
+./scripts/consult_all.sh --preset high-stakes "question" # Broad premium panel
 ```
 
 Presets are defined in `config.sh` via `apply_preset()` function.
 
 ### Synthesis Strategies
 ```bash
-./scripts/consult_all.sh --strategy majority "question"      # Default
+./scripts/consult_all.sh --strategy coverage "question"      # Default: union of distinct points
+./scripts/consult_all.sh --strategy majority "question"      # Blended recommendation
 ./scripts/consult_all.sh --strategy risk_averse "question"   # Conservative
 ./scripts/consult_all.sh --strategy security_first "question" # Security focus
 ./scripts/consult_all.sh --strategy compare_only "question"  # No recommendation
@@ -209,34 +217,6 @@ Strategies are implemented in `synthesize.sh` via `get_strategy_instructions()`.
 ./scripts/doctor.sh --json       # JSON output
 ./scripts/doctor.sh --verbose    # Detailed output
 ```
-
-### Panic Button Mode
-Automatically adds rigor when uncertainty detected:
-- Average confidence below `PANIC_CONFIDENCE_THRESHOLD` (default: 5)
-- Uncertainty keywords detected in responses
-
-Configuration in `config.sh`:
-- `ENABLE_PANIC_MODE` - "auto", "always", or "never"
-- `PANIC_CONFIDENCE_THRESHOLD` - Trigger threshold
-- `PANIC_EXTRA_DEBATE_ROUNDS` - Additional debate rounds
-
-### Confidence Intervals
-Functions in `lib/voting.sh`:
-- `calculate_confidence_stddev()` - Returns stddev scaled by 10
-- `calculate_confidence_interval()` - Returns JSON with mean, stddev, interval
-- `has_high_confidence_variance()` - Returns 0 if variance > 2.0
-- `format_confidence_range()` - Returns "7 ± 1.5" format
-
-### Anonymous Peer Review
-```bash
-./scripts/peer_review.sh <responses_dir> <output_dir>
-```
-
-Process:
-1. Anonymize all responses (remove consultant names)
-2. Each consultant ranks and critiques responses
-3. Aggregate peer scores to identify strongest arguments
-4. De-anonymize in final report
 
 ## v2.9 Features
 
@@ -288,7 +268,7 @@ npm install -g @qwen-code/qwen-code@latest
 ## v2.6 Features
 
 ### CLI/API Mode Switching
-Six consultants can now switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3, MiniMax**.
+Seven consultants can switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3, Grok, MiniMax**.
 
 When API mode is enabled for an agent, CLI mode is disabled (mutual exclusivity).
 
@@ -325,6 +305,7 @@ New environment variables in `config.sh`:
 | `CLAUDE_USE_API` | false | Use Anthropic API instead of claude CLI |
 | `MISTRAL_USE_API` | false | Use Mistral API instead of vibe CLI |
 | `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
+| `GROK_USE_API` | auto | Use xAI API when Grok Build is unavailable |
 | `MINIMAX_USE_API` | false | Use MiniMax API instead of the mmx CLI (v2.21) |
 | `GEMINI_API_URL` | https://generativelanguage.googleapis.com/v1beta/models | Google AI endpoint |
 | `CODEX_API_URL` | https://api.openai.com/v1/chat/completions | OpenAI endpoint |
@@ -395,10 +376,10 @@ Three new presets leverage the model tiers:
 # Maximum quality - all consultants + maximum models and provider effort
 ./scripts/consult_all.sh --preset max_quality "critical architecture decision"
 
-# Balanced quality - standard models, 4 consultants, light debate
+# Balanced quality - standard models, 3 consultants
 ./scripts/consult_all.sh --preset medium "general coding question"
 
-# Super fast - economy models, 2 consultants, no debate
+# Super fast - economy models, 2 consultants
 ./scripts/consult_all.sh --preset fast "quick syntax question"
 ```
 
@@ -462,8 +443,7 @@ BUDGET_ACTION=warn  # or "stop"
 **Enforcement Points:**
 1. Before Round 1 - Check estimated cost vs budget
 2. After Round 1 - Check actual cost vs warning threshold
-3. Before Debate - Check cumulative + debate estimate
-4. Before Synthesis - Check cumulative + synthesis estimate
+3. Before Synthesis - Check cumulative + synthesis estimate
 
 Functions in `lib/costs.sh`:
 - `is_budget_enabled()` - Check if budget enforcement is enabled
@@ -536,22 +516,6 @@ Functions in `lib/routing.sh`:
 - `get_premium_model()` - Returns premium model for consultant
 - `get_escalation_summary()` - Returns escalation info as JSON
 
-### Debate Optimization (Opt-in)
-Skips debate if confidence spread is low (all consultants agree).
-
-```bash
-ENABLE_DEBATE_OPTIMIZATION=false  # Default: false (opt-in per quality review)
-DEBATE_CONFIDENCE_SPREAD_THRESHOLD=3  # Min spread to trigger debate
-DEBATE_USE_SUMMARIES=true         # Use summaries in debate rounds
-```
-
-**Category Exceptions**: SECURITY and ARCHITECTURE always trigger debate regardless of confidence spread.
-
-Functions in `debate_round.sh`:
-- `is_mandatory_debate_category()` - Returns true for SECURITY/ARCHITECTURE
-- `should_skip_debate()` - Returns true if debate can be skipped
-- `extract_compact_summary()` - Token-optimized summary for debates
-
 ### Quality Monitoring
 Logs optimization metrics and saves to output directory.
 
@@ -568,12 +532,9 @@ Output file `optimization_metrics.json`:
     "cache_hits": 2,
     "response_limits_enabled": false,
     "cost_aware_routing": false,
-    "debate_optimization": false,
     "compact_report": true
   },
   "quality_metrics": {
-    "consensus_score": 75,
-    "consensus_level": "medium",
     "successful_responses": 4,
     "total_consultants": 4,
     "category": "ARCHITECTURE"
@@ -607,9 +568,6 @@ npm run lint
 
 # Test with preset
 ./scripts/consult_all.sh --preset minimal "Quick question"
-
-# Test with debate
-ENABLE_DEBATE=true ./scripts/consult_all.sh "Microservices or monolith?"
 
 # Test with strategy
 ./scripts/consult_all.sh --strategy risk_averse "Security question"
@@ -794,7 +752,7 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 ### Guidelines
 
 - **Audience**: Developers who use the skill. Write for someone who hasn't seen the commits.
-- **Highlights first**: Lead with impact, not implementation. "Debate rounds no longer crash on Linux" > "Added `|| true` to `((count++))` in debate_round.sh".
+- **Highlights first**: Lead with impact, not implementation. "Provider failures are now diagnosed" > "Added an error branch".
 - **Breaking changes prominent**: If any exist, they go in a dedicated section — never buried in a bullet list.
 - **Quantify when possible**: Token savings percentages, issue counts, file counts.
 - **Upgrade guide always present**: Even if the answer is "just pull", make it explicit.
@@ -811,6 +769,8 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **The reliability boundary is finite.** Gemini/Mistral capability probes have explicit time limits. An HTTP 200 with an empty body increments the retry counter, including at the shipped `MAX_RETRIES=2`, instead of spinning indefinitely (`scripts/lib/api.sh`, `scripts/test_api_transport.sh`). Google `thinkingConfig` is emitted only for Gemini 3.7 API opt-ins; the automatic 3.1 API body remains byte-compatible.
 - **Managed migrations are exact and pins survive.** `configure` upgrades only the historical managed Gemini 3.1 Pro CLI, GLM 5.2, and Grok 4.5 values, while removing obsolete Cursor settings. Environment/`--set` model values and any `# ai-consultants:pin` entry remain user-owned. The catalog-parity gate checks all 40 consultant/tier cells and all 16 Gemini/Mistral transport cells against `docs/cost_rates.json`, requiring every automatic target to be priced or explicitly unpriced.
 - **Promotion evidence is recorded without overstating it.** Exact ai-consultants smokes passed for Gemini 3.7 Flash High through `agy`, Mistral Vibe Medium 3.5, GLM 5.3, Grok 4.6, K3-256k, Qwen3.8-Max Token Plan, and MiniMax M3. Gemini 3.7 API lacks a separate smoke, Mistral API lacks a key, and Fable 5 timed out; those transports stay opt-in/unverified. The base cross-family Opus 5/max review reached `SHIP`; the Gemini promotion delta then went `NO_SHIP` → `SHIP` after six active documentation references, breaking-change classification, release evidence, and quoted migration coverage were corrected.
+- **Claude can launch the skill as a real host, not merely describe it.** `SKILL.md` carries an imperative execution contract; all host commands use a private query-file handoff, preserve preset/strategy options, pass the caller project through `--context-root`, and set `INVOKING_AGENT`; self-exclusion covers consultation, full-roster targeted follow-ups, and synthesis for Claude/Codex/Gemini. Offline E2E proves a Claude host dispatches Gemini/Codex/Mistral with no Claude artifacts. A real Claude Code/Sonnet run started from an external temp project, used `mktemp`, mode 600, a quoted heredoc, trap cleanup, `--context-root`, and `src/context.txt@CONTEXT`; Gemini 3.7 High and Codex 5.6 Sol returned (2/2), the external marker/tag reached both, no Claude artifact appeared, and the private staging directory was removed. The live run disabled synthesis; symmetric regressions prove each host is excluded there. Current runtime prompts, schemas, templates, help, and instructions are coverage-only; stale Codex/Gemini debate and roster-audit commands are removed.
+- **Cross-family host review went `NO_SHIP` → `NO_SHIP` → `SHIP`.** The review found the Bash 3.2 empty-array abort, query-file/context parser conflict, caller-project path loss, unsafe/host-self follow-ups, stale live consensus output, broad uninstall glob, and active v3.0 residue. Each was fixed with executable coverage. After the `SHIP` verdict, its remaining low-severity findings were also resolved: staged files retain their original project-relative identity, fallback synthesis reports the requested strategy, follow-up context no longer rides in argv and respects disabled consultants, and remaining contributor/cost/test residue was removed.
 
   Deliberate residuals: Vibe isolates the workspace but retains ambient HOME for its authenticated CLI state; unpriced credit/subscription models are disclosed but cannot be enforced by a dollar budget; provider/requested model substitutions are available in raw JSON but not yet summarized in the human report.
 

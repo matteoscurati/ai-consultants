@@ -219,6 +219,10 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
 
 **Self-Exclusion:** Claude consultant is automatically excluded when invoked from Claude Code.
+The command also prevents Claude from being selected as the synthesis provider;
+Codex and every other enabled consultant remain eligible. Natural-language
+skill invocations execute the panel directly rather than merely suggesting the
+slash command.
 
 **Verify:**
 
@@ -730,7 +734,7 @@ enough — the panel adds little.
 ## Documentation
 
 - [Setup Guide](docs/SETUP.md) - Installation, authentication, Claude Code setup
-- [Configuration Recipes](docs/RECIPES.md) - Copy-paste workflows for debate, routing, budgets, and transport
+- [Configuration Recipes](docs/RECIPES.md) - Copy-paste workflows for routing, budgets, synthesis, and transport
 - [Cost Rates](docs/COST_RATES.md) - Model pricing and budgets
 - [Smart Routing](docs/SMART_ROUTING.md) - Category-based routing
 - [JSON Schema](docs/JSON_SCHEMA.md) - Output format specification

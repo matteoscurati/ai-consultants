@@ -372,6 +372,11 @@ When using slash commands, `INVOKING_AGENT` is set automatically:
 - Codex CLI: `/ai-consultants:consult` sets `INVOKING_AGENT=codex`
 - Gemini CLI: `/ai-consultants:consult` sets `INVOKING_AGENT=gemini`
 
+The same identity excludes the host from synthesis. A Claude-hosted run must
+not create `claude.json` or report `synthesis_provider=claude`; equivalent
+invariants apply to Codex and Gemini. Natural-language skill invocations follow
+the execution contract in `SKILL.md`.
+
 ### Manual Usage (Bash)
 
 ```bash
@@ -490,7 +495,7 @@ Strategies control how consultant responses are combined.
 | Strategy | Description |
 |----------|-------------|
 | `coverage` | Union of every distinct point/risk across consultants, deduplicated (default) |
-| `majority` | Simple voting, most common answer wins |
+| `majority` | Produce one blended recommendation |
 | `risk_averse` | Weight conservative responses higher |
 | `security_first` | Prioritize security-focused insights |
 | `cost_capped` | Prefer simpler, cheaper solutions |
@@ -508,7 +513,7 @@ DEFAULT_STRATEGY=risk_averse
 
 | Use Case | Recommended Strategy |
 |----------|---------------------|
-| General questions | `majority` |
+| General questions | `coverage` |
 | Production deployments | `risk_averse` |
 | Security audits | `security_first` |
 | Budget constraints | `cost_capped` |

@@ -3,20 +3,18 @@
 #
 # Complete workflow for multi-model AI consultation with:
 # - Specialized personas for each consultant
-# - Confidence scoring and weighted voting
-# - Auto-synthesis of responses with multiple strategies
-# - Optional Multi-Agent Debate (MAD)
+# - Explicit response quality, identity, and confidence metadata
+# - Coverage-union synthesis with optional alternative strategies
 # - Smart routing based on question category
 # - Configuration presets for quick setup
 # - Session management for follow-up
 # - Cost tracking
-# - Panic button mode for uncertainty detection
 #
 # Usage: ./consult_all.sh [options] "Your question" [file1] [file2] ...
 #
 # Options:
 #   --preset <name>      Use a configuration preset (minimal, balanced, thorough, high-stakes, security, cost-capped)
-#   --strategy <name>    Synthesis strategy (majority, risk_averse, security_first, cost_capped, compare_only)
+#   --strategy <name>    Synthesis strategy (coverage, compare_only, majority, risk_averse, security_first, cost_capped)
 #   --list-presets       List available presets
 #   --list-strategies    List available synthesis strategies
 #   --help               Show this help message
@@ -63,23 +61,26 @@ Options:
                          minimal      - 2 models, fast and cheap
                          balanced     - 3 models, good coverage
                          thorough     - 3 models, comprehensive
-                         high-stakes  - Broad premium panel + debate
+                         high-stakes  - Broad premium panel
                          max_quality  - All 10 + maximum models/max effort
                          medium       - 3 models + standard models
-                         fast         - 2 models + economy models, no debate
-                         security     - Security-focused + debate
+                         fast         - 2 models + economy models
+                         security     - Security-focused panel
                          cost-capped  - Budget-conscious options
 
   --strategy <name>    Synthesis strategy:
-                         majority       - Simple voting, most common wins
+                         coverage       - Union of every distinct point (default)
+                         majority       - Blended recommendation
                          risk_averse    - Weight conservative responses higher
                          security_first - Prioritize security-focused insights
                          cost_capped    - Prefer cheaper consultant opinions
                          compare_only   - No recommendation, just comparison
 
-  --query-file <path>  Read the question from a file (use when the inline
-                       query would exceed shell limits or contain awkward
-                       quoting). Conflicts with a positional question argument.
+  --query-file <path>  Read the question from a file. Remaining positional
+                       arguments are existing context-file paths, optionally
+                       tagged @PRIMARY or @CONTEXT.
+  --context-root <dir> Resolve host-provided relative context paths from this
+                       project root and stage regular in-root files privately.
   --list-presets       List all available presets
   --list-strategies    List all synthesis strategies
   --help, -h           Show this help message
@@ -106,7 +107,8 @@ list_strategies() {
     cat << 'EOF'
 Available synthesis strategies:
 
-  majority       Simple voting - most common answer wins (default)
+  coverage       Union of every distinct point (default)
+  majority       Produce one blended recommendation
   risk_averse    Weight conservative responses higher, prefer safety
   security_first Prioritize security-focused consultants and insights
   cost_capped    Prefer opinions from cheaper consultants within budget
@@ -121,7 +123,10 @@ PRESET=""
 SYNTHESIS_STRATEGY=""
 QUERY=""
 QUERY_FILE=""
+CONTEXT_ROOT=""
 FILES=()
+DISPLAY_FILES=()
+POSITIONALS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -152,6 +157,15 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
+        --context-root)
+            if [[ -n "${2:-}" && -d "$2" && ! -L "$2" ]]; then
+                CONTEXT_ROOT=$(cd "$2" && pwd -P)
+                shift 2
+            else
+                log_error "--context-root requires an existing non-symlink directory"
+                exit 1
+            fi
+            ;;
         --list-presets)
             list_presets
             exit 0
@@ -170,25 +184,65 @@ while [[ $# -gt 0 ]]; do
             exit 1
             ;;
         *)
-            if [[ -z "$QUERY" ]]; then
-                QUERY="$1"
-            else
-                FILES+=("$1")
-            fi
+            POSITIONALS+=("$1")
             shift
             ;;
     esac
 done
 
-# Resolve query source: --query-file wins over the empty positional slot but
-# conflicts with an inline positional query.
+# Resolve query source. With --query-file, every positional argument is a
+# context file; reject non-files so an accidental inline query cannot be
+# silently reinterpreted as context. Without it, the first positional is the
+# query and the rest are context files (the historical CLI contract).
 if [[ -n "$QUERY_FILE" ]]; then
-    if [[ -n "$QUERY" ]]; then
-        log_error "--query-file conflicts with a positional query argument"
-        exit 1
-    fi
     QUERY=$(cat "$QUERY_FILE")
+    FILES=(${POSITIONALS[@]+"${POSITIONALS[@]}"})
+else
+    if [[ ${#POSITIONALS[@]} -gt 0 ]]; then
+        QUERY="${POSITIONALS[0]}"
+    fi
+    if [[ ${#POSITIONALS[@]} -gt 1 ]]; then
+        FILES=("${POSITIONALS[@]:1}")
+    fi
 fi
+
+# Resolve a context-file spec to a regular source file. When an agent host
+# supplies --context-root, both relative and absolute inputs must remain inside
+# that canonical project root. Symlinks are rejected before canonicalization so
+# an in-tree link cannot smuggle an arbitrary secret into provider context.
+_resolve_context_source() {
+    local spec="$1" raw="$1" candidate canonical_dir canonical root="$CONTEXT_ROOT"
+    if [[ -n "$root" && "$raw" != /* ]]; then
+        candidate="$root/$raw"
+    else
+        candidate="$raw"
+    fi
+    if [[ ! -f "$candidate" && "$raw" == *@* ]]; then
+        raw="${raw%@*}"
+        [[ -n "$root" && "$raw" != /* ]] && candidate="$root/$raw" || candidate="$raw"
+    fi
+    [[ -f "$candidate" && ! -L "$candidate" ]] || return 1
+    canonical_dir=$(cd "$(dirname "$candidate")" && pwd -P) || return 1
+    canonical="$canonical_dir/$(basename "$candidate")"
+    if [[ -n "$root" && "$canonical" != "$root"/* ]]; then
+        return 1
+    fi
+    printf '%s' "$canonical"
+}
+
+# Validate every query-file positional as a real context file. This keeps an
+# accidental inline query from being silently reinterpreted as a file while
+# remaining safe for an empty array on stock macOS Bash 3.2.
+if [[ -n "$QUERY_FILE" && ${#FILES[@]} -gt 0 ]]; then
+    for _file_spec in "${FILES[@]}"; do
+        if ! _resolve_context_source "$_file_spec" >/dev/null; then
+            log_error "--query-file positional arguments must be existing permitted context files (got: $_file_spec)"
+            exit 1
+        fi
+    done
+    unset _file_spec
+fi
+DISPLAY_FILES=(${FILES[@]+"${FILES[@]}"})
 
 # --- Apply Preset (CLI flag or default) ---
 # Use CLI flag if provided, otherwise fall back to DEFAULT_PRESET
@@ -201,7 +255,7 @@ if [[ -n "$PRESET" ]]; then
 fi
 
 # Set synthesis strategy: CLI flag > environment > DEFAULT_STRATEGY > fallback
-SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-${DEFAULT_STRATEGY:-majority}}"
+SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-${DEFAULT_STRATEGY:-coverage}}"
 
 # Export synthesis strategy for use by synthesize.sh
 export SYNTHESIS_STRATEGY
@@ -265,10 +319,60 @@ chmod 700 "$DEFAULT_OUTPUT_DIR_BASE"
 mkdir -p "$OUTPUT_DIR"
 chmod 700 "$OUTPUT_DIR"
 
+HOST_CONTEXT_STAGE=""
+_cleanup_host_context_stage() {
+    local runtime_base="${TMPDIR:-/tmp}"
+    runtime_base="${runtime_base%/}"
+    if [[ -n "$HOST_CONTEXT_STAGE" && -d "$HOST_CONTEXT_STAGE" \
+        && "$HOST_CONTEXT_STAGE" == "$runtime_base"/ai-consultants-host-context.* ]]; then
+        rm -rf -- "$HOST_CONTEXT_STAGE"
+    fi
+    HOST_CONTEXT_STAGE=""
+}
+
+# Agent hosts run the skill from its installation directory, while context
+# files belong to the caller's project. Stage only regular files proven to be
+# inside --context-root into a private temp directory; build_context.sh can then
+# keep its strict temp/in-tree allowlist without granting arbitrary absolute
+# filesystem reads.
+if [[ -n "$CONTEXT_ROOT" && ${#FILES[@]} -gt 0 ]]; then
+    _host_runtime_base="${TMPDIR:-/tmp}"
+    _host_runtime_base="${_host_runtime_base%/}"
+    HOST_CONTEXT_STAGE=$(mktemp -d "$_host_runtime_base/ai-consultants-host-context.XXXXXX")
+    chmod 700 "$HOST_CONTEXT_STAGE"
+    trap _cleanup_host_context_stage EXIT
+    _staged_files=()
+    for _file_spec in "${FILES[@]}"; do
+        _source_path=$(_resolve_context_source "$_file_spec") || {
+            log_error "Unable to stage context file: $_file_spec"
+            exit 1
+        }
+        _source_candidate="$_file_spec"
+        [[ "$_source_candidate" == /* ]] || _source_candidate="$CONTEXT_ROOT/$_source_candidate"
+        _file_tag=""
+        if [[ ! -f "$_source_candidate" && "$_file_spec" == *@* ]]; then
+            _file_tag="${_file_spec##*@}"
+        fi
+        _relative_path="${_source_path#"$CONTEXT_ROOT"/}"
+        _staged_path="$HOST_CONTEXT_STAGE/$_relative_path"
+        mkdir -p "$(dirname "$_staged_path")"
+        cp -- "$_source_path" "$_staged_path"
+        chmod 600 "$_staged_path"
+        if [[ -n "$_file_tag" ]]; then
+            _staged_files+=("$_staged_path@$_file_tag")
+        else
+            _staged_files+=("$_staged_path")
+        fi
+    done
+    FILES=("${_staged_files[@]}")
+    unset _host_runtime_base _staged_files _file_spec _source_path \
+        _source_candidate _file_tag _relative_path _staged_path
+fi
+
 log_info "Output: $OUTPUT_DIR"
 log_info "Question: ${QUERY:0:80}$([ ${#QUERY} -gt 80 ] && echo '...')"
-if [[ ${#FILES[@]} -gt 0 ]]; then
-    log_info "Files: ${FILES[*]}"
+if [[ ${#DISPLAY_FILES[@]} -gt 0 ]]; then
+    log_info "Files: ${DISPLAY_FILES[*]}"
 fi
 echo "" >&2
 
@@ -276,11 +380,16 @@ echo "" >&2
 log_info "Building automatic context..."
 CONTEXT_FILE="$OUTPUT_DIR/context.md"
 if [[ ${#FILES[@]} -gt 0 ]]; then
-    "$SCRIPT_DIR/build_context.sh" "$CONTEXT_FILE" "$QUERY" "${FILES[@]}" > /dev/null
+    CONTEXT_STAGE_ROOT="$HOST_CONTEXT_STAGE" \
+        "$SCRIPT_DIR/build_context.sh" "$CONTEXT_FILE" "$QUERY" "${FILES[@]}" > /dev/null
 else
     "$SCRIPT_DIR/build_context.sh" "$CONTEXT_FILE" "$QUERY" > /dev/null
 fi
 log_success "Context created: $CONTEXT_FILE ($(wc -l < "$CONTEXT_FILE" | tr -d ' ') lines)"
+if [[ -n "$HOST_CONTEXT_STAGE" ]]; then
+    _cleanup_host_context_stage
+    trap - EXIT
+fi
 
 # --- Cost Estimation (optional) ---
 CONTEXT_SIZE=0
@@ -705,7 +814,7 @@ SYNTHESIS_FILE=""
 if [[ "$ENABLE_SYNTHESIS" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
     # Budget Check: Before Synthesis
     if is_budget_enabled; then
-        # Update current cost after debate
+        # Refresh current cost before estimating synthesis.
         if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
             CURRENT_COST=$(calculate_session_cost "$OUTPUT_DIR")
         fi
@@ -775,10 +884,10 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
     echo ""
 
     # Included files
-    if [[ ${#FILES[@]} -gt 0 ]]; then
+    if [[ ${#DISPLAY_FILES[@]} -gt 0 ]]; then
         echo "## Analyzed Files"
         echo ""
-        for f in "${FILES[@]}"; do
+        for f in "${DISPLAY_FILES[@]}"; do
             echo "- \`$f\`"
         done
         echo ""
@@ -824,22 +933,17 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         echo "$recommendation"
         echo ""
 
-        # Comparison table (dynamic: reads actual consultant names from synthesis JSON)
-        echo "### Consultant Comparison"
+        echo "### Coverage Union"
         echo ""
 
         jq -r '
-            (.comparison_table[0] // {} | keys | map(select(. != "aspect"))) as $cs |
-            if ($cs | length) > 0 then
-                (["Aspect"] + $cs | map("| \(.) ") | join("")) + "|",
-                (["-"] + ($cs | map("-")) | map("|---") | join("")) + "|",
-                (.comparison_table[]? | . as $row |
-                    ([.aspect] + [$cs[] as $c | ($row[$c] // "N/A")] |
-                     map("| \(.) ") | join("")) + "|")
+            if ((.coverage // []) | length) > 0 then
+                .coverage[] |
+                "- **\(.kind // \"consideration\")**: \(.point) — raised by \((.raised_by // []) | join(\", \"))"
             else
-                "| (comparison data unavailable) |"
+                "- (coverage data unavailable; see individual responses)"
             end
-        ' "$SYNTHESIS_FILE" 2>/dev/null || echo "| (comparison data unavailable) |"
+        ' "$SYNTHESIS_FILE" 2>/dev/null || echo "- (coverage data unavailable; see individual responses)"
 
         echo ""
 

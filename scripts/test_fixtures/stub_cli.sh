@@ -7,8 +7,8 @@
 #
 # Environment variables:
 #   STUB_APPROACH - value for response.approach (default: "approach-alpha"),
-#                   lets a test give different consultants different
-#                   approaches to exercise voting/consensus.
+#                   lets a test give different consultants distinct approaches
+#                   to exercise coverage collection.
 #
 # Usage: stub_cli.sh [any args...] (stdin, if any, is drained and ignored)
 set -uo pipefail
@@ -19,6 +19,32 @@ if [[ ! -t 0 ]]; then
 fi
 
 APPROACH="${STUB_APPROACH:-approach-alpha}"
+
+emit_response() {
+    jq -n --arg approach "$APPROACH" '{
+        consultant: "Claude",
+        model: "stub-model",
+        persona: "The Architect",
+        response: {
+            summary: "Stubbed offline summary for integration testing.",
+            detailed: "This is a canned detailed response used to drive the pipeline end-to-end without a real CLI.",
+            approach: $approach,
+            pros: ["fast", "deterministic"],
+            cons: ["not a real answer"],
+            caveats: ["stubbed response for testing only"]
+        },
+        confidence: {
+            score: 7,
+            reasoning: "Stubbed confidence for offline testing.",
+            uncertainty_factors: ["no real model was queried"]
+        },
+        metadata: {
+            tokens_used: 42,
+            latency_ms: 1,
+            timestamp: "2026-01-01T00:00:00Z"
+        }
+    }'
+}
 
 # Capability/inventory probes used by the Gemini and Mistral adapters. These
 # branches perform no model call and keep the shared E2E stub compatible with
@@ -35,26 +61,22 @@ if [[ " $* " == *" --help "* ]]; then
     exit 0
 fi
 
-jq -n --arg approach "$APPROACH" '{
-    consultant: "Claude",
-    model: "stub-model",
-    persona: "The Architect",
-    response: {
-        summary: "Stubbed offline summary for integration testing.",
-        detailed: "This is a canned detailed response used to drive the pipeline end-to-end without a real CLI.",
-        approach: $approach,
-        pros: ["fast", "deterministic"],
-        cons: ["not a real answer"],
-        caveats: ["stubbed response for testing only"]
-    },
-    confidence: {
-        score: 7,
-        reasoning: "Stubbed confidence for offline testing.",
-        uncertainty_factors: ["no real model was queried"]
-    },
-    metadata: {
-        tokens_used: 42,
-        latency_ms: 1,
-        timestamp: "2026-01-01T00:00:00Z"
-    }
-}'
+# Codex CLI writes its final response to the path following `-o`. Supporting
+# that contract keeps the shared E2E fixture non-vacuous for Claude-hosted
+# consultations, where Codex is one of the consultants that must remain active.
+payload=""
+previous=""
+for arg in "$@"; do
+    [[ "$previous" != "-o" ]] || payload="$arg"
+    previous="$arg"
+done
+if [[ -n "$payload" ]]; then
+    emit_response > "$payload"
+    # Real Codex emits progress/status on stdout while `-o` carries the final
+    # answer. run_query correctly rejects a completely empty transport, so the
+    # fixture must model both surfaces rather than only the payload file.
+    printf '%s\n' 'codex stub completed'
+    exit 0
+fi
+
+emit_response

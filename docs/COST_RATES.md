@@ -113,14 +113,6 @@ models programmatically.
 
 **Estimated cost:** $0.02 - $0.05
 
-### With Multi-Agent Debate (2 rounds)
-
-**Additional parameters:**
-- +1 round with same context
-- Previous responses as additional input
-
-**Estimated cost:** $0.08 - $0.15
-
 ## Budget Management
 
 ### Configuration Variables

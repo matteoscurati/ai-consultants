@@ -18,6 +18,50 @@ metadata:
 /ai-consultants:consult "Your question here"
 ```
 
+## Agent execution contract
+
+When this skill is selected by an agent, execute the consultation instead of
+only telling the user to type the slash command. Route through
+`scripts/consult_all.sh`; do not call provider adapters individually.
+
+1. Identify the invoking host and set `INVOKING_AGENT` explicitly:
+   `claude` for Claude Code, `codex` for Codex CLI, or `gemini` for Gemini CLI.
+   This is the boundary that prevents the host from consulting or synthesizing
+   with itself.
+2. Resolve the skill root from `AI_CONSULTANTS_DIR` when set. Otherwise use the
+   host installation (`~/.claude/skills/ai-consultants` for Claude Code,
+   `~/.codex/skills/ai-consultants` for Codex, or
+   `~/.gemini/skills/ai-consultants` for Gemini).
+3. Preserve consultation options such as `--preset` and `--strategy` as CLI
+   arguments before the question. Pass referenced files as paths, optionally
+   suffixed with `@PRIMARY` or `@CONTEXT`; do not paste their contents. Capture
+   the caller's project directory before entering the skill root and pass it as
+   `--context-root`, so the runtime can privately stage only regular in-project
+   files.
+4. Create a private question file with Bash `mktemp`, mode 600, and a
+   single-quoted heredoc delimiter that does not occur as a line in the
+   question. Use `--query-file`; never pass raw user text as a shell argument or
+   through an unquoted heredoc. Shell-quote every context-file path as one
+   argument, and install a shell trap that removes only that exact temporary
+   question file. Capture the last stdout line as the output directory, then
+   read `report.md` and
+   `synthesis.json` (or the individual consultant JSON files when synthesis is
+   unavailable).
+5. Keep `INVOKING_AGENT` and the private `--query-file` handoff on follow-ups.
+   A targeted follow-up to the invoking consultant must fail closed. For a
+   Claude invocation, `claude.json` must not be produced and Claude must not be
+   the synthesis provider. Treat either condition as a self-exclusion failure,
+   not a valid consultation.
+
+Claude Code example:
+
+```bash
+caller_root="$PWD"
+cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && \
+  INVOKING_AGENT=claude ./scripts/consult_all.sh --preset balanced \
+    --context-root "$caller_root" --query-file "<private-question-file>"
+```
+
 ## Slash Commands
 
 | Command | Description |

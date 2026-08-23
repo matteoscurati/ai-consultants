@@ -102,43 +102,6 @@
         }
       }
     },
-    "debate": {
-      "type": "object",
-      "description": "Data for multi-agent debate rounds",
-      "properties": {
-        "round": {
-          "type": "integer",
-          "description": "Current debate round (1, 2, or 3)"
-        },
-        "position_changed": {
-          "type": "boolean",
-          "description": "Whether position changed from previous round"
-        },
-        "critiques": {
-          "type": "array",
-          "description": "Critiques of other consultants' responses",
-          "items": {
-            "type": "object",
-            "properties": {
-              "target": { "type": "string" },
-              "critique": { "type": "string" },
-              "severity": { "enum": ["minor", "moderate", "major"] }
-            }
-          }
-        },
-        "incorporated_from": {
-          "type": "array",
-          "description": "Ideas incorporated from other consultants",
-          "items": {
-            "type": "object",
-            "properties": {
-              "source": { "type": "string" },
-              "idea": { "type": "string" }
-            }
-          }
-        }
-      }
-    },
     "metadata": {
       "type": "object",
       "properties": {

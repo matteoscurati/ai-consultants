@@ -108,7 +108,7 @@ test_define_only_hook_runs_no_installer_work() {
 
 # ---------------------------------------------------------------------------
 test_shipped_surfaces_exclude_removed_cursor_consultant() {
-    local project_root command_file
+    local project_root command_file host_dir host_name invoking
     project_root="$(cd "$SCRIPT_DIR/.." && pwd)"
 
     for command_file in \
@@ -122,9 +122,53 @@ test_shipped_surfaces_exclude_removed_cursor_consultant() {
     assert_eq "0" "$(grep -cE 'CURSOR_|cursor\.json|Cursor - The Integrator' \
         "$project_root/templates/consultation_report.md" || true)" \
         "packaged report template excludes Cursor placeholders and artifacts"
+    assert_eq "0" "$(grep -cE 'Consensus|Debate|voting\.json|Weighted Recommendation' \
+        "$project_root/templates/consultation_report.md" || true)" \
+        "packaged report template reflects coverage-only architecture"
     assert_eq "0" "$(awk '/^## Changelog/{exit} {print}' "$project_root/README.md" | \
         grep -c 'cursor\.json' || true)" \
         "current README output tree excludes cursor.json"
+
+    local claude_command="$project_root/.claude/commands/ai-consultants:consult.md"
+    assert_eq "1" "$(grep -c 'INVOKING_AGENT=claude ./scripts/consult_all.sh' "$claude_command")" \
+        "Claude consultation command marks the invoking host"
+    assert_eq "0" "$(grep -c "consult_all\.sh.*'<question>'" "$claude_command" || true)" \
+        "Claude command never interpolates raw question text into shell argv"
+    assert_eq "1" "$(grep -c 'single-quoted heredoc delimiter' "$claude_command")" \
+        "Claude command requires non-expanding query-file handoff"
+    assert_eq "0" "$(grep -c "followup\.sh.*'<follow-up question>'" "$claude_command" || true)" \
+        "Claude follow-up never interpolates raw question text into shell argv"
+    assert_eq "1" "$(grep -c 'Claude host produces no Claude consultant artifacts\|claude.json.*must not exist' "$claude_command" || true)" \
+        "Claude command documents the self-exclusion artifact invariant"
+    assert_eq "0" "$(grep -c 'ai-consultants:debate' "$project_root/.claude/commands/ai-consultants:help.md" || true)" \
+        "Claude help does not advertise the removed debate command"
+
+    for host_name in claude codex gemini; do
+        host_dir="$project_root/.${host_name}/commands"
+        assert_eq "2" "$(find "$host_dir" -maxdepth 1 -name 'ai-consultants:*.md' -type f | wc -l | tr -d ' ')" \
+            "$host_name ships only consult and help commands"
+        assert_eq "0" "$(grep -R -hE 'ai-consultants:(debate|roster-audit)' "$host_dir" 2>/dev/null | wc -l | tr -d ' ')" \
+            "$host_name commands do not advertise removed workflows"
+
+        invoking="$host_name"
+        [[ "$host_name" != "gemini" ]] || invoking=gemini
+        assert_eq "1" "$(grep -c "INVOKING_AGENT=${invoking} ./scripts/consult_all.sh" "$host_dir/ai-consultants:consult.md")" \
+            "$host_name consultation command marks its invoking host"
+        assert_eq "1" "$(grep -c -- '--query-file "<private-question-file>"' "$host_dir/ai-consultants:consult.md")" \
+            "$host_name command uses private query-file handoff"
+        assert_eq "1" "$(grep -c 'Install a shell trap' "$host_dir/ai-consultants:consult.md")" \
+            "$host_name command removes its private query file"
+        assert_eq "1" "$(grep -c -- 'followup.sh --query-file "<private-follow-up-file>"' "$host_dir/ai-consultants:consult.md")" \
+            "$host_name follow-up uses private query-file handoff"
+    done
+
+    assert_eq "0" "$(grep -cE 'ai-consultants:debate|weighted recommendations|Multi-agent debate|Anonymous peer review|kilocode' \
+        "$project_root/AGENTS.md" || true)" \
+        "active AGENTS instructions exclude removed workflows and providers"
+    assert_eq "0" "$(grep -c -- '-name "consult\*\.md"' "$SCRIPT_DIR/install.sh" || true)" \
+        "uninstall never targets another tool's generic consult commands"
+    assert_eq "1" "$(grep -c -- '-name "ai-consultants:\*\.md"' "$SCRIPT_DIR/install.sh" || true)" \
+        "uninstall is positively scoped to the ai-consultants command namespace"
 }
 
 run_test "Test 1: prunes commands removed upstream" test_prunes_commands_removed_upstream

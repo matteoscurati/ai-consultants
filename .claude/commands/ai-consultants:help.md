@@ -19,8 +19,12 @@ All skill details (consultants, personas, presets, strategies, features, configu
 ```
 /ai-consultants:consult "How to optimize this SQL query?"
 /ai-consultants:consult "Review this code" src/utils.ts
-/ai-consultants:debate "Microservices or monolith?"
+/ai-consultants:consult --preset max_quality "Microservices or monolith?"
 ```
+
+When Claude invokes the panel, the command sets `INVOKING_AGENT=claude` so
+Claude is excluded from both consultation and synthesis while Codex and the
+other enabled providers remain available.
 
 Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
 

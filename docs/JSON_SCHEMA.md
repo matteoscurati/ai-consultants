@@ -1,4 +1,4 @@
-# JSON Schema - AI Consultants v2.10
+# JSON Schema - AI Consultants v3.5
 
 This document describes the JSON schema used for consultant responses.
 
@@ -11,7 +11,7 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
 ```json
 {
   "consultant": "Gemini",
-  "model": "gemini-3.1-pro-preview",
+  "model": "Gemini 3.7 Flash (High)",
   "persona": "The Architect",
   "response": {
     "summary": "TL;DR in 2-3 sentences (max 500 characters)",
@@ -29,16 +29,15 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
     "reasoning": "Reasoning for the score",
     "uncertainty_factors": [...]
   },
-  "debate": {...},
   "metadata": {
     "tokens_used": 1500,
     "tokens_source": "measured",
     "tokens_input": 1200,
     "tokens_output": 300,
     "latency_ms": 2345,
-    "model_version": "gemini-3.1-pro-preview",
-    "requested_model": "gemini-3.1-pro-preview",
-    "model_identity_source": "provider-reported",
+    "model_version": "Gemini 3.7 Flash (High)",
+    "requested_model": "Gemini 3.7 Flash (High)",
+    "model_identity_source": "capability-probed",
     "cli_version": "0.27.0",
     "cli_compatibility": "capability-probed",
     "timestamp": "2024-01-14T12:34:56Z"
@@ -148,46 +147,6 @@ Factors that reduce confidence:
   ]
 }
 ```
-
-## Debate Object
-
-Present only if Multi-Agent Debate is enabled (round >= 2):
-
-```json
-{
-  "debate": {
-    "round": 2,
-    "position_changed": true,
-    "critiques": [
-      {
-        "target": "Codex",
-        "critique": "The proposed approach does not consider edge case X",
-        "severity": "moderate"
-      }
-    ],
-    "incorporated_from": [
-      {
-        "source": "Mistral",
-        "idea": "Added input validation"
-      }
-    ]
-  }
-}
-```
-
-### Debate Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `round` | integer | Current round (1, 2, 3) |
-| `position_changed` | boolean | Whether position has changed |
-| `critiques` | array | Critiques of other consultants |
-| `critiques[].target` | string | Criticized consultant |
-| `critiques[].critique` | string | Critique text |
-| `critiques[].severity` | enum | minor, moderate, major |
-| `incorporated_from` | array | Incorporated ideas |
-| `incorporated_from[].source` | string | Source of the idea |
-| `incorporated_from[].idea` | string | Description of the idea |
 
 ## Metadata Object
 

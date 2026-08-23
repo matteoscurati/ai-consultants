@@ -890,12 +890,6 @@ estimate_phase_cost() {
             # Initial consultation: all consultants
             estimate_consultation_cost "$num_consultants" "$context_size"
             ;;
-        debate)
-            # Debate round: ~50% of consultation cost per round
-            local base
-            base=$(estimate_consultation_cost "$num_consultants" "$context_size")
-            echo "scale=6; $base * 0.5" | bc
-            ;;
         synthesis)
             # Synthesis: single model, larger output
             estimate_query_cost "claude-3-sonnet" 2000 1500

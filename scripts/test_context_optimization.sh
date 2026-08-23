@@ -224,31 +224,89 @@ test_chunking_json_shape() {
 # Test 11: --query-file in consult_all.sh argument parser
 # -----------------------------------------------------------------------------
 test_query_file_flag() {
-    # We exercise consult_all.sh up to the point it would launch consultants;
-    # the simplest assertion is that --query-file with no inline query still
-    # reaches the consultant-selection error path (no consultants enabled in
-    # test env), which means parsing succeeded.
-    local qfile="$_TMPDIR/q.txt"
-    echo "hello from a query file" > "$qfile"
-    local stderr
-    # We expect non-zero exit (no consultants enabled), but the stderr must
-    # NOT mention "--query-file requires" (parser-level failure).
+    local qfile="$_TMPDIR/q.txt" output_base="$_TMPDIR/query-only-output"
+    printf '%s\n' 'QUERY_FILE_WITH_ZERO_CONTEXT_MARKER' > "$qfile"
+    local stderr context_file content
     stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" DEFAULT_PRESET="" \
+        DEFAULT_OUTPUT_DIR_BASE="$output_base" \
         ENABLE_SYNTHESIS=false ENABLE_CLASSIFICATION=false \
         ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false \
         ENABLE_KIMI=false ENABLE_CLAUDE=false \
         ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false \
         ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
         "$SCRIPT_DIR/consult_all.sh" --query-file "$qfile" 2>&1 >/dev/null || true)
-    if echo "$stderr" | grep -q -- "--query-file requires"; then
-        assert_eq "parsed" "unparsed" "--query-file should accept a valid file"
-    else
-        assert_eq "parsed" "parsed" "--query-file parsing succeeds with valid file"
-    fi
+    assert_eq "0" "$(grep -cE -- '--query-file requires|unbound variable' <<< "$stderr" || true)" \
+        "query-file with zero context files is Bash 3.2 safe"
+    context_file=$(find "$output_base" -type f -name context.md -print | tail -n 1)
+    content=$(cat "$context_file" 2>/dev/null)
+    assert_match "QUERY_FILE_WITH_ZERO_CONTEXT_MARKER" "$content" \
+        "zero-context query-file reaches generated context"
 }
 
 # -----------------------------------------------------------------------------
-# Test 12: --query-file with a non-existent file is rejected at parse time
+# Test 12: --query-file followed by tagged context files is the host contract
+# -----------------------------------------------------------------------------
+test_query_file_with_context_files() {
+    local qfile="$_TMPDIR/q-with-context.txt" output_base="$_TMPDIR/consult-output"
+    local external_root="$_TMPDIR/external-project"
+    mkdir -p "$external_root/src"
+    printf '%s\n' 'EXTERNAL_PRIMARY_MARKER' > "$external_root/src/app.py"
+    printf '%s\n' 'EXTERNAL_CONTEXT_MARKER' > "$external_root/src/logger.sh"
+    printf 'HOST_QUERY_FILE_MARKER\n' > "$qfile"
+    local stderr context_file content
+    stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" \
+        DEFAULT_OUTPUT_DIR_BASE="$output_base" DEFAULT_PRESET="" \
+        ENABLE_SYNTHESIS=false ENABLE_CLASSIFICATION=false \
+        ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false \
+        ENABLE_KIMI=false ENABLE_CLAUDE=false ENABLE_QWEN3=false \
+        ENABLE_GLM=false ENABLE_GROK=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
+        "$SCRIPT_DIR/consult_all.sh" --context-root "$external_root" --query-file "$qfile" \
+        "src/app.py@PRIMARY" "src/logger.sh@CONTEXT" \
+        2>&1 >/dev/null || true)
+
+    assert_eq "0" "$(grep -c -- '--query-file positional arguments must' <<< "$stderr" || true)" \
+        "query-file accepts existing tagged context files"
+    context_file=$(find "$output_base" -type f -name context.md -print | tail -n 1)
+    content=$(cat "$context_file" 2>/dev/null)
+    assert_match "HOST_QUERY_FILE_MARKER" "$content" \
+        "query-file question reaches generated context"
+    assert_match "EXTERNAL_PRIMARY_MARKER" "$content" \
+        "host context-root stages a PRIMARY file outside the skill directory"
+    assert_match "EXTERNAL_CONTEXT_MARKER" "$content" \
+        "host context-root stages a CONTEXT file outside the skill directory"
+    assert_match "src/app.py\` \(PRIMARY\)" "$content" \
+        "staged host path preserves original PRIMARY identity"
+    assert_match "src/logger.sh\` \(CONTEXT\)" "$content" \
+        "staged host path preserves original CONTEXT identity"
+    assert_eq "0" "$(grep -c 'ai-consultants-host-context' <<< "$content" || true)" \
+        "generated context never exposes deleted staging paths"
+}
+
+test_context_root_rejects_outside_and_symlink_files() {
+    local qfile="$_TMPDIR/q-root-boundary.txt" external_root="$_TMPDIR/root-boundary"
+    local outside="$_TMPDIR/outside.txt" stderr
+    mkdir -p "$external_root"
+    printf '%s\n' 'question' > "$qfile"
+    printf '%s\n' 'outside' > "$outside"
+    ln -s "$outside" "$external_root/link.txt"
+
+    stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" DEFAULT_PRESET="" \
+        ENABLE_SYNTHESIS=false "$SCRIPT_DIR/consult_all.sh" \
+        --context-root "$external_root" --query-file "$qfile" "$outside@CONTEXT" \
+        2>&1 >/dev/null || true)
+    assert_match "existing permitted context files" "$stderr" \
+        "context-root rejects an absolute file outside the caller project"
+
+    stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" DEFAULT_PRESET="" \
+        ENABLE_SYNTHESIS=false "$SCRIPT_DIR/consult_all.sh" \
+        --context-root "$external_root" --query-file "$qfile" "link.txt@CONTEXT" \
+        2>&1 >/dev/null || true)
+    assert_match "existing permitted context files" "$stderr" \
+        "context-root rejects symlinked project files"
+}
+
+# -----------------------------------------------------------------------------
+# Test 14: --query-file with a non-existent file is rejected at parse time
 # -----------------------------------------------------------------------------
 test_query_file_missing() {
     local stderr
@@ -259,7 +317,7 @@ test_query_file_missing() {
 }
 
 # -----------------------------------------------------------------------------
-# Test 13: --query-file + positional query is a conflict
+# Test 15: --query-file + positional non-file is rejected
 # -----------------------------------------------------------------------------
 test_query_file_conflict() {
     local qfile="$_TMPDIR/q.txt"
@@ -267,12 +325,12 @@ test_query_file_conflict() {
     local stderr
     stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" DEFAULT_PRESET="" ENABLE_SYNTHESIS=false \
         "$SCRIPT_DIR/consult_all.sh" --query-file "$qfile" "from cli" 2>&1 >/dev/null || true)
-    assert_match "conflicts with a positional query" "$stderr" \
+    assert_match "positional arguments must be existing permitted context files" "$stderr" \
         "--query-file + positional query rejected"
 }
 
 # -----------------------------------------------------------------------------
-# Test 14: Backwards-compat — old call with inlined query string still works
+# Test 16: Backwards-compat — old call with inlined query string still works
 # (degrades to no-FILES branch, exits cleanly at consultant-selection step)
 # -----------------------------------------------------------------------------
 test_legacy_inlined_query() {
@@ -292,7 +350,7 @@ test_legacy_inlined_query() {
 # -----------------------------------------------------------------------------
 echo "test_context_optimization.sh — v2.14 context handoff regression suite"
 # -----------------------------------------------------------------------------
-# Test 15: context-file path boundary (v2.17.2)
+# Test 17: context-file path boundary (v2.17.2)
 # -----------------------------------------------------------------------------
 # build_context.sh sends file contents to external AI providers, so the context
 # gate must (a) ACCEPT temp-root paths — fixing the macOS /private/tmp scratch-file
@@ -333,9 +391,11 @@ run_test "Test 8: Python AST path engages over byte threshold" test_ast_extracti
 run_test "Test 9: optimize_code_file emits output for Python" test_optimize_code_file_python
 run_test "Test 10: chunk_file_semantically emits JSON array" test_chunking_json_shape
 run_test "Test 11: --query-file is parsed correctly" test_query_file_flag
-run_test "Test 12: --query-file with missing file is rejected" test_query_file_missing
-run_test "Test 13: --query-file conflicts with positional query" test_query_file_conflict
-run_test "Test 14: Legacy no-FILES path still works" test_legacy_inlined_query
-run_test "Test 15: context-file path boundary (v2.17.2)" test_context_path_boundary
+run_test "Test 12: --query-file accepts tagged context files" test_query_file_with_context_files
+run_test "Test 13: context-root rejects outside and symlink files" test_context_root_rejects_outside_and_symlink_files
+run_test "Test 14: --query-file with missing file is rejected" test_query_file_missing
+run_test "Test 15: --query-file rejects positional non-file text" test_query_file_conflict
+run_test "Test 16: Legacy no-FILES path still works" test_legacy_inlined_query
+run_test "Test 17: context-file path boundary (v2.17.2)" test_context_path_boundary
 
 test_summary "test_context_optimization.sh"
