@@ -48,7 +48,7 @@ case "${1:-}" in
     ;;
   help|--help|-h)
     cat <<EOF
-ai-consultants v$VERSION - Multi-model AI deliberation system
+ai-consultants v$VERSION - Cross-vendor AI coverage panel
 
 Usage:
   ai-consultants "question" [files...]        Consult AI experts
@@ -65,7 +65,7 @@ Usage:
 Presets:   minimal, balanced, thorough, high-stakes, security, cost-capped,
            max_quality, medium, fast
 
-Strategies: majority, risk_averse, security_first, cost_capped, compare_only
+Strategies: coverage, compare_only, majority, risk_averse, security_first, cost_capped
 
 Examples:
   npx ai-consultants "How to optimize this SQL query?"
@@ -141,9 +141,8 @@ EOF
 # KEY=value lines. Existing env vars take precedence.
 # Uncomment what you want to override.
 
-# ENABLE_DEBATE=true
 # DEFAULT_PRESET=balanced
-# DEFAULT_STRATEGY=majority
+# DEFAULT_STRATEGY=coverage
 # MAX_SESSION_COST=2.00
 # ENABLE_BUDGET_LIMIT=true
 EOF
@@ -164,7 +163,7 @@ EOF
 #
 # Examples:
 # export DEFAULT_PRESET="${DEFAULT_PRESET:-balanced}"
-# export ENABLE_DEBATE="${ENABLE_DEBATE:-true}"
+# export DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-coverage}"
 # export AFFINITY_FILE="${AFFINITY_FILE:-$HOME/.config/ai-consultants/affinity.json}"
 EOF
       echo "  ✓ config.sh created (minimal template)"

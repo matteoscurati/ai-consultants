@@ -113,7 +113,7 @@ LAUNCH_STAGGER_MAX_SECONDS="${LAUNCH_STAGGER_MAX_SECONDS:-2}"
 
 # CLI mode uses the Antigravity CLI (`agy`), successor to the deprecated
 # Gemini CLI (transitioned 2026-06-18). Models are passed by display name.
-GEMINI_MODEL="${GEMINI_MODEL:-Gemini 3.1 Pro (High)}"
+GEMINI_MODEL="${GEMINI_MODEL:-Gemini 3.7 Flash (High)}"
 GEMINI_TIMEOUT_SECONDS="${GEMINI_TIMEOUT:-180}"
 GEMINI_CMD="${GEMINI_CMD:-agy}"
 # API mode (GEMINI_USE_API=true) talks to the Google AI generativelanguage
@@ -147,6 +147,7 @@ export GEMINI_USE_API
 # Model: "gpt-5.6-sol" (default), "gpt-5.6-terra", "gpt-5.6-luna", etc.
 CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-sol}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
+CODEX_API_MAX_TOKENS="${CODEX_API_MAX_TOKENS:-4096}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
 # =============================================================================
@@ -158,23 +159,23 @@ CODEX_CMD="${CODEX_CMD:-codex}"
 # independently through VIBE_ACTIVE_MODEL at dispatch time.
 MISTRAL_MODEL="${MISTRAL_MODEL:-mistral-large-3}"
 MISTRAL_CLI_MODEL="${MISTRAL_CLI_MODEL:-mistral-medium-3.5}"
+MISTRAL_API_MAX_TOKENS="${MISTRAL_API_MAX_TOKENS:-4096}"
 MISTRAL_TIMEOUT_SECONDS="${MISTRAL_TIMEOUT:-180}"
 MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
-
-# =============================================================================
-# CURSOR CONFIGURATION - The Integrator
-# =============================================================================
-
-CURSOR_MODEL="${CURSOR_MODEL:-composer-2.5}"
-CURSOR_TIMEOUT_SECONDS="${CURSOR_TIMEOUT:-180}"
-CURSOR_CMD="${CURSOR_CMD:-cursor-agent}"
+MISTRAL_MAX_TURNS="${MISTRAL_MAX_TURNS:-4}"
 
 # =============================================================================
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
 # =============================================================================
 
 QWEN3_MODEL="${QWEN3_MODEL:-qwen3.7-max}"
-QWEN3_TIMEOUT_SECONDS="${QWEN3_TIMEOUT:-180}"
+if [[ -n "${QWEN3_TIMEOUT+x}" ]]; then
+    QWEN3_TIMEOUT_SECONDS="$QWEN3_TIMEOUT"
+elif [[ -z "${QWEN3_TIMEOUT_SECONDS+x}" ]]; then
+    QWEN3_TIMEOUT_SECONDS=180
+fi
+QWEN3_MAX_QUALITY_TIMEOUT="${QWEN3_MAX_QUALITY_TIMEOUT:-600}"
+QWEN3_API_MAX_TOKENS="${QWEN3_API_MAX_TOKENS:-16384}"
 QWEN3_CMD="${QWEN3_CMD:-qwen}"
 QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
 QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
@@ -187,6 +188,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 
 GLM_MODEL="${GLM_MODEL:-glm-5.3}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
+GLM_API_MAX_TOKENS="${GLM_API_MAX_TOKENS:-16384}"
 GLM_API_URL="${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
 # API key: Set GLM_API_KEY environment variable
@@ -198,6 +200,8 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 GROK_CMD="${GROK_CMD:-grok}"
 GROK_MODEL="${GROK_MODEL:-grok-4.6}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
+GROK_API_MAX_TOKENS="${GROK_API_MAX_TOKENS:-4096}"
+GROK_MAX_TURNS="${GROK_MAX_TURNS:-4}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
 # Grok Build's official credential name is XAI_API_KEY. Keep the historical
@@ -224,7 +228,13 @@ export GROK_USE_API
 # =============================================================================
 
 DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v4-pro}"
-DEEPSEEK_TIMEOUT_SECONDS="${DEEPSEEK_TIMEOUT:-180}"
+if [[ -n "${DEEPSEEK_TIMEOUT+x}" ]]; then
+    DEEPSEEK_TIMEOUT_SECONDS="$DEEPSEEK_TIMEOUT"
+elif [[ -z "${DEEPSEEK_TIMEOUT_SECONDS+x}" ]]; then
+    DEEPSEEK_TIMEOUT_SECONDS=180
+fi
+DEEPSEEK_MAX_QUALITY_TIMEOUT="${DEEPSEEK_MAX_QUALITY_TIMEOUT:-600}"
+DEEPSEEK_API_MAX_TOKENS="${DEEPSEEK_API_MAX_TOKENS:-16384}"
 DEEPSEEK_API_URL="${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}"
 DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # API key: Set DEEPSEEK_API_KEY environment variable
@@ -236,6 +246,10 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 MINIMAX_CMD="${MINIMAX_CMD:-mmx}"
 MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M2.7}"
 MINIMAX_TIMEOUT_SECONDS="${MINIMAX_TIMEOUT:-180}"
+MINIMAX_API_MAX_TOKENS="${MINIMAX_API_MAX_TOKENS:-4096}"
+MINIMAX_MAX_TOKENS="${MINIMAX_MAX_TOKENS:-4096}"
+MINIMAX_MAX_QUALITY_TOKENS="${MINIMAX_MAX_QUALITY_TOKENS:-16384}"
+MAX_QUALITY_API_MAX_TOKENS="${MAX_QUALITY_API_MAX_TOKENS:-16384}"
 MINIMAX_API_URL="${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}"
 MINIMAX_FORMAT="${MINIMAX_FORMAT:-openai}"
 # CLI mode (default) uses the mmx CLI (npm i -g mmx-cli; auth: mmx auth login).
@@ -287,10 +301,10 @@ CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 # Use this array when iterating over consultants programmatically.
 
 # All available consultants (ordered by typical usage)
-ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
+ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
 
 # CLI-based consultants (use CLI tools, some support CLI/API switching)
-CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "Grok" "MiniMax")
+CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "Grok" "MiniMax")
 
 # API-only consultants (use HTTP API directly, no CLI available)
 API_CONSULTANTS=("GLM" "DeepSeek")
@@ -304,7 +318,6 @@ API_CONSULTANTS=("GLM" "DeepSeek")
 ENABLE_GEMINI="${ENABLE_GEMINI:-true}"
 ENABLE_CODEX="${ENABLE_CODEX:-true}"
 ENABLE_MISTRAL="${ENABLE_MISTRAL:-true}"
-ENABLE_CURSOR="${ENABLE_CURSOR:-true}"
 ENABLE_KIMI="${ENABLE_KIMI:-true}"       # Kimi Code (v2.9)
 ENABLE_CLAUDE="${ENABLE_CLAUDE:-true}"   # Auto-disabled when invoked by Claude Code
 ENABLE_QWEN3="${ENABLE_QWEN3:-true}"     # qwen-code CLI (v2.7); API opt-in
@@ -321,7 +334,8 @@ ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
 
 # Agent that invoked this skill - used for self-exclusion to prevent
 # an agent from consulting itself.
-# Values: claude, codex, gemini, cursor, mistral, kimi, qwen3, or "unknown"
+# Values: claude, codex, gemini, mistral, kimi, qwen3, or "unknown".
+# Cursor may still be the host, but maps to no panel consultant.
 # Example: INVOKING_AGENT=claude ./scripts/consult_all.sh "question"
 INVOKING_AGENT="${INVOKING_AGENT:-unknown}"
 
@@ -354,7 +368,8 @@ SYNTHESIS_CMD="${SYNTHESIS_CMD:-claude}"
 # =============================================================================
 
 # Default preset to use when no --preset flag is provided
-# Options: minimal, balanced, thorough, high-stakes, security, cost-capped
+# Options: minimal, balanced, thorough, high-stakes, security, cost-capped,
+#          max_quality, medium, fast
 # Leave empty to use individual ENABLE_* settings
 DEFAULT_PRESET="${DEFAULT_PRESET:-}"
 
@@ -474,6 +489,9 @@ USE_COMPACT_PROMPTS="${USE_COMPACT_PROMPTS:-true}"
 
 # Extract only essential fields for synthesis (instead of full JSON)
 SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
+SYNTH_DETAIL_MAX_CHARS="${SYNTH_DETAIL_MAX_CHARS:-4000}"
+SYNTHESIS_TIMEOUT="${SYNTHESIS_TIMEOUT:-240}"
+SYNTHESIS_TOTAL_TIMEOUT="${SYNTHESIS_TOTAL_TIMEOUT:-480}"
 
 # =============================================================================
 # TOKEN COST OPTIMIZATION (v2.3)
@@ -600,10 +618,9 @@ get_model_for_tier() {
         maximum|max_quality|max-quality)
             case "$consultant" in
                 claude)   echo "claude-opus-5" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.1 Pro (High)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-5.6-sol" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.3" ;;
                 grok)     echo "grok-4.6" ;;
@@ -616,10 +633,9 @@ get_model_for_tier() {
         premium|max|best)
             case "$consultant" in
                 claude)   echo "claude-opus-5" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.1 Pro (High)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-5.6-sol" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.3" ;;
                 grok)     echo "grok-4.6" ;;
@@ -632,10 +648,9 @@ get_model_for_tier() {
         standard|medium|balanced)
             case "$consultant" in
                 claude)   echo "claude-sonnet-5" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.6 Flash (High)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-5.6-terra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
                 glm)      echo "glm-5.3" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-4.5" ;;
@@ -648,10 +663,9 @@ get_model_for_tier() {
         economy|fast|quick)
             case "$consultant" in
                 claude)   echo "claude-haiku-4-5" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.6 Flash (Low)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (Low)" ;;
                 codex)    echo "gpt-5.6-luna" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "devstral-small-2" ;;
-                cursor)   echo "composer-2.5" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
                 glm)      echo "glm-4-flash" ;;
                 grok)     echo "grok-4.5" ;;
@@ -673,6 +687,9 @@ get_model_for_tier() {
 # Economy = optimized for speed and low cost
 apply_model_tier() {
     local tier="$1"
+    local effort_provider effort_var managed_var prior_set_var prior_value_var
+    local effort_spec effort_target
+    local api_provider api_tokens_var api_managed_var api_prior_var
 
     # Validate tier name
     case "$tier" in
@@ -684,7 +701,7 @@ apply_model_tier() {
             ;;
     esac
 
-    local consultants="claude codex cursor deepseek glm grok minimax kimi"
+    local consultants="claude codex deepseek glm grok minimax kimi"
     for c in $consultants; do
         local model
         model=$(get_model_for_tier "$c" "$tier")
@@ -709,6 +726,71 @@ apply_model_tier() {
         unset QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
     fi
 
+    # Qwen3.8-Max at xhigh can legitimately take longer than the normal tier.
+    # Preserve the caller's timeout and restore it when leaving maximum.
+    case "$tier" in
+        maximum|max_quality|max-quality) ;;
+        *)
+            if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" == "true" ]]; then
+                export QWEN3_TIMEOUT_SECONDS="$_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR"
+                if [[ "${_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET:-false}" == "true" ]]; then
+                    export QWEN3_TIMEOUT="$_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR"
+                else
+                    unset QWEN3_TIMEOUT
+                fi
+                unset _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR \
+                    _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
+            fi
+            ;;
+    esac
+
+    # Maximum temporarily overrides these provider efforts so the preset can
+    # honor its name even when the ambient config pins a lower value. Preserve
+    # that prior state and restore it when a later tier is applied; otherwise a
+    # documented sequence such as maximum -> economy leaks maximum reasoning.
+    case "$tier" in
+        maximum|max_quality|max-quality) ;;
+        *)
+            for effort_provider in GROK GLM DEEPSEEK; do
+                effort_var="${effort_provider}_REASONING_EFFORT"
+                managed_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_MANAGED"
+                prior_set_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_SET"
+                prior_value_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_VALUE"
+                if [[ "${!managed_var:-false}" == "true" ]]; then
+                    if [[ "${!prior_set_var:-false}" == "true" ]]; then
+                        export "$effort_var=${!prior_value_var:-}"
+                    else
+                        unset "$effort_var"
+                    fi
+                    unset "$managed_var" "$prior_set_var" "$prior_value_var"
+                fi
+            done
+            if [[ "${_AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_MANAGED:-false}" == "true" ]]; then
+                export DEEPSEEK_TIMEOUT_SECONDS="$_AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_PRIOR"
+                if [[ "${_AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR_SET:-false}" == "true" ]]; then
+                    export DEEPSEEK_TIMEOUT="$_AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR"
+                else
+                    unset DEEPSEEK_TIMEOUT
+                fi
+                unset _AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_PRIOR \
+                    _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR_SET _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR
+            fi
+            if [[ "${_AI_CONSULTANTS_TIER_MINIMAX_TOKENS_MANAGED:-false}" == "true" ]]; then
+                export MINIMAX_MAX_TOKENS="$_AI_CONSULTANTS_TIER_MINIMAX_TOKENS_PRIOR"
+                unset _AI_CONSULTANTS_TIER_MINIMAX_TOKENS_MANAGED _AI_CONSULTANTS_TIER_MINIMAX_TOKENS_PRIOR
+            fi
+            for api_provider in CODEX MISTRAL GROK MINIMAX; do
+                api_tokens_var="${api_provider}_API_MAX_TOKENS"
+                api_managed_var="_AI_CONSULTANTS_TIER_${api_provider}_API_TOKENS_MANAGED"
+                api_prior_var="_AI_CONSULTANTS_TIER_${api_provider}_API_TOKENS_PRIOR"
+                if [[ "${!api_managed_var:-false}" == "true" ]]; then
+                    export "$api_tokens_var=${!api_prior_var}"
+                    unset "$api_managed_var" "$api_prior_var"
+                fi
+            done
+            ;;
+    esac
+
     case "$tier" in
         maximum|max_quality|max-quality)
             # Qwen3.8-Max exists only on the OpenAI-compatible Token Plan
@@ -724,8 +806,31 @@ apply_model_tier() {
                     export QWEN3_REASONING_EFFORT=xhigh
                     export _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED=true
                 fi
+                if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" != "true" ]]; then
+                    export _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR="$QWEN3_TIMEOUT_SECONDS"
+                    if declare -p QWEN3_TIMEOUT >/dev/null 2>&1; then
+                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET=true
+                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR="$QWEN3_TIMEOUT"
+                    else
+                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET=false
+                        unset _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
+                    fi
+                    export _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED=true
+                fi
+                export QWEN3_TIMEOUT="$QWEN3_MAX_QUALITY_TIMEOUT"
+                export QWEN3_TIMEOUT_SECONDS="$QWEN3_MAX_QUALITY_TIMEOUT"
             else
                 export QWEN3_MODEL="qwen3.7-max"
+                if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" == "true" ]]; then
+                    export QWEN3_TIMEOUT_SECONDS="$_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR"
+                    if [[ "${_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET:-false}" == "true" ]]; then
+                        export QWEN3_TIMEOUT="$_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR"
+                    else
+                        unset QWEN3_TIMEOUT
+                    fi
+                    unset _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR \
+                        _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
+                fi
             fi
             ;;
         *)
@@ -733,9 +838,61 @@ apply_model_tier() {
             ;;
     esac
 
-    # Gemini 3.7 is catalogued but not auto-selected until an exact agy/API
-    # smoke can authenticate. The active automatic tiers remain on proven 3.1/
-    # 3.6 targets and therefore leave any user-pinned effort untouched.
+    # Gemini 3.7 is promoted only on the exact agy transport that completed a
+    # live adapter smoke. API tiers remain on the separately proven 3.1 Pro ID;
+    # neither transport silently substitutes the other's model namespace.
+
+    case "$tier" in
+        maximum|max_quality|max-quality)
+            for effort_spec in GROK:xhigh GLM:max DEEPSEEK:max; do
+                effort_provider="${effort_spec%%:*}"
+                effort_target="${effort_spec#*:}"
+                effort_var="${effort_provider}_REASONING_EFFORT"
+                managed_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_MANAGED"
+                prior_set_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_SET"
+                prior_value_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_VALUE"
+                if [[ "${!managed_var:-false}" != "true" ]]; then
+                    if declare -p "$effort_var" >/dev/null 2>&1; then
+                        export "$prior_set_var=true"
+                        export "$prior_value_var=${!effort_var}"
+                    else
+                        export "$prior_set_var=false"
+                        unset "$prior_value_var"
+                    fi
+                    export "$managed_var=true"
+                fi
+                export "$effort_var=$effort_target"
+            done
+            if [[ "${_AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_MANAGED:-false}" != "true" ]]; then
+                export _AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_PRIOR="$DEEPSEEK_TIMEOUT_SECONDS"
+                if declare -p DEEPSEEK_TIMEOUT >/dev/null 2>&1; then
+                    export _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR_SET=true
+                    export _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR="$DEEPSEEK_TIMEOUT"
+                else
+                    export _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR_SET=false
+                    unset _AI_CONSULTANTS_TIER_DEEPSEEK_PUBLIC_TIMEOUT_PRIOR
+                fi
+                export _AI_CONSULTANTS_TIER_DEEPSEEK_TIMEOUT_MANAGED=true
+            fi
+            export DEEPSEEK_TIMEOUT="$DEEPSEEK_MAX_QUALITY_TIMEOUT"
+            export DEEPSEEK_TIMEOUT_SECONDS="$DEEPSEEK_MAX_QUALITY_TIMEOUT"
+            if [[ "${_AI_CONSULTANTS_TIER_MINIMAX_TOKENS_MANAGED:-false}" != "true" ]]; then
+                export _AI_CONSULTANTS_TIER_MINIMAX_TOKENS_PRIOR="$MINIMAX_MAX_TOKENS"
+                export _AI_CONSULTANTS_TIER_MINIMAX_TOKENS_MANAGED=true
+            fi
+            export MINIMAX_MAX_TOKENS="$MINIMAX_MAX_QUALITY_TOKENS"
+            for api_provider in CODEX MISTRAL GROK MINIMAX; do
+                api_tokens_var="${api_provider}_API_MAX_TOKENS"
+                api_managed_var="_AI_CONSULTANTS_TIER_${api_provider}_API_TOKENS_MANAGED"
+                api_prior_var="_AI_CONSULTANTS_TIER_${api_provider}_API_TOKENS_PRIOR"
+                if [[ "${!api_managed_var:-false}" != "true" ]]; then
+                    export "$api_prior_var=${!api_tokens_var}"
+                    export "$api_managed_var=true"
+                fi
+                export "$api_tokens_var=$MAX_QUALITY_API_MAX_TOKENS"
+            done
+            ;;
+    esac
 
     return 0
 }
@@ -746,21 +903,21 @@ apply_model_tier() {
 
 # Presets allow quick configuration for different use cases:
 #   minimal      - 2 models (fast, cheap): Gemini + Codex
-#   balanced     - 4 models (good coverage): + Mistral + Cursor
-#   thorough     - 4 models (comprehensive)
-#   high-stakes  - Broad premium panel + debate (maximum rigor)
+#   balanced     - 3 models (good coverage): Gemini + Codex + Mistral
+#   thorough     - 3 models (comprehensive)
+#   high-stakes  - Broad premium panel for critical decisions
 #
 # Quality Tiers (v2.5):
-#   max_quality  - 8 of 11 consultants + premium models + peer review
-#   medium       - 4 consultants + standard models + light debate
-#   fast         - 2 consultants + economy models, no debate
+#   max_quality  - all 10 consultants + maximum models/effort
+#   medium       - 3 consultants + standard models
+#   fast         - 2 consultants + economy models
 #
 # Usage: ./consult_all.sh --preset balanced "Your question"
 
 # Helper: Disable all consultants
 _disable_all_consultants() {
     export ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false
-    export ENABLE_CURSOR=false ENABLE_KIMI=false ENABLE_CLAUDE=false
+    export ENABLE_KIMI=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
     export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
 }
@@ -779,19 +936,19 @@ apply_preset() {
             ;;
         balanced)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_MISTRAL=true
             ;;
         thorough)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_MISTRAL=true
             ;;
         high-stakes)
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
-            export ENABLE_CURSOR=true ENABLE_CLAUDE=true
+            export ENABLE_CLAUDE=true
             ;;
         security)
             export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_MISTRAL=true
             ;;
         cost-capped)
             apply_model_tier "economy"
@@ -803,14 +960,13 @@ apply_preset() {
             # Maximum quality - costly/separate-plan models stay confined here.
             apply_model_tier "maximum"
             export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
-            export ENABLE_CURSOR=true ENABLE_KIMI=true
-            export ENABLE_CLAUDE=true ENABLE_QWEN3=true ENABLE_MINIMAX=true
+            export ENABLE_KIMI=true ENABLE_CLAUDE=true ENABLE_QWEN3=true
+            export ENABLE_GLM=true ENABLE_GROK=true ENABLE_DEEPSEEK=true ENABLE_MINIMAX=true
             ;;
         medium)
             # Balanced quality - standard models, good coverage
             apply_model_tier "standard"
-            export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true ENABLE_CURSOR=true
+            export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
             ;;
         fast)
             # Super fast - economy models, minimal consultants
@@ -834,16 +990,16 @@ list_presets() {
 Available presets:
 
 Quality Tiers (v2.5):
-  max_quality  8 of 11 consultants + premium models + peer review
-  medium       4 consultants + standard models + light debate
-  fast         2 consultants + economy models, no debate
+  max_quality  All 10 consultants + maximum models and max provider effort
+  medium       3 consultants + standard models
+  fast         2 consultants + economy models
 
 Use Cases:
   minimal      2 models (Gemini + Codex) - Fast, cheap
-  balanced     4 models (+ Mistral + Cursor) - Good coverage [DEFAULT]
-  thorough     4 models - Comprehensive analysis
-  high-stakes  Broad premium panel + debate - Maximum rigor for critical decisions
-  security     Security-focused models + debate - For security reviews
+  balanced     3 models (Gemini + Codex + Mistral) - Good coverage [DEFAULT]
+  thorough     3 models - Comprehensive analysis
+  high-stakes  Broad premium panel - Maximum breadth for critical decisions
+  security     Security-focused models - For security reviews
   cost-capped  Budget-conscious options - Minimal API costs
 
 Usage: ./consult_all.sh --preset <name> "Your question"

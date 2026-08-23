@@ -130,6 +130,17 @@ test_init_refuses_symlink() {
     assert_eq "no" "$has_env" "init did NOT write .env into the symlink target"
 }
 
+test_public_help_and_fallback_scaffold_are_coverage_only() {
+    local help_text
+    help_text=$("$BIN" help)
+    assert_match 'Strategies: coverage' "$help_text" \
+        "public CLI help advertises coverage as a strategy"
+    assert_eq "0" "$(grep -c 'ENABLE_DEBATE' "$BIN" || true)" \
+        "fallback init scaffold does not emit removed debate settings"
+    assert_match 'DEFAULT_STRATEGY=coverage' "$(cat "$BIN")" \
+        "fallback init scaffold uses coverage"
+}
+
 run_test "Test 1: version matches config.sh"           test_version_matches_config
 run_test "Test 2: version is semver-shaped"            test_version_is_semver
 run_test "Test 3: version=unknown on malformed config" test_version_unknown_on_malformed_config
@@ -138,5 +149,6 @@ run_test "Test 5: init creates both files"             test_init_creates_both_fi
 run_test "Test 6: init preserves existing without --force" test_init_preserves_without_force
 run_test "Test 7: init --force overwrites"             test_init_force_overwrites
 run_test "Test 8: init refuses symlinked dir"          test_init_refuses_symlink
+run_test "Test 9: public help and fallback scaffold are coverage-only" test_public_help_and_fallback_scaffold_are_coverage_only
 
 test_summary "bin"

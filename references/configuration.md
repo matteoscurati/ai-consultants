@@ -14,7 +14,7 @@ For goal-oriented, copy-paste configurations, start with
 
 ## Automatic Configurator
 
-The public configurator detects all 11 supported consultants, chooses CLI or API
+The public configurator detects all 10 supported consultants, chooses CLI or API
 transport from the available CLI binaries and credentials, and writes the
 persistent XDG configuration:
 
@@ -163,12 +163,14 @@ AST extractors are dedicated for **Python, JavaScript, TypeScript, Bash, Go**. O
 ENABLE_PERSONA=true          # Give each consultant its configured role
 ENABLE_SYNTHESIS=true        # Automatic synthesis
 SYNTHESIS_CMD=claude         # CLI used to synthesize the panel
+SYNTH_DETAIL_MAX_CHARS=4000  # Per-response detail included in synthesis
+SYNTHESIS_TIMEOUT=240        # Bound the selected synthesis CLI
+SYNTHESIS_TOTAL_TIMEOUT=480  # Bound all provider attempts together
 ENABLE_SMART_ROUTING=false   # Category-based consultant selection
 ENABLE_COST_TRACKING=true    # Track API usage costs
 ```
 
-`SYNTHESIS_CMD` may be `claude`, `codex`, `gemini`, `cursor`, `mistral`,
-`kimi`, `qwen3`, or `minimax`. The invoking agent is excluded automatically;
+`SYNTHESIS_CMD` may be `claude`, `codex`, or `gemini`. The invoking agent is excluded automatically;
 set `INVOKING_AGENT` only for direct integrations that need to declare their
 host explicitly.
 
@@ -223,7 +225,6 @@ MINIMAX_USE_API=false        # Use mmx CLI (default) or MiniMax API
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_MISTRAL=true
-ENABLE_CURSOR=true
 ENABLE_KIMI=true             # Kimi CLI - The Eastern Sage
 ENABLE_QWEN3=true            # Qwen CLI/API - The Analyst
 ENABLE_GROK=true             # Grok Build CLI/API fallback - The Provocateur
@@ -238,20 +239,35 @@ ENABLE_DEEPSEEK=false
 ### Model Overrides
 
 ```bash
-GEMINI_MODEL=Gemini 3.1 Pro (High)   # agy CLI display name; API mode uses GEMINI_API_MODEL
+GEMINI_MODEL=Gemini 3.7 Flash (High) # verified agy CLI default; API mode uses GEMINI_API_MODEL
 CODEX_MODEL=gpt-5.6-sol
+CODEX_API_MAX_TOKENS=4096
 CLAUDE_MODEL=claude-opus-5
 CLAUDE_API_MAX_TOKENS=16384  # API only: adaptive thinking + visible output
 MISTRAL_MODEL=mistral-large-3
 MISTRAL_CLI_MODEL=mistral-medium-3.5
-CURSOR_MODEL=composer-2.5
-CURSOR_CMD=cursor-agent
+MISTRAL_MAX_TURNS=4
+MISTRAL_API_MAX_TOKENS=4096
 KIMI_MODEL=kimi-code/k3
 QWEN3_MODEL=qwen3.7-max
+QWEN3_MAX_QUALITY_TIMEOUT=600
+QWEN3_API_MAX_TOKENS=16384
 GLM_MODEL=glm-5.3
+GLM_API_MAX_TOKENS=16384
+GLM_REASONING_EFFORT=       # max_quality sets max
 GROK_MODEL=grok-4.6
+GROK_MAX_TURNS=4
+GROK_API_MAX_TOKENS=4096
+GROK_REASONING_EFFORT=      # max_quality sets xhigh (Grok Build maximum)
 DEEPSEEK_MODEL=deepseek-v4-pro
+DEEPSEEK_API_MAX_TOKENS=16384
+DEEPSEEK_MAX_QUALITY_TIMEOUT=600
+DEEPSEEK_REASONING_EFFORT=  # max_quality sets max
 MINIMAX_MODEL=MiniMax-M2.7
+MINIMAX_API_MAX_TOKENS=4096
+MINIMAX_MAX_TOKENS=4096
+MINIMAX_MAX_QUALITY_TOKENS=16384
+MAX_QUALITY_API_MAX_TOKENS=16384
 ```
 
 Anthropic counts adaptive thinking and visible response tokens against the same
@@ -269,6 +285,29 @@ Set `GROK_USE_API=true` only to force the API path. The adapter accepts any CLI
 version that exposes the complete required headless interface and requested
 model; `metadata.cli_version` is provenance, not a version pin.
 
+`max_quality` sets `GROK_REASONING_EFFORT=xhigh` (the highest value accepted by
+Grok Build),
+`GLM_REASONING_EFFORT=max`, and `DEEPSEEK_REASONING_EFFORT=max`. Grok passes
+the value to the CLI as `--reasoning-effort`; the API transports include the
+standard `reasoning_effort` field. Unsupported values or CLI capability gaps
+fail explicitly rather than silently reducing effort. A provider-rejected CLI
+value fails after launch and never triggers API fallback.
+
+Those three effort values are tier-managed: `max_quality` temporarily overrides
+an ambient lower pin and restores it when another tier is applied. Qwen is the
+intentional exception because Token Plan access is separately configured: an
+explicit `QWEN3_REASONING_EFFORT` pin is preserved in the maximum tier.
+
+The preset gives Mistral and Grok four bounded advisory turns, extends the
+Qwen3.8-Max and DeepSeek timeouts to 600 seconds, and uses the configured
+per-consultant `*_API_MAX_TOKENS` budget. Maximum temporarily raises Codex,
+Mistral, Grok, and MiniMax API budgets to `MAX_QUALITY_API_MAX_TOKENS` and
+restores them when leaving the tier; Qwen, GLM, and DeepSeek already default to
+their proven 16,384-token budgets. OpenAI-compatible responses ending with
+`finish_reason=length` fail closed rather than entering synthesis as partial
+answers. Claude CLI mode is preflighted and dispatched without session
+persistence, ambient setting sources, tools, or MCP servers.
+
 `KIMI_MODEL` is passed directly to `kimi --model`, so `kimi-code/k3` overrides
 any older default stored in the user's Kimi CLI configuration. Kimi CLI
 compatibility is also capability-probed: prompt mode, `stream-json`, provider
@@ -282,10 +321,10 @@ agent in a temporary workspace. The current Vibe default is
 `mistral-large-2512`, and `mistral-small-2603` are catalogued opt-ins until an
 authenticated API smoke passes in this project.
 
-`CURSOR_CMD` defaults to `cursor-agent`. The adapter rejects a same-named or
-legacy `agent` binary unless its help surface identifies Cursor Agent, verifies
-`CURSOR_MODEL` in the account inventory, uses `--mode ask`, and runs in an
-isolated temporary workspace. It never uses `--force`.
+The current Vibe CLI exposes only `--prompt TEXT`, not stdin or a prompt-file
+surface. The adapter therefore keeps HOME-independent read-only execution and
+an isolated workspace, but the prompt remains visible in the Vibe process argv;
+avoid secrets in consultation context until Vibe ships a non-argv input mode.
 
 `metadata.requested_model` records what ai-consultants asked for, while
 `metadata.model_identity_source` is `provider-reported`, `capability-probed`,
@@ -344,12 +383,15 @@ RETRY_DELAY_SECONDS=5
 GEMINI_TIMEOUT=240
 CODEX_TIMEOUT=180
 MISTRAL_TIMEOUT=180
-CURSOR_TIMEOUT=180
+MISTRAL_MAX_TURNS=4
 KIMI_TIMEOUT=180
 CLAUDE_TIMEOUT=240
 QWEN3_TIMEOUT=180
+QWEN3_MAX_QUALITY_TIMEOUT=600
 MINIMAX_TIMEOUT=180
 GLM_TIMEOUT=180
 GROK_TIMEOUT=180
+GROK_MAX_TURNS=4
 DEEPSEEK_TIMEOUT=180
+DEEPSEEK_MAX_QUALITY_TIMEOUT=600
 ```

@@ -1,6 +1,6 @@
 ---
 name: ai-consultants
-description: Consult Gemini, Codex, Mistral Vibe, Cursor, Claude, Kimi, Qwen, MiniMax, GLM, Grok, and DeepSeek as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
+description: Consult Gemini, Codex, Mistral Vibe, Claude, Kimi, Qwen, MiniMax, GLM, Grok, and DeepSeek as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
 license: MIT
 compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
@@ -16,6 +16,50 @@ metadata:
 
 ```
 /ai-consultants:consult "Your question here"
+```
+
+## Agent execution contract
+
+When this skill is selected by an agent, execute the consultation instead of
+only telling the user to type the slash command. Route through
+`scripts/consult_all.sh`; do not call provider adapters individually.
+
+1. Identify the invoking host and set `INVOKING_AGENT` explicitly:
+   `claude` for Claude Code, `codex` for Codex CLI, or `gemini` for Gemini CLI.
+   This is the boundary that prevents the host from consulting or synthesizing
+   with itself.
+2. Resolve the skill root from `AI_CONSULTANTS_DIR` when set. Otherwise use the
+   host installation (`~/.claude/skills/ai-consultants` for Claude Code,
+   `~/.codex/skills/ai-consultants` for Codex, or
+   `~/.gemini/skills/ai-consultants` for Gemini).
+3. Preserve consultation options such as `--preset` and `--strategy` as CLI
+   arguments before the question. Pass referenced files as paths, optionally
+   suffixed with `@PRIMARY` or `@CONTEXT`; do not paste their contents. Capture
+   the caller's project directory before entering the skill root and pass it as
+   `--context-root`, so the runtime can privately stage only regular in-project
+   files.
+4. Create a private question file with Bash `mktemp`, mode 600, and a
+   single-quoted heredoc delimiter that does not occur as a line in the
+   question. Use `--query-file`; never pass raw user text as a shell argument or
+   through an unquoted heredoc. Shell-quote every context-file path as one
+   argument, and install a shell trap that removes only that exact temporary
+   question file. Capture the last stdout line as the output directory, then
+   read `report.md` and
+   `synthesis.json` (or the individual consultant JSON files when synthesis is
+   unavailable).
+5. Keep `INVOKING_AGENT` and the private `--query-file` handoff on follow-ups.
+   A targeted follow-up to the invoking consultant must fail closed. For a
+   Claude invocation, `claude.json` must not be produced and Claude must not be
+   the synthesis provider. Treat either condition as a self-exclusion failure,
+   not a valid consultation.
+
+Claude Code example:
+
+```bash
+caller_root="$PWD"
+cd "${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}" && \
+  INVOKING_AGENT=claude ./scripts/consult_all.sh --preset balanced \
+    --context-root "$caller_root" --query-file "<private-question-file>"
 ```
 
 ## Slash Commands
@@ -34,7 +78,6 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 | **Google Gemini** | `agy` | The Architect | Design patterns, scalability |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Edge cases, vulnerabilities |
-| **Cursor** | `cursor-agent` | The Integrator | Full-stack perspective |
 | **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis |
 | **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
@@ -43,18 +86,29 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 
 **API-only consultants**: GLM (The Methodologist), DeepSeek (The Code Specialist)
 
-**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.6` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers; Cursor uses `cursor-agent --mode ask` in an isolated workspace.
+**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.6` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers.
 
 Grok and Kimi are compatible by capability rather than by CLI version. Before
 dispatch, their adapters verify the required headless arguments, requested
 model, and structured-output surface. Compatible version changes are accepted;
 the observed version is recorded only as response provenance.
 
-The `max_quality` preset uses the separately smoke-tested K3-256k and MiniMax
-M3 targets, plus Qwen3.8-Max when an authenticated Token Plan transport is
-already configured. Gemini 3.7 Flash, Claude Fable 5, and the
-new Mistral API IDs remain explicit opt-ins until their exact local transports
-can authenticate and complete a smoke; no failed target is silently replaced.
+The `max_quality` preset enables all 10 consultants. It uses the separately
+smoke-tested K3-256k and MiniMax M3 targets, plus Qwen3.8-Max when an authenticated Token Plan transport is
+already configured. Gemini 3.7 Flash High is the exact-transport-smoked `agy`
+default for maximum, premium, and standard CLI tiers; Low serves economy. The
+Gemini API target remains 3.1 Pro until `gemini-3.7-flash` completes a separate
+API smoke. Claude Fable 5 and the new Mistral API IDs remain explicit opt-ins.
+Grok, GLM, and DeepSeek receive their
+highest accepted reasoning effort in this preset (`xhigh`, `max`, and `max`
+respectively); no failed target is silently replaced.
+
+Maximum-quality transports use smoke-tested runtime budgets: four advisory
+turns for Mistral/Grok, extended Qwen/DeepSeek timeouts, and larger response
+budgets for reasoning APIs and a compact native-system Markdown contract for
+MiniMax M3. Responses carry an explicit `structured`,
+`fallback`, or `error` quality. Truncated JSON fails closed; usable prose is
+retained and disclosed, and synthesis consumes successful envelopes only.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 

@@ -7,9 +7,11 @@
 #   GROK_CMD        - Grok Build command (default: grok)
 #   GROK_MODEL      - Model to use in both transports (default: grok-4.6)
 #   GROK_TIMEOUT    - Timeout in seconds (default: 180)
+#   GROK_MAX_TURNS  - Bounded advisory turns (default: 4)
 #   GROK_USE_API    - Force the API path when true (default: CLI-first auto)
 #   GROK_API_KEY    - xAI API key used by the fallback
 #   XAI_API_KEY     - Official xAI key name; accepted as a GROK_API_KEY alias
+#   GROK_REASONING_EFFORT - Optional CLI/API effort; max_quality sets xhigh
 #   ENABLE_PERSONA  - Enable "The Provocateur" persona (default: true)
 
 set -euo pipefail
@@ -39,7 +41,20 @@ TRANSPORT="cli"
 GROK_CLI_VERSION=""
 GROK_CLI_COMPATIBILITY=""
 GROK_SUPPORTS_NO_AUTO_UPDATE=false
+GROK_SUPPORTS_REASONING_EFFORT=false
+GROK_CLI_EFFORT=""
+_GROK_CAPABILITY_ERROR=""
+_GROK_REQUEST_LAUNCHED=false
+_GROK_MODEL_PROBE_ERROR=""
 exit_code=1
+
+if ! [[ "$GROK_MAX_TURNS" =~ ^[1-9][0-9]*$ ]]; then
+    log_error "[$CONSULTANT_NAME] GROK_MAX_TURNS must be a positive integer (got: $GROK_MAX_TURNS)"
+    build_error_response "$CONSULTANT_NAME" "$GROK_MODEL" "$(get_persona_name "$CONSULTANT_NAME")" \
+        "Invalid GROK_MAX_TURNS" 0 "$GROK_MODEL" requested-only > "$OUTPUT_FILE"
+    cat "$OUTPUT_FILE"
+    exit 1
+fi
 
 cleanup() {
     rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"
@@ -98,10 +113,9 @@ grok_cli_supports_required_interface() {
     done
     grep -Eq '^[[:space:]]+models([[:space:]]|$)' <<< "$help" || return 1
 
-    # Exercise the complete headless argument surface under --help. This checks
-    # parser compatibility without starting a session or sending a prompt.
-    env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
-        "$GROK_CMD" \
+    local probe_args=(
+        env HOME="$probe_home" GROK_HOME="$probe_grok_home"
+        "$GROK_CMD"
         --prompt-file /dev/null \
         -m "$GROK_MODEL" \
         --cwd "$probe_workspace" \
@@ -121,8 +135,28 @@ grok_cli_supports_required_interface() {
         --deny MCPTool \
         --deny WebFetch \
         --deny WebSearch \
-        --verbatim \
-        --help >/dev/null 2>&1 || return 1
+        --verbatim
+    )
+
+    if grep -q -- '--reasoning-effort' <<< "$help"; then
+        GROK_SUPPORTS_REASONING_EFFORT=true
+    fi
+    if [[ -n "${GROK_REASONING_EFFORT:-}" ]]; then
+        if [[ "$GROK_SUPPORTS_REASONING_EFFORT" != "true" ]]; then
+            _GROK_CAPABILITY_ERROR="Grok Build CLI does not expose --reasoning-effort"
+            return 1
+        fi
+        source "$SCRIPT_DIR/lib/api.sh"
+        if ! GROK_CLI_EFFORT=$(validate_reasoning_effort "$GROK_REASONING_EFFORT" "$CONSULTANT_NAME"); then
+            _GROK_CAPABILITY_ERROR="Invalid Grok Build reasoning effort: $GROK_REASONING_EFFORT"
+            return 1
+        fi
+        probe_args+=(--reasoning-effort "$GROK_CLI_EFFORT")
+    fi
+
+    # Exercise the complete headless argument surface under --help. This checks
+    # parser compatibility without starting a session or sending a prompt.
+    "${probe_args[@]}" --help >/dev/null 2>&1 || return 1
 
     if grep -q -- '--no-auto-update' <<< "$help"; then
         GROK_SUPPORTS_NO_AUTO_UPDATE=true
@@ -139,14 +173,18 @@ grok_cli_exposes_requested_model() {
 
     if ! models=$(env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
             "$GROK_CMD" models 2>&1); then
-        printf '%s\n' "$models"
+        if grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
+            _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
+        else
+            _GROK_MODEL_PROBE_ERROR="Grok Build CLI model inventory failed"
+        fi
         return 1
     fi
     grep -Fq "You are logged in with grok.com." <<< "$models" || {
-        printf '%s\n' "$models"
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
         return 1
     }
-    awk -v requested="$GROK_MODEL" '
+    if ! awk -v requested="$GROK_MODEL" '
         {
             line = $0
             sub(/^[[:space:]*]+/, "", line)
@@ -154,7 +192,11 @@ grok_cli_exposes_requested_model() {
             if (fields[1] == requested) found = 1
         }
         END { exit(found ? 0 : 1) }
-    ' <<< "$models"
+    ' <<< "$models"; then
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI does not expose the requested model $GROK_MODEL"
+        return 1
+    fi
+    return 0
 }
 
 grok_cli_is_unavailable() {
@@ -175,7 +217,7 @@ grok_cli_is_unavailable() {
     # model errors, timeouts, empty output, or other post-launch failures here;
     # those must surface instead of silently creating a billable API request.
     grep -Eiq \
-        'not authenticated|authentication( is)? required|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)|lacks the required capabilities|does not expose the requested model' \
+        'not authenticated|authentication( is)? (required|unavailable)|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)' \
         "$error_file"
 }
 
@@ -222,14 +264,13 @@ else
         if ! grok_cli_supports_required_interface \
                 "$isolated_home" "$isolated_grok_home" "$isolated_workspace"; then
             GROK_CLI_COMPATIBILITY="incompatible"
-            printf 'Grok Build CLI lacks the required capabilities\n' > "${TEMP_OUTPUT}.err"
-            log_warn "[$CONSULTANT_NAME] Grok Build CLI is capability-incompatible (reported version: $GROK_CLI_VERSION)"
+            printf '%s\n' "${_GROK_CAPABILITY_ERROR:-Grok Build CLI lacks the required capabilities}" > "${TEMP_OUTPUT}.err"
+            log_warn "[$CONSULTANT_NAME] ${_GROK_CAPABILITY_ERROR:-Grok Build CLI lacks the required capabilities} (reported version: $GROK_CLI_VERSION)"
             exit_code=69
         elif ! grok_cli_exposes_requested_model \
                 "$isolated_home" "$isolated_grok_home" > "${TEMP_OUTPUT}.err"; then
-            printf 'Grok Build CLI does not expose the requested model %s\n' \
-                "$GROK_MODEL" >> "${TEMP_OUTPUT}.err"
-            log_warn "[$CONSULTANT_NAME] Grok Build CLI does not expose $GROK_MODEL"
+            printf '%s\n' "${_GROK_MODEL_PROBE_ERROR:-Grok Build CLI model inventory failed}" > "${TEMP_OUTPUT}.err"
+            log_warn "[$CONSULTANT_NAME] ${_GROK_MODEL_PROBE_ERROR:-Grok Build CLI model inventory failed}"
             exit_code=69
         else
             # Official Grok Build headless contract:
@@ -249,7 +290,7 @@ else
                 --no-subagents
                 --no-memory
                 --disable-web-search
-                --max-turns 1
+                --max-turns "$GROK_MAX_TURNS"
                 --permission-mode dontAsk
                 --sandbox strict
                 --tools ""
@@ -268,7 +309,11 @@ else
             if [[ "$GROK_SUPPORTS_NO_AUTO_UPDATE" == "true" ]]; then
                 GROK_ARGS+=("--no-auto-update")
             fi
+            if [[ -n "$GROK_CLI_EFFORT" ]]; then
+                GROK_ARGS+=("--reasoning-effort" "$GROK_CLI_EFFORT")
+            fi
 
+            _GROK_REQUEST_LAUNCHED=true
             if run_query \
                     "$CONSULTANT_NAME" \
                     "$TEMP_OUTPUT" \
@@ -288,6 +333,7 @@ else
     # model error, empty reply, or other post-launch failure is returned as-is so
     # it cannot silently turn into a separately billed API request.
     if [[ $exit_code -ne 0 ]] \
+            && [[ "$_GROK_REQUEST_LAUNCHED" != "true" ]] \
             && grok_cli_is_unavailable "$exit_code" "${TEMP_OUTPUT}.err" \
             && [[ -n "${GROK_API_KEY:-}" ]]; then
         log_warn "[$CONSULTANT_NAME] Grok Build CLI unavailable (exit $exit_code); falling back to the xAI API"
@@ -298,7 +344,11 @@ else
             exit_code=$?
         fi
     elif [[ $exit_code -ne 0 && -n "${GROK_API_KEY:-}" ]]; then
-        log_warn "[$CONSULTANT_NAME] Grok Build request failed after launch; API fallback suppressed"
+        if [[ "$_GROK_REQUEST_LAUNCHED" == "true" ]]; then
+            log_warn "[$CONSULTANT_NAME] Grok Build request failed after launch; API fallback suppressed"
+        else
+            log_warn "[$CONSULTANT_NAME] Grok Build configuration/capability check failed; API fallback suppressed"
+        fi
     fi
 fi
 
@@ -317,10 +367,12 @@ fi
 # on the failure path.
 if process_consultant_response "$CONSULTANT_NAME" "$GROK_MODEL" "$PERSONA_NAME" \
         "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
-        "$GROK_MODEL" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL"; then
+        "$GROK_MODEL" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL" \
+        "$((GROK_MAX_TURNS * MAX_RETRIES))"; then
     :
 else
-    :
+    response_rc=$?
+    [[ $exit_code -ne 0 ]] || exit_code=$response_rc
 fi
 
 # Preserve which route actually answered without changing the shared schema.

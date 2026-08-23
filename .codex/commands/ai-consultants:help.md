@@ -12,8 +12,6 @@ All skill details (consultants, personas, presets, strategies, features, configu
 | Command | Description |
 |---------|-------------|
 | `/ai-consultants:consult` | Main consultation — ask AI consultants a coding question |
-| `/ai-consultants:debate` | Run consultation with multi-round debate |
-| `/ai-consultants:roster-audit` | Audit which consultants add distinct value vs echo the panel |
 | `/ai-consultants:help` | Show this help |
 
 ## Quick Examples
@@ -21,8 +19,11 @@ All skill details (consultants, personas, presets, strategies, features, configu
 ```
 /ai-consultants:consult "How to optimize this SQL query?"
 /ai-consultants:consult "Review this code" src/utils.ts
-/ai-consultants:debate "Microservices or monolith?"
+/ai-consultants:consult --preset max_quality "Microservices or monolith?"
 ```
+
+Codex is excluded from both consultation and synthesis when it invokes the
+panel; the other enabled providers remain eligible.
 
 Configuration (presets, strategies, features, personas, API keys) can be managed via natural language — just ask.
 

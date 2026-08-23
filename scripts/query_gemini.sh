@@ -8,7 +8,7 @@
 # Usage: ./query_gemini.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   GEMINI_MODEL - agy model display name (default: "Gemini 3.1 Pro (High)")
+#   GEMINI_MODEL - agy model display name (default: "Gemini 3.7 Flash (High)")
 #   GEMINI_TIMEOUT - Timeout in seconds (default: 180)
 #   GEMINI_USE_API - Use Google AI API mode instead of the agy CLI (default: false)
 #   GEMINI_API_MODEL - API model ID for API mode (default: gemini-3.1-pro-preview)
@@ -172,9 +172,14 @@ PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 # .response, possibly inside a ```json fence that process_consultant_response
 # strips), so extracting ".response" here would strip a level. The old Gemini
 # CLI wrapped output in {"response": "..."} and needed that argument.
-process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
-    "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL"
+if process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
+        "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
+        "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$EFFECTIVE_MODEL"; then
+    :
+else
+    response_rc=$?
+    [[ $exit_code -ne 0 ]] || exit_code=$response_rc
+fi
 
 cat "$OUTPUT_FILE"
 exit $exit_code

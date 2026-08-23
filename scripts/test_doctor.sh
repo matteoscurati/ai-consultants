@@ -27,7 +27,7 @@ source "$SCRIPT_DIR/lib/test_helpers.sh"
 # to be installed on the developer machine or the GitHub runner. `true` is a
 # portable executable stand-in; these tests exercise selection/counting only and
 # never invoke the consultants. Tests that need count=0 disable every ENABLE_*.
-export GEMINI_CMD=true CODEX_CMD=true MISTRAL_CMD=true CURSOR_CMD=true
+export GEMINI_CMD=true CODEX_CMD=true MISTRAL_CMD=true
 export KIMI_CMD=true CLAUDE_CMD=true QWEN3_CMD=true GROK_CMD=true MINIMAX_CMD=true
 
 # Each test invokes `doctor.sh --suggest-preset` with a different question
@@ -136,7 +136,6 @@ test_suggest_json_output() {
 test_suggest_low_count_short_circuits() {
     local out
     out=$(ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false \
-        ENABLE_CURSOR=false \
         ENABLE_KIMI=false ENABLE_CLAUDE=false \
         ENABLE_QWEN3=false \
         ENABLE_GLM=false ENABLE_GROK=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
@@ -175,20 +174,19 @@ test_config_sh_aborts_without_xdg_helper() {
     assert_eq "1" "$rc" "config.sh exits 1 when get_xdg_dir is missing"
 }
 
-# HIGH 3: count gates on ENABLE_* flags. Use the shell builtin `true` as a
-# hermetic stand-in for Cursor so the test does not depend on host CLIs.
+# HIGH 3: count gates on ENABLE_* flags.
 test_count_respects_enable_flags() {
     local count_with count_without
-    count_with=$(CURSOR_CMD=true ENABLE_CURSOR=true "$DOCTOR" --suggest-preset --question "test" --json \
+    count_with=$(KIMI_CMD=true ENABLE_KIMI=true "$DOCTOR" --suggest-preset --question "test" --json \
         2>/dev/null | jq -r '.consultants_available')
-    count_without=$(CURSOR_CMD=true ENABLE_CURSOR=false "$DOCTOR" --suggest-preset --question "test" --json \
+    count_without=$(KIMI_CMD=true ENABLE_KIMI=false "$DOCTOR" --suggest-preset --question "test" --json \
         2>/dev/null | jq -r '.consultants_available')
     if (( count_with > count_without )); then
         ((checked++)) || true
-        echo -e "  ${C_GREEN}PASS${C_RESET}: ENABLE_CURSOR=false drops count ($count_with -> $count_without)"
+        echo -e "  ${C_GREEN}PASS${C_RESET}: ENABLE_KIMI=false drops count ($count_with -> $count_without)"
     else
         ((failed++)) || true
-        echo -e "  ${C_RED}FAIL${C_RESET}: ENABLE_CURSOR gating ignored (with=$count_with, without=$count_without)"
+        echo -e "  ${C_RED}FAIL${C_RESET}: ENABLE_KIMI gating ignored (with=$count_with, without=$count_without)"
     fi
 }
 
@@ -348,19 +346,6 @@ test_main_json_reports_missing_enabled_cli() {
     assert_eq "1" "$rc" "missing enabled CLI returns unhealthy status after completing diagnostics"
 }
 
-test_cursor_wrong_binary_is_diagnosed() {
-    local tmp out rc=0
-    tmp=$(mktemp -d)
-    out=$(HOME="$tmp" XDG_CONFIG_HOME="$tmp/config" XDG_CACHE_HOME="$tmp/cache" \
-        XDG_STATE_HOME="$tmp/state" XDG_DATA_HOME="$tmp/data" \
-        CURSOR_CMD=true ENABLE_CURSOR=true "$DOCTOR" --json 2>/dev/null) || rc=$?
-    rm -rf "$tmp"
-    assert_eq 1 "$(echo "$out" | jq '[.doctor.issues[] | select(.description == "CURSOR_CMD does not identify Cursor Agent")] | length')" \
-        "doctor diagnoses an installed non-Cursor binary"
-    assert_eq 1 "$rc" "wrong Cursor binary makes static doctor unhealthy"
-}
-
 run_test "Test 18: missing enabled CLI completes JSON diagnosis" test_main_json_reports_missing_enabled_cli
-run_test "Test 19: wrong Cursor binary is diagnosed" test_cursor_wrong_binary_is_diagnosed
 
 test_summary "doctor"

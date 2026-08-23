@@ -33,11 +33,28 @@ printf '%s\n' "$workspace" > "$VIBE_WORKSPACE_FILE"
 [[ -z "${VIBE_REQUEST_FILE:-}" ]] || : > "$VIBE_REQUEST_FILE"
 case "${VIBE_FAKE_MODE:-success}" in
     success) printf '%s\n' '{"response":{"summary":"Vibe answered","detailed":"ok","approach":"test","pros":[],"cons":[],"caveats":[]},"confidence":{"score":8,"reasoning":"stub"}}' ;;
+    prose) printf '%s\n' 'Concrete Vibe recommendation' 'More detail' ;;
     empty) exit 0 ;;
     failure) echo 'post-launch failure' >&2; exit 42 ;;
 esac
 EOF
     chmod +x "$path"
+}
+
+test_cli_prose_is_explicit_usable_fallback() {
+    local fake="$TMP_ROOT/vibe-prose" output="$TMP_ROOT/prose.json"
+    make_vibe_stub "$fake"
+    if ! MISTRAL_CMD="$fake" MISTRAL_USE_API=false MISTRAL_CLI_MODEL=mistral-medium-3.5 \
+        VIBE_ARGS_FILE="$TMP_ROOT/prose.args" VIBE_MODEL_FILE="$TMP_ROOT/prose.model" \
+        VIBE_WORKSPACE_FILE="$TMP_ROOT/prose.workspace" VIBE_FAKE_MODE=prose MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_mistral.sh" test "" "$output" >/dev/null 2>&1; then
+        assert_eq success failure "Mistral prose fallback completes"
+        return
+    fi
+    assert_eq fallback "$(jq -r '.metadata.response_quality' "$output")" \
+        "Mistral prose is explicitly marked fallback"
+    assert_eq "Concrete Vibe recommendation" "$(jq -r '.response.summary' "$output")" \
+        "Mistral prose contributes a meaningful summary"
 }
 
 test_cli_uses_separate_model_and_isolated_plan_workspace() {
@@ -57,7 +74,7 @@ test_cli_uses_separate_model_and_isolated_plan_workspace() {
     assert_eq "mistral-medium-3.5" "$(jq -r '.model' "$output")" "response records the CLI model, not the API slug"
     assert_eq "requested-only" "$(jq -r '.metadata.model_identity_source' "$output")" "Vibe does not claim provider identity without an inventory"
     assert_match '(^|[[:space:]])--agent[[:space:]]+plan($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "Vibe uses the read-only plan agent"
-    assert_match '(^|[[:space:]])--max-turns[[:space:]]+1($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "Vibe is limited to one advisory turn"
+    assert_match '(^|[[:space:]])--max-turns[[:space:]]+4($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "Vibe receives the smoke-tested advisory turn budget"
     local workspace
     workspace=$(cat "$workspace_file")
     assert_match '/ai-consultants-mistral\..*/workspace$' "$workspace" "Vibe receives an isolated temporary workspace"
@@ -94,7 +111,23 @@ test_incompatible_cli_never_dispatches() {
     assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" "incompatible Mistral CLI never dispatches"
 }
 
+test_invalid_turn_budget_never_dispatches() {
+    local fake="$TMP_ROOT/vibe-invalid-turns" request="$TMP_ROOT/invalid-turns.request"
+    local output="$TMP_ROOT/invalid-turns.json" rc=0
+    make_vibe_stub "$fake"
+    MISTRAL_CMD="$fake" MISTRAL_USE_API=false MISTRAL_CLI_MODEL=mistral-medium-3.5 \
+        MISTRAL_MAX_TURNS=0 VIBE_ARGS_FILE="$TMP_ROOT/invalid-turns.args" \
+        VIBE_MODEL_FILE="$TMP_ROOT/invalid-turns.model" VIBE_WORKSPACE_FILE="$TMP_ROOT/invalid-turns.workspace" \
+        VIBE_REQUEST_FILE="$request" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_mistral.sh" test "" "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$rc" "invalid Mistral turn budget fails"
+    assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" \
+        "invalid Mistral turn budget never dispatches"
+}
+
 run_test "Mistral CLI model and read-only isolation" test_cli_uses_separate_model_and_isolated_plan_workspace
+run_test "Mistral prose remains a usable explicit fallback" test_cli_prose_is_explicit_usable_fallback
 run_test "Mistral empty/post-launch failures fail closed" test_cli_empty_and_failure_are_not_success
 run_test "Mistral capability-incompatible CLI fails before dispatch" test_incompatible_cli_never_dispatches
+run_test "Mistral invalid turn budget fails before dispatch" test_invalid_turn_budget_never_dispatches
 test_summary "query_mistral"

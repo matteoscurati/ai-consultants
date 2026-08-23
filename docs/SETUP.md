@@ -38,7 +38,7 @@ This installs to `~/.claude/skills/ai-consultants/` and makes slash commands ava
 ai-consultants configure
 ```
 
-This detects installed CLIs and available API keys for the complete 11-agent
+This detects installed CLIs and available API keys for the complete 10-consultant
 roster, selects CLI/API transport, and saves a private persistent configuration
 under `~/.config/ai-consultants/`.
 
@@ -288,15 +288,6 @@ export MISTRAL_API_KEY="your-key"
 
 Get API key: [Mistral Console](https://console.mistral.ai/api-keys/)
 
-### Cursor CLI (The Integrator)
-
-```bash
-curl https://cursor.com/install -fsS | bash
-
-# Uses Cursor subscription - no additional key needed
-cursor-agent status
-```
-
 ### Claude CLI (The Synthesizer) - v2.2
 
 ```bash
@@ -366,13 +357,13 @@ When AI Consultants is invoked from a specific AI agent, that agent is automatic
 
 | Invoking Agent | Excluded Consultant | Other Consultants |
 |----------------|---------------------|-------------------|
-| Claude Code | Claude | Gemini, Codex, Mistral, Cursor, Qwen, etc. |
-| Codex CLI | Codex | Claude, Gemini, Mistral, Cursor, Qwen, etc. |
-| Gemini CLI | Gemini | Claude, Codex, Mistral, Cursor, Qwen, etc. |
-| Cursor | Cursor | Claude, Gemini, Codex, Mistral, Qwen, etc. |
-| Qwen CLI | Qwen3 | Claude, Gemini, Codex, Mistral, Cursor, etc. |
+| Claude Code | Claude | Gemini, Codex, Mistral, Qwen, etc. |
+| Codex CLI | Codex | Claude, Gemini, Mistral, Qwen, etc. |
+| Gemini CLI | Gemini | Claude, Codex, Mistral, Qwen, etc. |
+| Cursor | None | All enabled consultants; Cursor is a host, not a panel member |
+| Qwen CLI | Qwen3 | Claude, Gemini, Codex, Mistral, etc. |
 | Kimi CLI | Kimi | All except Kimi |
-| Bash (direct) | None | All enabled consultants (up to 11) |
+| Bash (direct) | None | All enabled consultants (up to 10) |
 
 ### Automatic Detection
 
@@ -380,6 +371,11 @@ When using slash commands, `INVOKING_AGENT` is set automatically:
 - Claude Code: `/ai-consultants:consult` sets `INVOKING_AGENT=claude`
 - Codex CLI: `/ai-consultants:consult` sets `INVOKING_AGENT=codex`
 - Gemini CLI: `/ai-consultants:consult` sets `INVOKING_AGENT=gemini`
+
+The same identity excludes the host from synthesis. A Claude-hosted run must
+not create `claude.json` or report `synthesis_provider=claude`; equivalent
+invariants apply to Codex and Gemini. Natural-language skill invocations follow
+the execution contract in `SKILL.md`.
 
 ### Manual Usage (Bash)
 
@@ -464,8 +460,9 @@ Presets let you quickly configure how many consultants to use.
 | Preset | Consultants | Use Case |
 |--------|-------------|----------|
 | `minimal` | 2 (Gemini + Codex) | Quick, cheap |
-| `balanced` | 4 (+ Mistral + Cursor) | Standard |
-| `thorough` | 4 | Comprehensive |
+| `balanced` | 3 (+ Mistral) | Standard |
+| `thorough` | 3 | Comprehensive |
+| `max_quality` | All 10, maximum models and max provider effort | Critical decisions |
 | `high-stakes` | Expanded panel | Critical decisions |
 | `security` | Security-focused | Security reviews |
 | `cost-capped` | Budget-friendly | Low cost |
@@ -498,7 +495,7 @@ Strategies control how consultant responses are combined.
 | Strategy | Description |
 |----------|-------------|
 | `coverage` | Union of every distinct point/risk across consultants, deduplicated (default) |
-| `majority` | Simple voting, most common answer wins |
+| `majority` | Produce one blended recommendation |
 | `risk_averse` | Weight conservative responses higher |
 | `security_first` | Prioritize security-focused insights |
 | `cost_capped` | Prefer simpler, cheaper solutions |
@@ -516,7 +513,7 @@ DEFAULT_STRATEGY=risk_averse
 
 | Use Case | Recommended Strategy |
 |----------|---------------------|
-| General questions | `majority` |
+| General questions | `coverage` |
 | Production deployments | `risk_averse` |
 | Security audits | `security_first` |
 | Budget constraints | `cost_capped` |
@@ -590,12 +587,11 @@ cp .env.example .env
 Edit `.env`:
 
 ```bash
-# Enable/disable consultants (11 available)
+# Enable/disable consultants (10 available)
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_CLAUDE=false    # Auto-excluded when invoked from Claude Code
 ENABLE_MISTRAL=false
-ENABLE_CURSOR=false
 ENABLE_QWEN3=false     # v2.7: The Analyst (CLI/API)
 ENABLE_GROK=true       # Grok Build CLI; API fallback when unavailable
 ENABLE_GLM=false
@@ -651,7 +647,6 @@ Example configurations:
 ENABLE_GEMINI=true
 ENABLE_CODEX=true
 ENABLE_MISTRAL=false
-ENABLE_CURSOR=false
 ```
 
 **OpenAI + Anthropic:**

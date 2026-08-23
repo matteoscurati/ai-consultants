@@ -122,9 +122,14 @@ MODEL_USED="$KIMI_MODEL"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---
-process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-    "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
-    "$MODEL_USED" "capability-probed" "$MODEL_USED"
+if process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
+        "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY" \
+        "$MODEL_USED" "capability-probed" "$MODEL_USED"; then
+    :
+else
+    response_rc=$?
+    [[ $exit_code -ne 0 ]] || exit_code=$response_rc
+fi
 
 if [[ -s "$OUTPUT_FILE" ]]; then
     response_tmp=$(mktemp)

@@ -7,13 +7,13 @@ Read this file when the user asks about presets, strategies, bash usage, best pr
 | Preset | Consultants | Use Case |
 |--------|-------------|----------|
 | `minimal` | 2 (Gemini + Codex) | Quick questions |
-| `balanced` | 4 (+Mistral +Cursor) | Standard use |
-| `thorough` | 4 | Comprehensive |
-| `high-stakes` | Expanded panel (5 of 11) | Critical decisions |
-| `security` | Security-focused (4) | Security reviews |
+| `balanced` | 3 (+Mistral) | Standard use |
+| `thorough` | 3 | Comprehensive |
+| `high-stakes` | Expanded panel (4 of 10) | Critical decisions |
+| `security` | Security-focused (3) | Security reviews |
 | `cost-capped` | Budget-friendly | Low cost |
-| `max_quality` | 8 of 11, maximum tier | Critical decisions |
-| `medium` | 4, standard models | General questions |
+| `max_quality` | All 10, maximum tier and max effort | Critical decisions |
+| `medium` | 3, standard models | General questions |
 | `fast` | 2, economy models | Quick checks |
 
 A preset only chooses the consultant set + model tier; every run fans out in parallel and returns the coverage union.

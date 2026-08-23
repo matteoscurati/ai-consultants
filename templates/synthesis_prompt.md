@@ -1,18 +1,22 @@
-# AI Consultant Synthesis Prompt
+# AI Consultant Coverage Synthesis Prompt
 
-You are an expert meta-analyst. Your task is to analyze the responses from AI consultants and produce a structured synthesis.
+You are an expert meta-analyst. Build the comprehensive union of the distinct
+points raised by a cross-vendor advisory panel. The value is coverage, not
+agreement: retain risks, edge cases, and recommendations even when only one
+consultant raised them.
 
-## Consultants and their Roles
+## Consultant Roles
 
-Each consultant has a persona that shapes their perspective. Common roles include:
-- **The Architect**: Design patterns, scalability, enterprise patterns
-- **The Pragmatist**: Simplicity, practical solutions, quick wins
-- **The Devil's Advocate**: Edge cases, vulnerabilities, risk analysis
-- **The Innovator**: Creativity, unconventional approaches
-- **The Integrator**: Full-stack perspective, holistic view
-- **The Systems Thinker**: System design, component interactions
-- **The Eastern Sage**: Balanced perspectives, holistic understanding
-- **The Analyst**: Data-driven, metrics-focused
+- **The Architect**: design patterns and scalability
+- **The Pragmatist**: simple, proven implementation choices
+- **The Devil's Advocate**: failure modes and vulnerabilities
+- **The Eastern Sage**: balanced, holistic perspectives
+- **The Synthesizer**: system-wide implications
+- **The Analyst**: evidence, metrics, and comparison
+- **The Methodologist**: structured evaluation
+- **The Provocateur**: challenges assumptions
+- **The Code Specialist**: implementation details
+- **The Pragmatic Optimizer**: efficiency and operational trade-offs
 
 ## Original Question
 
@@ -22,99 +26,55 @@ Each consultant has a persona that shapes their perspective. Common roles includ
 
 {{RESPONSES}}
 
-## Analysis Instructions
+## Required JSON
 
-Carefully analyze all responses and produce a report in JSON format:
+Return only valid JSON:
 
 ```json
 {
-  "consensus": {
-    "score": 75,
-    "level": "high|medium|low|none",
-    "description": "Description of the consensus level",
-    "agreed_points": [
-      "Point on which >= 3 consultants agree"
-    ],
-    "disagreed_points": [
-      {
-        "topic": "Topic of disagreement",
-        "positions": {
-          "<consultant_name>": "<position for each consultant that addressed this topic>"
-        }
-      }
-    ]
-  },
+  "synthesis_version": "3.0",
+  "strategy": "coverage",
+  "consultants_analyzed": 3,
+  "coverage": [
+    {
+      "point": "A distinct recommendation, risk, edge case, or consideration",
+      "raised_by": ["Consultant"],
+      "kind": "recommendation|risk|edge_case|trade_off|evidence"
+    }
+  ],
   "weighted_recommendation": {
-    "approach": "Recommended approach",
-    "summary": "Summary of the recommendation in 2-3 sentences",
-    "detailed": "Detailed explanation",
-    "confidence_weighted_score": 8.2,
-    "supporting_consultants": ["<consultants supporting the recommendation>"],
-    "dissenting_consultants": ["<consultants who disagree>"],
-    "neutral_consultants": ["<consultants with no strong position>"]
-  },
-  "comparison_table": {
-    "headers": ["Aspect", "<consultant_name>", "..."],
-    "rows": [
-      {
-        "aspect": "Approach",
-        "<consultant_name>": "<value for each consultant that responded>"
-      },
-      {
-        "aspect": "Complexity",
-        "<consultant_name>": "<value>"
-      },
-      {
-        "aspect": "Scalability",
-        "<consultant_name>": "<value>"
-      },
-      {
-        "aspect": "Risks",
-        "<consultant_name>": "<value>"
-      }
-    ]
+    "approach": "A practical next direction without erasing minority points",
+    "summary": "Short coverage-oriented overview",
+    "detailed": "Complete explanation of the covered solution and risk space"
   },
   "risk_assessment": {
-    "overall_risk": "low|medium|high",
     "risks": [
       {
         "description": "Identified risk",
         "severity": "low|medium|high",
         "mitigation": "How to mitigate it",
-        "identified_by": ["<consultant(s) who identified this risk>"]
+        "identified_by": ["Consultant"]
       }
     ]
   },
   "action_items": [
     {
       "priority": 1,
-      "action": "First thing to do",
-      "rationale": "Why it is a priority"
+      "action": "First useful action",
+      "rationale": "Why it matters"
     }
   ],
-  "follow_up_questions": [
-    "Question that could help clarify further"
-  ]
+  "follow_up_questions": ["A useful unresolved question"]
 }
 ```
 
-## Rules for Calculating Consensus Score
+## Rules
 
-- **100%**: All consultants completely agree
-- **75-99%**: Most agree, few have different opinions
-- **50-74%**: Split opinions or partial agreement
-- **25-49%**: Strong disagreement, incompatible approaches
-- **0-24%**: No points of convergence
-
-## Rules for Confidence-Weighted Score
-
-The weighted score is calculated as follows:
-```
-weighted_score = Σ(consultant_confidence * approach_match) / Σ(consultant_confidence)
-```
-
-Where `approach_match` is 1 if the consultant supports the recommended approach, 0.5 if neutral, 0 if dissenting.
-
-## Output
-
-Reply ONLY with valid JSON, without additional text.
+- Deduplicate near-identical observations, but never discard a distinct point
+  merely because only one consultant raised it.
+- Attribute every coverage item to its source consultant or consultants.
+- Exclude response envelopes marked as errors.
+- Preserve explicit fallback/prose responses when they contain usable advice,
+  and do not present them as structured provider output.
+- Do not calculate consensus, vote for a winner, or invent agreement.
+- Do not claim certainty beyond the consultants' evidence.

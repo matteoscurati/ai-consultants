@@ -88,7 +88,7 @@ test_cli_consultation_under_ssh_markers() {
     # Force CLI mode even if a GEMINI_API_KEY is present in the ambient env.
     if ! GEMINI_CMD="$fake_agy" \
         GEMINI_USE_API=false \
-        GEMINI_MODEL="Gemini 3.1 Pro (High)" \
+        GEMINI_MODEL="Gemini 3.7 Flash (High)" \
         AGY_ARGS_FILE="$args_file" \
         MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_gemini.sh" "Test SSH isolation" "" "$output_file" >/dev/null 2>&1; then
@@ -97,13 +97,13 @@ test_cli_consultation_under_ssh_markers() {
     fi
 
     assert_eq "Gemini" "$(jq -r '.consultant' "$output_file")" "response is from Gemini"
-    assert_eq "Gemini 3.1 Pro (High)" "$(jq -r '.model' "$output_file")" "response reports pinned model"
+    assert_eq "Gemini 3.7 Flash (High)" "$(jq -r '.model' "$output_file")" "response reports promoted model"
     assert_eq "Gemini answered" "$(jq -r '.response.summary' "$output_file")" "structured response is preserved"
-    assert_eq "Gemini 3.1 Pro (High)" "$(jq -r '.metadata.requested_model' "$output_file")" \
+    assert_eq "Gemini 3.7 Flash (High)" "$(jq -r '.metadata.requested_model' "$output_file")" \
         "metadata records requested CLI model"
     assert_eq "capability-probed" "$(jq -r '.metadata.model_identity_source' "$output_file")" \
         "Gemini CLI identity comes from the model inventory"
-    assert_match '(^|[[:space:]])--model[[:space:]]+Gemini 3\.1 Pro \(High\)($|[[:space:]])' \
+    assert_match '(^|[[:space:]])--model[[:space:]]+Gemini 3\.7 Flash \(High\)($|[[:space:]])' \
         "$(tr '\n' ' ' < "$args_file")" "agy receives --model flag"
 }
 

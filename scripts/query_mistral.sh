@@ -7,6 +7,7 @@
 #   MISTRAL_MODEL - API model ID (default: mistral-large-3)
 #   MISTRAL_CLI_MODEL - Vibe model alias (default: mistral-medium-3.5)
 #   MISTRAL_TIMEOUT - Timeout in seconds (default: 180)
+#   MISTRAL_MAX_TURNS - Bounded advisory turns (default: 4)
 #   MISTRAL_USE_API - Use API mode instead of CLI (default: false)
 #   MISTRAL_API_KEY - API key for API mode
 #   ENABLE_PERSONA - Enable "The Devil's Advocate" persona (default: true)
@@ -96,6 +97,10 @@ else
         log_error "[$CONSULTANT_NAME] Mistral Vibe lacks the required bounded read-only interface or its help probe timed out"
         exit 1
     fi
+    if ! [[ "$MISTRAL_MAX_TURNS" =~ ^[1-9][0-9]*$ ]]; then
+        log_error "[$CONSULTANT_NAME] MISTRAL_MAX_TURNS must be a positive integer (got: $MISTRAL_MAX_TURNS)"
+        exit 1
+    fi
 
     runtime_base="${TMPDIR:-/tmp}"
     runtime_base="${runtime_base%/}"
@@ -111,7 +116,7 @@ else
             "$MISTRAL_TIMEOUT_SECONDS" \
             env VIBE_ACTIVE_MODEL="$MISTRAL_CLI_MODEL" \
             "$MISTRAL_CMD" -p "$FULL_QUERY" --output text --agent plan \
-            --workdir "$isolated_workspace" --max-turns 1 < /dev/null; then
+            --workdir "$isolated_workspace" --max-turns "$MISTRAL_MAX_TURNS" < /dev/null; then
         exit_code=0
     else
         exit_code=$?
@@ -136,15 +141,29 @@ PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 # --- Post-processing: wrap in full schema using shared helpers ---
 if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
     RAW_RESPONSE=$(cat "$TEMP_OUTPUT")
-    read -r _TOK _TOK_SRC _TOK_IN _TOK_OUT <<< "$(resolve_response_tokens "$FULL_QUERY" "$RAW_RESPONSE")"
+    token_multiplier=1
+    if ! is_api_mode "mistral"; then
+        token_multiplier=$((MISTRAL_MAX_TURNS * MAX_RETRIES))
+    fi
+    read -r _TOK _TOK_SRC _TOK_IN _TOK_OUT <<< "$(resolve_response_tokens "$FULL_QUERY" "$RAW_RESPONSE" "$token_multiplier")"
     clear_api_token_split
     rm -f "$TEMP_OUTPUT"
 
-    # Try to parse as structured JSON
-    if echo "$RAW_RESPONSE" | jq -e '.response.summary' > /dev/null 2>&1; then
-        build_structured_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+    if NORMALIZED_RESPONSE=$(normalize_consultant_response_text "$RAW_RESPONSE"); then
+        normalization_rc=0
     else
-        build_fallback_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$RAW_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+        normalization_rc=$?
+    fi
+    if [[ $normalization_rc -eq 0 ]]; then
+        build_structured_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$NORMALIZED_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+    elif [[ $normalization_rc -eq 1 ]]; then
+        build_fallback_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "$NORMALIZED_RESPONSE" "$LATENCY_MS" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+    else
+        log_error "[$CONSULTANT_NAME] Provider returned malformed, truncated, or schema-invalid JSON"
+        build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" \
+            "Provider returned malformed, truncated, or schema-invalid JSON" "$LATENCY_MS" \
+            "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" > "$OUTPUT_FILE"
+        exit_code=1
     fi
 else
     rm -f "$TEMP_OUTPUT"

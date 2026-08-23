@@ -1,9 +1,9 @@
 {
   "version": "3.5.0",
-  "updated": "2026-07-25",
+  "updated": "2026-08-23",
   "models": {
     "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
-    "_comment_premium": "Premium tier models - Jul 2026",
+    "_comment_premium": "Premium tier models - Aug 2026",
     "claude-opus-5": {
       "input": 0.005,
       "output": 0.025
@@ -416,14 +416,13 @@
   "consultant_fallbacks": {
     "_comment": "Premium defaults - Updated Aug 2026",
     "claude": "claude-opus-5",
-    "gemini": "Gemini 3.1 Pro (High)",
+    "gemini": "Gemini 3.7 Flash (High)",
     "codex": "gpt-5.6-sol",
     "mistral": "mistral-large-3",
     "deepseek": "deepseek-v4-pro",
     "glm": "glm-5.3",
     "grok": "grok-4.6",
     "qwen3": "qwen3.7-max",
-    "cursor": "composer-2.5",
     "kimi": "kimi-code/k3",
     "minimax": "minimax-m2.7"
   },
@@ -431,53 +430,49 @@
     "_comment": "Model tiers for apply_model_tier() function",
     "maximum": {
       "claude": "claude-opus-5",
-      "gemini": "Gemini 3.1 Pro (High)",
+      "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-5.6-sol",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-v4-pro",
       "glm": "glm-5.3",
       "grok": "grok-4.6",
       "qwen3": "qwen3.8-max",
-      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3-256k",
       "minimax": "MiniMax-M3"
     },
     "premium": {
       "claude": "claude-opus-5",
-      "gemini": "Gemini 3.1 Pro (High)",
+      "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-5.6-sol",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-v4-pro",
       "glm": "glm-5.3",
       "grok": "grok-4.6",
       "qwen3": "qwen3.7-max",
-      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.7"
     },
     "standard": {
       "claude": "claude-sonnet-5",
-      "gemini": "Gemini 3.6 Flash (High)",
+      "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-5.6-terra",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-v4-flash",
       "glm": "glm-5.3",
       "grok": "grok-4.5",
       "qwen3": "qwen3.6-35b-a3b",
-      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.7"
     },
     "economy": {
       "claude": "claude-haiku-4-5",
-      "gemini": "Gemini 3.6 Flash (Low)",
+      "gemini": "Gemini 3.7 Flash (Low)",
       "codex": "gpt-5.6-luna",
       "mistral": "devstral-small-2",
       "deepseek": "deepseek-v4-flash",
       "glm": "glm-4-flash",
       "grok": "grok-4.5",
       "qwen3": "qwen3-32b",
-      "cursor": "composer-2.5",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.5"
     }
@@ -485,10 +480,10 @@
   "transport_model_tiers": {
     "_comment": "Transport-specific namespaces used by Gemini and Mistral; the legacy model_tiers table reflects their CLI values.",
     "gemini": {
-      "maximum": {"cli": "Gemini 3.1 Pro (High)", "api": "gemini-3.1-pro-preview"},
-      "premium": {"cli": "Gemini 3.1 Pro (High)", "api": "gemini-3.1-pro-preview"},
-      "standard": {"cli": "Gemini 3.6 Flash (High)", "api": "gemini-3.1-pro-preview"},
-      "economy": {"cli": "Gemini 3.6 Flash (Low)", "api": "gemini-3.1-pro-preview"}
+      "maximum": {"cli": "Gemini 3.7 Flash (High)", "api": "gemini-3.1-pro-preview"},
+      "premium": {"cli": "Gemini 3.7 Flash (High)", "api": "gemini-3.1-pro-preview"},
+      "standard": {"cli": "Gemini 3.7 Flash (High)", "api": "gemini-3.1-pro-preview"},
+      "economy": {"cli": "Gemini 3.7 Flash (Low)", "api": "gemini-3.1-pro-preview"}
     },
     "mistral": {
       "maximum": {"cli": "mistral-medium-3.5", "api": "mistral-large-3"},
@@ -498,7 +493,8 @@
     }
   },
   "opt_in_targets": {
-    "gemini": ["gemini-3.7-flash", "Gemini 3.7 Flash (High)", "Gemini 3.7 Flash (Low)"],
+    "gemini_cli": ["Gemini 3.1 Pro (High)", "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Low)"],
+    "gemini_api": ["gemini-3.7-flash"],
     "mistral_api": ["mistral-medium-3-5", "mistral-large-2512", "mistral-small-2603"],
     "claude": ["claude-fable-5"]
   },

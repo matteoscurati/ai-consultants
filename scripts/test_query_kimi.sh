@@ -38,7 +38,7 @@ fi
 
 [[ -z "${KIMI_REQUEST_FILE:-}" ]] || : > "$KIMI_REQUEST_FILE"
 printf '%s\n' "$@" > "$KIMI_ARGS_FILE"
-printf '%s\n' '{"role":"assistant","content":"{\"summary\":\"K3 selected\",\"approach\":\"Test\",\"pros\":[],\"cons\":[],\"risks\":[],\"recommendations\":[],\"confidence\":9}"}'
+printf '%s\n' '{"role":"assistant","content":"{\"response\":{\"summary\":\"K3 selected\",\"detailed\":\"ok\",\"approach\":\"Test\",\"pros\":[],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":9,\"reasoning\":\"stub\"}}"}'
 EOF
     chmod +x "$path"
 }

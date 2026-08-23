@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-AI Consultants is a multi-model coverage system that queries up to 11 AI consultants (Gemini, Codex, Mistral, Cursor, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
+AI Consultants is a multi-model coverage system that queries up to 10 AI consultants (Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
 
-**Self-Exclusion**: The invoking agent is automatically excluded from the panel to prevent self-consultation. Claude Code won't query Claude, Codex CLI won't query Codex, etc.
+**Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
 **Version**: 3.5.0
 
@@ -176,25 +176,33 @@ Functions in `lib/common.sh`:
 - `get_self_consultant_name()` - Maps invoking agent to consultant name
 - `should_skip_consultant()` - Returns true if consultant should be excluded
 - `log_self_exclusion_status()` - Debug logging for exclusion
+- `resolve_synthesis_cli()` - Refuses the invoking agent as synthesis provider
+
+Agent hosts must set `INVOKING_AGENT` explicitly and run `consult_all.sh`
+instead of individual adapters. A Claude-hosted run must produce no
+`claude.json`, and its `synthesis_provider` must not be `claude`; the equivalent
+invariant applies to Codex and Gemini. See `SKILL.md` for the full execution
+contract.
 
 ### Configuration Presets
 ```bash
 # Quality Tier Presets (v2.5)
-./scripts/consult_all.sh --preset max_quality "question"  # 8 of 11 consultants + maximum tier + peer review
-./scripts/consult_all.sh --preset medium "question"       # 4 consultants + standard models
+./scripts/consult_all.sh --preset max_quality "question"  # all 10 consultants + maximum tier/max effort
+./scripts/consult_all.sh --preset medium "question"       # 3 consultants + standard models
 ./scripts/consult_all.sh --preset fast "question"         # 2 consultants + economy models
 
 # Use Case Presets
 ./scripts/consult_all.sh --preset minimal "question"    # Gemini + Codex
-./scripts/consult_all.sh --preset balanced "question"   # + Mistral + Cursor
-./scripts/consult_all.sh --preset high-stakes "question" # All + debate
+./scripts/consult_all.sh --preset balanced "question"   # + Mistral
+./scripts/consult_all.sh --preset high-stakes "question" # Broad premium panel
 ```
 
 Presets are defined in `config.sh` via `apply_preset()` function.
 
 ### Synthesis Strategies
 ```bash
-./scripts/consult_all.sh --strategy majority "question"      # Default
+./scripts/consult_all.sh --strategy coverage "question"      # Default: union of distinct points
+./scripts/consult_all.sh --strategy majority "question"      # Blended recommendation
 ./scripts/consult_all.sh --strategy risk_averse "question"   # Conservative
 ./scripts/consult_all.sh --strategy security_first "question" # Security focus
 ./scripts/consult_all.sh --strategy compare_only "question"  # No recommendation
@@ -209,34 +217,6 @@ Strategies are implemented in `synthesize.sh` via `get_strategy_instructions()`.
 ./scripts/doctor.sh --json       # JSON output
 ./scripts/doctor.sh --verbose    # Detailed output
 ```
-
-### Panic Button Mode
-Automatically adds rigor when uncertainty detected:
-- Average confidence below `PANIC_CONFIDENCE_THRESHOLD` (default: 5)
-- Uncertainty keywords detected in responses
-
-Configuration in `config.sh`:
-- `ENABLE_PANIC_MODE` - "auto", "always", or "never"
-- `PANIC_CONFIDENCE_THRESHOLD` - Trigger threshold
-- `PANIC_EXTRA_DEBATE_ROUNDS` - Additional debate rounds
-
-### Confidence Intervals
-Functions in `lib/voting.sh`:
-- `calculate_confidence_stddev()` - Returns stddev scaled by 10
-- `calculate_confidence_interval()` - Returns JSON with mean, stddev, interval
-- `has_high_confidence_variance()` - Returns 0 if variance > 2.0
-- `format_confidence_range()` - Returns "7 ± 1.5" format
-
-### Anonymous Peer Review
-```bash
-./scripts/peer_review.sh <responses_dir> <output_dir>
-```
-
-Process:
-1. Anonymize all responses (remove consultant names)
-2. Each consultant ranks and critiques responses
-3. Aggregate peer scores to identify strongest arguments
-4. De-anonymize in final report
 
 ## v2.9 Features
 
@@ -288,7 +268,7 @@ npm install -g @qwen-code/qwen-code@latest
 ## v2.6 Features
 
 ### CLI/API Mode Switching
-Six consultants can now switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3, MiniMax**.
+Seven consultants can switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3, Grok, MiniMax**.
 
 When API mode is enabled for an agent, CLI mode is disabled (mutual exclusivity).
 
@@ -325,6 +305,7 @@ New environment variables in `config.sh`:
 | `CLAUDE_USE_API` | false | Use Anthropic API instead of claude CLI |
 | `MISTRAL_USE_API` | false | Use Mistral API instead of vibe CLI |
 | `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
+| `GROK_USE_API` | auto | Use xAI API when Grok Build is unavailable |
 | `MINIMAX_USE_API` | false | Use MiniMax API instead of the mmx CLI (v2.21) |
 | `GEMINI_API_URL` | https://generativelanguage.googleapis.com/v1beta/models | Google AI endpoint |
 | `CODEX_API_URL` | https://api.openai.com/v1/chat/completions | OpenAI endpoint |
@@ -368,10 +349,10 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-opus-5, Gemini 3.1 Pro (High), gpt-5.6-sol |
-| **maximum** | Smoke-tested separate-plan targets used by max_quality | K3-256k, Qwen3.8-Max, MiniMax M3 |
-| **standard** | Good quality at reasonable cost | claude-sonnet-5, Gemini 3.6 Flash (High), gpt-5.6-terra |
-| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.6 Flash (Low), gpt-5.6-luna |
+| **premium** | Latest flagship models | claude-opus-5, Gemini 3.7 Flash (High), gpt-5.6-sol |
+| **maximum** | All 10 consultants; maximum targets and highest provider effort | K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
+| **standard** | Good quality at reasonable cost | claude-sonnet-5, Gemini 3.7 Flash (High), gpt-5.6-terra |
+| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.7 Flash (Low), gpt-5.6-luna |
 
 **Default models are now premium tier** for maximum quality.
 
@@ -384,7 +365,7 @@ apply_model_tier "standard"  # Set all consultants to standard models
 apply_model_tier "economy"   # Set all consultants to economy models
 
 # Get model for a specific consultant and tier (v2.8.1)
-get_model_for_tier "gemini" "premium"   # → Gemini 3.1 Pro (High)
+get_model_for_tier "gemini" "premium"   # → Gemini 3.7 Flash (High) on agy
 get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 ```
 
@@ -392,26 +373,25 @@ get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 Three new presets leverage the model tiers:
 
 ```bash
-# Maximum quality - maximum tier + debate + peer review
+# Maximum quality - all consultants + maximum models and provider effort
 ./scripts/consult_all.sh --preset max_quality "critical architecture decision"
 
-# Balanced quality - standard models, 4 consultants, light debate
+# Balanced quality - standard models, 3 consultants
 ./scripts/consult_all.sh --preset medium "general coding question"
 
-# Super fast - economy models, 2 consultants, no debate
+# Super fast - economy models, 2 consultants
 ./scripts/consult_all.sh --preset fast "quick syntax question"
 ```
 
-### Premium Model Defaults (July 2026)
+### Premium Model Defaults (August 2026)
 All consultants now use premium models by default:
 
 | Consultant | Default Model |
 |------------|---------------|
 | Claude | claude-opus-5 |
-| Gemini | Gemini 3.1 Pro (High) (via agy CLI) |
+| Gemini | Gemini 3.7 Flash (High) (via agy CLI); API: gemini-3.1-pro-preview |
 | Codex | gpt-5.6-sol |
 | Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
-| Cursor | composer-2.5 |
 | DeepSeek | deepseek-v4-pro |
 | GLM | glm-5.3 |
 | Grok | grok-4.6 |
@@ -429,6 +409,20 @@ consultation. The xAI Chat Completions path is retained only when the CLI is
 missing, cannot launch, or lacks usable authentication and `GROK_API_KEY` is
 available. A timeout, model error, empty response, or other post-launch failure
 is surfaced and never silently rerouted to the API.
+
+The live full-panel smoke defines the `max_quality` runtime envelope, not just
+the model names. Mistral and Grok receive four bounded advisory turns plus an
+explicit no-tools/workspace instruction. Qwen3.8-Max gets a 600-second Token
+Plan timeout; DeepSeek V4 Pro/max gets 600 seconds and 16,384 completion tokens;
+GLM gets 16,384; MiniMax M3 gets 16,384 plus a compact Markdown contract in
+mmx's native system channel. OpenAI-compatible
+`finish_reason=length` is an error. Every
+response records `metadata.response_quality=structured|fallback|error`:
+malformed JSON-looking output fails closed, while real markdown/prose is kept
+as an explicit fallback. Synthesis filters error envelopes and includes bounded
+detail from structured and fallback responses. Claude CLI consultations are
+preflighted, stateless (`--no-session-persistence`), setting-source-free,
+tool-free, and MCP-free; a hung/help/auth probe fails before a paid dispatch.
 
 ## v2.4 Features
 
@@ -449,8 +443,7 @@ BUDGET_ACTION=warn  # or "stop"
 **Enforcement Points:**
 1. Before Round 1 - Check estimated cost vs budget
 2. After Round 1 - Check actual cost vs warning threshold
-3. Before Debate - Check cumulative + debate estimate
-4. Before Synthesis - Check cumulative + synthesis estimate
+3. Before Synthesis - Check cumulative + synthesis estimate
 
 Functions in `lib/costs.sh`:
 - `is_budget_enabled()` - Check if budget enforcement is enabled
@@ -523,22 +516,6 @@ Functions in `lib/routing.sh`:
 - `get_premium_model()` - Returns premium model for consultant
 - `get_escalation_summary()` - Returns escalation info as JSON
 
-### Debate Optimization (Opt-in)
-Skips debate if confidence spread is low (all consultants agree).
-
-```bash
-ENABLE_DEBATE_OPTIMIZATION=false  # Default: false (opt-in per quality review)
-DEBATE_CONFIDENCE_SPREAD_THRESHOLD=3  # Min spread to trigger debate
-DEBATE_USE_SUMMARIES=true         # Use summaries in debate rounds
-```
-
-**Category Exceptions**: SECURITY and ARCHITECTURE always trigger debate regardless of confidence spread.
-
-Functions in `debate_round.sh`:
-- `is_mandatory_debate_category()` - Returns true for SECURITY/ARCHITECTURE
-- `should_skip_debate()` - Returns true if debate can be skipped
-- `extract_compact_summary()` - Token-optimized summary for debates
-
 ### Quality Monitoring
 Logs optimization metrics and saves to output directory.
 
@@ -555,12 +532,9 @@ Output file `optimization_metrics.json`:
     "cache_hits": 2,
     "response_limits_enabled": false,
     "cost_aware_routing": false,
-    "debate_optimization": false,
     "compact_report": true
   },
   "quality_metrics": {
-    "consensus_score": 75,
-    "consensus_level": "medium",
     "successful_responses": 4,
     "total_consultants": 4,
     "category": "ARCHITECTURE"
@@ -595,9 +569,6 @@ npm run lint
 # Test with preset
 ./scripts/consult_all.sh --preset minimal "Quick question"
 
-# Test with debate
-ENABLE_DEBATE=true ./scripts/consult_all.sh "Microservices or monolith?"
-
 # Test with strategy
 ./scripts/consult_all.sh --strategy risk_averse "Security question"
 
@@ -617,7 +588,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `MAX_SESSION_COST` | 1.00 | Max budget ($) |
 | `CLAUDE_MODEL` | claude-opus-5 | Claude model (v2.5) |
 | `CLAUDE_API_MAX_TOKENS` | 16384 | Claude API thinking + visible-output budget |
-| `GEMINI_MODEL` | Gemini 3.1 Pro (High) | Gemini agy CLI model (v2.15) |
+| `GEMINI_MODEL` | Gemini 3.7 Flash (High) | Gemini agy CLI model |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
 | `CODEX_MODEL` | gpt-5.6-sol | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
@@ -646,7 +617,6 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `agy` CLI - Antigravity CLI (Gemini consultant; successor to the deprecated Gemini CLI, v2.15)
 - `codex` CLI - OpenAI Codex
 - `vibe` CLI - Mistral Vibe
-- `cursor-agent` CLI - Cursor (validated by capability, read-only ask mode)
 - `kimi` CLI - Kimi Code (v2.9)
 - `claude` CLI - Claude (v2.2, also used for synthesis)
 - `qwen` CLI - Qwen via qwen-code (v2.7, optional)
@@ -782,7 +752,7 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 ### Guidelines
 
 - **Audience**: Developers who use the skill. Write for someone who hasn't seen the commits.
-- **Highlights first**: Lead with impact, not implementation. "Debate rounds no longer crash on Linux" > "Added `|| true` to `((count++))` in debate_round.sh".
+- **Highlights first**: Lead with impact, not implementation. "Provider failures are now diagnosed" > "Added an error branch".
 - **Breaking changes prominent**: If any exist, they go in a dedicated section — never buried in a bullet list.
 - **Quantify when possible**: Token savings percentages, issue counts, file counts.
 - **Upgrade guide always present**: Even if the answer is "just pull", make it explicit.
@@ -792,15 +762,17 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 ### v3.5.0
 
-- **The catalog now distinguishes an advisory panel's normal premium tier from subscription-only maximum targets.** `get_model_for_tier()` accepts an explicit transport, while `apply_model_tier maximum` selects K3-256k and MiniMax M3 and promotes Qwen3.8-Max only when `QWEN3_USE_API=true`, the wire is OpenAI-compatible, the endpoint is a Token Plan `/chat/completions` URL, and a key is present (`scripts/config.sh:581-737`). The Qwen effort is marked tier-managed, cleared when leaving maximum, and never overwrites a user pin. Gemini 3.7, Fable 5, and the new Mistral API IDs remain catalogued opt-ins after their exact transports failed authentication or timed out; normal runs do not inherit delegation-kit's routing gates.
+- **The catalog distinguishes an advisory panel's normal premium tier from subscription-only maximum targets.** `get_model_for_tier()` accepts an explicit transport, while `apply_model_tier maximum` selects K3-256k and MiniMax M3 and promotes Qwen3.8-Max only when its Token Plan transport is already configured. Gemini 3.7 Flash High completed an authenticated exact-adapter `agy` smoke on 2026-08-23 and is promoted for CLI maximum/premium/standard; Low serves economy. The unverified Google API transport remains on 3.1 Pro. Fable 5 and the new Mistral API IDs remain catalogued opt-ins; normal runs do not inherit delegation-kit's routing gates.
 - **Mistral CLI and API names are no longer conflated.** `MISTRAL_CLI_MODEL=mistral-medium-3.5` reaches Vibe through `VIBE_ACTIVE_MODEL`; `MISTRAL_MODEL` remains API-only. Vibe verifies its bounded read-only interface, runs `plan` for one turn in a mode-700 temporary workspace, and treats empty or post-launch failures as failures (`scripts/query_mistral.sh:47-143`). The current machine passed the exact Vibe smoke; no Mistral API key was available, so the new API IDs were not promoted.
-- **Cursor now means Cursor.** The old `CURSOR_CMD=agent` resolved to Grok on this machine. Runtime, configure, and doctor now default to `cursor-agent`, validate the Cursor help surface, bound model-inventory calls, require Composer 2.5, and invoke `--mode ask --trust` only against an ephemeral workspace (`scripts/query_cursor.sh:33-132`, `scripts/configure.sh:322-363`). The local Cursor account is not logged in, so runtime authentication remains a user gate rather than something this release works around.
+- **Cursor is no longer a consultant.** The ambiguous `agent`/`cursor-agent` runtime, model tiers, presets, doctor/configuration fields, personas, costs, tests, and website card were removed. Cursor remains a supported host through SkillPort; the panel itself has 10 consultants.
 - **Model identity evidence is additive and honest.** Every envelope carries the requested ID and one of `provider-reported`, `capability-probed`, or `requested-only`; API model strings are syntax-validated before adoption (`scripts/lib/common.sh:935-1068`, `scripts/lib/api_query.sh:162-194`). `modelUsage` remains billing participation, not content identity. The shared billing resolver prefers a known effective ID, then the explicit requested ID, and uses consultant fallback only for legacy responses that lack the new metadata (`scripts/lib/costs.sh:311-430`).
-- **The reliability boundary is finite.** Cursor/Gemini/Mistral capability probes and Cursor configure/doctor probes have explicit time limits. An HTTP 200 with an empty body increments the retry counter, including at the shipped `MAX_RETRIES=2`, instead of spinning indefinitely (`scripts/lib/api.sh`, `scripts/test_api_transport.sh`). Google `thinkingConfig` is emitted only for Gemini 3.7; the proven 3.1 API body remains byte-compatible.
-- **Managed migrations are exact and pins survive.** `configure` upgrades only the historical managed Cursor command, GLM 5.2, and Grok 4.5 values. Environment/`--set` model values and any `# ai-consultants:pin` entry remain user-owned. The new catalog-parity gate checks all 44 consultant/tier cells and all 16 Gemini/Mistral transport cells against `docs/cost_rates.json`, requiring every automatic target to be priced or explicitly unpriced.
-- **Promotion evidence is recorded without overstating it.** Exact ai-consultants smokes passed for Mistral Vibe Medium 3.5, GLM 5.3, Grok 4.6, K3-256k, Qwen3.8-Max Token Plan, and MiniMax M3. Gemini 3.7 lacked agy/API auth, Mistral API lacked a key, Fable 5 timed out, and Cursor lacked login; those stay opt-in/unverified. Cross-family Opus 5/max review first returned `NO-SHIP` with four blockers, then `SHIP` after the hermeticity, trust, probe, thinking, billing, retry, and parity findings were fixed. Final gate: 22/22 suites, 443/443 core checks, ShellCheck and npm tarball green.
+- **The reliability boundary is finite.** Gemini/Mistral capability probes have explicit time limits. An HTTP 200 with an empty body increments the retry counter, including at the shipped `MAX_RETRIES=2`, instead of spinning indefinitely (`scripts/lib/api.sh`, `scripts/test_api_transport.sh`). Google `thinkingConfig` is emitted only for Gemini 3.7 API opt-ins; the automatic 3.1 API body remains byte-compatible.
+- **Managed migrations are exact and pins survive.** `configure` upgrades only the historical managed Gemini 3.1 Pro CLI, GLM 5.2, and Grok 4.5 values, while removing obsolete Cursor settings. Environment/`--set` model values and any `# ai-consultants:pin` entry remain user-owned. The catalog-parity gate checks all 40 consultant/tier cells and all 16 Gemini/Mistral transport cells against `docs/cost_rates.json`, requiring every automatic target to be priced or explicitly unpriced.
+- **Promotion evidence is recorded without overstating it.** Exact ai-consultants smokes passed for Gemini 3.7 Flash High through `agy`, Mistral Vibe Medium 3.5, GLM 5.3, Grok 4.6, K3-256k, Qwen3.8-Max Token Plan, and MiniMax M3. Gemini 3.7 API lacks a separate smoke, Mistral API lacks a key, and Fable 5 timed out; those transports stay opt-in/unverified. The base cross-family Opus 5/max review reached `SHIP`; the Gemini promotion delta then went `NO_SHIP` → `SHIP` after six active documentation references, breaking-change classification, release evidence, and quoted migration coverage were corrected.
+- **Claude can launch the skill as a real host, not merely describe it.** `SKILL.md` carries an imperative execution contract; all host commands use a private query-file handoff, preserve preset/strategy options, pass the caller project through `--context-root`, and set `INVOKING_AGENT`; self-exclusion covers consultation, full-roster targeted follow-ups, and synthesis for Claude/Codex/Gemini. Offline E2E proves a Claude host dispatches Gemini/Codex/Mistral with no Claude artifacts. A real Claude Code/Sonnet run started from an external temp project, used `mktemp`, mode 600, a quoted heredoc, trap cleanup, `--context-root`, and `src/context.txt@CONTEXT`; Gemini 3.7 High and Codex 5.6 Sol returned (2/2), the external marker/tag reached both, no Claude artifact appeared, and the private staging directory was removed. The live run disabled synthesis; symmetric regressions prove each host is excluded there. Current runtime prompts, schemas, templates, help, and instructions are coverage-only; stale Codex/Gemini debate and roster-audit commands are removed.
+- **Cross-family host review went `NO_SHIP` → `NO_SHIP` → `SHIP`.** The review found the Bash 3.2 empty-array abort, query-file/context parser conflict, caller-project path loss, unsafe/host-self follow-ups, stale live consensus output, broad uninstall glob, and active v3.0 residue. Each was fixed with executable coverage. After the `SHIP` verdict, its remaining low-severity findings were also resolved: staged files retain their original project-relative identity, fallback synthesis reports the requested strategy, follow-up context no longer rides in argv and respects disabled consultants, and remaining contributor/cost/test residue was removed.
 
-  Deliberate residuals: Cursor and Vibe isolate the workspace but retain ambient HOME for their authenticated CLI state; unpriced credit/subscription models are disclosed but cannot be enforced by a dollar budget; provider/requested model substitutions are available in raw JSON but not yet summarized in the human report.
+  Deliberate residuals: Vibe isolates the workspace but retains ambient HOME for its authenticated CLI state; unpriced credit/subscription models are disclosed but cannot be enforced by a dollar budget; provider/requested model substitutions are available in raw JSON but not yet summarized in the human report.
 
 ### v3.4.0
 - **Gemini was unreachable from an SSH session, and no amount of re-authenticating helped.** `agy` picks its credential store from the environment: seeing `SSH_CLIENT`, `SSH_CONNECTION`, or `SSH_TTY` it switches to a file-based token store and never consults the macOS Keychain. A user who signed in locally therefore lost Gemini entirely over SSH, and signing in again landed the new credential in the Keychain the CLI had already decided to ignore. Reproduced live before fixing (`agy models` → "Please sign in"; the same command under `env -u SSH_CLIENT -u SSH_CONNECTION -u SSH_TTY` → full inventory), and confirmed again end to end after. Found by reading delegation-kit's 0.13.1 fix and checking whether the same failure applied here — it did, in the very session doing the work.

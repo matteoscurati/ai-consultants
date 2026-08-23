@@ -147,21 +147,20 @@ Every JSON output must follow `lib/schema.json`:
 
 ```bash
 # Health check
-./scripts/preflight_check.sh
+./scripts/doctor.sh
 
 # Basic test (requires at least 1 CLI)
 ./scripts/consult_all.sh "How to optimize a SQL query?"
 
-# Test with debate
-ENABLE_DEBATE=true DEBATE_ROUNDS=2 \
-  ./scripts/consult_all.sh "Microservices or monolith?"
+# Test coverage-union synthesis
+./scripts/consult_all.sh --strategy coverage "Microservices or monolith?"
 
 # Test with smart routing
 ENABLE_SMART_ROUTING=true \
   ./scripts/consult_all.sh "Review this code" file.py
 
 # Test single consultant
-ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false ENABLE_CURSOR=false \
+ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false \
   ./scripts/consult_all.sh "Quick syntax question"
 ```
 

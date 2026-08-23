@@ -1,4 +1,4 @@
-# AI Consultation Report v2.0
+# AI Consultation Report
 
 ## Metadata
 
@@ -6,9 +6,8 @@
 |-------|-------|
 | **Date** | {{TIMESTAMP}} |
 | **Category** | {{CATEGORY}} |
-| **Consensus Score** | {{CONSENSUS_SCORE}}% ({{CONSENSUS_LEVEL}}) |
+| **Quorum** | {{SUCCESSFUL_CONSULTANTS}} / {{ATTEMPTED_CONSULTANTS}} ({{QUORUM_OUTCOME}}) |
 | **Active Consultants** | {{ACTIVE_CONSULTANTS}} |
-| **Debate Rounds** | {{DEBATE_ROUNDS}} |
 
 ---
 
@@ -18,250 +17,59 @@
 
 ---
 
-## Automatic Synthesis
+## Coverage Synthesis
 
 {{#IF_SYNTHESIS}}
 
-### Weighted Recommendation
-
-**Recommended Approach:** {{RECOMMENDED_APPROACH}}
-
-**Confidence-Weighted Score:** {{WEIGHTED_SCORE}}/10
+**Strategy:** {{SYNTHESIS_STRATEGY}}
 
 **Summary:** {{SYNTHESIS_SUMMARY}}
 
-### Supporting Consultants
-{{SUPPORTING_CONSULTANTS}}
+### Distinct Considerations
 
-### Dissenting Consultants
-{{DISSENTING_CONSULTANTS}}
-
-### Points of Agreement
-{{#EACH AGREED_POINTS}}
-- {{.}}
-{{/EACH}}
-
-### Points of Disagreement
-{{#EACH DISAGREED_POINTS}}
-- **{{TOPIC}}**: {{POSITIONS}}
+{{#EACH COVERAGE_POINTS}}
+- {{POINT}} — raised by {{CONSULTANTS}}
 {{/EACH}}
 
 {{/IF_SYNTHESIS}}
 
 {{#IF_NO_SYNTHESIS}}
-*Automatic synthesis not available. See individual responses.*
+*Automatic synthesis was unavailable. The coverage below is assembled from the
+successful individual responses.*
 {{/IF_NO_SYNTHESIS}}
 
 ---
 
-## Consultant Comparison
+## Consultant Summary
 
-| Aspect | Gemini | Codex | Mistral | Cursor |
-|--------|--------|-------|---------|------|
-| **Persona** | The Architect | The Pragmatist | The Devil's Advocate | The Integrator |
-| **Approach** | {{GEMINI_APPROACH}} | {{CODEX_APPROACH}} | {{MISTRAL_APPROACH}} | {{CURSOR_APPROACH}} |
-| **Confidence** | {{GEMINI_CONFIDENCE}}/10 | {{CODEX_CONFIDENCE}}/10 | {{MISTRAL_CONFIDENCE}}/10 | {{CURSOR_CONFIDENCE}}/10 |
-
-### Consensus Levels
-
-| Level | Score | Description |
-|-------|-------|-------------|
-| **Unanimous** | 100% | All agree |
-| **High** | 75-99% | Strong agreement |
-| **Medium** | 50-74% | Partial agreement |
-| **Low** | 25-49% | Significant disagreement |
-| **None** | 0-24% | No points of convergence |
-
----
-
-## Risk Assessment
-
-{{#IF_RISKS}}
-
-**Overall Risk:** {{OVERALL_RISK}}
-
-| Risk | Severity | Mitigation | Identified by |
-|------|----------|------------|---------------|
-{{#EACH RISKS}}
-| {{DESCRIPTION}} | {{SEVERITY}} | {{MITIGATION}} | {{IDENTIFIED_BY}} |
+| Consultant | Model | Quality | Confidence | Approach | Key Insight |
+|------------|-------|---------|------------|----------|-------------|
+{{#EACH CONSULTANT_SUMMARIES}}
+| {{CONSULTANT}} | {{MODEL}} | {{RESPONSE_QUALITY}} | {{CONFIDENCE}}/10 | {{APPROACH}} | {{SUMMARY}} |
 {{/EACH}}
 
-{{/IF_RISKS}}
+---
+
+## Risks & Caveats
+
+{{#EACH RISKS}}
+- **{{DESCRIPTION}}** — {{SEVERITY}}; raised by {{IDENTIFIED_BY}}
+{{/EACH}}
 
 ---
 
-## Action Items
+## Suggested Next Steps
 
 {{#EACH ACTION_ITEMS}}
-{{PRIORITY}}. **{{ACTION}}** - {{RATIONALE}}
+- **{{ACTION}}** — {{RATIONALE}}
 {{/EACH}}
 
 ---
 
-## Individual Responses
+## Diagnosed Failures
 
-### Gemini - The Architect
-
-**Confidence:** {{GEMINI_CONFIDENCE}}/10
-
-**Approach:** {{GEMINI_APPROACH}}
-
-**Summary:**
-> {{GEMINI_SUMMARY}}
-
-{{#IF GEMINI_CODE}}
-**Code:**
-```{{GEMINI_LANGUAGE}}
-{{GEMINI_CODE}}
-```
-{{/IF}}
-
-**Pros:**
-{{#EACH GEMINI_PROS}}
-- {{.}}
-{{/EACH}}
-
-**Cons:**
-{{#EACH GEMINI_CONS}}
-- {{.}}
-{{/EACH}}
-
-<details>
-<summary>Full Response</summary>
-
-{{GEMINI_DETAILED}}
-
-</details>
-
----
-
-### Codex - The Pragmatist
-
-**Confidence:** {{CODEX_CONFIDENCE}}/10
-
-**Approach:** {{CODEX_APPROACH}}
-
-**Summary:**
-> {{CODEX_SUMMARY}}
-
-{{#IF CODEX_CODE}}
-**Code:**
-```{{CODEX_LANGUAGE}}
-{{CODEX_CODE}}
-```
-{{/IF}}
-
-**Pros:**
-{{#EACH CODEX_PROS}}
-- {{.}}
-{{/EACH}}
-
-**Cons:**
-{{#EACH CODEX_CONS}}
-- {{.}}
-{{/EACH}}
-
-<details>
-<summary>Full Response</summary>
-
-{{CODEX_DETAILED}}
-
-</details>
-
----
-
-### Mistral - The Devil's Advocate
-
-**Confidence:** {{MISTRAL_CONFIDENCE}}/10
-
-**Approach:** {{MISTRAL_APPROACH}}
-
-**Summary:**
-> {{MISTRAL_SUMMARY}}
-
-{{#IF MISTRAL_CODE}}
-**Code:**
-```{{MISTRAL_LANGUAGE}}
-{{MISTRAL_CODE}}
-```
-{{/IF}}
-
-**Pros:**
-{{#EACH MISTRAL_PROS}}
-- {{.}}
-{{/EACH}}
-
-**Cons:**
-{{#EACH MISTRAL_CONS}}
-- {{.}}
-{{/EACH}}
-
-<details>
-<summary>Full Response</summary>
-
-{{MISTRAL_DETAILED}}
-
-</details>
-
----
-
-### Cursor - The Integrator
-
-**Confidence:** {{CURSOR_CONFIDENCE}}/10
-
-**Approach:** {{CURSOR_APPROACH}}
-
-**Summary:**
-> {{CURSOR_SUMMARY}}
-
-{{#IF CURSOR_CODE}}
-**Code:**
-```{{CURSOR_LANGUAGE}}
-{{CURSOR_CODE}}
-```
-{{/IF}}
-
-**Pros:**
-{{#EACH CURSOR_PROS}}
-- {{.}}
-{{/EACH}}
-
-**Cons:**
-{{#EACH CURSOR_CONS}}
-- {{.}}
-{{/EACH}}
-
-<details>
-<summary>Full Response</summary>
-
-{{CURSOR_DETAILED}}
-
-</details>
-
----
-
-{{#IF_DEBATE}}
-
-## Multi-Agent Debate
-
-### Round {{DEBATE_ROUND}}
-
-| Consultant | Position Changed | Confidence Delta | Critiques |
-|------------|------------------|------------------|-----------|
-{{#EACH DEBATE_RESULTS}}
-| {{CONSULTANT}} | {{POSITION_CHANGED}} | {{CONFIDENCE_DELTA}} | {{CRITIQUES_COUNT}} |
-{{/EACH}}
-
-**Stability:** {{DEBATE_STABILITY}}
-
-{{/IF_DEBATE}}
-
----
-
-## Suggested Follow-ups
-
-{{#EACH FOLLOW_UP_QUESTIONS}}
-- {{.}}
+{{#EACH DIAGNOSED_FAILURES}}
+- **{{CONSULTANT}}:** {{REASON}}
 {{/EACH}}
 
 ---
@@ -270,54 +78,8 @@
 
 | File | Description |
 |------|-------------|
-| `{{OUTPUT_DIR}}/context.md` | Built context |
-| `{{OUTPUT_DIR}}/gemini.json` | Gemini response |
-| `{{OUTPUT_DIR}}/codex.json` | Codex response |
-| `{{OUTPUT_DIR}}/mistral.json` | Mistral response |
-| `{{OUTPUT_DIR}}/cursor.json` | Cursor response |
-| `{{OUTPUT_DIR}}/voting.json` | Voting report |
-| `{{OUTPUT_DIR}}/synthesis.json` | Automatic synthesis |
-
----
-
-## Raw Responses
-
-<details>
-<summary>Gemini Raw JSON</summary>
-
-```json
-{{GEMINI_RAW}}
-```
-
-</details>
-
-<details>
-<summary>Codex Raw JSON</summary>
-
-```json
-{{CODEX_RAW}}
-```
-
-</details>
-
-<details>
-<summary>Mistral Raw JSON</summary>
-
-```json
-{{MISTRAL_RAW}}
-```
-
-</details>
-
-<details>
-<summary>Cursor Raw JSON</summary>
-
-```json
-{{CURSOR_RAW}}
-```
-
-</details>
-
----
-
-*Report generated by AI Consultants v2.0*
+| `{{OUTPUT_DIR}}/context.md` | Built consultation context |
+| `{{OUTPUT_DIR}}/<consultant>.json` | Individual consultant envelopes |
+| `{{OUTPUT_DIR}}/synthesis.json` | Coverage-union synthesis, when available |
+| `{{OUTPUT_DIR}}/optimization_metrics.json` | Quorum and optimization metadata |
+| `{{OUTPUT_DIR}}/report.md` | Rendered report |

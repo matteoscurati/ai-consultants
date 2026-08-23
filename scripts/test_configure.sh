@@ -104,7 +104,7 @@ test_template_covers_config_contract() {
     done < <(find "$SCRIPT_DIR" -type f -name '*.sh' \
         ! -name 'test_*.sh' ! -path '*/test_fixtures/*' ! -path '*/experiment/*' | sort) \
         | sed -E 's/^\$\{//; s/:[-=]$//' \
-        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_SIZE|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
+        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
         | sort -u > "$runtime"
     sort -u "$declared" "$runtime" -o "$declared"
     $BIN configure --show-parameters | sort -u > "$supported"
@@ -412,32 +412,42 @@ test_catalog_default_migrations_and_pins() {
     local cfg="$TMP/catalog-default-migrations"
     mkdir -p "$cfg"
     printf '%s\n' \
+        'GEMINI_MODEL="Gemini 3.1 Pro (High)"' \
         'MISTRAL_MODEL=mistral-large-3' \
         'CURSOR_CMD=agent' \
         'GLM_MODEL=glm-5.2' \
         'GROK_MODEL=grok-4.5' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "Gemini 3.7 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "managed Gemini CLI default migrates"
     assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "unverified Mistral API default is not migrated"
     assert_eq mistral-medium-3.5 "$(read_env "$cfg/.env" MISTRAL_CLI_MODEL)" "new Mistral CLI field is populated"
-    assert_eq cursor-agent "$(read_env "$cfg/.env" CURSOR_CMD)" "managed Cursor command migrates"
+    assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed Cursor command is dropped"
     assert_eq glm-5.3 "$(read_env "$cfg/.env" GLM_MODEL)" "managed GLM default migrates"
     assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "managed Grok default migrates"
-    for key in CURSOR_CMD GLM_MODEL GROK_MODEL; do
+    for key in GEMINI_MODEL GLM_MODEL GROK_MODEL; do
         assert_contains "$(grep "^${key}=" "$cfg/.env")" "# ai-consultants:default" "$key migration records managed provenance"
     done
 
     cfg="$TMP/catalog-pins"
     mkdir -p "$cfg"
     printf '%s\n' \
+        'GEMINI_MODEL=Gemini 3.1 Pro (High) # ai-consultants:pin' \
         'MISTRAL_MODEL=mistral-large-3 # ai-consultants:pin' \
-        'CURSOR_CMD=agent # ai-consultants:pin' \
         'GLM_MODEL=glm-5.2 # ai-consultants:pin' \
         'GROK_MODEL=grok-4.5 # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "Gemini 3.1 Pro (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "pinned Gemini CLI model survives"
     assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "pinned Mistral API model survives"
-    assert_eq agent "$(read_env "$cfg/.env" CURSOR_CMD)" "pinned Cursor command survives"
+    assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed pinned Cursor command is dropped"
     assert_eq glm-5.2 "$(read_env "$cfg/.env" GLM_MODEL)" "pinned GLM model survives"
     assert_eq grok-4.5 "$(read_env "$cfg/.env" GROK_MODEL)" "pinned Grok model survives"
+
+    cfg="$TMP/catalog-unrelated-gemini"
+    mkdir -p "$cfg"
+    printf '%s\n' 'GEMINI_MODEL="Gemini 3.6 Flash (High)"' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "Gemini 3.6 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" \
+        "unrelated Gemini CLI value is not force-upgraded"
 }
 
 test_backups_are_unique_within_one_second() {

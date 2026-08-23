@@ -7,8 +7,8 @@
   "properties": {
     "consultant": {
       "type": "string",
-      "description": "Name of the consultant (Gemini, Codex, Mistral, Cursor, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax)",
-      "enum": ["Gemini", "Codex", "Mistral", "Cursor", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"]
+      "description": "Name of the consultant (Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax)",
+      "enum": ["Gemini", "Codex", "Mistral", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"]
     },
     "model": {
       "type": "string",
@@ -102,43 +102,6 @@
         }
       }
     },
-    "debate": {
-      "type": "object",
-      "description": "Data for multi-agent debate rounds",
-      "properties": {
-        "round": {
-          "type": "integer",
-          "description": "Current debate round (1, 2, or 3)"
-        },
-        "position_changed": {
-          "type": "boolean",
-          "description": "Whether position changed from previous round"
-        },
-        "critiques": {
-          "type": "array",
-          "description": "Critiques of other consultants' responses",
-          "items": {
-            "type": "object",
-            "properties": {
-              "target": { "type": "string" },
-              "critique": { "type": "string" },
-              "severity": { "enum": ["minor", "moderate", "major"] }
-            }
-          }
-        },
-        "incorporated_from": {
-          "type": "array",
-          "description": "Ideas incorporated from other consultants",
-          "items": {
-            "type": "object",
-            "properties": {
-              "source": { "type": "string" },
-              "idea": { "type": "string" }
-            }
-          }
-        }
-      }
-    },
     "metadata": {
       "type": "object",
       "properties": {
@@ -175,6 +138,11 @@
           "type": "string",
           "enum": ["provider-reported", "capability-probed", "requested-only"],
           "description": "Strength of the evidence behind model/model_version"
+        },
+        "response_quality": {
+          "type": "string",
+          "enum": ["structured", "fallback", "error", "unknown"],
+          "description": "Whether the provider satisfied the JSON contract, returned usable prose, failed, or predates quality tagging."
         },
         "cli_version": {
           "type": "string",

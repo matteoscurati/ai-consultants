@@ -23,10 +23,11 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.1 Pro (High) | Premium | $0.002 | Gemini (agy CLI) |
-| Gemini 3.6 Flash (High) | Standard | $0.0015 | Gemini (agy CLI) |
-| Gemini 3.6 Flash (Low) | Economy | $0.0015 | Gemini (agy CLI) |
-| Gemini 3.7 Flash (High/Low) | Opt-in | $0.00075 | Gemini (CLI/API; promotional through 2026-12-31) |
+| Gemini 3.7 Flash (High) | Maximum/Premium/Standard | $0.00075 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.7 Flash (Low) | Economy | $0.00075 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.1 Pro (High) | CLI opt-in | $0.002 | Gemini (agy CLI) |
+| gemini-3.1-pro-preview | API default | $0.00125 | Gemini API |
+| Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0015 | Gemini |
 | gpt-5.6-sol | Premium | $0.005 | Codex |
 | gpt-5.6-terra | Standard | $0.002 | Codex |
 | gpt-5.6-luna | Economy | $0.0002 | Codex |
@@ -39,9 +40,9 @@ models programmatically.
 | mistral-large-2512 | API opt-in | $0.0005 | Mistral |
 | mistral-small-2603 | API opt-in | $0.00015 | Mistral |
 | devstral-small-2 | Economy | $0.00 | Mistral |
-| composer-2.5 | Maximum/Premium/Standard/Economy | $0.0005 | Cursor |
-| composer-2 | Legacy | $0.0005 | Cursor |
-| gemini-3-flash | Legacy | $0.0005 | Cursor |
+| composer-2.5 | Legacy | $0.0005 | Removed Cursor consultant |
+| composer-2 | Legacy | $0.0005 | Removed Cursor consultant |
+| gemini-3-flash | Legacy | $0.0005 | Removed Cursor consultant |
 | deepseek-v4-pro | Premium | $0.000435 | DeepSeek |
 | deepseek-v4-flash | Standard/Economy | $0.00014 | DeepSeek |
 | glm-5.3 | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
@@ -63,10 +64,11 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.1 Pro (High) | Premium | $0.012 | Gemini (agy CLI) |
-| Gemini 3.6 Flash (High) | Standard | $0.0075 | Gemini (agy CLI) |
-| Gemini 3.6 Flash (Low) | Economy | $0.0075 | Gemini (agy CLI) |
-| Gemini 3.7 Flash (High/Low) | Opt-in | $0.00375 | Gemini (CLI/API; promotional through 2026-12-31) |
+| Gemini 3.7 Flash (High) | Maximum/Premium/Standard | $0.00375 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.7 Flash (Low) | Economy | $0.00375 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.1 Pro (High) | CLI opt-in | $0.012 | Gemini (agy CLI) |
+| gemini-3.1-pro-preview | API default | $0.005 | Gemini API |
+| Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0075 | Gemini |
 | gpt-5.6-sol | Premium | $0.030 | Codex |
 | gpt-5.6-terra | Standard | $0.012 | Codex |
 | gpt-5.6-luna | Economy | $0.0012 | Codex |
@@ -79,9 +81,9 @@ models programmatically.
 | mistral-large-2512 | API opt-in | $0.0015 | Mistral |
 | mistral-small-2603 | API opt-in | $0.0006 | Mistral |
 | devstral-small-2 | Economy | $0.00 | Mistral |
-| composer-2.5 | Maximum/Premium/Standard/Economy | $0.0025 | Cursor |
-| composer-2 | Legacy | $0.0025 | Cursor |
-| gemini-3-flash | Legacy | $0.003 | Cursor |
+| composer-2.5 | Legacy | $0.0025 | Removed Cursor consultant |
+| composer-2 | Legacy | $0.0025 | Removed Cursor consultant |
+| gemini-3-flash | Legacy | $0.003 | Removed Cursor consultant |
 | deepseek-v4-pro | Premium | $0.00087 | DeepSeek |
 | deepseek-v4-flash | Standard/Economy | $0.00028 | DeepSeek |
 | glm-5.3 | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
@@ -110,14 +112,6 @@ models programmatically.
 - ~750 output tokens per consultant
 
 **Estimated cost:** $0.02 - $0.05
-
-### With Multi-Agent Debate (2 rounds)
-
-**Additional parameters:**
-- +1 round with same context
-- Previous responses as additional input
-
-**Estimated cost:** $0.08 - $0.15
 
 ## Budget Management
 

@@ -211,12 +211,37 @@ test_process_consultant_response_fence() {
         "Fenced JSON is de-fenced and parsed as structured response"
     assert_equal "8" "$(jq -r '.confidence.score' "$tmp_out" 2>/dev/null)" \
         "Fenced JSON confidence score preserved"
+    assert_equal "structured" "$(jq -r '.metadata.response_quality' "$tmp_out")" \
+        "structured response quality is explicit"
 
     # Case 2: bare JSON (Flash behavior) must still parse unchanged
     printf '{"response":{"summary":"bare ok"},"confidence":{"score":9}}\n' > "$tmp_in"
     process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 >/dev/null 2>&1 || true
     assert_equal "bare ok" "$(jq -r '.response.summary' "$tmp_out" 2>/dev/null)" \
         "Bare JSON still parses as structured response (no regression)"
+
+    # Case 3: a JSON string that contains the response envelope is unwrapped.
+    printf '%s\n' '"{\"response\":{\"summary\":\"double ok\"},\"confidence\":{\"score\":7}}"' > "$tmp_in"
+    process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 >/dev/null 2>&1 || true
+    assert_equal "double ok" "$(jq -r '.response.summary' "$tmp_out")" \
+        "Double-encoded JSON response is normalized"
+
+    # Case 4: malformed JSON-looking output is an error, not a confidence-5 fallback.
+    printf '%s' '{"response":{"summary":"truncated"}' > "$tmp_in"
+    local rc=0
+    process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 \
+        >/dev/null 2>&1 || rc=$?
+    assert_equal "1" "$rc" "Truncated JSON-looking response fails closed"
+    assert_equal "error" "$(jq -r '.metadata.response_quality' "$tmp_out")" \
+        "Truncated JSON is marked as an error"
+
+    # Case 5: genuine prose remains usable as an explicit fallback with a real summary.
+    printf '%s\n' 'Concrete markdown recommendation' 'More detail' > "$tmp_in"
+    process_consultant_response "TestC" "test-model" "Tester" "$tmp_in" "$tmp_out" 0 100 >/dev/null 2>&1 || true
+    assert_equal "fallback" "$(jq -r '.metadata.response_quality' "$tmp_out")" \
+        "Unstructured prose is marked as fallback"
+    assert_equal "Concrete markdown recommendation" "$(jq -r '.response.summary' "$tmp_out")" \
+        "Fallback preserves a meaningful summary"
 
     rm -f "$tmp_in" "$tmp_out"
 }
@@ -227,8 +252,8 @@ test_get_consultant_error_reason() {
     ef=$(mktemp)
 
     # Not-installed: the [ERROR] line wins.
-    printf '[INFO] Consulting Cursor...\n[ERROR] Cursor CLI not found (command: agent)\n' > "$ef"
-    assert_equal "[ERROR] Cursor CLI not found (command: agent)" "$(get_consultant_error_reason "$ef")" \
+    printf '[INFO] Consulting Example...\n[ERROR] Example CLI not found (command: example)\n' > "$ef"
+    assert_equal "[ERROR] Example CLI not found (command: example)" "$(get_consultant_error_reason "$ef")" \
         "picks the explicit error line"
 
     # Auth failure embedded in the orchestrator's failure log.
@@ -238,7 +263,7 @@ test_get_consultant_error_reason() {
 
     # Real .err from run_query: log_error prepends "[HH:MM:SS] [LEVEL] [Name]
     # All N attempts failed:" -- strip that boilerplate, keep the CLI's own error.
-    printf '[12:54:32] [ERROR] [Cursor] All 2 attempts failed: Error: Out of credits\n' > "$ef"
+    printf '[12:54:32] [ERROR] [Example] All 2 attempts failed: Error: Out of credits\n' > "$ef"
     assert_equal "Error: Out of credits" "$(get_consultant_error_reason "$ef")" \
         "strips the log-prefix boilerplate, keeps the real reason"
 
@@ -294,10 +319,10 @@ test_render_diagnosed_failure() {
     assert_equal "| GLM | 401 Unauthorized |" "$(render_diagnosed_failure 'GLM|401 Unauthorized' table)" \
         "table: '| name | reason |'"
     # A pipe in the reason must be escaped in table mode (would mangle the markdown row).
-    assert_equal "| Cursor | a \\| b failed |" "$(render_diagnosed_failure 'Cursor|a | b failed' table)" \
+    assert_equal "| Example | a \\| b failed |" "$(render_diagnosed_failure 'Example|a | b failed' table)" \
         "table escapes a pipe in the reason"
     # Split keeps the full reason even when it contains pipes (name has no pipe).
-    assert_equal "  - Cursor: a | b failed" "$(render_diagnosed_failure 'Cursor|a | b failed')" \
+    assert_equal "  - Example: a | b failed" "$(render_diagnosed_failure 'Example|a | b failed')" \
         "console keeps the full reason (pipes and all)"
 }
 

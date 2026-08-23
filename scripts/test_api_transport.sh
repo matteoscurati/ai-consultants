@@ -3,7 +3,7 @@
 # body construction, reasoning-effort validation.
 #
 # The back-compat assertions here are the gate for two shared code paths:
-#   - get_api_format() resolves the wire format for all 11 consultants.
+#   - get_api_format() resolves the wire format for all 10 consultants.
 #   - build_openai_request() builds the body for six of them (GLM, Grok,
 #     DeepSeek, MiniMax, plus Codex/Mistral in API mode).
 # Both were widened to be user-configurable; the assertions that matter most
@@ -29,7 +29,7 @@ source "$SCRIPT_DIR/lib/api_query.sh" >/dev/null 2>&1
 # sourced here, but a caller's environment could still carry one.
 _reset_state() {
     unset QWEN3_FORMAT GLM_FORMAT GROK_FORMAT DEEPSEEK_FORMAT MINIMAX_FORMAT
-    unset GEMINI_FORMAT CODEX_FORMAT CLAUDE_FORMAT MISTRAL_FORMAT CURSOR_FORMAT KIMI_FORMAT
+    unset GEMINI_FORMAT CODEX_FORMAT CLAUDE_FORMAT MISTRAL_FORMAT KIMI_FORMAT
 }
 
 # --- get_api_format: the default mapping must not move -----------------------
@@ -42,7 +42,7 @@ test_format_defaults() {
         assert_eq "openai" "$(get_api_format "$a")"    "$a -> openai"
     done
     # Unknown agents (custom API consultants) fall through to openai.
-    assert_eq "openai" "$(get_api_format CURSOR)"      "CURSOR (no explicit arm) -> openai"
+    assert_eq "openai" "$(get_api_format CUSTOM)"      "custom agent (no explicit arm) -> openai"
     assert_eq "openai" "$(get_api_format NOSUCHAGENT)" "unknown agent -> openai"
     # Case-insensitivity is relied on by run_api_mode_query, which passes the
     # display name ("Qwen3"), not the uppercase id.
@@ -217,20 +217,22 @@ EOF
 }
 
 test_api_provider_model_identity_and_glm_failures() {
-    local td fake_curl output request rc=0
+    local td fake_curl output request request_body rc=0
     td=$(mktemp -d "${TMPDIR:-/tmp}/api_identity.XXXXXX")
     fake_curl="$td/curl"
     output="$td/output.json"
     request="$td/curl-called"
+    request_body="$td/request-body.json"
 
     cat > "$fake_curl" <<'EOF'
 #!/bin/bash
-out=""; headers=""
+out=""; headers=""; body=""
 while [[ $# -gt 0 ]]; do
-    case "$1" in -o) shift; out="$1" ;; -D) shift; headers="$1" ;; esac
+    case "$1" in -o) shift; out="$1" ;; -D) shift; headers="$1" ;; -d) shift; body="$1" ;; esac
     shift
 done
 [[ -z "${CURL_CALLED_FILE:-}" ]] || printf 'call\n' >> "$CURL_CALLED_FILE"
+[[ -z "${REQUEST_BODY_FILE:-}" ]] || printf '%s' "$body" > "$REQUEST_BODY_FILE"
 : > "$headers"
 case "${CURL_FAKE_MODE:-success}" in
   success)
@@ -239,6 +241,9 @@ case "${CURL_FAKE_MODE:-success}" in
   invalid_model)
     printf '%s\n' '{"model":"glm*cheap","choices":[{"message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
     printf 200 ;;
+  truncated)
+    printf '%s\n' '{"model":"deepseek-v4-pro","choices":[{"finish_reason":"length","message":{"content":"partial","reasoning_content":"reasoning"}}],"usage":{"prompt_tokens":3,"completion_tokens":16384}}' > "$out"
+    printf 200 ;;
   empty) : > "$out"; printf 200 ;;
   server) printf '%s\n' '{"error":{"message":"unavailable"}}' > "$out"; printf 500 ;;
 esac
@@ -246,14 +251,91 @@ EOF
     chmod +x "$fake_curl"
 
     if ! PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 GLM_FORMAT=openai \
-        CURL_CALLED_FILE="$request" RATE_LIMIT_DIR="$td/rate" MAX_RETRIES=1 \
+        GLM_REASONING_EFFORT=max CURL_CALLED_FILE="$request" REQUEST_BODY_FILE="$request_body" \
+        RATE_LIMIT_DIR="$td/rate" MAX_RETRIES=1 \
         run_api_consultant GLM test "" "$output" >/dev/null 2>&1; then
         assert_eq success failure "GLM provider-identity query completes"
     else
         assert_eq glm-5.3-202608 "$(jq -r '.model' "$output")" "provider-reported model is the top-level effective identity"
         assert_eq glm-5.3 "$(jq -r '.metadata.requested_model' "$output")" "requested GLM model is preserved"
         assert_eq provider-reported "$(jq -r '.metadata.model_identity_source' "$output")" "GLM API identity is provider-reported"
+        assert_eq max "$(jq -r '.reasoning_effort' "$request_body")" "GLM max effort reaches the API request body"
+        assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "GLM receives its provider-specific response budget"
     fi
+
+    rm -f "$request_body"
+    PATH="$td:$PATH" DEEPSEEK_API_KEY=test DEEPSEEK_MODEL=deepseek-v4-pro DEEPSEEK_FORMAT=openai \
+        DEEPSEEK_REASONING_EFFORT=max REQUEST_BODY_FILE="$request_body" \
+        RATE_LIMIT_DIR="$td/rate-deepseek" MAX_RETRIES=1 \
+        run_api_consultant DeepSeek test "" "$output" >/dev/null 2>&1
+    assert_eq max "$(jq -r '.reasoning_effort' "$request_body")" \
+        "DeepSeek max effort reaches the API request body"
+    assert_eq deepseek-v4-pro "$(jq -r '.model' "$request_body")" \
+        "DeepSeek request-body assertion is non-vacuous"
+    assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" \
+        "DeepSeek receives enough budget for max-effort reasoning and visible output"
+
+    rm -f "$request_body"
+    PATH="$td:$PATH" GROK_API_KEY=test GROK_MODEL=grok-4.6 GROK_FORMAT=openai \
+        GROK_REASONING_EFFORT=xhigh GROK_API_MAX_TOKENS=16384 REQUEST_BODY_FILE="$request_body" \
+        RATE_LIMIT_DIR="$td/rate-grok-api" MAX_RETRIES=1 \
+        run_api_consultant Grok test "" "$output" >/dev/null 2>&1
+    assert_eq xhigh "$(jq -r '.reasoning_effort' "$request_body")" \
+        "Grok API xhigh effort reaches the request body"
+    assert_eq grok-4.6 "$(jq -r '.model' "$request_body")" \
+        "Grok API effort assertion is non-vacuous"
+    assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "Grok maximum API budget reaches the wire"
+
+    rm -f "$request_body"
+    PATH="$td:$PATH" OPENAI_API_KEY=test CODEX_FORMAT=openai CODEX_API_MAX_TOKENS=16384 \
+        REQUEST_BODY_FILE="$request_body" RATE_LIMIT_DIR="$td/rate-codex-api" MAX_RETRIES=1 \
+        run_api_consultant Codex test "" "$output" >/dev/null 2>&1
+    assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "Codex maximum API budget reaches the wire"
+
+    rm -f "$request_body"
+    PATH="$td:$PATH" MISTRAL_API_KEY=test MISTRAL_FORMAT=openai MISTRAL_API_MAX_TOKENS=16384 \
+        REQUEST_BODY_FILE="$request_body" RATE_LIMIT_DIR="$td/rate-mistral-api" MAX_RETRIES=1 \
+        run_api_consultant Mistral test "" "$output" >/dev/null 2>&1
+    assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "Mistral maximum API budget reaches the wire"
+
+    rm -f "$request_body"
+    PATH="$td:$PATH" MINIMAX_API_KEY=test MINIMAX_FORMAT=openai MINIMAX_API_MAX_TOKENS=16384 \
+        REQUEST_BODY_FILE="$request_body" RATE_LIMIT_DIR="$td/rate-minimax-api" MAX_RETRIES=1 \
+        run_api_consultant MiniMax test "" "$output" >/dev/null 2>&1
+    assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "MiniMax maximum API budget reaches the wire"
+
+    rc=0
+    rm -f "$output"
+    PATH="$td:$PATH" DEEPSEEK_API_KEY=test DEEPSEEK_FORMAT=openai \
+        DEEPSEEK_API_MAX_TOKENS=16384 CURL_FAKE_MODE=truncated \
+        RATE_LIMIT_DIR="$td/rate-deepseek-truncated" MAX_RETRIES=1 \
+        run_api_mode_query DeepSeek deepseek-v4-pro test "$output" 5 >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$rc" "OpenAI-compatible finish_reason=length fails closed"
+    assert_eq false "$([[ -s "$output" ]] && echo true || echo false)" \
+        "truncated OpenAI-compatible content is not published"
+    assert_eq "3 16384" "$_API_TOKEN_SPLIT" "truncated OpenAI-compatible response publishes billed token split"
+    clear_api_token_split
+
+    rc=0
+    PATH="$td:$PATH" DEEPSEEK_API_KEY=test DEEPSEEK_MODEL=deepseek-v4-pro \
+        DEEPSEEK_FORMAT=openai DEEPSEEK_API_MAX_TOKENS=16384 CURL_FAKE_MODE=truncated \
+        RATE_LIMIT_DIR="$td/rate-deepseek-truncated-envelope" MAX_RETRIES=1 \
+        run_api_consultant DeepSeek test "" "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$rc" "truncated DeepSeek consultant response remains a failure"
+    assert_eq 16387 "$(jq -r '.metadata.tokens_used' "$output")" \
+        "truncated DeepSeek error envelope retains billed tokens"
+    assert_eq measured "$(jq -r '.metadata.tokens_source' "$output")" \
+        "truncated DeepSeek token accounting remains measured"
+
+    rc=0
+    rm -f "$request"
+    PATH="$td:$PATH" DEEPSEEK_API_KEY=test DEEPSEEK_FORMAT=openai \
+        DEEPSEEK_API_MAX_TOKENS=invalid CURL_CALLED_FILE="$request" \
+        RATE_LIMIT_DIR="$td/rate-deepseek-invalid-budget" MAX_RETRIES=1 \
+        run_api_mode_query DeepSeek deepseek-v4-pro test "$output" 5 >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$rc" "invalid provider max-token budget fails before request"
+    assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" \
+        "invalid provider max-token budget never calls curl"
 
     PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 GLM_FORMAT=openai \
         CURL_FAKE_MODE=invalid_model RATE_LIMIT_DIR="$td/rate-invalid" MAX_RETRIES=1 \
@@ -331,6 +413,8 @@ test_anthropic_max_tokens_is_failure() {
     assert_eq "1" "$rc" "Anthropic max_tokens stop returns failure"
     assert_eq "false" "$([[ -s "$output" ]] && echo true || echo false)" \
         "truncated Anthropic text is not published as a successful answer"
+    assert_eq "5 16384" "$_API_TOKEN_SPLIT" "truncated Anthropic response publishes billed token split"
+    clear_api_token_split
 
     rc=0
     PATH="$td:$PATH" ANTHROPIC_API_KEY=test-key CLAUDE_API_MAX_TOKENS=invalid \

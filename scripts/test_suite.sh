@@ -516,6 +516,32 @@ test_build_full_query() {
     assert_equals "" "$result" "both empty returns empty"
 }
 
+test_response_normalization() {
+    suite "common.sh: response normalization and quality"
+
+    local input="$TEST_TMPDIR/normalize-input" output="$TEST_TMPDIR/normalize-output.json" rc
+
+    printf '%s\n' '"{\"response\":{\"summary\":\"double ok\"},\"confidence\":{\"score\":7}}"' > "$input"
+    rc=0
+    process_consultant_response Test test-model Tester "$input" "$output" 0 100 >/dev/null 2>&1 || rc=$?
+    assert_equals 0 "$rc" "double-encoded JSON response succeeds"
+    assert_equals "double ok" "$(jq -r '.response.summary' "$output")" "double-encoded JSON is unwrapped"
+    assert_equals structured "$(jq -r '.metadata.response_quality' "$output")" "structured quality is explicit"
+
+    printf '%s' '{"response":{"summary":"truncated"}' > "$input"
+    rc=0
+    process_consultant_response Test test-model Tester "$input" "$output" 0 100 >/dev/null 2>&1 || rc=$?
+    assert_equals 1 "$rc" "truncated JSON-looking response fails closed"
+    assert_equals error "$(jq -r '.metadata.response_quality' "$output")" "truncated JSON is marked error"
+
+    printf '%s\n' 'Concrete markdown recommendation' 'More detail' > "$input"
+    rc=0
+    process_consultant_response Test test-model Tester "$input" "$output" 0 100 >/dev/null 2>&1 || rc=$?
+    assert_equals 0 "$rc" "valid prose remains a usable fallback"
+    assert_equals fallback "$(jq -r '.metadata.response_quality' "$output")" "prose quality is explicit"
+    assert_equals "Concrete markdown recommendation" "$(jq -r '.response.summary' "$output")" "fallback summary preserves provider content"
+}
+
 # =============================================================================
 # TESTS: common.sh - Known agent registry
 # =============================================================================
@@ -644,6 +670,8 @@ test_system_prompt_builder() {
     result=$(build_system_prompt "Gemini")
     assert_contains "Architect" "$result" "system prompt includes persona"
     assert_contains "JSON" "$result" "system prompt includes output format instruction"
+    assert_contains "under 5000 characters" "$result" "system prompt bounds provider output"
+    assert_contains "Do not use tools" "$result" "advisory prompt forbids workspace/tool exploration"
 
     result=$(build_query_with_persona "Codex" "How to refactor?")
     assert_contains "Pragmatist" "$result" "query includes Codex persona"
@@ -748,14 +776,16 @@ test_cost_per1k_contract() {
     assert_equals "0.05" "$(get_output_cost_per_1k claude-fable-5)" "Fable 5 output is 50 USD/MTok"
     assert_equals "0.00075" "$(get_input_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional input rate is current"
     assert_equals "0.00375" "$(get_output_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional output rate is current"
+    assert_equals "0.00075" "$(get_input_cost_per_1k 'Gemini 3.7 Flash (High)')" "promoted Gemini CLI default resolves its promotional rate"
+    assert_equals "Gemini 3.7 Flash (High)" "$(get_consultant_fallback_model gemini)" "legacy Gemini responses use the promoted CLI fallback"
     assert_equals "0.0015" "$(get_input_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API input is priced"
     assert_equals "0.0075" "$(get_output_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API output is priced"
     assert_equals "0.002" "$(get_input_cost_per_1k mistral-large-3)" "active Mistral API fallback input stays catalogued"
     assert_equals "0.006" "$(get_output_cost_per_1k mistral-large-3)" "active Mistral API fallback output stays catalogued"
     assert_equals "0.002" "$(get_input_cost_per_1k grok-4.6)" "Grok 4.6 input is 2 USD/MTok"
     assert_equals "0.006" "$(get_output_cost_per_1k grok-4.6)" "Grok 4.6 output is 6 USD/MTok"
-    assert_equals "0.0005" "$(get_input_cost_per_1k composer-2.5)" "active Cursor model input stays catalogued"
-    assert_equals "0.0025" "$(get_output_cost_per_1k composer-2.5)" "active Cursor model output stays catalogued"
+    assert_equals "0.0005" "$(get_input_cost_per_1k composer-2.5)" "legacy Composer input remains catalogued"
+    assert_equals "0.0025" "$(get_output_cost_per_1k composer-2.5)" "legacy Composer output remains catalogued"
     assert_equals "0.0003" "$(get_input_cost_per_1k MiniMax-M3)" "maximum MiniMax M3 input is catalogued"
     assert_equals "0.0012" "$(get_output_cost_per_1k MiniMax-M3)" "maximum MiniMax M3 output is catalogued"
 
@@ -825,13 +855,15 @@ test_response_tokens() {
         "legacy metadata defaults requested_model to model"
     assert_equals "requested-only" "$(echo "$md" | jq -r '.model_identity_source')" \
         "legacy metadata labels model identity honestly"
+    assert_equals "9 estimated 8 1" "$(resolve_response_tokens '12345678' '1234' 4)" \
+        "multi-turn CLI estimate conservatively multiplies prompt tokens"
     md=$(build_response_metadata 1500 "provider-effective" "" 0 unknown "" "" "" "requested-id" "provider-reported")
     assert_equals "requested-id" "$(echo "$md" | jq -r '.requested_model')" "requested model is additive metadata"
     assert_equals "provider-reported" "$(echo "$md" | jq -r '.model_identity_source')" "provider identity source is preserved"
 
     # Every builder must survive BOTH arities under `set -u`. The fallback
     # builder shipped briefly using $tokens_in without declaring it, which
-    # would have aborted on any unstructured reply for all 11 consultants;
+    # would have aborted on any unstructured reply for every consultant;
     # only one consultant's own suite happened to exercise that path.
     local inner='{"response":{"summary":"s"},"confidence":{"score":8}}'
     assert_exit_code_success "structured builder, legacy arity" \
@@ -1139,7 +1171,7 @@ test_model_tiers() {
 test_economic_models() {
     suite "costs.sh: get_economic_model"
 
-    assert_equals "Gemini 3.6 Flash (Low)" "$(get_economic_model "gemini" cli)" "Gemini CLI economy is hermetic"
+    assert_equals "Gemini 3.7 Flash (Low)" "$(get_economic_model "gemini" cli)" "Gemini CLI economy is hermetic"
     assert_equals "gemini-3.1-pro-preview" "$(get_economic_model "gemini" api)" "Gemini API economy is hermetic"
     assert_equals "gpt-5.6-luna"     "$(get_economic_model "codex")"  "codex economy is gpt-5.6-luna"
     assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
@@ -1517,9 +1549,10 @@ test_model_for_tier() {
     assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-5"
     assert_equals "claude-sonnet-5"       "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-5"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
-    assert_equals "Gemini 3.1 Pro (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is Gemini 3.1 Pro (High)"
+    assert_equals "Gemini 3.7 Flash (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is promoted Gemini 3.7 Flash (High)"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium" api)" "gemini API premium uses the provider ID"
-    assert_equals "Gemini 3.6 Flash (Low)" "$(get_model_for_tier "gemini" "economy" cli)" "unverified Gemini 3.7 stays out of CLI economy tier"
+    assert_equals "Gemini 3.7 Flash (High)" "$(get_model_for_tier "gemini" "maximum" cli)" "verified Gemini 3.7 is promoted in CLI maximum tier"
+    assert_equals "Gemini 3.7 Flash (Low)" "$(get_model_for_tier "gemini" "economy" cli)" "verified Gemini 3.7 is promoted in CLI economy tier"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "standard" api)" "unverified Gemini 3.7 stays out of API standard tier"
     assert_equals "mistral-medium-3.5" "$(get_model_for_tier "mistral" "premium" cli)" "Mistral CLI premium uses the Vibe alias"
     assert_equals "mistral-large-3" "$(get_model_for_tier "mistral" "premium" api)" "unverified Mistral API targets stay out of premium"
@@ -1534,7 +1567,6 @@ test_model_for_tier() {
     assert_equals "gpt-5.6-sol"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-5.6-sol"
     assert_equals "gpt-5.6-terra"         "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.6-terra"
     assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
-    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "premium")"   "cursor premium is composer-2.5"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
     assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3"
     assert_equals "grok-4.6"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.6"
@@ -1546,8 +1578,6 @@ test_model_for_tier() {
     # explicitly so the contract is self-documenting rather than implied.
     assert_not_equals "qwen3.8-max" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in Token Plan model"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
-    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "standard")"   "cursor standard remains composer-2.5"
-    assert_equals "composer-2.5"          "$(get_model_for_tier "cursor" "economy")"    "cursor economy remains composer-2.5"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-v4-flash"
     assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.5"
@@ -1555,6 +1585,50 @@ test_model_for_tier() {
     assert_equals "kimi-code/k3-256k"     "$(get_model_for_tier "kimi" "maximum")"      "maximum tier confines K3-256k"
     assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "maximum")"     "maximum catalog includes Qwen3.8-Max"
     assert_equals "MiniMax-M3"            "$(get_model_for_tier "minimax" "maximum")"   "maximum tier confines MiniMax M3"
+
+    local max_quality_state
+    max_quality_state=$(
+        apply_preset max_quality
+        printf '%s|%s|%s|%s|%s|%s|' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT" "$CLAUDE_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT_SECONDS" "$MINIMAX_MAX_TOKENS"
+        local enabled=0 flag
+        for flag in ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KIMI ENABLE_CLAUDE \
+            ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX; do
+            [[ "${!flag}" == "true" ]] && enabled=$((enabled + 1))
+        done
+        printf '%s\n' "$enabled"
+    )
+    assert_equals "xhigh|max|max|240|600|16384|10" "$max_quality_state" "max_quality enables all 10 consultants with highest efforts and reasoning budgets"
+
+    local maximum_effort_lifecycle
+    maximum_effort_lifecycle=$(
+        unset GROK_REASONING_EFFORT GLM_REASONING_EFFORT DEEPSEEK_REASONING_EFFORT
+        unset _AI_CONSULTANTS_TIER_GROK_EFFORT_MANAGED _AI_CONSULTANTS_TIER_GLM_EFFORT_MANAGED
+        unset _AI_CONSULTANTS_TIER_DEEPSEEK_EFFORT_MANAGED
+        apply_model_tier maximum
+        apply_model_tier economy
+        printf '%s|%s|%s\n' "${GROK_REASONING_EFFORT-unset}" \
+            "${GLM_REASONING_EFFORT-unset}" "${DEEPSEEK_REASONING_EFFORT-unset}"
+    )
+    assert_equals "unset|unset|unset" "$maximum_effort_lifecycle" \
+        "leaving maximum clears tier-managed provider efforts"
+
+    maximum_effort_lifecycle=$(
+        GROK_REASONING_EFFORT=low
+        GLM_REASONING_EFFORT=medium
+        DEEPSEEK_REASONING_EFFORT=high
+        CLAUDE_TIMEOUT_SECONDS=240
+        DEEPSEEK_TIMEOUT_SECONDS=180
+        MINIMAX_MAX_TOKENS=4096
+        unset _AI_CONSULTANTS_TIER_GROK_EFFORT_MANAGED _AI_CONSULTANTS_TIER_GLM_EFFORT_MANAGED
+        unset _AI_CONSULTANTS_TIER_DEEPSEEK_EFFORT_MANAGED
+        apply_model_tier maximum
+        apply_model_tier maximum
+        printf '%s|%s|%s|%s|%s|%s|' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT" "$CLAUDE_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT_SECONDS" "$MINIMAX_MAX_TOKENS"
+        apply_model_tier standard
+        printf '%s|%s|%s|%s|%s|%s\n' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT" "$CLAUDE_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT_SECONDS" "$MINIMAX_MAX_TOKENS"
+    )
+    assert_equals "xhigh|max|max|240|600|16384|low|medium|high|240|180|4096" "$maximum_effort_lifecycle" \
+        "maximum temporarily overrides and then restores provider efforts and timeouts"
 
     local maximum_unconfigured
     maximum_unconfigured=$(
@@ -1574,25 +1648,52 @@ test_model_for_tier() {
         QWEN3_FORMAT=openai
         QWEN3_API_URL=https://token-plan.example.test/compatible-mode/v1/chat/completions
         QWEN3_API_KEY="test"
+        QWEN3_TIMEOUT_SECONDS=180
+        QWEN3_MAX_QUALITY_TIMEOUT=600
         unset QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
+        unset _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR
         apply_model_tier maximum
-        printf '%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT"
+        printf '%s|%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT" "$QWEN3_TIMEOUT_SECONDS"
         apply_model_tier economy
-        printf '%s|%s\n' "$QWEN3_MODEL" "${QWEN3_REASONING_EFFORT+x}"
+        printf '%s|%s|%s\n' "$QWEN3_MODEL" "${QWEN3_REASONING_EFFORT+x}" "$QWEN3_TIMEOUT_SECONDS"
         QWEN3_REASONING_EFFORT=low
         apply_model_tier maximum
-        printf '%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT"
+        printf '%s|%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT" "$QWEN3_TIMEOUT_SECONDS"
     )
-    assert_equals "qwen3.8-max|xhigh" "$(sed -n '1p' <<<"$qwen_tier_output")" "configured Token Plan promotes Qwen3.8-Max with managed xhigh"
-    assert_equals "qwen3-32b|" "$(sed -n '2p' <<<"$qwen_tier_output")" "leaving maximum clears only the managed Qwen effort"
-    assert_equals "qwen3.8-max|low" "$(sed -n '3p' <<<"$qwen_tier_output")" "maximum preserves a user-pinned Qwen effort"
+    assert_equals "qwen3.8-max|xhigh|600" "$(sed -n '1p' <<<"$qwen_tier_output")" "configured Token Plan promotes Qwen3.8-Max with managed xhigh and extended timeout"
+    assert_equals "qwen3-32b||180" "$(sed -n '2p' <<<"$qwen_tier_output")" "leaving maximum clears managed Qwen effort and restores timeout"
+    assert_equals "qwen3.8-max|low|600" "$(sed -n '3p' <<<"$qwen_tier_output")" "maximum preserves a user-pinned Qwen effort while extending timeout"
+
+    local child_tier_state
+    child_tier_state=$(
+        QWEN3_USE_API=true
+        QWEN3_FORMAT=openai
+        QWEN3_API_URL=https://token-plan.example.test/compatible-mode/v1/chat/completions
+        QWEN3_API_KEY="test"
+        QWEN3_TIMEOUT=180
+        QWEN3_TIMEOUT_SECONDS=180
+        DEEPSEEK_TIMEOUT=180
+        DEEPSEEK_TIMEOUT_SECONDS=180
+        CODEX_API_MAX_TOKENS=4096
+        MISTRAL_API_MAX_TOKENS=4096
+        GROK_API_MAX_TOKENS=4096
+        MINIMAX_API_MAX_TOKENS=4096
+        apply_model_tier maximum
+        bash -c 'source "'"$SCRIPT_DIR"'/lib/common.sh" >/dev/null 2>&1; printf "%s|%s|%s|%s|%s|%s|%s|%s\n" "$QWEN3_TIMEOUT" "$QWEN3_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT" "$DEEPSEEK_TIMEOUT_SECONDS" "$CODEX_API_MAX_TOKENS" "$MISTRAL_API_MAX_TOKENS" "$GROK_API_MAX_TOKENS" "$MINIMAX_API_MAX_TOKENS"'
+        apply_model_tier economy
+        printf '%s|%s|%s|%s|%s|%s|%s|%s\n' "$QWEN3_TIMEOUT" "$QWEN3_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT" "$DEEPSEEK_TIMEOUT_SECONDS" "$CODEX_API_MAX_TOKENS" "$MISTRAL_API_MAX_TOKENS" "$GROK_API_MAX_TOKENS" "$MINIMAX_API_MAX_TOKENS"
+    )
+    assert_equals "600|600|600|600|16384|16384|16384|16384" "$(sed -n '1p' <<<"$child_tier_state")" \
+        "maximum timeout and API budgets survive child-process config re-source"
+    assert_equals "180|180|180|180|4096|4096|4096|4096" "$(sed -n '2p' <<<"$child_tier_state")" \
+        "leaving maximum restores public timeouts and API budgets"
 
     local economy_exports
     economy_exports=$(
         apply_model_tier economy
         printf '%s|%s|%s|%s\n' "$GEMINI_MODEL" "$GEMINI_API_MODEL" "$MISTRAL_CLI_MODEL" "$MISTRAL_MODEL"
     )
-    assert_equals "Gemini 3.6 Flash (Low)|gemini-3.1-pro-preview|devstral-small-2|mistral-large-3" \
+    assert_equals "Gemini 3.7 Flash (Low)|gemini-3.1-pro-preview|devstral-small-2|mistral-large-3" \
         "$economy_exports" "economy exports are transport-stable and hermetic"
 
     # Unknown tier returns empty
@@ -1604,7 +1705,7 @@ test_model_catalog_parity() {
 
     local tier consultant transport resolved documented
     for tier in maximum premium standard economy; do
-        for consultant in claude gemini codex mistral cursor deepseek glm grok qwen3 kimi minimax; do
+        for consultant in claude gemini codex mistral deepseek glm grok qwen3 kimi minimax; do
             transport=native
             case "$consultant" in gemini|mistral) transport=cli ;; esac
             resolved=$(get_model_for_tier "$consultant" "$tier" "$transport")
@@ -1637,7 +1738,7 @@ test_consultant_list_completeness() {
     suite "integration: ALL_CONSULTANTS completeness"
 
     local count=${#ALL_CONSULTANTS[@]}
-    assert_equals "11" "$count" "ALL_CONSULTANTS has 11 entries"
+    assert_equals "10" "$count" "ALL_CONSULTANTS has 10 entries"
 
     # Verify key consultants are present
     local all_str="${ALL_CONSULTANTS[*]}"
@@ -1645,6 +1746,7 @@ test_consultant_list_completeness() {
     assert_contains "Claude" "$all_str" "Claude in ALL_CONSULTANTS"
     assert_contains "MiniMax" "$all_str" "MiniMax in ALL_CONSULTANTS"
     assert_contains "Kimi" "$all_str" "Kimi in ALL_CONSULTANTS"
+    assert_not_contains "Cursor" "$all_str" "Cursor removed from ALL_CONSULTANTS"
     assert_not_contains "Amp" "$all_str" "Amp removed from ALL_CONSULTANTS"
     assert_not_contains "Kilo" "$all_str" "Kilo removed from ALL_CONSULTANTS"
     assert_not_contains "Aider" "$all_str" "Aider removed from ALL_CONSULTANTS"
@@ -1702,6 +1804,7 @@ main() {
     test_consultant_validation
     test_api_mode_helpers
     test_build_full_query
+    test_response_normalization
     test_known_agents
 
     # personas.sh tests

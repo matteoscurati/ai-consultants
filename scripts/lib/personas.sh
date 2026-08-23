@@ -5,7 +5,7 @@
 # - Gemini: The Architect - Focus on design, scalability, enterprise patterns
 # - Codex: The Pragmatist - Focus on simplicity, quick wins, proven solutions
 # - Mistral: The Devil's Advocate - Actively seeks problems, edge cases, risks
-# - Cursor: The Integrator - Full-stack perspective, cross-cutting concerns
+# - The Integrator - Full-stack perspective, cross-cutting concerns
 
 # =============================================================================
 # PERSONA DEFINITIONS
@@ -30,8 +30,8 @@ PERSONA_KILO='Role: The Innovator. Focus: creative solutions, emerging tech, unc
 Priorities: elegant simplification, modern patterns, bold ideas, alternative paradigms.
 Always explore: novel approaches others overlook, ways to rethink the problem, future trends.'
 
-# System prompt prefix for Cursor - The Integrator (token-optimized v2.1)
-PERSONA_CURSOR='Role: The Integrator. Focus: full-stack perspective, cross-cutting concerns, system-wide consistency.
+# System prompt prefix for The Integrator (token-optimized v2.1)
+PERSONA_INTEGRATOR='Role: The Integrator. Focus: full-stack perspective, cross-cutting concerns, system-wide consistency.
 Priorities: logging/monitoring/error handling, frontend-backend integration, developer experience.
 Always consider: system-wide impact, integration points, testing across layers, onboarding.'
 
@@ -119,9 +119,10 @@ Always evaluate: follows patterns? easy to modify? edge cases handled? intent cl
 
 # Instruction to force structured JSON output with confidence (token-optimized v2.1)
 OUTPUT_FORMAT_INSTRUCTION='Respond ONLY in valid JSON:
-{"response":{"summary":"<2-3 sentences max 500 chars>","detailed":"<full response>","approach":"<name>","pros":[],"cons":[],"caveats":[]},"confidence":{"score":<1-10>,"reasoning":"<why>"}}
+{"response":{"summary":"<2-3 sentences max 500 chars>","detailed":"<max 2500 chars>","approach":"<name>","pros":[],"cons":[],"caveats":[]},"confidence":{"score":<1-10>,"reasoning":"<why>"}}
 Score: 1-3=uncertain, 4-6=moderate, 7-9=confident, 10=certain.
-Optional fields: code_snippets[{language,code,description}], alternatives[{name,reason_not_chosen}], uncertainty_factors[].
+Keep the entire JSON under 5000 characters. Omit code snippets and optional fields unless the user explicitly requests them.
+Do not use tools, inspect files, or read the workspace; answer solely from the supplied question and context.
 No text outside JSON.'
 
 # =============================================================================
@@ -135,7 +136,7 @@ PERSONA_CATALOG="
 2|The Pragmatist|PERSONA_CODEX|Simplicity, quick wins, proven solutions
 3|The Devil's Advocate|PERSONA_MISTRAL|Edge cases, risks, security
 4|The Innovator|PERSONA_KILO|Creative solutions, new technologies
-5|The Integrator|PERSONA_CURSOR|Full-stack, cross-cutting concerns
+5|The Integrator|PERSONA_INTEGRATOR|Full-stack, cross-cutting concerns
 6|The Analyst|PERSONA_QWEN3|Data-driven, metrics, performance
 7|The Methodologist|PERSONA_GLM|Structured approaches, processes
 8|The Provocateur|PERSONA_GROK|Challenge conventions, radical alternatives
@@ -227,7 +228,6 @@ _AGENT_DEFAULT_PERSONAS="
 GEMINI|1
 CODEX|2
 MISTRAL|3
-CURSOR|5
 KIMI|20
 CLAUDE|18
 QWEN3|6

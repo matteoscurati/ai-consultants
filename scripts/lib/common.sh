@@ -199,7 +199,7 @@ run_query() {
         # Execute the command with timeout, passing stdin
         # Keep failures inside an explicit conditional. Without this guard,
         # callers running with `set -e` can exit here before retry handling and
-        # the final diagnostic are emitted (observed with Cursor and Qwen).
+        # the final diagnostic are emitted (observed with several CLIs).
         local exit_code
         if echo "$stdin_content" | run_with_timeout "$timeout_seconds" "${cmd[@]}" > "$output_file" 2> "$error_file"; then
             exit_code=0
@@ -298,7 +298,7 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GROK MINIMAX"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GROK MINIMAX"
 KNOWN_API_AGENTS="GLM DEEPSEEK"
 
 # Every non-consultant ENABLE_* flag declared in config.sh. This is a denylist
@@ -543,7 +543,6 @@ get_self_consultant_name() {
         mistral|vibe|mistral_vibe)      echo "MISTRAL" ;;
         kimi|kimi_code|kimicode)        echo "KIMI" ;;
         qwen|qwen3|qwen_code|qwencode)  echo "QWEN3" ;;
-        cursor)                         echo "CURSOR" ;;
         *)                              echo "" ;;
     esac
 }
@@ -638,7 +637,7 @@ validate_consultant_name() {
     upper=$(to_upper "$name")
 
     # Check against known agents
-    local valid_agents="GEMINI CODEX MISTRAL CURSOR KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX"
+    local valid_agents="GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX"
     for agent in $valid_agents; do
         if [[ "$upper" == "$agent" ]]; then
             return 0
@@ -904,6 +903,8 @@ clear_api_token_split() {
 resolve_response_tokens() {
     local input_text="${1:-}"
     local response_text="${2:-}"
+    local input_multiplier="${3:-1}"
+    [[ "$input_multiplier" =~ ^[1-9][0-9]*$ ]] || input_multiplier=1
 
     if [[ -n "$_API_TOKEN_SPLIT" ]]; then
         local m_in m_out
@@ -921,6 +922,7 @@ resolve_response_tokens() {
     [[ -n "$response_text" ]] && out_tokens=$(estimate_tokens "$response_text")
     [[ "$in_tokens"  =~ ^[0-9]+$ ]] || in_tokens=0
     [[ "$out_tokens" =~ ^[0-9]+$ ]] || out_tokens=0
+    in_tokens=$((in_tokens * input_multiplier))
     echo "$(( in_tokens + out_tokens )) estimated $in_tokens $out_tokens"
 }
 
@@ -943,6 +945,7 @@ build_response_metadata() {
     local provider_cost="${8:-}"
     local requested_model="${9:-$model}"
     local model_identity_source="${10:-requested-only}"
+    local response_quality="${11:-unknown}"
 
     jq -n \
         --argjson latency "$latency" \
@@ -956,8 +959,10 @@ build_response_metadata() {
         --arg provider_cost "$provider_cost" \
         --arg requested_model "$requested_model" \
         --arg model_identity_source "$model_identity_source" \
+        --arg response_quality "$response_quality" \
         '{tokens_used: $tokens, tokens_source: $source, latency_ms: $latency, model_version: $model,
-          requested_model: $requested_model, model_identity_source: $model_identity_source, timestamp: $timestamp}
+          requested_model: $requested_model, model_identity_source: $model_identity_source,
+          response_quality: $response_quality, timestamp: $timestamp}
          + (if $t_in  != "" then {tokens_input:  ($t_in  | tonumber)} else {} end)
          + (if $t_out != "" then {tokens_output: ($t_out | tonumber)} else {} end)
          + (if $provider_cost != "" then {provider_cost_usd: ($provider_cost | tonumber)} else {} end)
@@ -985,7 +990,7 @@ build_structured_response() {
         --arg model "$model" \
         --arg persona "$persona" \
         --argjson inner "$inner_json" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost" "$requested_model" "$model_identity_source")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost" "$requested_model" "$model_identity_source" structured)" \
         '{consultant: $consultant, model: $model, persona: $persona, response: $inner.response, confidence: $inner.confidence, metadata: $metadata}'
 }
 
@@ -1004,15 +1009,19 @@ build_fallback_response() {
     local provider_cost="${10:-}"
     local requested_model="${11:-$model}"
     local model_identity_source="${12:-requested-only}"
+    local summary
+    summary=$(printf '%s\n' "$response_text" | awk 'NF {print; exit}' | sed -E 's/^[[:space:]#>*-]+//' | cut -c1-500)
+    [[ -n "$summary" ]] || summary="Unstructured provider response"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --arg response "$response_text" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost" "$requested_model" "$model_identity_source")" \
+        --arg summary "$summary" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost" "$requested_model" "$model_identity_source" fallback)" \
         '{consultant: $consultant, model: $model, persona: $persona,
-          response: {summary: "Unstructured response - see detailed", detailed: $response, approach: "unknown", pros: [], cons: [], caveats: ["Unstructured output from consultant"]},
+          response: {summary: $summary, detailed: $response, approach: "unstructured-provider-response", pros: [], cons: [], caveats: ["Provider returned valid text outside the requested JSON schema"]},
           confidence: {score: 5, reasoning: "Confidence not provided by consultant", uncertainty_factors: ["Non-standard response format"]},
           metadata: $metadata}'
 }
@@ -1027,13 +1036,18 @@ build_error_response() {
     local latency="$5"
     local requested_model="${6:-$model}"
     local model_identity_source="${7:-requested-only}"
+    local tokens="${8:-0}"
+    local tokens_source="${9:-unknown}"
+    local tokens_in="${10:-}"
+    local tokens_out="${11:-}"
+    local provider_cost="${12:-}"
 
     jq -n \
         --arg consultant "$consultant" \
         --arg model "$model" \
         --arg persona "$persona" \
         --arg error "$error_msg" \
-        --argjson metadata "$(build_response_metadata "$latency" "$model" "$error_msg" 0 unknown "" "" "" "$requested_model" "$model_identity_source")" \
+        --argjson metadata "$(build_response_metadata "$latency" "$model" "$error_msg" "$tokens" "$tokens_source" "$tokens_in" "$tokens_out" "$provider_cost" "$requested_model" "$model_identity_source" error)" \
         '{consultant: $consultant, model: $model, persona: $persona,
           response: {summary: "ERROR: Consultation failed", detailed: $error, approach: "error", pros: [], cons: [], caveats: []},
           confidence: {score: 0, reasoning: "Consultation failed", uncertainty_factors: ["Execution error"]},
@@ -1076,6 +1090,20 @@ _is_consultant_response_file() {
         type == "object" and
         (.consultant | type == "string" and length > 0) and
         (.response | type == "object")
+    ' "$f" >/dev/null 2>&1
+}
+
+# A syntactically valid consultant envelope is not necessarily a usable answer:
+# error envelopes share the same outer shape. Synthesis and fallback statistics
+# must consume only provider responses that completed successfully.
+_is_successful_consultant_response_file() {
+    local f="$1"
+    _is_consultant_response_file "$f" || return 1
+    jq -e '
+        (.response.approach // "") != "error" and
+        (.metadata.response_quality // "unknown") != "error" and
+        ((.metadata.error // "") == "") and
+        ((.confidence.score // 0) > 0)
     ' "$f" >/dev/null 2>&1
 }
 
@@ -1177,6 +1205,37 @@ strip_json_fence() {
     printf '%s\n' "$text" | sed '/^[[:space:]]*```[[:alnum:]]*[[:space:]]*$/d'
 }
 
+# Normalize a provider's textual payload into the required response envelope.
+# Returns 0 for structured JSON, 1 for valid non-JSON text, and 2 for a JSON-like
+# payload that is malformed/truncated or uses the wrong schema. Valid JSON string
+# wrappers are unwrapped twice (observed with CLI envelopes that double-encode
+# the model response).
+normalize_consultant_response_text() {
+    local text="$1" decoded depth=0 first_char
+    text=$(strip_json_fence "$text")
+
+    while (( depth < 2 )) && printf '%s' "$text" | jq -e 'type == "string"' >/dev/null 2>&1; do
+        decoded=$(printf '%s' "$text" | jq -r '.') || break
+        text="$decoded"
+        depth=$((depth + 1))
+    done
+
+    printf '%s' "$text"
+    if printf '%s' "$text" | jq -e \
+            'type == "object" and (.response | type == "object") and
+             (.response.summary | type == "string") and
+             (.confidence | type == "object")' >/dev/null 2>&1; then
+        return 0
+    fi
+
+    first_char=$(printf '%s' "$text" | sed -E 's/^[[:space:]]*//' | cut -c1)
+    if printf '%s' "$text" | jq -e '.' >/dev/null 2>&1 \
+        || [[ "$first_char" == "{" || "$first_char" == "[" ]]; then
+        return 2
+    fi
+    return 1
+}
+
 # This encapsulates the common post-processing pattern found in all query scripts
 # Usage: process_consultant_response <consultant> <model> <persona> <temp_output> <output_file> <exit_code> <latency_ms> [native_json_field]
 # Parameters:
@@ -1202,13 +1261,14 @@ process_consultant_response() {
     local requested_model="${10:-$model}"
     local model_identity_source="${11:-requested-only}"
     local effective_model="${12:-$model}"
+    local input_multiplier="${13:-1}"
 
     if [[ $exit_code -eq 0 && -f "$temp_output" && -s "$temp_output" ]]; then
         local raw_response inner_response
         raw_response=$(cat "$temp_output")
 
         local _tok _tok_src _tok_in _tok_out
-        read -r _tok _tok_src _tok_in _tok_out <<< "$(resolve_response_tokens "$input_text" "$raw_response")"
+        read -r _tok _tok_src _tok_in _tok_out <<< "$(resolve_response_tokens "$input_text" "$raw_response" "$input_multiplier")"
         clear_api_token_split
 
         # Try to extract from native JSON format if field specified
@@ -1220,21 +1280,35 @@ process_consultant_response() {
 
         rm -f "$temp_output"
 
-        # Some CLIs wrap the JSON envelope in a markdown code fence instead of
-        # printing raw JSON (e.g. agy / Gemini 3.1 Pro emits ```json ... ```,
-        # while Flash returns bare JSON). Strip it before parsing; no-op when
-        # the text is already valid JSON.
-        inner_response=$(strip_json_fence "$inner_response")
-
-        # Use shared helpers for response building
-        if echo "$inner_response" | jq -e '.response.summary' > /dev/null 2>&1; then
-            build_structured_response "$consultant" "$effective_model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "$requested_model" "$model_identity_source" > "$output_file"
+        local normalization_rc
+        if inner_response=$(normalize_consultant_response_text "$inner_response"); then
+            normalization_rc=0
         else
+            normalization_rc=$?
+        fi
+
+        if [[ $normalization_rc -eq 0 ]]; then
+            build_structured_response "$consultant" "$effective_model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "$requested_model" "$model_identity_source" > "$output_file"
+        elif [[ $normalization_rc -eq 1 ]]; then
             build_fallback_response "$consultant" "$effective_model" "$persona" "$inner_response" "$latency_ms" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "$requested_model" "$model_identity_source" > "$output_file"
+        else
+            log_error "[$consultant] Provider returned malformed, truncated, or schema-invalid JSON"
+            build_error_response "$consultant" "$effective_model" "$persona" \
+                "Provider returned malformed, truncated, or schema-invalid JSON" "$latency_ms" \
+                "$requested_model" "$model_identity_source" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
+            return 1
         fi
     else
         rm -f "$temp_output"
-        build_error_response "$consultant" "$effective_model" "$persona" "Query failed with exit code $exit_code" "$latency_ms" "$requested_model" "$model_identity_source" > "$output_file"
+        local _err_tok=0 _err_src=unknown _err_in="" _err_out=""
+        if [[ -n "$_API_TOKEN_SPLIT" ]]; then
+            read -r _err_tok _err_src _err_in _err_out <<< "$(resolve_response_tokens "$input_text" "")"
+            clear_api_token_split
+        fi
+        build_error_response "$consultant" "$effective_model" "$persona" \
+            "Query failed with exit code $exit_code" "$latency_ms" \
+            "$requested_model" "$model_identity_source" \
+            "$_err_tok" "$_err_src" "$_err_in" "$_err_out" > "$output_file"
     fi
 
     return $exit_code
@@ -1287,7 +1361,6 @@ _consultant_to_cli() {
         MISTRAL) echo "mistral" ;;
         KIMI)    echo "kimi" ;;
         QWEN3)   echo "qwen" ;;
-        CURSOR)  echo "cursor" ;;
         *)       echo "" ;;
     esac
 }
@@ -1298,6 +1371,37 @@ _consultant_to_cli() {
 #
 # Usage: SYNTH_CLI=$(resolve_synthesis_cli)
 # Returns: CLI type name (gemini, codex, claude) or empty string on failure
+_synthesis_cli_ready() {
+    local candidate="$1" cmd help status
+    case "$candidate" in
+        claude)
+            cmd="${CLAUDE_CMD:-claude}"
+            command -v "$cmd" >/dev/null 2>&1 || return 1
+            help=$(run_with_timeout 8 "$cmd" --help 2>&1) || return 1
+            for flag in --print --no-session-persistence --setting-sources --tools; do
+                grep -q -- "$flag" <<<"$help" || return 1
+            done
+            if grep -Eq '^[[:space:]]+auth([[:space:]]|$)' <<<"$help"; then
+                status=$(run_with_timeout 12 "$cmd" auth status 2>&1) || return 1
+                printf '%s' "$status" | jq -e '.loggedIn == true' >/dev/null 2>&1
+            else
+                return 0
+            fi
+            ;;
+        gemini)
+            cmd="${GEMINI_CMD:-agy}"
+            command -v "$cmd" >/dev/null 2>&1 || return 1
+            run_with_timeout 12 "${AGY_ENV_PREFIX[@]}" "$cmd" models >/dev/null 2>&1
+            ;;
+        codex)
+            cmd="${CODEX_CMD:-codex}"
+            command -v "$cmd" >/dev/null 2>&1 || return 1
+            run_with_timeout 8 "$cmd" --version >/dev/null 2>&1
+            ;;
+        *) return 1 ;;
+    esac
+}
+
 resolve_synthesis_cli() {
     # Reuse get_self_consultant_name for complete alias coverage
     local avoid_cmd
@@ -1306,22 +1410,17 @@ resolve_synthesis_cli() {
     # 1. Check if SYNTHESIS_CMD is configured and is not the invoking agent
     local configured="${SYNTHESIS_CMD:-}"
     if [[ -n "$configured" && "$configured" != "$avoid_cmd" ]]; then
-        if command -v "$configured" &>/dev/null; then
+        if _synthesis_cli_ready "$configured"; then
             echo "$configured"
             return 0
         fi
     fi
 
     # 2. Walk fallback chain: pick first available CLI that isn't the invoking agent
-    local candidate cmd
+    local candidate
     for candidate in gemini codex claude; do
         [[ "$candidate" == "$avoid_cmd" ]] && continue
-        case "$candidate" in
-            gemini) cmd="${GEMINI_CMD:-agy}" ;;
-            codex)  cmd="${CODEX_CMD:-codex}" ;;
-            claude) cmd="${CLAUDE_CMD:-claude}" ;;
-        esac
-        if command -v "$cmd" &>/dev/null; then
+        if _synthesis_cli_ready "$candidate"; then
             echo "$candidate"
             return 0
         fi
@@ -1333,14 +1432,18 @@ resolve_synthesis_cli() {
 
 # Build synthesis command arguments for a resolved CLI type.
 # Sets the global SYNTHESIS_ARGS array directly (no eval needed).
-# Usage: build_synthesis_args <cli_type> [prompt]   (prompt only used by agy)
+# Usage: build_synthesis_args <cli_type> [prompt] [codex_payload_file]
 build_synthesis_args() {
     local cli_type="$1"
     local prompt="${2:-}"   # agy takes the prompt inline (-p arg); others read stdin
+    local codex_payload_file="${3:-}"
 
     case "$cli_type" in
         claude)
-            SYNTHESIS_ARGS=("${CLAUDE_CMD:-claude}" "--print")
+            SYNTHESIS_ARGS=("${CLAUDE_CMD:-claude}" "--print" \
+                "--no-session-persistence" "--setting-sources" "" "--tools" "" \
+                "--strict-mcp-config" "--mcp-config" '{"mcpServers":{}}' \
+                "--permission-mode" "plan")
             local model="${SYNTHESIS_MODEL:-${CLAUDE_MODEL:-}}"
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;
@@ -1355,11 +1458,21 @@ build_synthesis_args() {
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;
         codex)
-            SYNTHESIS_ARGS=("${CODEX_CMD:-codex}" "--quiet" "--full-auto")
+            [[ -n "$codex_payload_file" ]] || {
+                log_warn "Codex synthesis requires an output payload path"
+                return 1
+            }
+            SYNTHESIS_ARGS=("${CODEX_CMD:-codex}" exec --ephemeral \
+                --ignore-user-config --ignore-rules --skip-git-repo-check \
+                -s read-only --color never -o "$codex_payload_file")
+            local model="${SYNTHESIS_MODEL:-${CODEX_MODEL:-}}"
+            [[ -n "$model" ]] && SYNTHESIS_ARGS+=(-m "$model")
+            SYNTHESIS_ARGS+=(-)
             ;;
         *)
             log_warn "Unknown synthesis CLI type: $cli_type"
             return 1
             ;;
     esac
+    return 0
 }

@@ -126,7 +126,7 @@ select_consultants() {
 
     # Known roster order matches ALL_CONSULTANTS in config.sh. Eligibility is
     # applied here because smart-routing callers consume this output directly.
-    local consultants=("Gemini" "Codex" "Mistral" "Cursor" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
+    local consultants=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
     local selected=()
     local scores=()
     local custom_consultants=()
