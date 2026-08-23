@@ -776,6 +776,8 @@ test_cost_per1k_contract() {
     assert_equals "0.05" "$(get_output_cost_per_1k claude-fable-5)" "Fable 5 output is 50 USD/MTok"
     assert_equals "0.00075" "$(get_input_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional input rate is current"
     assert_equals "0.00375" "$(get_output_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional output rate is current"
+    assert_equals "0.00075" "$(get_input_cost_per_1k 'Gemini 3.7 Flash (High)')" "promoted Gemini CLI default resolves its promotional rate"
+    assert_equals "Gemini 3.7 Flash (High)" "$(get_consultant_fallback_model gemini)" "legacy Gemini responses use the promoted CLI fallback"
     assert_equals "0.0015" "$(get_input_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API input is priced"
     assert_equals "0.0075" "$(get_output_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API output is priced"
     assert_equals "0.002" "$(get_input_cost_per_1k mistral-large-3)" "active Mistral API fallback input stays catalogued"
@@ -1169,7 +1171,7 @@ test_model_tiers() {
 test_economic_models() {
     suite "costs.sh: get_economic_model"
 
-    assert_equals "Gemini 3.6 Flash (Low)" "$(get_economic_model "gemini" cli)" "Gemini CLI economy is hermetic"
+    assert_equals "Gemini 3.7 Flash (Low)" "$(get_economic_model "gemini" cli)" "Gemini CLI economy is hermetic"
     assert_equals "gemini-3.1-pro-preview" "$(get_economic_model "gemini" api)" "Gemini API economy is hermetic"
     assert_equals "gpt-5.6-luna"     "$(get_economic_model "codex")"  "codex economy is gpt-5.6-luna"
     assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
@@ -1547,9 +1549,10 @@ test_model_for_tier() {
     assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-5"
     assert_equals "claude-sonnet-5"       "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-5"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
-    assert_equals "Gemini 3.1 Pro (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is Gemini 3.1 Pro (High)"
+    assert_equals "Gemini 3.7 Flash (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is promoted Gemini 3.7 Flash (High)"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium" api)" "gemini API premium uses the provider ID"
-    assert_equals "Gemini 3.6 Flash (Low)" "$(get_model_for_tier "gemini" "economy" cli)" "unverified Gemini 3.7 stays out of CLI economy tier"
+    assert_equals "Gemini 3.7 Flash (High)" "$(get_model_for_tier "gemini" "maximum" cli)" "verified Gemini 3.7 is promoted in CLI maximum tier"
+    assert_equals "Gemini 3.7 Flash (Low)" "$(get_model_for_tier "gemini" "economy" cli)" "verified Gemini 3.7 is promoted in CLI economy tier"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "standard" api)" "unverified Gemini 3.7 stays out of API standard tier"
     assert_equals "mistral-medium-3.5" "$(get_model_for_tier "mistral" "premium" cli)" "Mistral CLI premium uses the Vibe alias"
     assert_equals "mistral-large-3" "$(get_model_for_tier "mistral" "premium" api)" "unverified Mistral API targets stay out of premium"
@@ -1690,7 +1693,7 @@ test_model_for_tier() {
         apply_model_tier economy
         printf '%s|%s|%s|%s\n' "$GEMINI_MODEL" "$GEMINI_API_MODEL" "$MISTRAL_CLI_MODEL" "$MISTRAL_MODEL"
     )
-    assert_equals "Gemini 3.6 Flash (Low)|gemini-3.1-pro-preview|devstral-small-2|mistral-large-3" \
+    assert_equals "Gemini 3.7 Flash (Low)|gemini-3.1-pro-preview|devstral-small-2|mistral-large-3" \
         "$economy_exports" "economy exports are transport-stable and hermetic"
 
     # Unknown tier returns empty

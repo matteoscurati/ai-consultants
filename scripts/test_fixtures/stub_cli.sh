@@ -24,7 +24,7 @@ APPROACH="${STUB_APPROACH:-approach-alpha}"
 # branches perform no model call and keep the shared E2E stub compatible with
 # the real adapters' fail-before-dispatch checks.
 if [[ "${1:-}" == "models" ]]; then
-    printf '%s\n' 'Gemini 3.1 Pro (High)' 'Gemini 3.6 Flash (High)' 'Gemini 3.6 Flash (Low)'
+    printf '%s\n' 'Gemini 3.7 Flash (High)' 'Gemini 3.7 Flash (Low)' 'Gemini 3.1 Pro (High)' 'Gemini 3.6 Flash (High)' 'Gemini 3.6 Flash (Low)'
     exit 0
 fi
 if [[ " $* " == *" --help "* ]]; then

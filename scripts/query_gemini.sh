@@ -8,7 +8,7 @@
 # Usage: ./query_gemini.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   GEMINI_MODEL - agy model display name (default: "Gemini 3.1 Pro (High)")
+#   GEMINI_MODEL - agy model display name (default: "Gemini 3.7 Flash (High)")
 #   GEMINI_TIMEOUT - Timeout in seconds (default: 180)
 #   GEMINI_USE_API - Use Google AI API mode instead of the agy CLI (default: false)
 #   GEMINI_API_MODEL - API model ID for API mode (default: gemini-3.1-pro-preview)

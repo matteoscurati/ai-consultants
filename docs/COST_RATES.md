@@ -23,10 +23,11 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.1 Pro (High) | Premium | $0.002 | Gemini (agy CLI) |
-| Gemini 3.6 Flash (High) | Standard | $0.0015 | Gemini (agy CLI) |
-| Gemini 3.6 Flash (Low) | Economy | $0.0015 | Gemini (agy CLI) |
-| Gemini 3.7 Flash (High/Low) | Opt-in | $0.00075 | Gemini (CLI/API; promotional through 2026-12-31) |
+| Gemini 3.7 Flash (High) | Maximum/Premium/Standard | $0.00075 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.7 Flash (Low) | Economy | $0.00075 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.1 Pro (High) | CLI opt-in | $0.002 | Gemini (agy CLI) |
+| gemini-3.1-pro-preview | API default | $0.00125 | Gemini API |
+| Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0015 | Gemini |
 | gpt-5.6-sol | Premium | $0.005 | Codex |
 | gpt-5.6-terra | Standard | $0.002 | Codex |
 | gpt-5.6-luna | Economy | $0.0002 | Codex |
@@ -63,10 +64,11 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.1 Pro (High) | Premium | $0.012 | Gemini (agy CLI) |
-| Gemini 3.6 Flash (High) | Standard | $0.0075 | Gemini (agy CLI) |
-| Gemini 3.6 Flash (Low) | Economy | $0.0075 | Gemini (agy CLI) |
-| Gemini 3.7 Flash (High/Low) | Opt-in | $0.00375 | Gemini (CLI/API; promotional through 2026-12-31) |
+| Gemini 3.7 Flash (High) | Maximum/Premium/Standard | $0.00375 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.7 Flash (Low) | Economy | $0.00375 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.1 Pro (High) | CLI opt-in | $0.012 | Gemini (agy CLI) |
+| gemini-3.1-pro-preview | API default | $0.005 | Gemini API |
+| Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0075 | Gemini |
 | gpt-5.6-sol | Premium | $0.030 | Codex |
 | gpt-5.6-terra | Standard | $0.012 | Codex |
 | gpt-5.6-luna | Economy | $0.0012 | Codex |

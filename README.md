@@ -464,7 +464,8 @@ detail instead of reducing every consultant to its summary.
 | Consultant | `max_quality` | Premium | Standard | Economy |
 |------------|---------------|---------|----------|---------|
 | Claude | claude-opus-5 | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
-| Gemini | Gemini 3.1 Pro (High) | Gemini 3.1 Pro (High) | Gemini 3.6 Flash (High) | Gemini 3.6 Flash (Low) |
+| Gemini CLI | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (Low) |
+| Gemini API | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview |
 | Codex | gpt-5.6-sol | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna |
 | Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | devstral-small-2 |
 | Mistral API | mistral-large-3 | mistral-large-3 | mistral-large-3 | mistral-large-3 |
@@ -475,13 +476,14 @@ detail instead of reducing every consultant to its summary.
 | Kimi | kimi-code/k3-256k | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
 | MiniMax | MiniMax-M3 | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
 
-Promotion is transport-specific. Gemini 3.7 Flash, the new Mistral API IDs
-(`mistral-medium-3-5`, `mistral-large-2512`, `mistral-small-2603`), and Claude
-Fable 5 are catalogued opt-ins because this release could not complete an exact
-authenticated smoke for those transports. Select them explicitly only after
-your own `doctor --live`/adapter check. They are never promoted automatically;
-selecting a preset later intentionally reapplies that preset's tier and can
-replace an explicit model override for the run.
+Promotion is transport-specific. Gemini 3.7 Flash High completed an exact live
+smoke through the `agy` adapter and is now the CLI default; Low is the CLI
+economy target. The Google API model remains `gemini-3.1-pro-preview`, while
+`gemini-3.7-flash` stays an API-only opt-in until that separate transport is
+verified. The new Mistral API IDs (`mistral-medium-3-5`,
+`mistral-large-2512`, `mistral-small-2603`) and Claude Fable 5 likewise remain
+catalogued opt-ins. Selecting a preset later intentionally reapplies that
+preset's tier and can replace an explicit model override for the run.
 Qwen3.8-Max is likewise selected by `max_quality` only when API mode already
 points at an authenticated OpenAI-compatible Token Plan `/chat/completions`
 endpoint; the preset never repoints a DashScope key or CLI installation.
@@ -581,7 +583,7 @@ later run to adapt when a CLI or credential changes. Environment variables,
 historical generated Claude default described below.
 Managed model defaults use `# ai-consultants:default`; `configure` upgrades the
 historical unmarked `CLAUDE_MODEL=claude-opus-4-8` default to Opus 5 and upgrades
-the exact managed GLM and Grok defaults. To keep
+the exact managed Gemini CLI, GLM, and Grok defaults. To keep
 4.8 intentionally, run
 `ai-consultants configure --set CLAUDE_MODEL=claude-opus-4-8`; explicit model
 overrides are stored with `# ai-consultants:pin`.
@@ -603,6 +605,7 @@ MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=t
 KIMI_MODEL=kimi-code/k3      # Pin the Kimi consultant to K3
 CLAUDE_API_MAX_TOKENS=16384  # Shared thinking + visible-output budget in API mode
 MISTRAL_CLI_MODEL=mistral-medium-3.5 # Vibe alias; MISTRAL_MODEL remains API-only
+GEMINI_MODEL="Gemini 3.7 Flash (High)" # agy CLI; API uses GEMINI_API_MODEL
 ```
 
 Full reference: [`references/configuration.md`](references/configuration.md). Copy-paste workflows: [`docs/RECIPES.md`](docs/RECIPES.md). For category-aware preset suggestions: `ai-consultants doctor --suggest-preset --question "..."`.
