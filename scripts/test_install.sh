@@ -107,6 +107,17 @@ test_define_only_hook_runs_no_installer_work() {
 }
 
 # ---------------------------------------------------------------------------
+test_installer_banner_is_version_neutral() {
+    local banner
+    banner="$(print_header)"
+
+    assert_eq "1" "$(printf '%s\n' "$banner" | grep -cF 'AI Consultants - Installation')" \
+        "installer banner identifies the installer"
+    assert_eq "0" "$(printf '%s\n' "$banner" | grep -cE 'AI Consultants v[0-9]+\.[0-9]+' || true)" \
+        "installer banner never advertises a stale package version"
+}
+
+# ---------------------------------------------------------------------------
 test_shipped_surfaces_exclude_removed_cursor_consultant() {
     local project_root command_file host_dir host_name invoking
     project_root="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -176,6 +187,7 @@ run_test "Test 2: leaves other tools' commands alone" test_leaves_other_tools_co
 run_test "Test 3: fresh install is a clean no-op" test_no_installed_commands_is_a_clean_no_op
 run_test "Test 4: missing commands dir is a clean no-op" test_missing_commands_dir_is_a_clean_no_op
 run_test "Test 5: define-only hook exposes helpers without installing" test_define_only_hook_runs_no_installer_work
-run_test "Test 6: shipped surfaces exclude removed Cursor consultant" test_shipped_surfaces_exclude_removed_cursor_consultant
+run_test "Test 6: installer banner is version-neutral" test_installer_banner_is_version_neutral
+run_test "Test 7: shipped surfaces exclude removed Cursor consultant" test_shipped_surfaces_exclude_removed_cursor_consultant
 
 test_summary "install"

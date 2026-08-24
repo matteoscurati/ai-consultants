@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 4.0.0
+**Version**: 4.0.1
 
 ## Distribution
 
@@ -759,6 +759,14 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v4.0.1
+
+- **The installer's first line of user-visible output was six major/minor generations stale.** `scripts/install.sh:53` printed `AI Consultants v2.10 - Installation` even while the public binary, package metadata, npm registry, active checkout, and doctor all reported v4.0.0. That did not change installed bytes or runtime behavior, but it made a successful v4 install look wrong at the exact moment users were deciding whether to trust it.
+- **The banner is now deliberately version-neutral, not dynamically coupled to a tenth version surface.** The curl-piped installer prints before it has cloned or updated the checkout, so sourcing `scripts/config.sh` there would either be impossible on a fresh install or would report the old local version during an update. A static `AI Consultants - Installation` label stays truthful throughout both paths and does not need another release-time rewrite.
+- **The failure is regression-tested through rendered output.** `scripts/test_install.sh` sources the existing define-only path, calls `print_header`, requires the installer label, and rejects `AI Consultants v<major>.<minor>` in the banner. The focused installer suite grows to 47 checks; the full 23-suite gate and ShellCheck pass on the 4.0.1 surfaces.
+
+  Deliberately unchanged: no runtime, model, preset, credential, host command, or minisite copy changes. The showcase site already reflects the ten-consultant v4 panel; after npm serves 4.0.1 it needs only its two mechanical version surfaces bumped.
 
 ### v4.0.0
 

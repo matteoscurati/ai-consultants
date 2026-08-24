@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [4.0.1] - 2026-08-24
+
+### Fixed
+- **The installer banner no longer claims the obsolete version `v2.10`.** It is now intentionally version-neutral, so future package releases cannot make the banner stale again.
+- The hermetic installer suite now renders the banner and rejects any hardcoded package SemVer in it; the suite grows from 45 checks in v4.0.0 to 47 checks.
+
 ## [4.0.0] - 2026-08-24
 
 ### Added

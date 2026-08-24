@@ -50,7 +50,7 @@ fi
 print_header() {
     echo ""
     echo -e "${BLUE}+---------------------------------------------------------------+${NC}"
-    echo -e "${BLUE}|           AI Consultants v2.10 - Installation                 |${NC}"
+    echo -e "${BLUE}|              AI Consultants - Installation                    |${NC}"
     echo -e "${BLUE}+---------------------------------------------------------------+${NC}"
     echo ""
 }
