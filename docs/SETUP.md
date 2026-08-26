@@ -396,6 +396,17 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"
 
 Seven consultants can switch between CLI mode (using local CLI tools) and API mode (direct API calls): **Gemini, Codex, Claude, Mistral, Qwen3, Grok, and MiniMax**. Grok is CLI-first and runs in an isolated, tool-free strict sandbox. It falls back automatically only when Grok Build is missing, cannot launch, or lacks usable authentication and a key is available; request failures after launch are surfaced without an API fallback.
 
+Grok's normal OAuth mode is `GROK_OAUTH_MODE=shared`, which is safe for the
+parallel panel: each call gets a private HOME/workspace/prompt/output, while a
+runner-owned persistent `GROK_HOME` lets Grok Build coordinate token refresh
+with its own lock. A short ai-consultants lock atomically seeds and publishes
+valid generations; a concurrent external `grok login` wins the CAS and makes
+the affected run fail without an API fallback. Use
+`GROK_OAUTH_MODE=serialized` only as a diagnostic fallback. Forced API mode is
+stateless and does not read or create the shared OAuth generation. A newly
+created shared generation runs one locked inventory bootstrap to let Grok 1.0.4
+initialize its home metadata; the lock is released before inference.
+
 ### Why Use API Mode?
 
 - **No CLI installation required**: Use API keys without installing CLI tools

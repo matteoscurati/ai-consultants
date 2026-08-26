@@ -259,6 +259,7 @@ GROK_MODEL=grok-4.6
 GROK_MAX_TURNS=4
 GROK_API_MAX_TOKENS=4096
 GROK_REASONING_EFFORT=      # max_quality sets xhigh (Grok Build maximum)
+GROK_OAUTH_MODE=shared      # shared (parallel default) | serialized (diagnostic)
 DEEPSEEK_MODEL=deepseek-v4-pro
 DEEPSEEK_API_MAX_TOKENS=16384
 DEEPSEEK_MAX_QUALITY_TIMEOUT=600
@@ -284,6 +285,24 @@ timeouts, model errors, and empty output) are returned without API fallback.
 Set `GROK_USE_API=true` only to force the API path. The adapter accepts any CLI
 version that exposes the complete required headless interface and requested
 model; `metadata.cli_version` is provenance, not a version pin.
+
+`GROK_OAUTH_MODE=shared` is the normal CLI path because ai-consultants launches
+consultants in parallel. Each Grok invocation keeps a private HOME, workspace,
+prompt, output, permissions, and tool-free agent configuration. Concurrent Grok
+processes share only a runner-owned persistent `GROK_HOME` generation under
+`$XDG_DATA_HOME/ai-consultants/grok-shared-oauth` (or the standard XDG data
+fallback). Grok Build's own auth lock coordinates refreshes inside that shared
+generation; a short ai-consultants lock protects seeding, adoption, atomic
+configuration reconciliation, and atomic publication back to the ambient
+`~/.grok/auth.json`. An external `grok login` always wins the digest-based CAS:
+the affected consultation fails temporarily and never overwrites the new login
+or falls back to a separately billed API request. Malformed credentials and
+unpersisted refreshes fail closed. Use `GROK_OAUTH_MODE=serialized` only to hold
+the adapter lock across the complete CLI run for diagnostic comparison. Forced
+API mode is stateless and never creates or reads the shared OAuth generation.
+Each new generation also performs exactly one model-inventory bootstrap under
+the short lock because Grok 1.0.4 lazily initializes home metadata; all later
+inventory probes and every inference remain concurrent.
 
 `max_quality` sets `GROK_REASONING_EFFORT=xhigh` (the highest value accepted by
 Grok Build),

@@ -104,7 +104,7 @@ test_template_covers_config_contract() {
     done < <(find "$SCRIPT_DIR" -type f -name '*.sh' \
         ! -name 'test_*.sh' ! -path '*/test_fixtures/*' ! -path '*/experiment/*' | sort) \
         | sed -E 's/^\$\{//; s/:[-=]$//' \
-        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
+        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|RUN_QUERY_REDACT_ERRORS|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
         | sort -u > "$runtime"
     sort -u "$declared" "$runtime" -o "$declared"
     $BIN configure --show-parameters | sort -u > "$supported"
@@ -113,6 +113,8 @@ test_template_covers_config_contract() {
         "every persistent config.sh parameter is accepted by configure --set"
     assert_contains "$(cat "$supported")" "GEMINI_API_KEY" \
         "runtime Gemini credential is covered"
+    assert_contains "$(cat "$supported")" "GROK_OAUTH_MODE" \
+        "Grok OAuth concurrency mode is persistently configurable"
     if grep -q '^GOOGLE_API_KEY$' "$supported"; then
         assert_eq "absent" "present" "obsolete GOOGLE_API_KEY must not be advertised"
     else
