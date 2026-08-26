@@ -206,7 +206,7 @@ grok_cli_exposes_requested_model() {
 
 grok_shared_oauth_bootstrap_ready() {
     oauth_rc=0
-    grok_oauth_bootstrap_shared "$1" "$GROK_CMD" "$GROK_MODEL" || oauth_rc=$?
+    grok_oauth_bootstrap_shared "$1" "$GROK_CMD" || oauth_rc=$?
     [[ "$oauth_rc" -eq 0 ]]
 }
 

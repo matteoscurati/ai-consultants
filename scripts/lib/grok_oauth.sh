@@ -311,7 +311,7 @@ grok_oauth_prepare() {
 # can both report authentication unavailable. Serialize this one-time seed
 # only; the sentinel keeps every later capability probe and inference parallel.
 grok_oauth_bootstrap_shared() {
-    local probe_home="$1" grok_cmd="$2" requested_model="$3"
+    local probe_home="$1" grok_cmd="$2"
     local sentinel="$GROK_OAUTH_ACTIVE_HOME/.ai-consultants-ready.json"
     local candidate models lock_rc=0
     [[ "$GROK_OAUTH_MODE" == "shared" ]] || return 0
@@ -352,12 +352,11 @@ grok_oauth_bootstrap_shared() {
         grok_oauth_release_lock
         return 1
     fi
-    if ! grep -Fq "You are logged in with grok.com." <<< "$models" ||
-       ! awk -v requested="$requested_model" '
-          { line=$0; sub(/^[[:space:]*]+/, "", line); split(line, f, /[[:space:]]+/); if (f[1] == requested) found=1 }
-          END { exit(found ? 0 : 1) }
-        ' <<< "$models" ||
-       ! grok_oauth_credential_valid "$GROK_OAUTH_ACTIVE_HOME/auth.json"; then
+    # This call exists only to let a pristine provider home finish its lazy
+    # initialization. The adapter's normal model probe immediately follows and
+    # remains the single authority for authenticated inventory/model identity;
+    # first-run provider output is not stable enough to validate twice here.
+    if ! grok_oauth_credential_valid "$GROK_OAUTH_ACTIVE_HOME/auth.json"; then
         GROK_OAUTH_ERROR="Shared Grok OAuth bootstrap returned invalid state"
         grok_oauth_release_lock
         return 1
