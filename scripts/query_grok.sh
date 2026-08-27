@@ -176,7 +176,8 @@ grok_cli_exposes_requested_model() {
     local isolated_grok_home="$2"
     local models
 
-    if ! models=$(env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
+    if ! models=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+            env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
             "$GROK_CMD" models 2>&1); then
         if grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
             _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
@@ -202,6 +203,27 @@ grok_cli_exposes_requested_model() {
         return 1
     fi
     return 0
+}
+
+grok_model_probe_with_oauth_coordination() {
+    local isolated_home="$1" isolated_grok_home="$2" lock_rc=0 probe_rc=0
+    if [[ "$GROK_OAUTH_MODE" != "shared" ]]; then
+        grok_cli_exposes_requested_model "$isolated_home" "$isolated_grok_home"
+        return $?
+    fi
+    grok_oauth_acquire_lock_wait || lock_rc=$?
+    if [[ "$lock_rc" -ne 0 ]]; then
+        _GROK_OAUTH_FAILURE=true
+        if [[ "$lock_rc" -eq 2 ]]; then
+            _GROK_MODEL_PROBE_ERROR="Grok OAuth inventory coordination is temporarily busy"
+        else
+            _GROK_MODEL_PROBE_ERROR="Grok OAuth inventory coordination failed"
+        fi
+        return 1
+    fi
+    grok_cli_exposes_requested_model "$isolated_home" "$isolated_grok_home" || probe_rc=$?
+    grok_oauth_release_lock
+    return "$probe_rc"
 }
 
 grok_shared_oauth_bootstrap_ready() {
@@ -311,7 +333,7 @@ else
                 log_warn "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
                 [[ "$oauth_rc" -eq 2 ]] && exit_code=75 || exit_code=70
             fi
-        elif ! grok_cli_exposes_requested_model \
+        elif ! grok_model_probe_with_oauth_coordination \
                 "$isolated_home" "$GROK_OAUTH_ACTIVE_HOME" > "${TEMP_OUTPUT}.err"; then
             printf '%s\n' "${_GROK_MODEL_PROBE_ERROR:-Grok Build CLI model inventory failed}" > "${TEMP_OUTPUT}.err"
             log_warn "[$CONSULTANT_NAME] ${_GROK_MODEL_PROBE_ERROR:-Grok Build CLI model inventory failed}"

@@ -57,6 +57,15 @@ if [[ "${1:-}" == "models" ]]; then
         : > "$GROK_FAKE_INIT_GUARD_DIR/ready"
         rmdir "$GROK_FAKE_INIT_GUARD_DIR/initializing"
     fi
+    if [[ -n "${GROK_FAKE_PROBE_GUARD_DIR:-}" ]]; then
+        mkdir -p "$GROK_FAKE_PROBE_GUARD_DIR"
+        if ! mkdir "$GROK_FAKE_PROBE_GUARD_DIR/running" 2>/dev/null; then
+            printf 'Authentication unavailable during concurrent inventory probe\n' >&2
+            exit 1
+        fi
+        sleep 0.1
+        rmdir "$GROK_FAKE_PROBE_GUARD_DIR/running"
+    fi
     printf 'You are logged in with grok.com.\n\nAvailable models:\n  * %s (default)\n' "${GROK_MODEL:-grok-4.5}"
     exit 0
 fi
@@ -509,6 +518,7 @@ test_shared_oauth_allows_concurrent_dispatch() {
     local source_home="$TMP_ROOT/shared-concurrent-home"
     local sync_dir="$TMP_ROOT/shared-concurrent-sync"
     local init_guard="$TMP_ROOT/shared-concurrent-init"
+    local probe_guard="$TMP_ROOT/shared-concurrent-probe"
     local output_a="$TMP_ROOT/shared-concurrent-a.json" output_b="$TMP_ROOT/shared-concurrent-b.json"
     local env_a="$TMP_ROOT/shared-concurrent-a.env" env_b="$TMP_ROOT/shared-concurrent-b.env"
     local rc_a=0 rc_b=0 pid_a pid_b home_a home_b grok_home_a grok_home_b
@@ -519,14 +529,16 @@ test_shared_oauth_allows_concurrent_dispatch() {
     GROK_CMD="$fake_grok" GROK_HOME="$source_home" GROK_USE_API=false \
         GROK_MODEL=grok-4.6 GROK_ARGS_FILE="$TMP_ROOT/shared-a.args" \
         GROK_ENV_FILE="$env_a" GROK_FAKE_SYNC_DIR="$sync_dir" \
-        GROK_FAKE_INIT_GUARD_DIR="$init_guard" MAX_RETRIES=1 \
+        GROK_FAKE_INIT_GUARD_DIR="$init_guard" \
+        GROK_FAKE_PROBE_GUARD_DIR="$probe_guard" MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_grok.sh" WAIT_FOR_PEER_A "" "$output_a" \
         >"$TMP_ROOT/shared-a.stdout" 2>"$TMP_ROOT/shared-a.stderr" &
     pid_a=$!
     GROK_CMD="$fake_grok" GROK_HOME="$source_home" GROK_USE_API=false \
         GROK_MODEL=grok-4.6 GROK_ARGS_FILE="$TMP_ROOT/shared-b.args" \
         GROK_ENV_FILE="$env_b" GROK_FAKE_SYNC_DIR="$sync_dir" \
-        GROK_FAKE_INIT_GUARD_DIR="$init_guard" MAX_RETRIES=1 \
+        GROK_FAKE_INIT_GUARD_DIR="$init_guard" \
+        GROK_FAKE_PROBE_GUARD_DIR="$probe_guard" MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_grok.sh" WAIT_FOR_PEER_B "" "$output_b" \
         >"$TMP_ROOT/shared-b.stdout" 2>"$TMP_ROOT/shared-b.stderr" &
     pid_b=$!
