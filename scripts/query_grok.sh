@@ -174,25 +174,9 @@ grok_cli_supports_required_interface() {
 }
 
 grok_capability_probe_with_oauth_coordination() {
-    local probe_home="$1" probe_grok_home="$2" probe_workspace="$3"
-    local lock_rc=0 probe_rc=0
-    if [[ "$GROK_OAUTH_MODE" != "shared" ]]; then
-        grok_cli_supports_required_interface "$probe_home" "$probe_grok_home" "$probe_workspace"
-        return $?
-    fi
-    grok_oauth_acquire_lock_wait || lock_rc=$?
-    if [[ "$lock_rc" -ne 0 ]]; then
-        _GROK_OAUTH_FAILURE=true
-        if [[ "$lock_rc" -eq 2 ]]; then
-            _GROK_CAPABILITY_ERROR="Grok OAuth capability coordination is temporarily busy"
-        else
-            _GROK_CAPABILITY_ERROR="Grok OAuth capability coordination failed"
-        fi
-        return 1
-    fi
-    grok_cli_supports_required_interface "$probe_home" "$probe_grok_home" "$probe_workspace" || probe_rc=$?
-    grok_oauth_release_lock
-    return "$probe_rc"
+    # Capability parsing is provider-free and must not initialize either the
+    # shared OAuth home or the HOME later used for authenticated inventory.
+    grok_cli_supports_required_interface "$1" "$2" "$3"
 }
 
 grok_cli_exposes_requested_model() {
@@ -298,9 +282,21 @@ else
         isolated_home="$GROK_RUNTIME_DIR/home"
         isolated_grok_home="$isolated_home/.grok"
         isolated_workspace="$GROK_RUNTIME_DIR/workspace"
+        capability_home="$GROK_RUNTIME_DIR/capability-home"
+        capability_grok_home="$capability_home/.grok"
+        capability_workspace="$GROK_RUNTIME_DIR/capability-workspace"
         prompt_file="$GROK_RUNTIME_DIR/prompt.txt"
-        mkdir -p "$isolated_home" "$isolated_workspace"
-        chmod 700 "$isolated_home" "$isolated_workspace"
+        mkdir -p "$isolated_home" "$isolated_workspace" \
+            "$capability_grok_home" "$capability_workspace"
+        chmod 700 "$isolated_home" "$isolated_workspace" \
+            "$capability_home" "$capability_grok_home" "$capability_workspace"
+        _GROK_CAPABILITY_HOME_READY=true
+        grok_oauth_write_controlled_config "$capability_grok_home" || {
+            printf '%s\n' "Grok capability home could not be initialized" > "${TEMP_OUTPUT}.err"
+            _GROK_OAUTH_FAILURE=true
+            _GROK_CAPABILITY_HOME_READY=false
+            exit_code=70
+        }
         printf '%s' "$FULL_QUERY" > "$prompt_file"
         chmod 600 "$prompt_file"
 
@@ -311,27 +307,29 @@ else
         # previous per-run GROK_HOME shape under a full diagnostic lock.
         source_grok_home=$(printenv GROK_HOME 2>/dev/null || true)
         [[ -n "$source_grok_home" ]] || source_grok_home="${HOME}/.grok"
-        oauth_rc=0
-        grok_oauth_init "$source_grok_home" || oauth_rc=$?
-        if [[ "$oauth_rc" -eq 2 ]]; then
-            printf '%s\n' "Grok Build authentication unavailable; run grok login" > "${TEMP_OUTPUT}.err"
-            log_warn "[$CONSULTANT_NAME] Grok Build authentication unavailable"
-            exit_code=69
-        elif [[ "$oauth_rc" -ne 0 ]]; then
-            _GROK_OAUTH_FAILURE=true
-            printf '%s\n' "Grok OAuth state failed validation" > "${TEMP_OUTPUT}.err"
-            log_warn "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
-            exit_code=70
-        else
+        if [[ "$_GROK_CAPABILITY_HOME_READY" == "true" ]]; then
             oauth_rc=0
-            grok_oauth_prepare "$isolated_grok_home" || oauth_rc=$?
-            if [[ "$oauth_rc" -ne 0 ]]; then
+            grok_oauth_init "$source_grok_home" || oauth_rc=$?
+            if [[ "$oauth_rc" -eq 2 ]]; then
+                printf '%s\n' "Grok Build authentication unavailable; run grok login" > "${TEMP_OUTPUT}.err"
+                log_warn "[$CONSULTANT_NAME] Grok Build authentication unavailable"
+                exit_code=69
+            elif [[ "$oauth_rc" -ne 0 ]]; then
                 _GROK_OAUTH_FAILURE=true
-                printf '%s\n' "Grok OAuth state could not be prepared" > "${TEMP_OUTPUT}.err"
+                printf '%s\n' "Grok OAuth state failed validation" > "${TEMP_OUTPUT}.err"
                 log_warn "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
-                [[ "$oauth_rc" -eq 2 ]] && exit_code=75 || exit_code=70
+                exit_code=70
             else
-                _GROK_OAUTH_PREPARED=true
+                oauth_rc=0
+                grok_oauth_prepare "$isolated_grok_home" || oauth_rc=$?
+                if [[ "$oauth_rc" -ne 0 ]]; then
+                    _GROK_OAUTH_FAILURE=true
+                    printf '%s\n' "Grok OAuth state could not be prepared" > "${TEMP_OUTPUT}.err"
+                    log_warn "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
+                    [[ "$oauth_rc" -eq 2 ]] && exit_code=75 || exit_code=70
+                else
+                    _GROK_OAUTH_PREPARED=true
+                fi
             fi
         fi
 
@@ -339,7 +337,7 @@ else
         if [[ "$_GROK_OAUTH_PREPARED" != "true" ]]; then
             :
         elif ! grok_capability_probe_with_oauth_coordination \
-                "$isolated_home" "$GROK_OAUTH_ACTIVE_HOME" "$isolated_workspace"; then
+                "$capability_home" "$capability_grok_home" "$capability_workspace"; then
             GROK_CLI_COMPATIBILITY="incompatible"
             printf '%s\n' "${_GROK_CAPABILITY_ERROR:-Grok Build CLI lacks the required capabilities}" > "${TEMP_OUTPUT}.err"
             log_warn "[$CONSULTANT_NAME] ${_GROK_CAPABILITY_ERROR:-Grok Build CLI lacks the required capabilities} (reported version: $GROK_CLI_VERSION)"
