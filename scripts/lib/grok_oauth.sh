@@ -150,6 +150,15 @@ grok_oauth_write_marker() {
     fi
 }
 
+grok_oauth_generation_has_legacy_config() {
+    local config="$1/config.toml"
+    [[ -f "$config" && ! -L "$config" ]] || return 1
+    grep -q '^\[compat\.claude\]$' "$config" &&
+        grep -q '^\[compat\.cursor\]$' "$config" &&
+        grep -q '^\[workflows\]$' "$config" &&
+        grep -q '^enabled = false$' "$config"
+}
+
 grok_oauth_init() {
     local source_home="$1"
     GROK_OAUTH_ERROR=""
@@ -225,6 +234,7 @@ grok_oauth_seed_shared() {
     generation_dir="$GROK_OAUTH_SHARED_ROOT/$marker_generation"
     if [[ -n "$marker_generation" && "$marker_sha" == "$ambient_hash" &&
           -d "$generation_dir" && ! -L "$generation_dir" ]] &&
+       ! grok_oauth_generation_has_legacy_config "$generation_dir" &&
        grok_oauth_credential_valid "$generation_dir/auth.json"; then
         GROK_OAUTH_GENERATION="$marker_generation"
         if ! grok_oauth_write_controlled_config "$generation_dir"; then

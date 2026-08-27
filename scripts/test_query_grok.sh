@@ -693,6 +693,37 @@ test_shared_configuration_is_reconciled_atomically() {
         "atomic config reconciliation leaves no candidate file"
 }
 
+test_legacy_runner_config_supersedes_generation() {
+    local fake_grok="$TMP_ROOT/grok-legacy-config"
+    local source_home="$TMP_ROOT/legacy-config-home"
+    local first="$TMP_ROOT/legacy-config-first.json" second="$TMP_ROOT/legacy-config-second.json"
+    local shared_root generation_before generation_after
+    mkdir -p "$source_home"
+    write_oauth "$source_home/auth.json" legacy-access legacy-refresh
+    make_grok_stub "$fake_grok" success
+    GROK_CMD="$fake_grok" GROK_HOME="$source_home" GROK_USE_API=false \
+        GROK_MODEL=grok-4.6 GROK_ARGS_FILE="$TMP_ROOT/legacy-config.args" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_grok.sh" initial "" "$first" >/dev/null 2>&1
+    shared_root="$XDG_DATA_HOME/ai-consultants/grok-shared-oauth"
+    generation_before=$(jq -r '.generation' "$shared_root/sync-marker.json")
+    cat > "$shared_root/$generation_before/config.toml" <<'EOF'
+[compat.claude]
+[compat.cursor]
+[workflows]
+enabled = false
+EOF
+    GROK_CMD="$fake_grok" GROK_HOME="$source_home" GROK_USE_API=false \
+        GROK_MODEL=grok-4.6 GROK_ARGS_FILE="$TMP_ROOT/legacy-config-next.args" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_grok.sh" migrate "" "$second" >/dev/null 2>&1
+    generation_after=$(jq -r '.generation' "$shared_root/sync-marker.json")
+    assert_eq false "$([[ "$generation_before" == "$generation_after" ]] && echo true || echo false)" \
+        "legacy runner-owned config supersedes the shared generation"
+    assert_eq false "$([[ -e "$shared_root/$generation_after/config.toml" ]] && echo true || echo false)" \
+        "new generation does not copy the legacy Grok config"
+    assert_eq "Grok CLI answered" "$(jq -r '.response.summary' "$second")" \
+        "superseded legacy generation does not block the next dispatch"
+}
+
 test_tokens_never_leave_credential_files() {
     local fake_bin="$TMP_ROOT/token-leak-bin"
     local fake_grok="$fake_bin/grok"
@@ -842,11 +873,12 @@ run_test "Test 13: external login wins the shared OAuth CAS" test_external_login
 run_test "Test 14: corrupt refresh never replaces ambient OAuth" test_corrupt_refresh_never_replaces_ambient_oauth
 run_test "Test 15: dead runner lock is recovered" test_dead_runner_lock_is_recovered
 run_test "Test 16: shared configuration is reconciled atomically" test_shared_configuration_is_reconciled_atomically
-run_test "Test 17: tokens never leave credential files" test_tokens_never_leave_credential_files
-run_test "Test 18: serialized OAuth mode remains available" test_serialized_mode_remains_available
-run_test "Test 19: forced API mode stays stateless" test_forced_api_mode_is_stateless
-run_test "Test 20: unpersistable refresh fails closed" test_unpersistable_refresh_fails_closed
-run_test "Test 21: invalid OAuth mode never dispatches or falls back" test_invalid_oauth_mode_never_dispatches_or_falls_back
-run_test "Test 22: malformed ambient OAuth fails before dispatch" test_malformed_ambient_oauth_fails_before_dispatch
-run_test "Test 23: invalid Grok turn budget does not dispatch" test_invalid_turn_budget_never_dispatches
+run_test "Test 17: legacy runner config supersedes generation" test_legacy_runner_config_supersedes_generation
+run_test "Test 18: tokens never leave credential files" test_tokens_never_leave_credential_files
+run_test "Test 19: serialized OAuth mode remains available" test_serialized_mode_remains_available
+run_test "Test 20: forced API mode stays stateless" test_forced_api_mode_is_stateless
+run_test "Test 21: unpersistable refresh fails closed" test_unpersistable_refresh_fails_closed
+run_test "Test 22: invalid OAuth mode never dispatches or falls back" test_invalid_oauth_mode_never_dispatches_or_falls_back
+run_test "Test 23: malformed ambient OAuth fails before dispatch" test_malformed_ambient_oauth_fails_before_dispatch
+run_test "Test 24: invalid Grok turn budget does not dispatch" test_invalid_turn_budget_never_dispatches
 test_summary "query_grok"
