@@ -38,6 +38,15 @@ if [[ "${1:-}" == "--version" ]]; then
     exit 0
 fi
 if [[ " $* " == *" --help "* ]]; then
+    if [[ -n "${GROK_FAKE_CAPABILITY_GUARD_DIR:-}" ]]; then
+        mkdir -p "$GROK_FAKE_CAPABILITY_GUARD_DIR"
+        if ! mkdir "$GROK_FAKE_CAPABILITY_GUARD_DIR/running" 2>/dev/null; then
+            printf 'concurrent capability initialization failed\n' >&2
+            exit 1
+        fi
+        sleep 0.1
+        rmdir "$GROK_FAKE_CAPABILITY_GUARD_DIR/running"
+    fi
     cat <<'HELP'
 --prompt-file --model --cwd --output-format --no-plan --no-subagents
 --no-memory --disable-web-search --max-turns --permission-mode --sandbox
@@ -519,6 +528,7 @@ test_shared_oauth_allows_concurrent_dispatch() {
     local sync_dir="$TMP_ROOT/shared-concurrent-sync"
     local init_guard="$TMP_ROOT/shared-concurrent-init"
     local probe_guard="$TMP_ROOT/shared-concurrent-probe"
+    local capability_guard="$TMP_ROOT/shared-concurrent-capability"
     local output_a="$TMP_ROOT/shared-concurrent-a.json" output_b="$TMP_ROOT/shared-concurrent-b.json"
     local env_a="$TMP_ROOT/shared-concurrent-a.env" env_b="$TMP_ROOT/shared-concurrent-b.env"
     local rc_a=0 rc_b=0 pid_a pid_b home_a home_b grok_home_a grok_home_b
@@ -530,7 +540,8 @@ test_shared_oauth_allows_concurrent_dispatch() {
         GROK_MODEL=grok-4.6 GROK_ARGS_FILE="$TMP_ROOT/shared-a.args" \
         GROK_ENV_FILE="$env_a" GROK_FAKE_SYNC_DIR="$sync_dir" \
         GROK_FAKE_INIT_GUARD_DIR="$init_guard" \
-        GROK_FAKE_PROBE_GUARD_DIR="$probe_guard" MAX_RETRIES=1 \
+        GROK_FAKE_PROBE_GUARD_DIR="$probe_guard" \
+        GROK_FAKE_CAPABILITY_GUARD_DIR="$capability_guard" MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_grok.sh" WAIT_FOR_PEER_A "" "$output_a" \
         >"$TMP_ROOT/shared-a.stdout" 2>"$TMP_ROOT/shared-a.stderr" &
     pid_a=$!
@@ -538,7 +549,8 @@ test_shared_oauth_allows_concurrent_dispatch() {
         GROK_MODEL=grok-4.6 GROK_ARGS_FILE="$TMP_ROOT/shared-b.args" \
         GROK_ENV_FILE="$env_b" GROK_FAKE_SYNC_DIR="$sync_dir" \
         GROK_FAKE_INIT_GUARD_DIR="$init_guard" \
-        GROK_FAKE_PROBE_GUARD_DIR="$probe_guard" MAX_RETRIES=1 \
+        GROK_FAKE_PROBE_GUARD_DIR="$probe_guard" \
+        GROK_FAKE_CAPABILITY_GUARD_DIR="$capability_guard" MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_grok.sh" WAIT_FOR_PEER_B "" "$output_b" \
         >"$TMP_ROOT/shared-b.stdout" 2>"$TMP_ROOT/shared-b.stderr" &
     pid_b=$!

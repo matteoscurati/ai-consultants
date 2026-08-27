@@ -108,7 +108,8 @@ grok_cli_supports_required_interface() {
     local probe_workspace="$3"
     local help flag
 
-    help=$(env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
+    help=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+        env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
         "$GROK_CMD" --help 2>&1 || true)
     for flag in \
         --prompt-file --model --cwd --output-format --no-plan --no-subagents \
@@ -161,7 +162,8 @@ grok_cli_supports_required_interface() {
 
     # Exercise the complete headless argument surface under --help. This checks
     # parser compatibility without starting a session or sending a prompt.
-    "${probe_args[@]}" --help >/dev/null 2>&1 || return 1
+    run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+        "${probe_args[@]}" --help >/dev/null 2>&1 || return 1
 
     if grep -q -- '--no-auto-update' <<< "$help"; then
         GROK_SUPPORTS_NO_AUTO_UPDATE=true
@@ -169,6 +171,28 @@ grok_cli_supports_required_interface() {
         GROK_SUPPORTS_NO_AUTO_UPDATE=false
     fi
     GROK_CLI_COMPATIBILITY="capability-probed"
+}
+
+grok_capability_probe_with_oauth_coordination() {
+    local probe_home="$1" probe_grok_home="$2" probe_workspace="$3"
+    local lock_rc=0 probe_rc=0
+    if [[ "$GROK_OAUTH_MODE" != "shared" ]]; then
+        grok_cli_supports_required_interface "$probe_home" "$probe_grok_home" "$probe_workspace"
+        return $?
+    fi
+    grok_oauth_acquire_lock_wait || lock_rc=$?
+    if [[ "$lock_rc" -ne 0 ]]; then
+        _GROK_OAUTH_FAILURE=true
+        if [[ "$lock_rc" -eq 2 ]]; then
+            _GROK_CAPABILITY_ERROR="Grok OAuth capability coordination is temporarily busy"
+        else
+            _GROK_CAPABILITY_ERROR="Grok OAuth capability coordination failed"
+        fi
+        return 1
+    fi
+    grok_cli_supports_required_interface "$probe_home" "$probe_grok_home" "$probe_workspace" || probe_rc=$?
+    grok_oauth_release_lock
+    return "$probe_rc"
 }
 
 grok_cli_exposes_requested_model() {
@@ -314,7 +338,7 @@ else
         GROK_CLI_VERSION=$(observe_grok_cli_version)
         if [[ "$_GROK_OAUTH_PREPARED" != "true" ]]; then
             :
-        elif ! grok_cli_supports_required_interface \
+        elif ! grok_capability_probe_with_oauth_coordination \
                 "$isolated_home" "$GROK_OAUTH_ACTIVE_HOME" "$isolated_workspace"; then
             GROK_CLI_COMPATIBILITY="incompatible"
             printf '%s\n' "${_GROK_CAPABILITY_ERROR:-Grok Build CLI lacks the required capabilities}" > "${TEMP_OUTPUT}.err"
