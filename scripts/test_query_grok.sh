@@ -679,17 +679,17 @@ test_shared_configuration_is_reconciled_atomically() {
         "$SCRIPT_DIR/query_grok.sh" initial "" "$output" >/dev/null 2>&1
     shared_root="$XDG_DATA_HOME/ai-consultants/grok-shared-oauth"
     generation=$(jq -r '.generation' "$shared_root/sync-marker.json")
-    config="$shared_root/$generation/config.toml"
-    printf '%s\n' 'hooks = ["stale-hook"]' > "$config"
+    config="$shared_root/$generation/.ai-consultants-policy.json"
+    printf '%s\n' '{"stale":"hook"}' > "$config"
 
     GROK_CMD="$fake_grok" GROK_HOME="$source_home" GROK_USE_API=false \
         GROK_MODEL=grok-4.6 GROK_ARGS_FILE="$TMP_ROOT/config-reconcile-next.args" MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_grok.sh" reconcile "" "$next" >/dev/null 2>&1
-    assert_eq 0 "$(grep -c 'stale-hook' "$config" || true)" \
+    assert_eq true "$(jq -r 'has("stale") | not' "$config")" \
         "shared Grok configuration is reconciled after a runner upgrade"
-    assert_eq 1 "$(grep -c '^enabled = false$' "$config")" \
-        "reconciled shared Grok configuration disables workflows"
-    assert_eq 0 "$(find "$shared_root/$generation" -maxdepth 1 -name '.config.toml.ai-consultants.*' | wc -l | tr -d ' ')" \
+    assert_eq true "$(jq -r '.schema == "ai_consultants_grok_policy_v1" and .workflows == false and .tools == []' "$config")" \
+        "reconciled shared Grok policy disables workflows and tools"
+    assert_eq 0 "$(find "$shared_root/$generation" -maxdepth 1 -name '.ai-consultants-policy.json.*' | wc -l | tr -d ' ')" \
         "atomic config reconciliation leaves no candidate file"
 }
 

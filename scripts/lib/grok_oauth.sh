@@ -100,32 +100,23 @@ grok_oauth_acquire_lock_wait() {
 grok_oauth_write_controlled_config() {
     local grok_home="$1" config_path candidate
     [[ -d "$grok_home" && ! -L "$grok_home" ]] || return 1
-    config_path="$grok_home/config.toml"
-    candidate=$(mktemp "$grok_home/.config.toml.ai-consultants.XXXXXX") || return 1
-    if ! cat > "$candidate" <<'EOF'
-[compat.claude]
-skills = false
-rules = false
-agents = false
-mcps = false
-hooks = false
-sessions = false
-
-[compat.cursor]
-skills = false
-rules = false
-agents = false
-mcps = false
-hooks = false
-sessions = false
-
-[compat.codex]
-sessions = false
-
-[workflows]
-enabled = false
-EOF
-    then
+    # Grok 1.0.4 owns config.toml and lazily populates provider-required
+    # sections. Replacing it before every inventory makes the first probe look
+    # logged out. Keep the runner contract in a separate atomic manifest; the
+    # actual agent surface remains pinned by per-invocation CLI arguments.
+    config_path="$grok_home/.ai-consultants-policy.json"
+    candidate=$(mktemp "$grok_home/.ai-consultants-policy.json.XXXXXX") || return 1
+    if ! jq -n '{
+        schema:"ai_consultants_grok_policy_v1",
+        compatibility_imports:false,
+        workflows:false,
+        memory:false,
+        subagents:false,
+        web:false,
+        tools:[],
+        permission_mode:"dontAsk",
+        sandbox:"strict"
+      }' > "$candidate"; then
         rm -f -- "$candidate"
         return 1
     fi

@@ -288,12 +288,12 @@ model; `metadata.cli_version` is provenance, not a version pin.
 
 `GROK_OAUTH_MODE=shared` is the normal CLI path because ai-consultants launches
 consultants in parallel. Each Grok invocation keeps a private HOME, workspace,
-prompt, output, permissions, and tool-free agent configuration. Concurrent Grok
+prompt, output, permissions, and tool-free agent policy. Concurrent Grok
 processes share only a runner-owned persistent `GROK_HOME` generation under
 `$XDG_DATA_HOME/ai-consultants/grok-shared-oauth` (or the standard XDG data
 fallback). Grok Build's own auth lock coordinates refreshes inside that shared
 generation; a short ai-consultants lock protects seeding, adoption, atomic
-configuration reconciliation, and atomic publication back to the ambient
+runner-policy reconciliation, and atomic publication back to the ambient
 `~/.grok/auth.json`. An external `grok login` always wins the digest-based CAS:
 the affected consultation fails temporarily and never overwrites the new login
 or falls back to a separately billed API request. Malformed credentials and
@@ -303,6 +303,10 @@ API mode is stateless and never creates or reads the shared OAuth generation.
 Each new generation also performs exactly one model-inventory bootstrap under
 the short lock because Grok 1.0.4 lazily initializes home metadata; all later
 inventory probes and every inference remain concurrent.
+Grok 1.0.4 retains ownership of its generated `config.toml`; ai-consultants does
+not replace provider-required sections. Instead it atomically reconciles a
+separate `.ai-consultants-policy.json`, while the actual enforced surface stays
+pinned by the per-invocation CLI arguments.
 
 `max_quality` sets `GROK_REASONING_EFFORT=xhigh` (the highest value accepted by
 Grok Build),
