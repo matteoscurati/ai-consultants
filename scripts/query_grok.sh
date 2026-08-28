@@ -188,14 +188,14 @@ grok_cli_exposes_requested_model() {
             env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
             "$GROK_CMD" models 2>&1); then
         if grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
-            _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
+            _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable (inventory_command_failed_auth)"
         else
-            _GROK_MODEL_PROBE_ERROR="Grok Build CLI model inventory failed"
+            _GROK_MODEL_PROBE_ERROR="Grok Build CLI model inventory failed (inventory_command_failed)"
         fi
         return 1
     fi
     grep -Fq "You are logged in with grok.com." <<< "$models" || {
-        _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable (login_marker_missing)"
         return 1
     }
     if ! awk -v requested="$GROK_MODEL" '
@@ -207,7 +207,7 @@ grok_cli_exposes_requested_model() {
         }
         END { exit(found ? 0 : 1) }
     ' <<< "$models"; then
-        _GROK_MODEL_PROBE_ERROR="Grok Build CLI does not expose the requested model $GROK_MODEL"
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI does not expose the requested model $GROK_MODEL (requested_model_missing)"
         return 1
     fi
     return 0
