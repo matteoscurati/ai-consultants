@@ -194,8 +194,8 @@ grok_cli_exposes_requested_model() {
         fi
         return 1
     fi
-    grep -Fq "You are logged in with grok.com." <<< "$models" || {
-        _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable (login_marker_missing)"
+    grok_oauth_credential_valid "$isolated_grok_home/auth.json" || {
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable (credential_invalid_after_inventory)"
         return 1
     }
     if ! awk -v requested="$GROK_MODEL" '

@@ -66,7 +66,10 @@ if [[ "${1:-}" == "models" ]]; then
         sleep 0.1
         rmdir "$GROK_FAKE_PROBE_GUARD_DIR/running"
     fi
-    printf 'You are logged in with grok.com.\n\nAvailable models:\n  * %s (default)\n' "${GROK_MODEL:-grok-4.5}"
+    if [[ "${GROK_FAKE_OMIT_LOGIN_MARKER:-false}" != "true" ]]; then
+        printf 'You are logged in with grok.com.\n\n'
+    fi
+    printf 'Available models:\n  * %s (default)\n' "${GROK_MODEL:-grok-4.5}"
     exit 0
 fi
 if [[ -n "${GROK_ARGS_FILE:-}" ]]; then
@@ -316,6 +319,21 @@ test_alternate_compatible_version_is_accepted() {
 
     assert_eq "user-build-b" "$(jq -r '.metadata.cli_version' "$output_file")" "alternate version is provenance only"
     assert_eq "capability-probed" "$(jq -r '.metadata.cli_compatibility' "$output_file")" "alternate version passes the same capability gate"
+}
+
+test_successful_inventory_does_not_require_display_marker() {
+    local fake_grok="$TMP_ROOT/grok-no-login-marker"
+    local output_file="$TMP_ROOT/no-login-marker-response.json"
+    make_grok_stub "$fake_grok" success
+    if ! GROK_CMD="$fake_grok" GROK_USE_API=false GROK_MODEL=grok-4.6 \
+        GROK_FAKE_OMIT_LOGIN_MARKER=true GROK_ARGS_FILE="$TMP_ROOT/no-login-marker.args" \
+        MAX_RETRIES=1 "$SCRIPT_DIR/query_grok.sh" markerless "" "$output_file" \
+        >/dev/null 2>&1; then
+        assert_eq success failure "successful markerless inventory is accepted"
+        return
+    fi
+    assert_eq capability-probed "$(jq -r '.metadata.model_identity_source' "$output_file")" \
+        "requested model inventory remains capability-probed without display prose"
 }
 
 test_incompatible_version_is_rejected_before_dispatch() {
@@ -859,26 +877,27 @@ test_invalid_turn_budget_never_dispatches() {
 
 run_test "Test 1: CLI headless contract and model pin" test_cli_pins_model_and_headless_contract
 run_test "Test 2: alternate compatible version is accepted" test_alternate_compatible_version_is_accepted
-run_test "Test 3: incompatible version is rejected before dispatch" test_incompatible_version_is_rejected_before_dispatch
-run_test "Test 4: post-launch failure does not fall back" test_post_launch_failure_does_not_fall_back
-run_test "Test 5: authentication-unavailable CLI falls back to xAI API" test_unavailable_cli_falls_back_to_api
-run_test "Test 6: missing CLI falls back to xAI API" test_missing_cli_falls_back_to_api
-run_test "Test 7: large context uses prompt-file" test_large_context_uses_prompt_file
-run_test "Test 8: Grok CLI highest reasoning effort" test_cli_highest_reasoning_effort
-run_test "Test 9: post-launch auth-shaped failure does not fall back" test_post_launch_auth_error_does_not_fall_back
-run_test "Test 10: capability-incompatible CLI with key does not fall back" test_capability_incompatible_cli_with_key_does_not_fall_back
-run_test "Test 11: shared OAuth allows concurrent dispatch" test_shared_oauth_allows_concurrent_dispatch
-run_test "Test 12: shared OAuth rotation is published and reused" test_shared_oauth_rotation_is_published_and_reused
-run_test "Test 13: external login wins the shared OAuth CAS" test_external_login_wins_shared_oauth_cas
-run_test "Test 14: corrupt refresh never replaces ambient OAuth" test_corrupt_refresh_never_replaces_ambient_oauth
-run_test "Test 15: dead runner lock is recovered" test_dead_runner_lock_is_recovered
-run_test "Test 16: shared configuration is reconciled atomically" test_shared_configuration_is_reconciled_atomically
-run_test "Test 17: legacy runner config supersedes generation" test_legacy_runner_config_supersedes_generation
-run_test "Test 18: tokens never leave credential files" test_tokens_never_leave_credential_files
-run_test "Test 19: serialized OAuth mode remains available" test_serialized_mode_remains_available
-run_test "Test 20: forced API mode stays stateless" test_forced_api_mode_is_stateless
-run_test "Test 21: unpersistable refresh fails closed" test_unpersistable_refresh_fails_closed
-run_test "Test 22: invalid OAuth mode never dispatches or falls back" test_invalid_oauth_mode_never_dispatches_or_falls_back
-run_test "Test 23: malformed ambient OAuth fails before dispatch" test_malformed_ambient_oauth_fails_before_dispatch
-run_test "Test 24: invalid Grok turn budget does not dispatch" test_invalid_turn_budget_never_dispatches
+run_test "Test 3: successful inventory does not require display marker" test_successful_inventory_does_not_require_display_marker
+run_test "Test 4: incompatible version is rejected before dispatch" test_incompatible_version_is_rejected_before_dispatch
+run_test "Test 5: post-launch failure does not fall back" test_post_launch_failure_does_not_fall_back
+run_test "Test 6: authentication-unavailable CLI falls back to xAI API" test_unavailable_cli_falls_back_to_api
+run_test "Test 7: missing CLI falls back to xAI API" test_missing_cli_falls_back_to_api
+run_test "Test 8: large context uses prompt-file" test_large_context_uses_prompt_file
+run_test "Test 9: Grok CLI highest reasoning effort" test_cli_highest_reasoning_effort
+run_test "Test 10: post-launch auth-shaped failure does not fall back" test_post_launch_auth_error_does_not_fall_back
+run_test "Test 11: capability-incompatible CLI with key does not fall back" test_capability_incompatible_cli_with_key_does_not_fall_back
+run_test "Test 12: shared OAuth allows concurrent dispatch" test_shared_oauth_allows_concurrent_dispatch
+run_test "Test 13: shared OAuth rotation is published and reused" test_shared_oauth_rotation_is_published_and_reused
+run_test "Test 14: external login wins the shared OAuth CAS" test_external_login_wins_shared_oauth_cas
+run_test "Test 15: corrupt refresh never replaces ambient OAuth" test_corrupt_refresh_never_replaces_ambient_oauth
+run_test "Test 16: dead runner lock is recovered" test_dead_runner_lock_is_recovered
+run_test "Test 17: shared configuration is reconciled atomically" test_shared_configuration_is_reconciled_atomically
+run_test "Test 18: legacy runner config supersedes generation" test_legacy_runner_config_supersedes_generation
+run_test "Test 19: tokens never leave credential files" test_tokens_never_leave_credential_files
+run_test "Test 20: serialized OAuth mode remains available" test_serialized_mode_remains_available
+run_test "Test 21: forced API mode stays stateless" test_forced_api_mode_is_stateless
+run_test "Test 22: unpersistable refresh fails closed" test_unpersistable_refresh_fails_closed
+run_test "Test 23: invalid OAuth mode never dispatches or falls back" test_invalid_oauth_mode_never_dispatches_or_falls_back
+run_test "Test 24: malformed ambient OAuth fails before dispatch" test_malformed_ambient_oauth_fails_before_dispatch
+run_test "Test 25: invalid Grok turn budget does not dispatch" test_invalid_turn_budget_never_dispatches
 test_summary "query_grok"
