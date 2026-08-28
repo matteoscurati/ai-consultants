@@ -12,6 +12,7 @@
 #   GROK_API_KEY    - xAI API key used by the fallback
 #   XAI_API_KEY     - Official xAI key name; accepted as a GROK_API_KEY alias
 #   GROK_REASONING_EFFORT - Optional CLI/API effort; max_quality sets xhigh
+#   GROK_OAUTH_MODE - shared (default, concurrent) or serialized (diagnostic)
 #   ENABLE_PERSONA  - Enable "The Provocateur" persona (default: true)
 
 set -euo pipefail
@@ -19,6 +20,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/personas.sh"
+source "$SCRIPT_DIR/lib/grok_oauth.sh"
 
 QUERY="${1:-}"
 CONTEXT_FILE="${2:-}"
@@ -46,6 +48,8 @@ GROK_CLI_EFFORT=""
 _GROK_CAPABILITY_ERROR=""
 _GROK_REQUEST_LAUNCHED=false
 _GROK_MODEL_PROBE_ERROR=""
+_GROK_OAUTH_PREPARED=false
+_GROK_OAUTH_FAILURE=false
 exit_code=1
 
 if ! [[ "$GROK_MAX_TURNS" =~ ^[1-9][0-9]*$ ]]; then
@@ -57,6 +61,7 @@ if ! [[ "$GROK_MAX_TURNS" =~ ^[1-9][0-9]*$ ]]; then
 fi
 
 cleanup() {
+    grok_oauth_release_lock
     rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"
 
     # GROK_RUNTIME_DIR is always created by this script under the system temp
@@ -103,7 +108,8 @@ grok_cli_supports_required_interface() {
     local probe_workspace="$3"
     local help flag
 
-    help=$(env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
+    help=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+        env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
         "$GROK_CMD" --help 2>&1 || true)
     for flag in \
         --prompt-file --model --cwd --output-format --no-plan --no-subagents \
@@ -156,7 +162,8 @@ grok_cli_supports_required_interface() {
 
     # Exercise the complete headless argument surface under --help. This checks
     # parser compatibility without starting a session or sending a prompt.
-    "${probe_args[@]}" --help >/dev/null 2>&1 || return 1
+    run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+        "${probe_args[@]}" --help >/dev/null 2>&1 || return 1
 
     if grep -q -- '--no-auto-update' <<< "$help"; then
         GROK_SUPPORTS_NO_AUTO_UPDATE=true
@@ -166,22 +173,29 @@ grok_cli_supports_required_interface() {
     GROK_CLI_COMPATIBILITY="capability-probed"
 }
 
+grok_capability_probe_with_oauth_coordination() {
+    # Capability parsing is provider-free and must not initialize either the
+    # shared OAuth home or the HOME later used for authenticated inventory.
+    grok_cli_supports_required_interface "$1" "$2" "$3"
+}
+
 grok_cli_exposes_requested_model() {
     local isolated_home="$1"
     local isolated_grok_home="$2"
     local models
 
-    if ! models=$(env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
+    if ! models=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+            env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
             "$GROK_CMD" models 2>&1); then
         if grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
-            _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
+            _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable (inventory_command_failed_auth)"
         else
-            _GROK_MODEL_PROBE_ERROR="Grok Build CLI model inventory failed"
+            _GROK_MODEL_PROBE_ERROR="Grok Build CLI model inventory failed (inventory_command_failed)"
         fi
         return 1
     fi
-    grep -Fq "You are logged in with grok.com." <<< "$models" || {
-        _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable"
+    grok_oauth_credential_valid "$isolated_grok_home/auth.json" || {
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable (credential_invalid_after_inventory)"
         return 1
     }
     if ! awk -v requested="$GROK_MODEL" '
@@ -193,10 +207,37 @@ grok_cli_exposes_requested_model() {
         }
         END { exit(found ? 0 : 1) }
     ' <<< "$models"; then
-        _GROK_MODEL_PROBE_ERROR="Grok Build CLI does not expose the requested model $GROK_MODEL"
+        _GROK_MODEL_PROBE_ERROR="Grok Build CLI does not expose the requested model $GROK_MODEL (requested_model_missing)"
         return 1
     fi
     return 0
+}
+
+grok_model_probe_with_oauth_coordination() {
+    local isolated_home="$1" isolated_grok_home="$2" lock_rc=0 probe_rc=0
+    if [[ "$GROK_OAUTH_MODE" != "shared" ]]; then
+        grok_cli_exposes_requested_model "$isolated_home" "$isolated_grok_home"
+        return $?
+    fi
+    grok_oauth_acquire_lock_wait || lock_rc=$?
+    if [[ "$lock_rc" -ne 0 ]]; then
+        _GROK_OAUTH_FAILURE=true
+        if [[ "$lock_rc" -eq 2 ]]; then
+            _GROK_MODEL_PROBE_ERROR="Grok OAuth inventory coordination is temporarily busy"
+        else
+            _GROK_MODEL_PROBE_ERROR="Grok OAuth inventory coordination failed"
+        fi
+        return 1
+    fi
+    grok_cli_exposes_requested_model "$isolated_home" "$isolated_grok_home" || probe_rc=$?
+    grok_oauth_release_lock
+    return "$probe_rc"
+}
+
+grok_shared_oauth_bootstrap_ready() {
+    oauth_rc=0
+    grok_oauth_bootstrap_shared "$1" "$GROK_CMD" || oauth_rc=$?
+    [[ "$oauth_rc" -eq 0 ]]
 }
 
 grok_cli_is_unavailable() {
@@ -241,34 +282,81 @@ else
         isolated_home="$GROK_RUNTIME_DIR/home"
         isolated_grok_home="$isolated_home/.grok"
         isolated_workspace="$GROK_RUNTIME_DIR/workspace"
+        capability_home="$GROK_RUNTIME_DIR/capability-home"
+        capability_grok_home="$capability_home/.grok"
+        capability_workspace="$GROK_RUNTIME_DIR/capability-workspace"
         prompt_file="$GROK_RUNTIME_DIR/prompt.txt"
-        mkdir -p "$isolated_grok_home" "$isolated_workspace"
-        chmod 700 "$isolated_home" "$isolated_grok_home" "$isolated_workspace"
+        mkdir -p "$isolated_home" "$isolated_workspace" \
+            "$capability_grok_home" "$capability_workspace"
+        chmod 700 "$isolated_home" "$isolated_workspace" \
+            "$capability_home" "$capability_grok_home" "$capability_workspace"
+        _GROK_CAPABILITY_HOME_READY=true
+        grok_oauth_write_controlled_config "$capability_grok_home" || {
+            printf '%s\n' "Grok capability home could not be initialized" > "${TEMP_OUTPUT}.err"
+            _GROK_OAUTH_FAILURE=true
+            _GROK_CAPABILITY_HOME_READY=false
+            exit_code=70
+        }
         printf '%s' "$FULL_QUERY" > "$prompt_file"
         chmod 600 "$prompt_file"
 
-        # Preserve only the credential needed to use the installed CLI. All
-        # config, plugins, hooks, MCP servers, skills, memories, and project
-        # instructions stay outside the isolated HOME/CWD.
+        # Preserve a rotating subscription credential without sharing agent
+        # state. HOME/CWD/prompt/output remain per invocation. In shared mode,
+        # concurrent processes use one runner-owned GROK_HOME so Grok Build's
+        # native auth lock can coordinate refresh. Serialized mode keeps the
+        # previous per-run GROK_HOME shape under a full diagnostic lock.
         source_grok_home=$(printenv GROK_HOME 2>/dev/null || true)
         [[ -n "$source_grok_home" ]] || source_grok_home="${HOME}/.grok"
-        if [[ -f "$source_grok_home/auth.json" && ! -L "$source_grok_home/auth.json" ]]; then
-            if cp "$source_grok_home/auth.json" "$isolated_grok_home/auth.json"; then
-                chmod 600 "$isolated_grok_home/auth.json"
+        if [[ "$_GROK_CAPABILITY_HOME_READY" == "true" ]]; then
+            oauth_rc=0
+            grok_oauth_init "$source_grok_home" || oauth_rc=$?
+            if [[ "$oauth_rc" -eq 2 ]]; then
+                printf '%s\n' "Grok Build authentication unavailable; run grok login" > "${TEMP_OUTPUT}.err"
+                log_warn "[$CONSULTANT_NAME] Grok Build authentication unavailable"
+                exit_code=69
+            elif [[ "$oauth_rc" -ne 0 ]]; then
+                _GROK_OAUTH_FAILURE=true
+                printf '%s\n' "Grok OAuth state failed validation" > "${TEMP_OUTPUT}.err"
+                log_warn "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
+                exit_code=70
             else
-                log_warn "[$CONSULTANT_NAME] Could not copy the Grok CLI credential into the isolated runtime"
+                oauth_rc=0
+                grok_oauth_prepare "$isolated_grok_home" || oauth_rc=$?
+                if [[ "$oauth_rc" -ne 0 ]]; then
+                    _GROK_OAUTH_FAILURE=true
+                    printf '%s\n' "Grok OAuth state could not be prepared" > "${TEMP_OUTPUT}.err"
+                    log_warn "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
+                    [[ "$oauth_rc" -eq 2 ]] && exit_code=75 || exit_code=70
+                else
+                    _GROK_OAUTH_PREPARED=true
+                fi
             fi
         fi
 
         GROK_CLI_VERSION=$(observe_grok_cli_version)
-        if ! grok_cli_supports_required_interface \
-                "$isolated_home" "$isolated_grok_home" "$isolated_workspace"; then
+        if [[ "$_GROK_OAUTH_PREPARED" != "true" ]]; then
+            :
+        elif ! grok_capability_probe_with_oauth_coordination \
+                "$capability_home" "$capability_grok_home" "$capability_workspace"; then
             GROK_CLI_COMPATIBILITY="incompatible"
             printf '%s\n' "${_GROK_CAPABILITY_ERROR:-Grok Build CLI lacks the required capabilities}" > "${TEMP_OUTPUT}.err"
             log_warn "[$CONSULTANT_NAME] ${_GROK_CAPABILITY_ERROR:-Grok Build CLI lacks the required capabilities} (reported version: $GROK_CLI_VERSION)"
             exit_code=69
-        elif ! grok_cli_exposes_requested_model \
-                "$isolated_home" "$isolated_grok_home" > "${TEMP_OUTPUT}.err"; then
+        elif [[ "$GROK_OAUTH_MODE" == "shared" ]] &&
+             ! grok_shared_oauth_bootstrap_ready "$isolated_home"; then
+            _GROK_OAUTH_PREPARED=false
+            if [[ "$oauth_rc" -eq 4 ]]; then
+                printf '%s\n' "Grok Build authentication unavailable; run grok login" > "${TEMP_OUTPUT}.err"
+                log_warn "[$CONSULTANT_NAME] Grok Build authentication unavailable"
+                exit_code=69
+            else
+                _GROK_OAUTH_FAILURE=true
+                printf '%s\n' "Grok shared OAuth bootstrap failed" > "${TEMP_OUTPUT}.err"
+                log_warn "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
+                [[ "$oauth_rc" -eq 2 ]] && exit_code=75 || exit_code=70
+            fi
+        elif ! grok_model_probe_with_oauth_coordination \
+                "$isolated_home" "$GROK_OAUTH_ACTIVE_HOME" > "${TEMP_OUTPUT}.err"; then
             printf '%s\n' "${_GROK_MODEL_PROBE_ERROR:-Grok Build CLI model inventory failed}" > "${TEMP_OUTPUT}.err"
             log_warn "[$CONSULTANT_NAME] ${_GROK_MODEL_PROBE_ERROR:-Grok Build CLI model inventory failed}"
             exit_code=69
@@ -280,7 +368,7 @@ else
             GROK_ARGS=(
                 env
                 HOME="$isolated_home"
-                GROK_HOME="$isolated_grok_home"
+                GROK_HOME="$GROK_OAUTH_ACTIVE_HOME"
                 "$GROK_CMD"
                 --prompt-file "$prompt_file"
                 -m "$GROK_MODEL"
@@ -314,7 +402,7 @@ else
             fi
 
             _GROK_REQUEST_LAUNCHED=true
-            if run_query \
+            if RUN_QUERY_REDACT_ERRORS=true run_query \
                     "$CONSULTANT_NAME" \
                     "$TEMP_OUTPUT" \
                     "$GROK_TIMEOUT_SECONDS" \
@@ -322,6 +410,35 @@ else
                 exit_code=0
             else
                 exit_code=$?
+            fi
+        fi
+
+        # Publish refreshes before considering fallback or publishing output.
+        # A concurrent external `grok login` changes the ambient digest, wins
+        # the CAS, and makes this run fail temporarily without overwriting it.
+        if [[ "$_GROK_OAUTH_PREPARED" == "true" ]]; then
+            oauth_rc=0
+            grok_oauth_sync || oauth_rc=$?
+            if [[ "$oauth_rc" -ne 0 ]]; then
+                _GROK_OAUTH_FAILURE=true
+                : > "$TEMP_OUTPUT"
+                case "$oauth_rc" in
+                    2)
+                        printf '%s\n' "Grok OAuth changed concurrently; retry" > "${TEMP_OUTPUT}.err"
+                        log_warn "[$CONSULTANT_NAME] External Grok login superseded this run"
+                        exit_code=75
+                        ;;
+                    3)
+                        printf '%s\n' "Grok OAuth reconciliation lock is busy; retry" > "${TEMP_OUTPUT}.err"
+                        log_warn "[$CONSULTANT_NAME] Grok OAuth reconciliation is temporarily busy"
+                        exit_code=75
+                        ;;
+                    *)
+                        printf '%s\n' "Grok OAuth refresh could not be persisted" > "${TEMP_OUTPUT}.err"
+                        log_warn "[$CONSULTANT_NAME] Grok OAuth refresh could not be persisted"
+                        exit_code=70
+                        ;;
+                esac
             fi
         fi
     else
@@ -334,6 +451,7 @@ else
     # it cannot silently turn into a separately billed API request.
     if [[ $exit_code -ne 0 ]] \
             && [[ "$_GROK_REQUEST_LAUNCHED" != "true" ]] \
+            && [[ "$_GROK_OAUTH_FAILURE" != "true" ]] \
             && grok_cli_is_unavailable "$exit_code" "${TEMP_OUTPUT}.err" \
             && [[ -n "${GROK_API_KEY:-}" ]]; then
         log_warn "[$CONSULTANT_NAME] Grok Build CLI unavailable (exit $exit_code); falling back to the xAI API"

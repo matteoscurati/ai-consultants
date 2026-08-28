@@ -221,7 +221,9 @@ run_query() {
 
         # Error handling
         local error_msg=""
-        [[ -f "$error_file" ]] && error_msg=$(head -5 "$error_file" 2>/dev/null)
+        if [[ "${RUN_QUERY_REDACT_ERRORS:-false}" != "true" && -f "$error_file" ]]; then
+            error_msg=$(head -5 "$error_file" 2>/dev/null)
+        fi
 
         # First line of the CLI's own stderr — the actual reason (auth error,
         # command not found, etc.). Kept for the final failure message so it

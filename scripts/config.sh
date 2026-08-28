@@ -202,6 +202,7 @@ GROK_MODEL="${GROK_MODEL:-grok-4.6}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_MAX_TOKENS="${GROK_API_MAX_TOKENS:-4096}"
 GROK_MAX_TURNS="${GROK_MAX_TURNS:-4}"
+GROK_OAUTH_MODE="${GROK_OAUTH_MODE:-shared}"
 GROK_API_URL="${GROK_API_URL:-https://api.x.ai/v1/chat/completions}"
 GROK_FORMAT="${GROK_FORMAT:-openai}"
 # Grok Build's official credential name is XAI_API_KEY. Keep the historical
@@ -221,7 +222,7 @@ if [[ -z "${GROK_USE_API+x}" ]]; then
         GROK_USE_API=false
     fi
 fi
-export GROK_USE_API
+export GROK_USE_API GROK_OAUTH_MODE
 
 # =============================================================================
 # DEEPSEEK CONFIGURATION - The Methodologist (API-based)

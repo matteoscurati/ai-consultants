@@ -88,6 +88,14 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 
 **CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.6` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers.
 
+Grok CLI OAuth defaults to `GROK_OAUTH_MODE=shared`: concurrent invocations
+share one runner-owned persistent `GROK_HOME` so the vendor auth lock can
+coordinate refresh, while HOME, workspace, prompt, output, permissions, and
+agent state remain isolated per invocation. A short adapter lock publishes a
+valid rotated credential atomically; an external `grok login` wins the CAS and
+makes the affected run fail without API fallback. `serialized` remains an
+explicit diagnostic mode. Forced API mode stays stateless.
+
 Grok and Kimi are compatible by capability rather than by CLI version. Before
 dispatch, their adapters verify the required headless arguments, requested
 model, and structured-output surface. Compatible version changes are accepted;

@@ -389,7 +389,16 @@ Grok uses Grok Build with `grok-4.6` in an isolated, tool-free sandbox. Prompts
 are passed through a private file rather than process arguments. It falls back
 to the xAI API only when the CLI is missing, cannot launch, or has no usable
 authentication and `GROK_API_KEY` is configured; post-launch request failures
-are surfaced without a silent API charge. Qwen3 and MiniMax can also switch
+are surfaced without a silent API charge. Grok CLI OAuth defaults to concurrent
+`shared` mode: HOME, workspace, prompt, output, permissions, and agent state
+remain isolated per invocation, while processes share one runner-owned
+persistent `GROK_HOME` so the CLI's own auth lock can coordinate refresh.
+Credential adoption/publication uses a short lock and digest CAS, so an
+external `grok login` wins and the affected run fails without overwriting it or
+falling back to the API. Set `GROK_OAUTH_MODE=serialized` only for diagnostic
+full-run serialization. A new generation performs one locked inventory
+bootstrap because Grok 1.0.4 lazily initializes home metadata; inference is
+never serialized by that bootstrap. Qwen3 and MiniMax can also switch
 from their CLI to API transport. Gemini, Codex, Claude, and Mistral are
 CLI/API switchable. Gemini, Grok, and Kimi verify the requested model
 against the CLI inventory before dispatch when that inventory exists. Grok and
