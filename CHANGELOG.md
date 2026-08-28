@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [4.0.2] - 2026-08-28
+
+### Added
+- `GROK_OAUTH_MODE=shared|serialized`: shared is the concurrency-safe default for the parallel panel, while serialized retains a full-run diagnostic fallback.
+- A persistent runner-owned Grok OAuth generation under the XDG data directory, with recoverable locks, atomic policy/credential publication, SHA-256 CAS, and legacy-generation migration.
+
+### Fixed
+- **Parallel Grok CLI calls no longer discard or race rotating OAuth refresh state.** Concurrent runs share only controlled `GROK_HOME`; HOME, workspace, prompt, output, permissions, and agent state remain isolated per invocation.
+- External `grok login` changes always win the credential CAS; malformed, superseded, or unpersistible refresh state fails closed without a separately billed API fallback.
+- Grok 1.0.4 first-use initialization, capability parsing, and authenticated inventory are bounded and isolated without treating unstable display prose as authentication evidence.
+- Provider-owned `config.toml` is preserved; runner restrictions are reconciled atomically in `.ai-consultants-policy.json` and enforced by per-run CLI arguments.
+- Normal Grok errors no longer echo provider stderr into logs or error envelopes, preventing token-shaped output from escaping temporary storage.
+
 ## [4.0.1] - 2026-08-24
 
 ### Fixed

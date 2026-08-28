@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 4.0.1
+**Version**: 4.0.2
 
 ## Distribution
 
@@ -759,6 +759,18 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v4.0.2
+
+- **The Grok adapter used to copy a rotating OAuth credential into a disposable HOME and delete any refreshed token at exit.** Parallel calls amplified the race: both could seed from one refresh token, one rotation vanished with its temp directory, and the ambient session could be left stale. `scripts/lib/grok_oauth.sh` now owns a durable generation under the XDG data root and `scripts/query_grok.sh` defaults to `GROK_OAUTH_MODE=shared`.
+- **Shared means credential state only.** Every invocation still has a private HOME, workspace, prompt file, output, capability-probe HOME, permission mode, strict sandbox, empty tool surface, model, and effort. Concurrent processes use one runner-owned `GROK_HOME`, allowing Grok Build's native auth lock to coordinate refresh while inference remains outside the ai-consultants lock.
+- **Publication is optimistic and atomic.** A recoverable directory lock bounds seed, bootstrap, inventory, and publication; valid rotation is staged mode 600 and renamed into the ambient `auth.json`. The marker binds generation and last-synced SHA-256. If a concurrent external `grok login` changes the ambient digest, that login wins, the consultation fails temporarily, and no API fallback occurs.
+- **Malformed and obsolete state fails closed but recovers forward.** Corrupt credentials never replace ambient auth; dead locks are reclaimed; unpersistible refreshes publish no answer. A later run reseeds from valid ambient state. Generations carrying the exact legacy runner-owned `config.toml` signature are superseded without modification or deletion.
+- **Grok 1.0.4 required exact-transport fixes beyond the reference implementation.** Its pristine-home bootstrap lazily creates metadata/cache/DB state; capability probes must use a separate credential-free HOME; authenticated inventory is bounded and coordinated. Provider-owned `config.toml` cannot be replaced before each inventory, and the display sentence “You are logged in with grok.com.” is not stable enough to be an auth gate. Exit 0, a still-valid credential, and the requested inventory model are the attestation.
+- **Secrets remain private.** The prompt and tokens never enter argv. Grok dispatch uses redacted `run_query` errors, so token-shaped provider stderr is absent from stdout, normal logs, error envelopes, and artifacts. Forced API mode remains stateless; missing/auth-unavailable CLI fallback and post-dispatch fallback suppression are unchanged.
+- **Verification closes both concurrency layers.** The adapter suite grows to 88 checks and covers simultaneous fake dispatch, rotation/reuse, external-login CAS, corrupt state, dead locks, atomic policy reconciliation, legacy migration, stateless API mode, serialized mode, and token leakage. A real two-process `grok-4.6`/`xhigh` smoke returned structured `PONG` twice with exit 0, no workspace changes, no API fallback, and fully aligned ambient/generation/marker state. Full gate: 23/23 suites, 452/452 core checks, ShellCheck and PR #14 CI green.
+
+  Deliberate residuals: superseded generations are retained because deleting one that an active process still references would be unsafe. Real forced refresh rotation and a real concurrent `grok login` were not induced; those conflict paths are verified with controlled fakes. The separate local 4.1.0 model-default WIP is not part of this release.
 
 ### v4.0.1
 
