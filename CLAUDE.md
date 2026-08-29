@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 4.0.2
+**Version**: 4.0.3
 
 ## Distribution
 
@@ -759,6 +759,15 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v4.0.3
+
+- **GLM's active catalog target moves from `glm-5.3` to `glm-5.3-flash` without changing transport or tier semantics.** `scripts/config.sh:189` changes the clean-install default, and the maximum/premium/standard branches at `scripts/config.sh:626-656` select the same exact provider ID. `max_quality` still supplies `GLM_REASONING_EFFORT=max`; economy deliberately remains `glm-4-flash`.
+- **Existing managed installs advance without rewriting explicit choices.** `scripts/configure.sh:310-318` migrates the two exact historical generated defaults, `glm-5.2` and `glm-5.3`, to Flash and records `# ai-consultants:default`. A `# ai-consultants:pin` survives, including an explicit old `glm-5.3`; `scripts/test_configure.sh:449-461` covers both current-default migration and pin preservation.
+- **Identity and pricing stay honest.** The OpenAI-compatible adapter sends `glm-5.3-flash`, `reasoning_effort=max`, and the 16,384-token GLM budget; the synthetic transport test requires provider-reported identity and requested-model metadata (`scripts/test_api_transport.sh:253-263`). `docs/cost_rates.json` marks Flash unpriced and retains a zero/unpriced entry for legacy `glm-5.3` pins, avoiding the generic fallback rate.
+- **The exact ai-consultants transport completed one authorized no-retry live smoke.** Z.AI returned HTTP 200 and provider-reported `glm-5.3-flash` in about 12 seconds with 37 measured input tokens and 308 output tokens. The provider accepted max effort but returned near-structured text rather than the requested JSON; the adapter preserved `PONG` through its explicit unstructured fallback with confidence 5, so strict schema adherence is not claimed. PR #15 CI, the post-bump 23-suite gate, 452 core checks, configure 94/94, API transport 88/88, and ShellCheck are green.
+
+  Deliberately unchanged: `delegation-kit` remained read-only; its Claude-to-Z.AI gate and runner were not copied into this API-only consultant. Installation does not silently edit personal configuration, so an existing unpinned `.env` advances when the user runs `configure`; explicit pins remain user-owned. The separate `agent/model-defaults-4.1.0-wip` branch is not part of this patch release.
 
 ### v4.0.2
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [4.0.3] - 2026-08-29
+
+### Changed
+- **GLM now defaults to `glm-5.3-flash` for maximum, premium, and standard tiers.** The `max_quality` preset keeps `reasoning_effort=max`; economy remains on `glm-4-flash`.
+- Existing unpinned managed `glm-5.2` and `glm-5.3` values migrate to Flash when `configure` rewrites the user configuration, while explicit `# ai-consultants:pin` values remain untouched.
+- GLM 5.3 Flash is explicitly unpriced on the Coding Plan transport; legacy `glm-5.3` pins remain unpriced instead of falling through to an invented default rate.
+
 ## [4.0.2] - 2026-08-28
 
 ### Added
