@@ -5,7 +5,7 @@
 #
 # Environment variables:
 #   GLM_API_KEY     - API key for Zhipu AI (required)
-#   GLM_MODEL       - Model to use (default: glm-5.3)
+#   GLM_MODEL       - Model to use (default: glm-5.3-flash)
 #   GLM_TIMEOUT     - Timeout in seconds (default: 180)
 #   ENABLE_PERSONA  - Enable "The Methodologist" persona (default: true)
 

@@ -424,7 +424,7 @@ test_catalog_default_migrations_and_pins() {
     assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "unverified Mistral API default is not migrated"
     assert_eq mistral-medium-3.5 "$(read_env "$cfg/.env" MISTRAL_CLI_MODEL)" "new Mistral CLI field is populated"
     assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed Cursor command is dropped"
-    assert_eq glm-5.3 "$(read_env "$cfg/.env" GLM_MODEL)" "managed GLM default migrates"
+    assert_eq glm-5.3-flash "$(read_env "$cfg/.env" GLM_MODEL)" "managed GLM default migrates"
     assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "managed Grok default migrates"
     for key in GEMINI_MODEL GLM_MODEL GROK_MODEL; do
         assert_contains "$(grep "^${key}=" "$cfg/.env")" "# ai-consultants:default" "$key migration records managed provenance"
@@ -443,6 +443,22 @@ test_catalog_default_migrations_and_pins() {
     assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed pinned Cursor command is dropped"
     assert_eq glm-5.2 "$(read_env "$cfg/.env" GLM_MODEL)" "pinned GLM model survives"
     assert_eq grok-4.5 "$(read_env "$cfg/.env" GROK_MODEL)" "pinned Grok model survives"
+
+    cfg="$TMP/catalog-current-glm-default"
+    mkdir -p "$cfg"
+    printf '%s\n' 'GLM_MODEL=glm-5.3 # ai-consultants:default' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq glm-5.3-flash "$(read_env "$cfg/.env" GLM_MODEL)" \
+        "current managed GLM default migrates to Flash"
+    assert_contains "$(grep '^GLM_MODEL=' "$cfg/.env")" "# ai-consultants:default" \
+        "migrated GLM Flash default retains managed provenance"
+
+    cfg="$TMP/catalog-current-glm-pin"
+    mkdir -p "$cfg"
+    printf '%s\n' 'GLM_MODEL=glm-5.3 # ai-consultants:pin' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq glm-5.3 "$(read_env "$cfg/.env" GLM_MODEL)" \
+        "pinned GLM 5.3 model survives Flash migration"
 
     cfg="$TMP/catalog-unrelated-gemini"
     mkdir -p "$cfg"

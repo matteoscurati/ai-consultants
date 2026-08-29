@@ -393,7 +393,7 @@ All consultants now use premium models by default:
 | Codex | gpt-5.6-sol |
 | Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
 | DeepSeek | deepseek-v4-pro |
-| GLM | glm-5.3 |
+| GLM | glm-5.3-flash |
 | Grok | grok-4.6 |
 | Qwen3 | qwen3.7-max |
 | Kimi | kimi-code/k3 |

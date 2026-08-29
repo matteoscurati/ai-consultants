@@ -977,7 +977,7 @@ test_unpriced_models() {
 
     assert_equals "0" "$(get_input_cost_per_1k qwen3.8-max)"  "3.8 max input is 0, not the default rate"
     assert_equals "0" "$(get_output_cost_per_1k qwen3.8-max)" "3.8 max output is 0, not the default rate"
-    assert_equals "0" "$(get_input_cost_per_1k glm-5.3)" "GLM 5.3 coding-plan transport is unpriced"
+    assert_equals "0" "$(get_input_cost_per_1k glm-5.3-flash)" "GLM 5.3 Flash coding-plan transport is unpriced"
     assert_equals "0" "$(get_output_cost_per_1k kimi-code/k3-256k)" "K3-256k subscription transport is unpriced"
 
     # The catalogued priced model must be untouched by this change.
@@ -994,10 +994,10 @@ test_unpriced_models() {
     else
         assert_equals "no" "no"   "qwen3.7-max is NOT flagged unpriced"
     fi
-    if is_unpriced_model "glm-5.3" && is_unpriced_model "kimi-code/k3-256k"; then
-        assert_equals yes yes "GLM 5.3 and K3-256k are explicitly unpriced"
+    if is_unpriced_model "glm-5.3-flash" && is_unpriced_model "glm-5.3" && is_unpriced_model "kimi-code/k3-256k"; then
+        assert_equals yes yes "GLM 5.3 Flash, legacy GLM 5.3, and K3-256k are explicitly unpriced"
     else
-        assert_equals yes no "GLM 5.3 and K3-256k are explicitly unpriced"
+        assert_equals yes no "GLM 5.3 Flash, legacy GLM 5.3, and K3-256k are explicitly unpriced"
     fi
 
     # The disclosure must reflect the responses on disk. It deliberately
@@ -1568,7 +1568,7 @@ test_model_for_tier() {
     assert_equals "gpt-5.6-terra"         "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.6-terra"
     assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
-    assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3"
+    assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3-flash"
     assert_equals "grok-4.6"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.6"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.5"
     assert_equals "qwen3.7-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.7-max"
@@ -1579,7 +1579,7 @@ test_model_for_tier() {
     assert_not_equals "qwen3.8-max" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in Token Plan model"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-v4-flash"
-    assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3"
+    assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3-flash"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.5"
     assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "maximum")"    "timed-out Fable 5 stays out of maximum tier"
     assert_equals "kimi-code/k3-256k"     "$(get_model_for_tier "kimi" "maximum")"      "maximum tier confines K3-256k"
