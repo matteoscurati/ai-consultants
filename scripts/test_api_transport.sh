@@ -236,7 +236,7 @@ done
 : > "$headers"
 case "${CURL_FAKE_MODE:-success}" in
   success)
-    printf '%s\n' '{"model":"glm-5.3-202608","choices":[{"message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
+    printf '%s\n' '{"model":"glm-5.3-flash","choices":[{"message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
     printf 200 ;;
   invalid_model)
     printf '%s\n' '{"model":"glm*cheap","choices":[{"message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
@@ -250,14 +250,14 @@ esac
 EOF
     chmod +x "$fake_curl"
 
-    if ! PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 GLM_FORMAT=openai \
+    if ! PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3-flash GLM_FORMAT=openai \
         GLM_REASONING_EFFORT=max CURL_CALLED_FILE="$request" REQUEST_BODY_FILE="$request_body" \
         RATE_LIMIT_DIR="$td/rate" MAX_RETRIES=1 \
         run_api_consultant GLM test "" "$output" >/dev/null 2>&1; then
         assert_eq success failure "GLM provider-identity query completes"
     else
-        assert_eq glm-5.3-202608 "$(jq -r '.model' "$output")" "provider-reported model is the top-level effective identity"
-        assert_eq glm-5.3 "$(jq -r '.metadata.requested_model' "$output")" "requested GLM model is preserved"
+        assert_eq glm-5.3-flash "$(jq -r '.model' "$output")" "provider-reported model is the top-level effective identity"
+        assert_eq glm-5.3-flash "$(jq -r '.metadata.requested_model' "$output")" "requested GLM model is preserved"
         assert_eq provider-reported "$(jq -r '.metadata.model_identity_source' "$output")" "GLM API identity is provider-reported"
         assert_eq max "$(jq -r '.reasoning_effort' "$request_body")" "GLM max effort reaches the API request body"
         assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "GLM receives its provider-specific response budget"
@@ -337,10 +337,10 @@ EOF
     assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" \
         "invalid provider max-token budget never calls curl"
 
-    PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 GLM_FORMAT=openai \
+    PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3-flash GLM_FORMAT=openai \
         CURL_FAKE_MODE=invalid_model RATE_LIMIT_DIR="$td/rate-invalid" MAX_RETRIES=1 \
         run_api_consultant GLM test "" "$output" >/dev/null 2>&1
-    assert_eq glm-5.3 "$(jq -r '.model' "$output")" "invalid provider model identifier cannot replace requested identity"
+    assert_eq glm-5.3-flash "$(jq -r '.model' "$output")" "invalid provider model identifier cannot replace requested identity"
     assert_eq requested-only "$(jq -r '.metadata.model_identity_source' "$output")" "invalid provider model identifier downgrades identity evidence"
 
     rm -f "$request"
@@ -351,13 +351,13 @@ EOF
     assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" "missing GLM model never calls curl"
 
     rc=0
-    PATH="$td:$PATH" GLM_API_KEY="" GLM_MODEL=glm-5.3 MAX_RETRIES=1 \
+    PATH="$td:$PATH" GLM_API_KEY="" GLM_MODEL=glm-5.3-flash MAX_RETRIES=1 \
         run_api_consultant GLM test "" "$output" >/dev/null 2>&1 || rc=$?
     assert_eq 1 "$rc" "missing GLM auth fails closed"
 
     for mode in empty server; do
         rc=0
-        PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 CURL_FAKE_MODE="$mode" \
+        PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3-flash CURL_FAKE_MODE="$mode" \
             RATE_LIMIT_DIR="$td/rate-$mode" MAX_RETRIES=1 \
             run_api_consultant GLM test "" "$output" >/dev/null 2>&1 || rc=$?
         assert_eq 1 "$rc" "GLM $mode provider response fails closed"
@@ -366,7 +366,7 @@ EOF
 
     rm -f "$request"
     rc=0
-    PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3 CURL_FAKE_MODE=empty \
+    PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3-flash CURL_FAKE_MODE=empty \
         CURL_CALLED_FILE="$request" RATE_LIMIT_DIR="$td/rate-empty-two" \
         MAX_RETRIES=2 RETRY_DELAY_SECONDS=0 \
         run_api_consultant GLM test "" "$output" >/dev/null 2>&1 || rc=$?

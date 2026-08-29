@@ -45,7 +45,8 @@ models programmatically.
 | gemini-3-flash | Legacy | $0.0005 | Removed Cursor consultant |
 | deepseek-v4-pro | Premium | $0.000435 | DeepSeek |
 | deepseek-v4-flash | Standard/Economy | $0.00014 | DeepSeek |
-| glm-5.3 | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
+| glm-5.3-flash | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
+| glm-5.3 | Legacy pins | Unpriced | GLM coding-plan endpoint |
 | glm-4-flash | Economy | $0.001 | GLM |
 | grok-4.6 | Maximum/Premium | $0.002 | Grok |
 | grok-4.5 | Standard/Economy | $0.002 | Grok |
@@ -86,7 +87,8 @@ models programmatically.
 | gemini-3-flash | Legacy | $0.003 | Removed Cursor consultant |
 | deepseek-v4-pro | Premium | $0.00087 | DeepSeek |
 | deepseek-v4-flash | Standard/Economy | $0.00028 | DeepSeek |
-| glm-5.3 | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
+| glm-5.3-flash | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
+| glm-5.3 | Legacy pins | Unpriced | GLM coding-plan endpoint |
 | glm-4-flash | Economy | $0.003 | GLM |
 | grok-4.6 | Maximum/Premium | $0.006 | Grok |
 | grok-4.5 | Standard/Economy | $0.006 | Grok |
@@ -174,7 +176,8 @@ the providers' official pricing pages: [Anthropic](https://platform.claude.com/d
 [MiniMax](https://platform.minimax.io/docs/guides/pricing-paygo). Gemini 3.7's
 listed rate is the promotion effective through December 31, 2026.
 
-`glm-5.3`, `qwen3.8-max`, and `kimi-code/k3-256k` are explicitly unpriced on
+`glm-5.3-flash`, legacy-pinned `glm-5.3`, `qwen3.8-max`, and
+`kimi-code/k3-256k` are explicitly unpriced on
 the transports used here. Their zero catalog entries prevent the estimator from
 inventing a dollar figure; session reports disclose their exclusion rather than
 presenting them as free.

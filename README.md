@@ -411,7 +411,7 @@ the observed version is response provenance only.
 
 | Consultant | Default Model | Persona | Focus |
 |------------|---------------|---------|-------|
-| **GLM** | glm-5.3 | The Methodologist | Structured approaches |
+| **GLM** | glm-5.3-flash | The Methodologist | Structured approaches |
 | **DeepSeek** | deepseek-v4-pro | The Code Specialist | Algorithms, code generation |
 
 ### Installing Consultant CLIs
@@ -483,7 +483,7 @@ detail instead of reducing every consultant to its summary.
 | Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | devstral-small-2 |
 | Mistral API | mistral-large-3 | mistral-large-3 | mistral-large-3 | mistral-large-3 |
 | DeepSeek | deepseek-v4-pro | deepseek-v4-pro | deepseek-v4-flash | deepseek-v4-flash |
-| GLM | glm-5.3 | glm-5.3 | glm-5.3 | glm-4-flash |
+| GLM | glm-5.3-flash | glm-5.3-flash | glm-5.3-flash | glm-4-flash |
 | Grok | grok-4.6 | grok-4.6 | grok-4.5 | grok-4.5 |
 | Qwen3 | qwen3.8-max when Token Plan is configured; otherwise qwen3.7-max | qwen3.7-max | qwen3.6-35b-a3b | qwen3-32b |
 | Kimi | kimi-code/k3-256k | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |

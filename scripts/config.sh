@@ -186,7 +186,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 # GLM CONFIGURATION - The Code Specialist (API-based)
 # =============================================================================
 
-GLM_MODEL="${GLM_MODEL:-glm-5.3}"
+GLM_MODEL="${GLM_MODEL:-glm-5.3-flash}"
 GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
 GLM_API_MAX_TOKENS="${GLM_API_MAX_TOKENS:-16384}"
 GLM_API_URL="${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}"
@@ -623,7 +623,7 @@ get_model_for_tier() {
                 codex)    echo "gpt-5.6-sol" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
-                glm)      echo "glm-5.3" ;;
+                glm)      echo "glm-5.3-flash" ;;
                 grok)     echo "grok-4.6" ;;
                 qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3-256k" ;;
@@ -638,7 +638,7 @@ get_model_for_tier() {
                 codex)    echo "gpt-5.6-sol" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
-                glm)      echo "glm-5.3" ;;
+                glm)      echo "glm-5.3-flash" ;;
                 grok)     echo "grok-4.6" ;;
                 qwen3)    echo "qwen3.7-max" ;;
                 kimi)     echo "kimi-code/k3" ;;
@@ -653,7 +653,7 @@ get_model_for_tier() {
                 codex)    echo "gpt-5.6-terra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-v4-flash" ;;
-                glm)      echo "glm-5.3" ;;  # Same as premium (no mid-tier GLM)
+                glm)      echo "glm-5.3-flash" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3.6-35b-a3b" ;;  # Open-weight MoE (35B total, 3B active)
                 kimi)     echo "kimi-code/k3" ;;

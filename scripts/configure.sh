@@ -307,11 +307,14 @@ if [[ "$(read_value "$WORK_FILE" GEMINI_MODEL 2>/dev/null || true)" == "Gemini 3
     echo "Migrated managed Gemini CLI default: Gemini 3.1 Pro (High) -> Gemini 3.7 Flash (High)" >&2
 fi
 
-if [[ "$(read_value "$WORK_FILE" GLM_MODEL 2>/dev/null || true)" == "glm-5.2" ]] \
-    && ! has_value_marker "$WORK_FILE" GLM_MODEL "$PIN_MARKER"; then
-    set_value GLM_MODEL "glm-5.3 $DEFAULT_MARKER"
-    echo "Migrated managed GLM default: glm-5.2 -> glm-5.3" >&2
-fi
+case "$(read_value "$WORK_FILE" GLM_MODEL 2>/dev/null || true)" in
+    glm-5.2|glm-5.3)
+        if ! has_value_marker "$WORK_FILE" GLM_MODEL "$PIN_MARKER"; then
+            set_value GLM_MODEL "glm-5.3-flash $DEFAULT_MARKER"
+            echo "Migrated managed GLM default to glm-5.3-flash" >&2
+        fi
+        ;;
+esac
 
 if [[ "$(read_value "$WORK_FILE" GROK_MODEL 2>/dev/null || true)" == "grok-4.5" ]] \
     && ! has_value_marker "$WORK_FILE" GROK_MODEL "$PIN_MARKER"; then
