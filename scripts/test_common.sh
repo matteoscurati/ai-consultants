@@ -175,6 +175,16 @@ test_response_fence_normalization() {
         "bare structured response preserves confidence"
 }
 
+test_detailed_summary_rejects_invalid_gates() {
+    local rc=0
+    ( checked=0; failed=0; skipped=0; test_summary_detailed "empty" 0 >/dev/null ) || rc=$?
+    assert_eq "1" "$rc" "detailed summary rejects a suite with no assertions"
+
+    rc=0
+    ( checked=1; failed=1; skipped=0; test_summary_detailed "failed" 0 >/dev/null ) || rc=$?
+    assert_eq "1" "$rc" "detailed summary rejects a suite with failed assertions"
+}
+
 run_test "Test 1: consultant error extraction" test_error_reason_extraction
 run_test "Test 2: diagnosed failure rendering" test_failure_rendering
 run_test "Test 3: quorum grading" test_quorum_grading
@@ -183,5 +193,6 @@ run_test "Test 5: consultant health probe" test_ping_consultant
 run_test "Test 6: feature registry parity" test_known_feature_flags_in_sync
 run_test "Test 7: Kimi stream content extraction" test_kimi_content_extraction
 run_test "Test 8: fenced response normalization" test_response_fence_normalization
+run_test "Test 9: detailed summary guard" test_detailed_summary_rejects_invalid_gates
 
 test_summary "common"

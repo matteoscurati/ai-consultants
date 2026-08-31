@@ -18,6 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Suppress log output during tests (redirect stderr to /dev/null for sourcing)
 export LOG_LEVEL="ERROR"
 
+# shellcheck source=lib/test_helpers.sh
+source "$SCRIPT_DIR/lib/test_helpers.sh"
+
 # Source libraries under test
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/personas.sh"
@@ -25,173 +28,54 @@ source "$SCRIPT_DIR/lib/costs.sh"
 source "$SCRIPT_DIR/lib/cache.sh"
 source "$SCRIPT_DIR/lib/routing.sh"
 
-# =============================================================================
-# TEST FRAMEWORK
-# =============================================================================
-
-# Colors for test output
-_C_RESET="\033[0m"
-_C_GREEN="\033[32m"
-_C_RED="\033[31m"
-_C_YELLOW="\033[33m"
-_C_BLUE="\033[34m"
-_C_CYAN="\033[36m"
-_C_DIM="\033[2m"
-
-# Counters
-_PASS_COUNT=0
-_FAIL_COUNT=0
-_SKIP_COUNT=0
-_CURRENT_SUITE=""
-
 # Temporary directory for test artifacts
 TEST_TMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/ai_consultants_test.XXXXXX")
 trap 'rm -rf "$TEST_TMPDIR"' EXIT
 
-# Begin a named test suite section
+# Adapters preserve the established test-suite call sites while delegating all
+# counters, rendering, and assertion semantics to lib/test_helpers.sh.
 suite() {
-    _CURRENT_SUITE="$1"
-    echo -e "\n${_C_CYAN}--- $1 ---${_C_RESET}"
+    test_section "$1"
 }
 
-# Record a pass
 _pass() {
-    local msg="$1"
-    ((_PASS_COUNT++)) || true
-    echo -e "  ${_C_GREEN}PASS${_C_RESET}: $msg"
+    test_pass "$1"
 }
 
-# Record a failure
 _fail() {
-    local msg="$1"
-    shift
-    ((_FAIL_COUNT++)) || true
-    echo -e "  ${_C_RED}FAIL${_C_RESET}: $msg"
-    for detail in "$@"; do
-        echo -e "        ${_C_DIM}$detail${_C_RESET}"
-    done
+    test_fail "$@"
 }
 
-# Record a skip
 _skip() {
-    local msg="$1"
-    local reason="${2:-}"
-    ((_SKIP_COUNT++)) || true
-    echo -e "  ${_C_YELLOW}SKIP${_C_RESET}: $msg${reason:+ ($reason)}"
+    test_skip "$@"
 }
 
-# Assert two values are equal
-# Usage: assert_equals <expected> <actual> <message>
 assert_equals() {
-    local expected="$1"
-    local actual="$2"
-    local msg="$3"
-    if [[ "$actual" == "$expected" ]]; then
-        _pass "$msg"
-    else
-        _fail "$msg" "expected: '$expected'" "actual:   '$actual'"
-    fi
+    assert_eq "$@"
 }
 
-# Assert two values are NOT equal
-# Usage: assert_not_equals <not_expected> <actual> <message>
 assert_not_equals() {
-    local not_expected="$1"
-    local actual="$2"
-    local msg="$3"
-    if [[ "$actual" != "$not_expected" ]]; then
-        _pass "$msg"
-    else
-        _fail "$msg" "should NOT be: '$not_expected'" "but got:       '$actual'"
-    fi
+    assert_ne "$@"
 }
 
-# Assert string contains substring
-# Usage: assert_contains <substring> <haystack> <message>
-assert_contains() {
-    local substring="$1"
-    local haystack="$2"
-    local msg="$3"
-    if [[ "$haystack" == *"$substring"* ]]; then
-        _pass "$msg"
-    else
-        _fail "$msg" "expected to contain: '$substring'" "actual: '$haystack'"
-    fi
-}
-
-# Assert string does NOT contain substring
-# Usage: assert_not_contains <substring> <haystack> <message>
-assert_not_contains() {
-    local substring="$1"
-    local haystack="$2"
-    local msg="$3"
-    if [[ "$haystack" != *"$substring"* ]]; then
-        _pass "$msg"
-    else
-        _fail "$msg" "should NOT contain: '$substring'" "actual: '$haystack'"
-    fi
-}
-
-# Assert a command exits with code 0
-# Usage: assert_exit_code_success <message> <command...>
 assert_exit_code_success() {
-    local msg="$1"
-    shift
-    if "$@" >/dev/null 2>&1; then
-        _pass "$msg"
-    else
-        _fail "$msg" "command exited non-zero: $*"
-    fi
+    assert_exit_success "$@"
 }
 
-# Assert a command exits with non-zero code
-# Usage: assert_exit_code_failure <message> <command...>
 assert_exit_code_failure() {
-    local msg="$1"
-    shift
-    if "$@" >/dev/null 2>&1; then
-        _fail "$msg" "command should have failed: $*"
-    else
-        _pass "$msg"
-    fi
+    assert_exit_failure "$@"
 }
 
-# Assert a numeric value is greater than a threshold
-# Usage: assert_greater_than <threshold> <actual> <message>
 assert_greater_than() {
-    local threshold="$1"
-    local actual="$2"
-    local msg="$3"
-    if [[ "$actual" -gt "$threshold" ]]; then
-        _pass "$msg"
-    else
-        _fail "$msg" "expected > $threshold" "actual: $actual"
-    fi
+    assert_gt "$@"
 }
 
-# Assert a numeric value is less than or equal to a threshold
-# Usage: assert_less_than_or_equal <threshold> <actual> <message>
 assert_less_than_or_equal() {
-    local threshold="$1"
-    local actual="$2"
-    local msg="$3"
-    if [[ "$actual" -le "$threshold" ]]; then
-        _pass "$msg"
-    else
-        _fail "$msg" "expected <= $threshold" "actual: $actual"
-    fi
+    assert_lte "$@"
 }
 
-# Assert output is valid JSON
-# Usage: assert_valid_json <json_string> <message>
 assert_valid_json() {
-    local json="$1"
-    local msg="$2"
-    if echo "$json" | jq . >/dev/null 2>&1; then
-        _pass "$msg"
-    else
-        _fail "$msg" "not valid JSON: ${json:0:100}..."
-    fi
+    assert_json "$@"
 }
 
 # =============================================================================
@@ -1769,9 +1653,9 @@ test_persona_catalog_completeness() {
 # =============================================================================
 
 main() {
-    echo -e "${_C_BLUE}============================================${_C_RESET}"
-    echo -e "${_C_BLUE}  AI Consultants - Comprehensive Test Suite ${_C_RESET}"
-    echo -e "${_C_BLUE}============================================${_C_RESET}"
+    echo -e "${C_YELLOW}============================================${C_RESET}"
+    echo -e "${C_YELLOW}  AI Consultants - Comprehensive Test Suite ${C_RESET}"
+    echo -e "${C_YELLOW}============================================${C_RESET}"
     local start_ts
     start_ts=$(date +%s)
 
@@ -1837,28 +1721,7 @@ main() {
     local end_ts
     end_ts=$(date +%s)
     local duration=$((end_ts - start_ts))
-    local total=$((_PASS_COUNT + _FAIL_COUNT + _SKIP_COUNT))
-
-    echo -e "\n${_C_BLUE}============================================${_C_RESET}"
-    echo -e "${_C_BLUE}  Results${_C_RESET}"
-    echo -e "${_C_BLUE}============================================${_C_RESET}"
-    echo -e "  Total:   $total"
-    echo -e "  ${_C_GREEN}Passed:  $_PASS_COUNT${_C_RESET}"
-    echo -e "  ${_C_RED}Failed:  $_FAIL_COUNT${_C_RESET}"
-    [[ $_SKIP_COUNT -gt 0 ]] && echo -e "  ${_C_YELLOW}Skipped: $_SKIP_COUNT${_C_RESET}"
-    echo -e "  Time:    ${duration}s"
-
-    if [[ $total -eq 0 ]]; then
-        echo -e "\n${_C_RED}FAILED: no assertions ran.${_C_RESET}"
-        return 1
-    fi
-    if [[ $_FAIL_COUNT -gt 0 ]]; then
-        echo -e "\n${_C_RED}FAILED: $_FAIL_COUNT test(s) did not pass.${_C_RESET}"
-        return 1
-    else
-        echo -e "\n${_C_GREEN}ALL TESTS PASSED.${_C_RESET}"
-        return 0
-    fi
+    test_summary_detailed "test_suite" "$duration"
 }
 
 main
