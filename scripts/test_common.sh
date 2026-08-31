@@ -107,7 +107,7 @@ test_ping_consultant() {
 }
 
 test_known_feature_flags_in_sync() {
-    local declared agents registry missing stale
+    local declared agents registry missing stale unrecognized feature
     declared=$(grep -oE '^ENABLE_[A-Z0-9_]+' "$SCRIPT_DIR/config.sh" | sed 's/^ENABLE_//' | sort -u)
     agents=$(printf '%s\n' $KNOWN_CLI_AGENTS $KNOWN_API_AGENTS | sort -u)
     declared=$(comm -23 <(printf '%s\n' "$declared") <(printf '%s\n' "$agents"))
@@ -115,8 +115,16 @@ test_known_feature_flags_in_sync() {
     missing=$(comm -23 <(printf '%s\n' "$declared") <(printf '%s\n' "$registry") | tr '\n' ' ' | sed 's/ *$//')
     stale=$(comm -13 <(printf '%s\n' "$declared") <(printf '%s\n' "$registry") | tr '\n' ' ' | sed 's/ *$//')
 
+    unrecognized=""
+    while IFS= read -r feature; do
+        [[ -n "$feature" ]] || continue
+        is_known_agent "$feature" || unrecognized+="$feature "
+    done <<< "$declared"
+    unrecognized="${unrecognized% }"
+
     assert_eq "" "$missing" "every ENABLE_* feature is excluded from custom-agent discovery"
     assert_eq "" "$stale" "feature registry contains no removed ENABLE_* values"
+    assert_eq "" "$unrecognized" "is_known_agent recognizes every declared feature flag"
 }
 
 test_kimi_content_extraction() {
@@ -151,8 +159,20 @@ test_response_fence_normalization() {
     assert_eq "0" "$rc" "fenced structured response succeeds"
     assert_eq "fenced ok" "$(jq -r '.response.summary' "$output")" \
         "markdown fence is removed before JSON parsing"
+    assert_eq "8" "$(jq -r '.confidence.score' "$output")" \
+        "fenced response preserves confidence"
     assert_eq "structured" "$(jq -r '.metadata.response_quality' "$output")" \
         "fenced response retains structured quality"
+
+    printf '{"response":{"summary":"bare ok"},"confidence":{"score":9}}\n' > "$input"
+    rc=0
+    process_consultant_response "TestC" "test-model" "Tester" \
+        "$input" "$output" 0 100 >/dev/null 2>&1 || rc=$?
+    assert_eq "0" "$rc" "bare structured response still succeeds"
+    assert_eq "bare ok" "$(jq -r '.response.summary' "$output")" \
+        "bare structured response remains unchanged"
+    assert_eq "9" "$(jq -r '.confidence.score' "$output")" \
+        "bare structured response preserves confidence"
 }
 
 run_test "Test 1: consultant error extraction" test_error_reason_extraction
