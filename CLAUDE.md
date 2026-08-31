@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 4.0.3
+**Version**: 4.0.4
 
 ## Distribution
 
@@ -759,6 +759,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v4.0.4
+
+- **Housekeeping now removes dead implementation without removing public compatibility.** The cleanup deletes uncalled API, cache, optimizer, common, cost, persona, reliability, routing-summary, and session-display helpers, plus the stale README changelog and redundant npm ignore file. The documented `get_routing_mode`, `get_recommended_count`, and `get_category_timeout` helpers stay available and are regression-tested. Six historic config keys that had no runtime reader remain accepted as explicitly deprecated no-ops through v4.x: `SESSION_CLEANUP_DAYS`, `ENABLE_PROGRESS_BARS`, `ENABLE_EARLY_TERMINATION`, `USE_COMPACT_PROMPTS`, `ENABLE_SELECTIVE_CONTEXT`, and `MAX_FILES_PER_CONSULTANT`.
+- **All Bash test suites now share one assertion framework.** `scripts/lib/test_helpers.sh` owns counters, pass/fail/skip rendering, regex/string/numeric/JSON/exit assertions, section rendering, and both concise and detailed summaries. `test_suite.sh` retains compatibility adapters for its established assertion call sites while delegating all mechanics; its summary fails on zero assertions or any failure. The previously excluded `test_functions.sh` is replaced by auto-discovered `test_common.sh`, which keeps regression coverage for diagnosed failures, quorum, health probes, feature-flag recognition, Kimi stream extraction, fenced/bare JSON normalization, confidence preservation, and both detailed-summary failure gates.
+- **The package and active guidance are smaller and truthful.** `package.json#files` is the sole npm allowlist; the package excludes the GitHub release-note archive, tests, fixtures, and maintainer release tooling while retaining active docs. The manifest moves 107 → 61 files, packed bytes 340,662 → 268,831, and unpacked bytes 1,145,406 → 929,330. Setup/CI instructions use `doctor` and `configure`, examples use XDG consultation paths, and routing documentation describes real affinity selection rather than an inert routing-mode/timeout path.
+- **Verification is wholly offline for this patch.** No consultant adapter, model, host transport, roster, cost rate, or synthesis behavior changed, so no billable live smoke was needed. Hermetic `npm test` passed 24/24 suites; core 447 assertions, configure 94 checks, installer/package 51 checks, common-helper 38 checks, Bash 3.2 syntax, ShellCheck, `npm ci --dry-run`, markdown links, and two rounds of cross-family cleanup review are green. PR #16 merged with its merge commit and all final CI checks passed.
 
 ### v4.0.3
 

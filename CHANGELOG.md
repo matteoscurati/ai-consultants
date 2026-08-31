@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
-## [Unreleased]
+## [4.0.4] - 2026-08-31
 
 ### Changed
 - The previously excluded `test_functions.sh` harness is replaced by a focused, auto-discovered `test_common.sh` suite using the shared test framework; the full gate now runs 24 suites.
