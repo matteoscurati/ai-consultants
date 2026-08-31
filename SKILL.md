@@ -185,12 +185,16 @@ See [Full Configuration Reference](references/configuration.md) for all variable
 ## Output
 
 ```
-/tmp/ai_consultations/TIMESTAMP/
+${XDG_CACHE_HOME:-$HOME/.cache}/ai-consultants/consultations/TIMESTAMP/
+├── context.md          # Built consultation context
 ├── gemini.json        # Individual responses
 ├── codex.json
 ├── synthesis.json     # Coverage union
+├── optimization_metrics.json
 └── report.md          # Human-readable
 ```
+
+The command prints the exact output directory as its final stdout line.
 
 ## Doctor Command
 

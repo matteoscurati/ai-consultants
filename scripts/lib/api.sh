@@ -39,46 +39,6 @@ sanitize_error_message() {
 }
 
 # =============================================================================
-# API KEY VALIDATION
-# =============================================================================
-
-# Check if an API key environment variable is set
-# Usage: check_api_key "QWEN3_API_KEY" "Qwen3"
-check_api_key() {
-    local key_var_name="$1"
-    local consultant_name="$2"
-
-    # Get the value of the environment variable by name
-    local key_value="${!key_var_name:-}"
-
-    if [[ -z "$key_value" ]]; then
-        log_error "[$consultant_name] API key not set: $key_var_name"
-        log_info "Set the $key_var_name environment variable to use $consultant_name"
-        return 1
-    fi
-
-    # Basic validation: key should be non-empty and not contain obvious placeholders
-    if [[ "$key_value" == *"your_"* ]] || [[ "$key_value" == *"YOUR_"* ]] || [[ "$key_value" == "xxx"* ]]; then
-        log_error "[$consultant_name] API key appears to be a placeholder: $key_var_name"
-        return 1
-    fi
-
-    # Validate key format (minimum length, no whitespace)
-    if [[ ${#key_value} -lt 10 ]]; then
-        log_error "[$consultant_name] API key too short: $key_var_name"
-        return 1
-    fi
-
-    if [[ "$key_value" =~ [[:space:]] ]]; then
-        log_error "[$consultant_name] API key contains whitespace: $key_var_name"
-        return 1
-    fi
-
-    log_debug "[$consultant_name] API key validated"
-    return 0
-}
-
-# =============================================================================
 # HTTP ERROR HANDLING
 # =============================================================================
 
@@ -723,19 +683,4 @@ check_rate_limit() {
     echo "$new_timestamps" > "$state_file"
 
     return 0
-}
-
-# Clear rate limit state for a consultant (useful for testing)
-# Usage: clear_rate_limit <consultant_name>
-clear_rate_limit() {
-    local consultant_name="$1"
-    local safe_name=$(echo "$consultant_name" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '_')
-    local state_file="${RATE_LIMIT_DIR}/${safe_name}_ratelimit"
-
-    rm -f "$state_file" 2>/dev/null || true
-}
-
-# Clear all rate limit state
-clear_all_rate_limits() {
-    rm -rf "$RATE_LIMIT_DIR" 2>/dev/null || true
 }

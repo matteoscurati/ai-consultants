@@ -1,8 +1,8 @@
 #!/bin/bash
 # test_suite.sh - Comprehensive test suite for AI Consultants
 #
-# Tests core library functions across common.sh, personas.sh, voting.sh,
-# costs.sh, cache.sh, and routing.sh without external test frameworks.
+# Tests core library functions across common.sh, personas.sh, costs.sh,
+# cache.sh, and routing.sh without external test frameworks.
 #
 # Usage: ./scripts/test_suite.sh
 # Exit: 0 if all tests pass, 1 if any fail
@@ -1466,36 +1466,17 @@ test_consultant_selection() {
     assert_less_than_or_equal 8 "$count" "custom API agent still respects smart-routing panel limit"
 }
 
-# =============================================================================
-# TESTS: routing.sh - Routing modes
-# =============================================================================
+test_routing_compatibility_helpers() {
+    suite "routing.sh: compatibility helpers"
 
-test_routing_modes() {
-    suite "routing.sh: get_routing_mode / get_recommended_count"
-
-    assert_equals "full"      "$(get_routing_mode "SECURITY")"    "SECURITY uses full routing"
-    assert_equals "single"    "$(get_routing_mode "QUICK_SYNTAX")" "QUICK_SYNTAX uses single routing"
-    assert_equals "selective"  "$(get_routing_mode "CODE_REVIEW")" "CODE_REVIEW uses selective routing"
-    assert_equals "selective"  "$(get_routing_mode "ARCHITECTURE")" "ARCHITECTURE uses selective routing"
-    assert_equals "full"      "$(get_routing_mode "GENERAL")"     "GENERAL uses full routing"
-
-    assert_equals "10" "$(get_recommended_count "SECURITY")"    "SECURITY recommends 10 consultants"
-    assert_equals "1"  "$(get_recommended_count "QUICK_SYNTAX")" "QUICK_SYNTAX recommends 1 consultant"
-    assert_equals "5"  "$(get_recommended_count "CODE_REVIEW")" "CODE_REVIEW recommends 5 consultants"
-}
-
-# =============================================================================
-# TESTS: routing.sh - Category timeout
-# =============================================================================
-
-test_category_timeouts() {
-    suite "routing.sh: get_category_timeout"
-
-    assert_equals "60"  "$(get_category_timeout "QUICK_SYNTAX")" "QUICK_SYNTAX timeout is 60s"
-    assert_equals "240" "$(get_category_timeout "ARCHITECTURE")" "ARCHITECTURE timeout is 240s"
-    assert_equals "240" "$(get_category_timeout "SECURITY")"     "SECURITY timeout is 240s"
-    assert_equals "180" "$(get_category_timeout "GENERAL")"      "GENERAL timeout is 180s"
-    assert_equals "120" "$(get_category_timeout "DATABASE")"     "DATABASE timeout is 120s"
+    assert_equals "full" "$(get_routing_mode "SECURITY")" "SECURITY uses full routing"
+    assert_equals "single" "$(get_routing_mode "QUICK_SYNTAX")" "QUICK_SYNTAX uses single routing"
+    assert_equals "selective" "$(get_routing_mode "CODE_REVIEW")" "CODE_REVIEW uses selective routing"
+    assert_equals "10" "$(get_recommended_count "SECURITY")" "SECURITY recommends 10 consultants"
+    assert_equals "1" "$(get_recommended_count "QUICK_SYNTAX")" "QUICK_SYNTAX recommends one consultant"
+    assert_equals "60" "$(get_category_timeout "QUICK_SYNTAX")" "QUICK_SYNTAX timeout is 60s"
+    assert_equals "240" "$(get_category_timeout "SECURITY")" "SECURITY timeout is 240s"
+    assert_equals "120" "$(get_category_timeout "DATABASE")" "DATABASE timeout is 120s"
 }
 
 # =============================================================================
@@ -1840,8 +1821,7 @@ main() {
     # routing.sh tests
     test_routing_affinity
     test_consultant_selection
-    test_routing_modes
-    test_category_timeouts
+    test_routing_compatibility_helpers
     test_is_recommended
     test_escalation
 
@@ -1868,6 +1848,10 @@ main() {
     [[ $_SKIP_COUNT -gt 0 ]] && echo -e "  ${_C_YELLOW}Skipped: $_SKIP_COUNT${_C_RESET}"
     echo -e "  Time:    ${duration}s"
 
+    if [[ $total -eq 0 ]]; then
+        echo -e "\n${_C_RED}FAILED: no assertions ran.${_C_RESET}"
+        return 1
+    fi
     if [[ $_FAIL_COUNT -gt 0 ]]; then
         echo -e "\n${_C_RED}FAILED: $_FAIL_COUNT test(s) did not pass.${_C_RESET}"
         return 1

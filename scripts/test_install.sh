@@ -182,6 +182,22 @@ test_shipped_surfaces_exclude_removed_cursor_consultant() {
         "uninstall is positively scoped to the ai-consultants command namespace"
 }
 
+# ---------------------------------------------------------------------------
+test_package_excludes_release_archive() {
+    local project_root manifest release_count test_count release_script_count setup_count
+    project_root="$(cd "$SCRIPT_DIR/.." && pwd)"
+    manifest=$(cd "$project_root" && npm pack --dry-run --json 2>/dev/null)
+    release_count=$(jq '[.[0].files[].path | select(startswith("docs/releases/"))] | length' <<< "$manifest")
+    test_count=$(jq '[.[0].files[].path | select(startswith("scripts/test_"))] | length' <<< "$manifest")
+    release_script_count=$(jq '[.[0].files[].path | select(. == "scripts/release.sh")] | length' <<< "$manifest")
+    setup_count=$(jq '[.[0].files[].path | select(. == "docs/SETUP.md")] | length' <<< "$manifest")
+
+    assert_eq "0" "$release_count" "npm package excludes the GitHub release-note archive"
+    assert_eq "0" "$test_count" "npm package excludes test suites"
+    assert_eq "0" "$release_script_count" "npm package excludes maintainer release tooling"
+    assert_eq "1" "$setup_count" "npm package keeps active setup documentation"
+}
+
 run_test "Test 1: prunes commands removed upstream" test_prunes_commands_removed_upstream
 run_test "Test 2: leaves other tools' commands alone" test_leaves_other_tools_commands_alone
 run_test "Test 3: fresh install is a clean no-op" test_no_installed_commands_is_a_clean_no_op
@@ -189,5 +205,6 @@ run_test "Test 4: missing commands dir is a clean no-op" test_missing_commands_d
 run_test "Test 5: define-only hook exposes helpers without installing" test_define_only_hook_runs_no_installer_work
 run_test "Test 6: installer banner is version-neutral" test_installer_banner_is_version_neutral
 run_test "Test 7: shipped surfaces exclude removed Cursor consultant" test_shipped_surfaces_exclude_removed_cursor_consultant
+run_test "Test 8: npm package excludes release-note archive" test_package_excludes_release_archive
 
 test_summary "install"

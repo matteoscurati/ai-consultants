@@ -331,7 +331,7 @@ skillport status ai-consultants
 git clone https://github.com/matteoscurati/ai-consultants.git
 cd ai-consultants
 ./scripts/doctor.sh --fix
-./scripts/setup_wizard.sh
+./bin/ai-consultants configure
 ```
 
 **Commands:**
@@ -698,14 +698,18 @@ Classify -> Route -> Fan out (parallel) -> Coverage synthesis
 Each consultation generates:
 
 ```
-/tmp/ai_consultations/TIMESTAMP/
+${XDG_CACHE_HOME:-$HOME/.cache}/ai-consultants/consultations/TIMESTAMP/
+├── context.md            # Built consultation context
 ├── gemini.json          # Individual responses
 ├── codex.json           #   with confidence scores
 ├── mistral.json
 ├── grok.json
 ├── synthesis.json       # Coverage union
+├── optimization_metrics.json
 └── report.md            # Human-readable report
 ```
+
+The command prints the exact output directory as its final stdout line.
 
 ---
 
@@ -736,7 +740,8 @@ enough — the panel adds little.
 
 - **Never** include credentials or API keys in queries
 - Review and redact sensitive code before sending it to any external consultant
-- Files in `/tmp` are automatically cleaned up
+- Private query and context-staging files are removed automatically; generated
+  reports remain in the XDG cache directory until you remove them
 
 ---
 
@@ -748,118 +753,8 @@ enough — the panel adds little.
 - [Smart Routing](docs/SMART_ROUTING.md) - Category-based routing
 - [JSON Schema](docs/JSON_SCHEMA.md) - Output format specification
 - [Reference Details](references/details.md) - Presets, strategies, best practices
+- [Changelog](https://github.com/matteoscurati/ai-consultants/blob/main/CHANGELOG.md) - Complete version history
 - [Contributing](CONTRIBUTING.md) - How to contribute
-
----
-
-## Changelog
-
-### v2.23.0
-
-- **`ENABLE_REFLECTION` and `REFLECTION_CYCLES` removed.** The self-reflection module they controlled was never called by anything, so the settings had never affected a consultation — v2.16's `converge` and `adversarial` shapes already run critique-refine off measured consensus. **If you set either key**, remove it: `configure --set ENABLE_REFLECTION=...` now exits non-zero, and both keys are dropped when an existing `.env` is rewritten.
-- **The release gate works again.** Two test suites failed deterministically against any real user configuration, so no release since 2.22.0 could pass its own `npm test`.
-- **`npm test` no longer swallows failures.** A failing assertion followed by a passing one inside the same test function was counted as a pass, across 8 of 13 test functions.
-- **Feature flags can no longer be enrolled as consultants.** A registry that told feature flags apart from custom API agents was 18 entries out of date; it is now complete and pinned by a test.
-- **Preset tables corrected** — they described a debate and peer-review depth the code has not enforced since v2.16, and called `high-stakes`/`max_quality` "all consultants" when they enable 5 and 8 of 11. See the [v2.23.0 release note](docs/releases/v2.23.0.md).
-
-### v2.22.0
-
-- **`ai-consultants configure`**: a public automatic configurator. It detects your installed CLIs and API keys, picks CLI-first transports, and writes a private XDG config while preserving your existing settings and secrets. Drive it with repeatable `--set KEY=VALUE`, review it with `--interactive` / `--advanced`, or preview it with `--dry-run`. See the [v2.22.0 release note](docs/releases/v2.22.0.md).
-
-### v2.21.1
-
-- **Kimi K3**: Kimi now defaults to `kimi-code/k3`, and the adapter passes the model explicitly with `--model`.
-- **Focused 11-consultant roster**: Kilo, Aider, Amp, and Ollama were removed end-to-end, including their adapters and configuration variables. See the [v2.21.1 release note](docs/releases/v2.21.1.md) for migration guidance.
-
-### v2.15.1
-
-- **Gemini fixes (Antigravity CLI)**: the default model (`Gemini 3.1 Pro (High)`) wraps its JSON in a ```` ```json ```` fence; v2.15.0 didn't strip it, so every Gemini reply degraded to a generic fallback. Now de-fenced on all paths (response processing, self-reflection, synthesis).
-- **Works out-of-the-box for `npx`**: Gemini auto-selects API mode when `GEMINI_API_KEY` is set (the `agy` CLI can't be npm-installed and is OAuth-only), so a key-only environment no longer silently drops Gemini.
-- **Synthesis no longer hangs** when `agy` is the synthesizer (it was launched interactively instead of in print mode).
-
-### v2.10.0
-
-- **MiniMax M2.5 support**: New API-based consultant with "The Pragmatic Optimizer" persona
-- **15 consultants total**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Ollama
-- **npx distribution**: `npx ai-consultants "question"` - run directly without install
-- **npm packaging**: `package.json` with zero dependencies, `.npmignore` for clean publishing
-
-### v2.8.1
-
-- **Bug fixes**: Fixed `((count++))` abort under `set -e`, missing Amp in consultant map, hardcoded `claude` in synthesize.sh
-- **Security**: Variable name validation before `export` in escalation and cost-aware routing
-- **DRY refactoring**: Rewrote `query_kilo.sh` and `query_cursor.sh` using shared `process_consultant_response()`; added `get_model_for_tier()` as single source of truth
-
-### v2.8.0
-
-- **Amp CLI support**: New consultant with "The Systems Thinker" persona
-- **13 consultants total**: Gemini, Codex, Mistral, Kilo, Cursor, Aider, Amp, Claude, Qwen3, GLM, Grok, DeepSeek, Ollama
-- **Installation**: `curl -fsSL https://ampcode.com/install.sh | bash`
-
-### v2.7.0
-
-- **Qwen CLI support**: CLI/API mode switching for Qwen3 via qwen-code
-- **5 switchable agents**: Gemini, Codex, Claude, Mistral, and now Qwen3 support CLI/API mode
-- **CLI default**: `QWEN3_USE_API` defaults to `false` (CLI mode via qwen-code)
-
-### v2.6.0
-
-- **CLI/API mode switching**: Gemini, Codex, Claude, and Mistral can switch between CLI and API mode
-- **New environment variables**: `*_USE_API` and `*_API_URL` for each switchable agent
-- **Unified API query module**: `lib/api_query.sh` for consistent API handling
-
-### v2.5.0
-
-- **Model quality tiers**: Premium, standard, and economy tiers for all consultants
-- **New presets**: `max_quality`, `medium`, `fast` for quick tier selection
-- **Premium defaults**: All consultants now use premium models by default (March 2026)
-- **`apply_model_tier()` function**: Programmatically switch all models to a tier
-- **Updated models**: opus-4.6, gemini-3.1-pro-preview, gpt-5.3-codex, mistral-large-3, etc.
-
-### v2.4.0
-
-- **Budget enforcement**: Optional budget limits with configurable actions (warn/stop)
-- **Budget checks**: 4 enforcement points (before/after consultation, debate, synthesis)
-- **Budget configuration**: Configurable via natural language or environment variables
-
-### v2.3.0
-
-- **Semantic caching**: Cache responses to avoid redundant API calls (15-25% savings)
-- **Cost-aware routing**: Route simple queries to cheaper models (30-50% savings)
-- **Fallback escalation**: Auto-escalate to premium model if confidence < 7
-- **Debate optimization**: Skip debate if all consultants agree (opt-in)
-- **Category exceptions**: SECURITY/ARCHITECTURE always trigger debate
-- **Quality monitoring**: `optimization_metrics.json` tracks optimization impact
-- **Compact reports**: Shorter reports by default (summaries only)
-- **Response limits**: Per-category token limits (opt-in)
-
-### v2.2.0
-
-- **Claude consultant**: New consultant with "The Synthesizer" persona
-- **Self-exclusion**: Invoking agent automatically excluded from panel
-- **Presets**: Quick configuration with `--preset minimal/balanced/high-stakes/security`
-- **Doctor command**: Diagnostic and auto-fix tool
-- **Synthesis strategies**: `--strategy majority/risk_averse/security_first/compare_only`
-- **Confidence intervals**: Statistical confidence ranges (e.g., "8 +/- 1.2")
-- **Anonymous peer review**: Unbiased evaluation of responses
-- **Ollama support**: Local model inference for privacy
-- **Panic mode**: Automatic rigor when uncertainty detected
-- **One-liner install**: `curl | bash` installation
-
-### v2.1.0
-
-- New consultants: Aider, DeepSeek
-- 17 configurable personas
-- Token optimization with AST extraction
-
-### v2.0.0
-
-- Persona system with 15 predefined roles
-- Confidence scoring (1-10) on every response
-- Auto-synthesis with weighted recommendations
-- Multi-Agent Debate (MAD)
-- Smart routing by question category
-- Session management and cost tracking
 
 ---
 

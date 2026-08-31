@@ -1,4 +1,4 @@
-# Smart Routing - AI Consultants v2.11
+# AI Consultants Smart Routing
 
 The Smart Routing system automatically selects the most suitable consultants based on the question category.
 
@@ -85,30 +85,11 @@ This is useful for:
 The matrix is loaded once per shell and cached in memory — no jq overhead
 on subsequent calls.
 
-## Routing Modes
-
-The system automatically determines how many consultants to involve:
-
-| Mode | Consultants | Categories | Rationale |
-|------|-------------|------------|-----------|
-| **full** | All enabled | SECURITY, GENERAL | All for complete perspectives |
-| **selective** | Top 5 by affinity | CODE_REVIEW, BUG_DEBUG, ARCHITECTURE, ALGORITHM, DATABASE, API_DESIGN, TESTING | Best matches for the category |
-| **single** | 1 | QUICK_SYNTAX | Only the best for quick answers |
-
-### Selection Logic
-
-```
-SECURITY      → full (all)     # Too important to exclude anyone
-QUICK_SYNTAX  → single (1)    # A quick answer is sufficient
-CODE_REVIEW   → selective (5) # Top 5 by affinity
-BUG_DEBUG     → selective (5)
-ARCHITECTURE  → selective (5)
-*             → full (all)    # Default: all enabled
-```
-
 ## Cost-Aware Routing (v2.3+)
 
-When `ENABLE_COST_AWARE_ROUTING=true`, the system routes queries to cheaper models based on complexity:
+When `ENABLE_COST_AWARE_ROUTING=true`, selected consultants use economy models
+for simple questions and can retry low-confidence responses with their premium
+model. Consultant selection itself continues to use the affinity matrix above.
 
 ```bash
 ENABLE_COST_AWARE_ROUTING=true
@@ -118,23 +99,6 @@ COMPLEXITY_THRESHOLD_MEDIUM=6    # Score 4-6 = use standard models
 ```
 
 See [COST_RATES.md](COST_RATES.md) for model pricing by tier.
-
-## Timeout per Category
-
-Timeouts optimized based on category complexity:
-
-| Category | Timeout | Rationale |
-|----------|---------|-----------|
-| QUICK_SYNTAX | 60s | Short answers |
-| DATABASE | 120s | Medium-complexity queries |
-| TESTING | 120s | Test case generation |
-| CODE_REVIEW | 180s | Detailed analysis |
-| BUG_DEBUG | 180s | Investigation |
-| ALGORITHM | 180s | Reasoning |
-| API_DESIGN | 180s | Detailed design |
-| GENERAL | 180s | Default |
-| ARCHITECTURE | 240s | Complex design |
-| SECURITY | 240s | In-depth analysis |
 
 ## Supported Categories
 
@@ -235,8 +199,8 @@ ENABLE_SMART_ROUTING=true \
 
 # Output:
 # [INFO] Category: SECURITY
-# [INFO] Routing mode: full (all enabled consultants)
-# [INFO] Timeout: 240s
+# [INFO] Smart routing for category SECURITY...
+# [INFO] Selected consultants: Mistral Codex ...
 ```
 
 ## API Functions
@@ -255,12 +219,6 @@ select_consultants "SECURITY" 7    # → All enabled consultants
 # Check recommendation
 is_recommended "SECURITY" "Claude" 7 && echo "Recommended"
 
-# Get timeout
-get_category_timeout "ARCHITECTURE"  # → 240
-
-# Get routing mode
-get_routing_mode "QUICK_SYNTAX"      # → single
-
-# Cost-aware selection (v2.3)
-select_consultants_cost_aware "QUICK_SYNTAX" 7  # → Economy model selection
+# Cost-aware model selection (v2.3)
+get_cost_aware_model "codex" 2  # → Economy model when enabled
 ```

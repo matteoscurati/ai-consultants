@@ -1,10 +1,8 @@
 #!/bin/bash
 # test_all.sh - Master runner for the standalone test_*.sh scripts (v2.13+)
 #
-# The standalone test files (test_user_config.sh, test_routing_parity.sh,
-# test_set_e_safety.sh, test_bin.sh, test_doctor.sh) are not yet wired into
-# scripts/test_suite.sh (which only sources libraries). This runner aggregates
-# them so a single command exercises the full regression suite.
+# Discovers every standalone test_*.sh suite, including test_suite.sh, so a
+# single command exercises the full regression gate.
 #
 # Usage: ./scripts/test_all.sh
 # Exit:  0 if all suites pass, 1 if any fail.
@@ -22,13 +20,11 @@ C_DIM="\033[2m"
 # Discover all test_*.sh scripts. Each runs in its own subprocess (via the
 # loop below executing the script), so frameworks with different assert
 # naming conventions don't collide.
-# Excluded: test_functions.sh (legacy helper, not a runnable suite) and
-# test_all.sh itself.
+# Excluded: test_all.sh itself.
 suites=()
 while IFS= read -r f; do
     suites+=("$f")
 done < <(find "$SCRIPT_DIR" -maxdepth 1 -name 'test_*.sh' -type f \
-    ! -name 'test_functions.sh' \
     ! -name 'test_all.sh' \
     | sort)
 

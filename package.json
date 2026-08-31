@@ -19,6 +19,7 @@
     "SKILL.md",
     "CLAUDE.md",
     "docs/",
+    "!docs/releases/",
     "references/"
   ],
   "keywords": [

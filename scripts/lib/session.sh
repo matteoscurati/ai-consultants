@@ -84,16 +84,6 @@ has_active_session() {
     return 1
 }
 
-# Get current session ID
-# Usage: get_current_session_id
-get_current_session_id() {
-    if has_active_session; then
-        jq -r '.id' "$SESSION_FILE"
-    else
-        echo ""
-    fi
-}
-
 # Get query from current session
 # Usage: get_current_query
 get_current_query() {
@@ -185,16 +175,6 @@ add_to_history() {
        mv "${SESSION_HISTORY_FILE}.tmp" "$SESSION_HISTORY_FILE"
 }
 
-# Get last N sessions from history
-# Usage: get_recent_sessions [count]
-get_recent_sessions() {
-    local count="${1:-5}"
-
-    init_history
-
-    jq --argjson n "$count" '.sessions | .[-$n:]' "$SESSION_HISTORY_FILE"
-}
-
 # Search session by ID
 # Usage: get_session_by_id <session_id>
 get_session_by_id() {
@@ -264,65 +244,4 @@ Summary: $summary
 $instruction"
 
     echo "$context"
-}
-
-# =============================================================================
-# CLEANUP
-# =============================================================================
-
-# Clear current session
-# Usage: clear_current_session
-clear_current_session() {
-    rm -f "$SESSION_FILE"
-}
-
-# Clean up sessions older than N days
-# Usage: cleanup_old_sessions [days]
-cleanup_old_sessions() {
-    local days="${1:-7}"
-
-    # Clean up old output files (XDG-aware in v2.13; falls back to legacy /tmp)
-    # Note: $days must be quoted to prevent injection via specially crafted days value
-    local _output_root="${DEFAULT_OUTPUT_DIR_BASE:-/tmp/ai_consultations}"
-    find "$_output_root" -type d -mtime +"$days" -exec rm -rf {} \; 2>/dev/null || true
-
-    # Remove old sessions from history
-    init_history
-
-    local cutoff=$(date -d "-$days days" -Iseconds 2>/dev/null || date -v-${days}d -Iseconds 2>/dev/null || echo "")
-
-    if [[ -n "$cutoff" ]]; then
-        jq --arg cutoff "$cutoff" '.sessions |= [.[] | select(.timestamp > $cutoff)]' \
-            "$SESSION_HISTORY_FILE" > "${SESSION_HISTORY_FILE}.tmp" && \
-            mv "${SESSION_HISTORY_FILE}.tmp" "$SESSION_HISTORY_FILE"
-    fi
-}
-
-# =============================================================================
-# DISPLAY
-# =============================================================================
-
-# Show current session info
-# Usage: show_session_info
-show_session_info() {
-    if ! has_active_session; then
-        echo "No active session"
-        return
-    fi
-
-    local session=$(get_current_session)
-    local id=$(echo "$session" | jq -r '.id')
-    local query=$(echo "$session" | jq -r '.query')
-    local timestamp=$(echo "$session" | jq -r '.timestamp')
-    local follow_ups=$(echo "$session" | jq -r '.follow_ups | length')
-
-    echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║                    Current Session                           ║"
-    echo "╚══════════════════════════════════════════════════════════════╝"
-    echo ""
-    echo "  ID: $id"
-    echo "  Query: ${query:0:50}..."
-    echo "  Started: $timestamp"
-    echo "  Follow-ups: $follow_ups"
-    echo ""
 }

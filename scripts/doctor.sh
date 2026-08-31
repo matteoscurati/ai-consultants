@@ -413,11 +413,11 @@ check_configuration() {
         check_pass
     elif [[ $enabled_count -eq 1 ]]; then
         _print "  ✗ Enabled consultants: $enabled_count (need at least 2)"
-        add_issue "config" "Only 1 consultant enabled, need at least 2" "Run: ./scripts/setup_wizard.sh"
+        add_issue "config" "Only 1 consultant enabled, need at least 2" "Run: \"$SCRIPT_DIR/../bin/ai-consultants\" configure"
         check_fail
     else
         _print "  ✗ Enabled consultants: 0 (need at least 2)"
-        add_issue "config" "No consultants enabled" "Run: ./scripts/setup_wizard.sh"
+        add_issue "config" "No consultants enabled" "Run: \"$SCRIPT_DIR/../bin/ai-consultants\" configure"
         check_fail
     fi
 
@@ -825,8 +825,8 @@ suggest_configuration() {
     if (( available_count < 2 )); then
         echo ""
         echo "# WARNING: Less than 2 consultants available."
-        echo "# AI Consultants requires at least 2 to deliberate."
-        echo "# Install more CLIs or run ./scripts/setup_wizard.sh"
+        echo "# AI Consultants requires at least 2 for a coverage panel."
+        echo "# Install more CLIs or run \"$SCRIPT_DIR/../bin/ai-consultants\" configure"
     fi
 }
 

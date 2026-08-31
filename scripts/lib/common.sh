@@ -310,7 +310,7 @@ KNOWN_API_AGENTS="GLM DEEPSEEK"
 # therefore a latent phantom-consultant bug, not a cosmetic omission -- it had
 # drifted 18 flags out of date before the pin below existed.
 # KEEP IN SYNC with the top-level ENABLE_* declarations in config.sh;
-# test_functions.sh::test_known_feature_flags_in_sync fails the build otherwise.
+# test_common.sh::test_known_feature_flags_in_sync fails the build otherwise.
 KNOWN_FEATURE_FLAGS="PERSONA SYNTHESIS CLASSIFICATION SMART_ROUTING \
 COST_TRACKING PROGRESS_BARS EARLY_TERMINATION PREFLIGHT \
 AST_EXTRACTION BUDGET_LIMIT \
@@ -835,29 +835,6 @@ estimate_tokens() {
     echo $((chars / 4))
 }
 
-# Estimate tokens from a file
-# Usage: estimate_tokens_file "/path/to/file"
-estimate_tokens_file() {
-    local file_path="$1"
-    if [[ -f "$file_path" ]]; then
-        local chars
-        chars=$(wc -c < "$file_path" | tr -d ' ')
-        echo $((chars / 4))
-    else
-        echo 0
-    fi
-}
-
-# Log token estimate with label
-# Usage: log_token_estimate "Prompt" "$prompt_text"
-log_token_estimate() {
-    local label="$1"
-    local text="$2"
-    local tokens
-    tokens=$(estimate_tokens "$text")
-    log_debug "$label: ~$tokens tokens (~$((tokens * 4)) chars)"
-}
-
 # =============================================================================
 # RESPONSE BUILDERS (v2.4)
 # =============================================================================
@@ -1314,39 +1291,6 @@ process_consultant_response() {
     fi
 
     return $exit_code
-}
-
-# Check if a consultant is enabled
-# Usage: is_consultant_enabled <consultant_name>
-# Returns: 0 if enabled, 1 if disabled
-is_consultant_enabled() {
-    local name="$1"
-    local name_upper
-    name_upper=$(to_upper "$name")
-    local var_name="ENABLE_${name_upper}"
-
-    # Get default based on consultant type
-    local default="true"
-    case "$name_upper" in
-        GLM|DEEPSEEK)
-            default="false"
-            ;;
-    esac
-
-    [[ "${!var_name:-$default}" == "true" ]]
-}
-
-# Get list of enabled consultants
-# Usage: get_enabled_consultants
-# Output: Space-separated list of enabled consultant names
-get_enabled_consultants() {
-    local enabled=()
-    for consultant in "${ALL_CONSULTANTS[@]}"; do
-        if is_consultant_enabled "$consultant"; then
-            enabled+=("$consultant")
-        fi
-    done
-    echo "${enabled[@]}"
 }
 
 # =============================================================================
