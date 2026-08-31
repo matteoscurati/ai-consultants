@@ -41,8 +41,8 @@ pip install mistral-vibe
 git clone https://github.com/YOUR_USERNAME/ai-consultants.git
 cd ai-consultants
 
-# Verify dependencies
-./scripts/preflight_check.sh
+# Verify dependencies and configuration
+./scripts/doctor.sh
 
 # Install the git pre-commit hook (recommended)
 npm run install-hooks      # or: bash scripts/install-hooks.sh
@@ -159,19 +159,19 @@ Every JSON output must follow `lib/schema.json`:
 ENABLE_SMART_ROUTING=true \
   ./scripts/consult_all.sh "Review this code" file.py
 
-# Test single consultant
-ENABLE_GEMINI=true ENABLE_CODEX=false ENABLE_MISTRAL=false \
-  ./scripts/consult_all.sh "Quick syntax question"
+# Test the minimum two-consultant panel
+./scripts/consult_all.sh --preset minimal "Quick syntax question"
 ```
 
 ### Verify Output
 
 ```bash
 # Verify JSON structure
-jq . /tmp/ai_consultations/*/gemini.json
+output_dir=$(./scripts/consult_all.sh --preset minimal "Schema smoke")
+jq . "$output_dir/gemini.json"
 
 # Verify schema (if you have jsonschema)
-jsonschema -i output.json scripts/lib/schema.json
+jsonschema -i "$output_dir/gemini.json" scripts/lib/schema.json
 ```
 
 ## Pull Request

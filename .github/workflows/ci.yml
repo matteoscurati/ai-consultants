@@ -39,8 +39,8 @@ jobs:
       - name: Run full test suite
         run: npm test
 
-      - name: Preflight health check (informational)
+      - name: Doctor health check (informational)
         continue-on-error: true
         run: |
-          chmod +x scripts/preflight_check.sh
-          ./scripts/preflight_check.sh --quick
+          chmod +x scripts/doctor.sh
+          ./scripts/doctor.sh --quick

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [Unreleased]
+
+### Changed
+- The previously excluded `test_functions.sh` harness is replaced by a focused, auto-discovered `test_common.sh` suite using the shared test framework; the full gate now runs 24 suites.
+- Active setup, routing, output-path, and contributor documentation now points to maintained commands and the XDG consultation directory.
+- `package.json#files` is the single npm package allowlist. The tarball keeps active documentation while excluding the GitHub release-note archive, tests, fixtures, and maintainer release tooling.
+- Six settings with no runtime reader are explicitly marked as deprecated no-ops while remaining accepted throughout v4.x: `SESSION_CLEANUP_DAYS`, `ENABLE_PROGRESS_BARS`, `ENABLE_EARLY_TERMINATION`, `USE_COMPACT_PROMPTS`, `ENABLE_SELECTIVE_CONTEXT`, and `MAX_FILES_PER_CONSULTANT`.
+
+### Removed
+- Uncalled internal Bash helpers for API keys/rate-limit cleanup, cache invalidation, token estimates, persona display, routing summaries, reliability display, and session cleanup/display. Documented routing mode/count/timeout helpers remain available for compatibility.
+- The stale README changelog copy and redundant `.npmignore`.
+
 ## [4.0.3] - 2026-08-29
 
 ### Changed

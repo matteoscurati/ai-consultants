@@ -1,4 +1,4 @@
-# JSON Schema - AI Consultants v3.5
+# AI Consultants JSON Schema
 
 This document describes the JSON schema used for consultant responses.
 

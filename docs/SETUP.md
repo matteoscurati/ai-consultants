@@ -1,4 +1,4 @@
-# Setup Guide - AI Consultants v2.21.1
+# AI Consultants Setup Guide
 
 This guide walks you through installing and configuring AI Consultants for various AI coding agents.
 
@@ -688,33 +688,18 @@ Checks:
 ./scripts/doctor.sh --fix
 ```
 
-### Preflight Check
+### Configuration
+
+Auto-detect the available CLI and API transports:
 
 ```bash
-./scripts/preflight_check.sh
+./bin/ai-consultants configure
 ```
 
-Expected output:
-```
-[OK] jq installed
-[OK] Gemini CLI installed and authenticated
-[OK] Codex CLI installed and authenticated
-Status: Ready
-```
-
-### Setup Wizard (Bash)
-
-Interactive configuration:
-
-```bash
-./scripts/setup_wizard.sh
-```
-
-The wizard will:
-1. Check installed CLIs
-2. Test authentication
-3. Suggest configuration
-4. Generate `.env` file
+Use `--interactive` for a guided review, `--advanced` for every supported
+parameter, or `--dry-run` to preview the generated configuration without
+writing it. The deprecated `setup_wizard.sh` and `preflight_check.sh` entry
+points remain compatibility forwarders but are not the maintained interface.
 
 ---
 
@@ -805,10 +790,10 @@ After setup:
 **Bash:**
 ```bash
 # Test your configuration
-./scripts/consult_all.sh --preset minimal "How do I optimize a SQL query?"
+output_dir=$(./scripts/consult_all.sh --preset minimal "How do I optimize a SQL query?")
 
 # View the report
-cat /tmp/ai_consultations/*/report.md
+less "$output_dir/report.md"
 ```
 
 See [README.md](../README.md) for usage examples and full documentation.

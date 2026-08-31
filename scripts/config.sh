@@ -304,12 +304,6 @@ CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 # All available consultants (ordered by typical usage)
 ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
 
-# CLI-based consultants (use CLI tools, some support CLI/API switching)
-CLI_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "Grok" "MiniMax")
-
-# API-only consultants (use HTTP API directly, no CLI available)
-API_CONSULTANTS=("GLM" "DeepSeek")
-
 # =============================================================================
 # ENABLED CONSULTANTS
 # =============================================================================
@@ -435,17 +429,11 @@ BUDGET_ACTION="${BUDGET_ACTION:-warn}"
 # (persistent across reboots; sessions enable follow-up queries).
 SESSION_DIR="${SESSION_DIR:-${_AI_CONSULTANTS_XDG_STATE}/sessions}"
 
-# Days after which to clean old sessions
+# Deprecated no-op; retained through v4.x for configuration compatibility.
 SESSION_CLEANUP_DAYS="${SESSION_CLEANUP_DAYS:-7}"
 
-# =============================================================================
-# INTERACTIVE MODE (v2.0)
-# =============================================================================
-
-# Enable interactive progress bars
+# Deprecated no-ops; retained through v4.x for configuration compatibility.
 ENABLE_PROGRESS_BARS="${ENABLE_PROGRESS_BARS:-true}"
-
-# Enable early termination (Ctrl+C to stop with partial responses)
 ENABLE_EARLY_TERMINATION="${ENABLE_EARLY_TERMINATION:-true}"
 
 # =============================================================================
@@ -485,7 +473,7 @@ ENABLE_SEMANTIC_CHUNKING="${ENABLE_SEMANTIC_CHUNKING:-true}"
 # Maximum tokens per chunk (for chunking mode)
 CHUNK_MAX_TOKENS="${CHUNK_MAX_TOKENS:-500}"
 
-# Use compact prompts (shorter personas and output format)
+# Deprecated no-op; retained through v4.x for configuration compatibility.
 USE_COMPACT_PROMPTS="${USE_COMPACT_PROMPTS:-true}"
 
 # Extract only essential fields for synthesis (instead of full JSON)
@@ -525,8 +513,7 @@ USE_ECONOMIC_MODELS_FOR_SIMPLE="${USE_ECONOMIC_MODELS_FOR_SIMPLE:-true}"
 COMPLEXITY_THRESHOLD_SIMPLE="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
 COMPLEXITY_THRESHOLD_MEDIUM="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
 
-# --- Selective Context ---
-# Send only relevant files to each consultant
+# Deprecated no-ops; retained through v4.x for configuration compatibility.
 ENABLE_SELECTIVE_CONTEXT="${ENABLE_SELECTIVE_CONTEXT:-false}"
 MAX_FILES_PER_CONSULTANT="${MAX_FILES_PER_CONSULTANT:-5}"
 

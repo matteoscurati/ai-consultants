@@ -651,23 +651,6 @@ generate_cost_report() {
 }
 
 # =============================================================================
-# UTILITY
-# =============================================================================
-
-# Convert tokens to estimated cost (quick helper)
-# Usage: tokens_to_cost <tokens> [model]
-tokens_to_cost() {
-    local tokens="$1"
-    local model="${2:-default}"
-
-    # Assume 60/40 split
-    local input=$((tokens * 60 / 100))
-    local output=$((tokens * 40 / 100))
-
-    estimate_query_cost "$model" "$input" "$output"
-}
-
-# =============================================================================
 # RESPONSE LENGTH LIMITS (v2.3)
 # =============================================================================
 

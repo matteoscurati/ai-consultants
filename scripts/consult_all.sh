@@ -489,12 +489,12 @@ if [[ ${#SELECTED_CONSULTANTS[@]} -eq 0 ]]; then
     exit 1
 fi
 
-# Minimum 2 consultants required for meaningful comparison
+# Minimum 2 consultants required for a coverage panel
 if [[ ${#SELECTED_CONSULTANTS[@]} -lt 2 ]]; then
-    log_error "At least 2 consultants required for meaningful comparison."
+    log_error "At least 2 consultants are required for a coverage panel."
     log_error "Currently enabled: ${#SELECTED_CONSULTANTS[@]} (${SELECTED_CONSULTANTS[*]})"
     echo "" >&2
-    log_info "Run ./scripts/setup_wizard.sh to configure additional consultants"
+    log_info "Run \"$SCRIPT_DIR/../bin/ai-consultants\" configure to configure additional consultants"
     log_info "Or manually enable more:"
     log_info "  ENABLE_GEMINI=true ENABLE_CODEX=true ./scripts/consult_all.sh \"query\""
     exit 1

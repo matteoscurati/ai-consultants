@@ -159,16 +159,6 @@ PERSONA_CATALOG="
 # CATALOG FUNCTIONS
 # =============================================================================
 
-# List all available personas
-# Usage: list_personas
-list_personas() {
-    echo "Available Personas:"
-    echo ""
-    echo "$PERSONA_CATALOG" | grep -v '^$' | while IFS='|' read -r id name var desc; do
-        printf "  %2s) %-22s - %s\n" "$id" "$name" "$desc"
-    done
-}
-
 # Get persona info by ID
 # Usage: get_persona_by_id <id> [field]
 # Fields: name, var, desc, all (default: all)
@@ -329,14 +319,6 @@ get_persona_name() {
     fi
 
     echo "External Consultant"
-}
-
-# Get persona ID for a consultant (for configuration display)
-# Usage: get_persona_id "Gemini"
-get_persona_id() {
-    local upper
-    upper=$(_normalize_name "$1")
-    _resolve_persona_id "$upper"
 }
 
 # Build complete system prompt with persona + output format

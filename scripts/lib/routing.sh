@@ -194,34 +194,6 @@ select_consultants() {
     done
 }
 
-# Get the list of consultants as JSON
-# Usage: get_selected_consultants_json <category> [min_affinity]
-get_selected_consultants_json() {
-    local category="$1"
-    local min_affinity="${2:-7}"
-
-    local consultants
-    consultants=$(select_consultants "$category" "$min_affinity")
-    local json="["
-    local first=true
-
-    while IFS= read -r c; do
-        if [[ -n "$c" ]]; then
-            local score
-            score=$(get_affinity "$category" "$c")
-            if [[ "$first" == "true" ]]; then
-                first=false
-            else
-                json+=","
-            fi
-            json+="{\"consultant\":\"$c\",\"affinity\":$score}"
-        fi
-    done <<< "$consultants"
-
-    json+="]"
-    echo "$json"
-}
-
 # Check if a consultant is recommended for a category
 # Usage: is_recommended <category> <consultant> [min_affinity]
 is_recommended() {
@@ -236,77 +208,36 @@ is_recommended() {
     return 1
 }
 
-# =============================================================================
-# SMART ROUTING MODES
-# =============================================================================
-
-# Determine the routing mode based on the category
-# Usage: get_routing_mode <category>
-# Returns: full|selective|single
+# Backward-compatible routing utilities. The orchestrator selects directly by
+# affinity; these helpers remain for users that source routing.sh.
 get_routing_mode() {
     local category="$1"
-
     case "$category" in
-        SECURITY)
-            # Security: all consultants (important)
-            echo "full"
-            ;;
-        QUICK_SYNTAX)
-            # Syntax: just one needed
-            echo "single"
-            ;;
-        CODE_REVIEW|BUG_DEBUG|ARCHITECTURE)
-            # Important: at least 3
-            echo "selective"
-            ;;
-        *)
-            # Default: all
-            echo "full"
-            ;;
+        SECURITY) echo "full" ;;
+        QUICK_SYNTAX) echo "single" ;;
+        CODE_REVIEW|BUG_DEBUG|ARCHITECTURE) echo "selective" ;;
+        *) echo "full" ;;
     esac
 }
 
-# Get the recommended number of consultants
-# Usage: get_recommended_count <category>
 get_recommended_count() {
-    local category="$1"
-    local mode=$(get_routing_mode "$category")
-
+    local mode
+    mode=$(get_routing_mode "$1")
     case "$mode" in
-        full)
-            echo 10  # All consultants (CLI + API)
-            ;;
-        selective)
-            echo 5  # Subset based on affinity
-            ;;
-        single)
-            echo 1
-            ;;
-        *)
-            echo 10
-            ;;
+        full) echo 10 ;;
+        selective) echo 5 ;;
+        single) echo 1 ;;
+        *) echo 10 ;;
     esac
 }
 
-# =============================================================================
-# TIMEOUT ADJUSTMENTS
-# =============================================================================
-
-# Get recommended timeout for a category
-# Usage: get_category_timeout <category>
 get_category_timeout() {
-    local category="$1"
-    case "$category" in
-        QUICK_SYNTAX)  echo 60 ;;
-        BUG_DEBUG)     echo 180 ;;
-        ARCHITECTURE)  echo 240 ;;
-        SECURITY)      echo 240 ;;
-        CODE_REVIEW)   echo 180 ;;
-        ALGORITHM)     echo 180 ;;
-        DATABASE)      echo 120 ;;
-        API_DESIGN)    echo 180 ;;
-        TESTING)       echo 120 ;;
-        GENERAL|*)     echo 180 ;;
+    case "$1" in
+        QUICK_SYNTAX) echo 60 ;;
+        BUG_DEBUG|CODE_REVIEW|ALGORITHM|API_DESIGN) echo 180 ;;
+        ARCHITECTURE|SECURITY) echo 240 ;;
+        DATABASE|TESTING) echo 120 ;;
+        GENERAL|*) echo 180 ;;
     esac
 }
 
@@ -345,14 +276,12 @@ select_consultants_cost_aware() {
 
     # Simple queries: only economic models, fewer consultants
     if [[ $complexity -le $simple_threshold ]]; then
-        # For simple queries, use only 2 consultants with economic models
         select_consultants "$category" "$min_affinity" 2
         return
     fi
 
     # Medium complexity: balanced selection
     if [[ $complexity -le $medium_threshold ]]; then
-        # Use standard selection but limit to 3-4 consultants
         select_consultants "$category" "$min_affinity" 4
         return
     fi
@@ -393,36 +322,6 @@ get_cost_aware_model() {
 
     # Complex queries: use default model
     echo ""
-}
-
-# Check if cost-aware routing is enabled
-# Usage: is_cost_aware_routing_enabled
-is_cost_aware_routing_enabled() {
-    [[ "${ENABLE_COST_AWARE_ROUTING:-false}" == "true" ]]
-}
-
-# Get routing summary for logging
-# Usage: get_routing_summary <category> <complexity> <num_consultants>
-get_routing_summary() {
-    local category="$1"
-    local complexity="${2:-5}"
-    local num_consultants="${3:-5}"
-
-    local mode="standard"
-    if is_cost_aware_routing_enabled; then
-        local simple_threshold="${COMPLEXITY_THRESHOLD_SIMPLE:-3}"
-        local medium_threshold="${COMPLEXITY_THRESHOLD_MEDIUM:-6}"
-
-        if [[ $complexity -le $simple_threshold ]]; then
-            mode="economic"
-        elif [[ $complexity -le $medium_threshold ]]; then
-            mode="balanced"
-        else
-            mode="comprehensive"
-        fi
-    fi
-
-    echo "{\"category\":\"$category\",\"complexity\":$complexity,\"mode\":\"$mode\",\"consultants\":$num_consultants}"
 }
 
 # =============================================================================

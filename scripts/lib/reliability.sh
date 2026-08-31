@@ -107,26 +107,3 @@ get_consultant_reliability() {
          | if $a > 0 then (($s * 100) / $a | floor) else -1 end' \
         "$RELIABILITY_FILE" 2>/dev/null || echo "-1"
 }
-
-# Format a short human-readable reliability report, sorted by success% asc.
-# Usage: format_reliability_report
-format_reliability_report() {
-    if [[ ! -f "$RELIABILITY_FILE" ]]; then
-        echo "No reliability data available"
-        return
-    fi
-
-    echo "  Consultant           | Attempts | Success%"
-    echo "  ---------------------|----------|---------"
-    jq -r '
-        .consultants
-        | to_entries
-        | map({name: .key, attempts: (.value.attempts // 0), successes: (.value.successes // 0)})
-        | map(. + {rate: (if .attempts > 0 then (((.successes * 100) / .attempts) | floor) else -1 end)})
-        | sort_by(.rate)
-        | .[]
-        | "  \(.name)|\(.attempts)|\(.rate)"
-    ' "$RELIABILITY_FILE" 2>/dev/null | while IFS='|' read -r name attempts rate; do
-        printf "  %-20s | %-8s | %s%%\n" "$name" "$attempts" "$rate"
-    done
-}

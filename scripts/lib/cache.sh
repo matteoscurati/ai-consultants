@@ -228,30 +228,6 @@ store_cache() {
     mv "$temp_file" "$cache_file"
 }
 
-# Invalidate cache for a specific query
-# Usage: invalidate_cache <query> <category> [consultant] [context_file]
-invalidate_cache() {
-    local query="$1"
-    local category="${2:-GENERAL}"
-    local consultant="${3:-}"
-    local context_file="${4:-}"
-
-    init_cache
-
-    local fingerprint
-    fingerprint=$(generate_fingerprint "$query" "$category" "$context_file")
-
-    if [[ -n "$consultant" ]]; then
-        # Invalidate specific consultant cache
-        local cache_file
-        cache_file=$(_get_cache_path "$fingerprint" "$consultant")
-        rm -f "$cache_file" 2>/dev/null || true
-    else
-        # Invalidate all caches for this fingerprint
-        rm -f "${CACHE_DIR}"/*_"${fingerprint}".json 2>/dev/null || true
-    fi
-}
-
 # Clear all expired cache entries
 # Usage: cleanup_cache
 cleanup_cache() {
