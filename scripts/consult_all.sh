@@ -958,8 +958,12 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         integrity_represented=$(jq -r '.coverage_integrity.represented_count // 0' "$SYNTHESIS_FILE" 2>/dev/null)
         integrity_disclosure=$(jq -r '.coverage_integrity.disclosure // "Coverage integrity was not recorded."' "$SYNTHESIS_FILE" 2>/dev/null)
         integrity_fields=$(jq -r '(.coverage_integrity.audited_fields // []) | join(", ")' "$SYNTHESIS_FILE" 2>/dev/null)
+        coverage_input_truncated=$(jq -r '.coverage_input_truncated // false' "$SYNTHESIS_FILE" 2>/dev/null)
+        truncated_consultants=$(jq -r '(.truncated_consultants // []) | join(", ")' "$SYNTHESIS_FILE" 2>/dev/null)
         echo "**Coverage Integrity**: $integrity_status ($integrity_represented/$integrity_expected normalized source IDs represented)"
         echo "**Audited Fields**: ${integrity_fields:-none} (MET applies only to these fields)"
+        echo "**Coverage Input Truncated**: $coverage_input_truncated"
+        echo "**Truncated Consultants**: ${truncated_consultants:-none}"
         echo ""
         echo "> $integrity_disclosure"
         echo ""

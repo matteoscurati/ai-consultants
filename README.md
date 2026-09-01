@@ -473,7 +473,11 @@ closed. In coverage/union mode, only locally atomized `summary`, `pros`,
 `cons`, `alternatives`, `caveats`, and `references` can be source-attributed;
 fallback prose remains context-only for manual review. `synthesis.json` records
 `coverage_integrity`: `MET` applies only to those audited fields, while
-`DEGRADED`/`FAILED` must not be read as comprehensive coverage.
+`DEGRADED`/`FAILED` must not be read as comprehensive coverage. It also records
+locally authoritative `coverage_input_truncated` and `truncated_consultants`:
+only non-normalizable fallback context is capped (at Unicode code-point
+boundaries), never atomic findings; a truncated coverage input is disclosed
+and cannot support a comprehensive coverage claim.
 
 ### Models by Tier
 

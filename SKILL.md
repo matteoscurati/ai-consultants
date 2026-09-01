@@ -120,6 +120,9 @@ synthesis source-attributed claims use only locally normalized atomic fields;
 fallback prose remains visible as context-only manual-review material. Inspect
 `coverage_integrity`: `MET` applies only to its listed `audited_fields`, while
 `DEGRADED` and `FAILED` are never comprehensive coverage claims.
+`synthesis.json` locally records `coverage_input_truncated` and
+`truncated_consultants`; only non-normalizable fallback context can be capped
+(on Unicode code-point boundaries), never normalized atomic findings.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 

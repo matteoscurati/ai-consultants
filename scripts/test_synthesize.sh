@@ -219,7 +219,7 @@ test_report_renders_coverage_integrity_status() {
 if [[ "${1:-}" == "--help" ]]; then printf '%s\n' '--print --model --output-format --no-session-persistence --setting-sources --tools --strict-mcp-config --mcp-config --permission-mode --prompt --output --agent --workdir --max-turns' '  auth status' 'builtin: default, plan' 'VIBE_*'; exit 0; fi
 if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then printf '%s\n' '{"loggedIn":true}'; exit 0; fi
 for arg in "$@"; do
-  if [[ "$arg" == "--output-format" ]]; then
+  if [[ "$arg" == "--output-format" || "$arg" == "--output" ]]; then
     printf '%s\n' '{"consultant":"Zero","model":"m","response":{"summary":" ","detailed":"detail","approach":"structured","pros":[],"cons":[]},"confidence":{"score":8,"reasoning":"ok"},"metadata":{"response_quality":"structured"}}'
     exit 0
   fi
@@ -232,13 +232,17 @@ EOF
         XDG_STATE_HOME="$TMP_ROOT/zero-report-state" XDG_DATA_HOME="$TMP_ROOT/zero-report-data" \
         INVOKING_AGENT=none ENABLE_CLAUDE=true ENABLE_CODEX=false ENABLE_GEMINI=false ENABLE_MISTRAL=true \
         ENABLE_KIMI=false ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
-        CLAUDE_CMD="$zero_cli" MISTRAL_CMD="$SCRIPT_DIR/test_fixtures/stub_cli.sh" ENABLE_SEMANTIC_CACHE=false ENABLE_SYNTHESIS=true \
-        ENABLE_SMART_ROUTING=false ENABLE_HEALTH_GATE=false SYNTHESIS_CMD=claude \
+        CLAUDE_CMD="$zero_cli" MISTRAL_CMD="$zero_cli" ENABLE_SEMANTIC_CACHE=false ENABLE_SYNTHESIS=true \
+        ENABLE_SMART_ROUTING=false ENABLE_HEALTH_GATE=false SYNTHESIS_CMD=claude SYNTH_DETAIL_MAX_CHARS=1 \
         "$SCRIPT_DIR/consult_all.sh" "Render zero coverage integrity" 2>/dev/null)
     output_dir=$(printf '%s\n' "$run_out" | tail -n 1)
     report="$output_dir/report.md"
     assert_contains "**Coverage Integrity**: DEGRADED" "$(cat "$report" 2>/dev/null)" \
         "report exposes all-zero non-normalizable coverage as degraded"
+    assert_contains "**Coverage Input Truncated**: true" "$(cat "$report" 2>/dev/null)" \
+        "report renders the locally authoritative truncation flag"
+    assert_contains "**Truncated Consultants**: Mistral" "$(cat "$report" 2>/dev/null)" \
+        "report renders the affected consultant list"
 }
 
 test_synthesis_excludes_errors_and_keeps_fallback_detail() {
@@ -283,6 +287,114 @@ test_synthesis_excludes_errors_and_keeps_fallback_detail() {
         "live synthesis prompt requests the coverage union"
     assert_eq 0 "$(grep -cE '"consensus"|debate_evolution|comparison_table' "$prompt_file" || true)" \
         "live synthesis prompt excludes removed consensus and debate fields"
+}
+
+test_synthesis_truncation_is_explicit_and_atomic_findings_are_complete() {
+    local responses="$TMP_ROOT/truncation-responses" output="$TMP_ROOT/truncation.json"
+    local prompt_file="$TMP_ROOT/truncation-prompt" fake="$TMP_ROOT/truncation-claude"
+    local clean_responses="$TMP_ROOT/truncation-clean-responses" clean_output="$TMP_ROOT/truncation-clean.json"
+    local failed_output="$TMP_ROOT/truncation-failed.json" noncoverage_output="$TMP_ROOT/truncation-noncoverage.json"
+    local portable_record
+    mkdir -p "$responses" "$clean_responses"
+
+    # This is the exact jq-1.6-compatible primitive used by synthesize.sh.
+    # Keep it explicit so a parser/runtime incompatibility cannot silently turn
+    # fallback input into a missing artifact.
+    if ! portable_record=$(jq -nr --arg detail 'éxZ' --argjson limit 2 '
+        ($detail) as $detail
+        | {text: $detail[0:$limit], truncated: (($detail | length) > $limit)}
+        | [.text, (.truncated | tostring)] | join(",")
+    '); then
+        assert_eq success failure "jq portable Unicode truncation primitive runs"
+        return
+    fi
+    assert_eq 'éx,true' "$portable_record" \
+        "jq portable Unicode truncation primitive keeps whole code points and detects overflow"
+
+    # Filename order is deliberate: the public list keeps first occurrence
+    # order while remaining reproducible across filesystems.
+    printf '%s\n' '{"consultant":"Zulu","model":"m","response":{"summary":"fallback","detailed":"éxZ","approach":"unstructured-provider-response","pros":[],"cons":[]},"confidence":{"score":5},"metadata":{"response_quality":"fallback"}}' > "$responses/01-zulu.json"
+    printf '%s\n' '{"consultant":"Alpha","model":"m","response":{"summary":"fallback","detailed":"abc","approach":"unstructured-provider-response","pros":[],"cons":[]},"confidence":{"score":5},"metadata":{"response_quality":"fallback"}}' > "$responses/02-alpha.json"
+    printf '%s\n' '{"consultant":"Zulu","model":"m","response":{"summary":"fallback","detailed":"123","approach":"unstructured-provider-response","pros":[],"cons":[]},"confidence":{"score":5},"metadata":{"response_quality":"fallback"}}' > "$responses/03-zulu-again.json"
+    printf '%s\n' '{"consultant":"Structured","model":"m","response":{"summary":"ATOMIC_FINDING_LONGER_THAN_LIMIT","detailed":"structured detail","approach":"structured","pros":[],"cons":[]},"confidence":{"score":8},"metadata":{"response_quality":"structured"}}' > "$responses/04-structured.json"
+    printf '%s\n' '{"consultant":"Short","model":"m","response":{"summary":"fallback","detailed":"é","approach":"unstructured-provider-response","pros":[],"cons":[]},"confidence":{"score":5},"metadata":{"response_quality":"fallback"}}' > "$clean_responses/01-short.json"
+    printf '%s\n' '{"consultant":"Exact","model":"m","response":{"summary":"fallback","detailed":"éx","approach":"unstructured-provider-response","pros":[],"cons":[]},"confidence":{"score":5},"metadata":{"response_quality":"fallback"}}' > "$clean_responses/02-exact.json"
+
+    cat > "$fake" <<'EOF'
+#!/bin/bash
+if [[ "${1:-}" == "--help" ]]; then printf '%s\n' '--print --no-session-persistence --setting-sources --tools'; exit 0; fi
+if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then printf '%s\n' '{"loggedIn":true}'; exit 0; fi
+prompt=$(cat)
+printf '%s' "$prompt" > "$SYNTH_PROMPT_FILE"
+printf '%s\n' "$SYNTH_RESULT"
+EOF
+    chmod +x "$fake"
+
+    if ! PATH="$TMP_ROOT:$PATH" CLAUDE_CMD="$fake" SYNTHESIS_CMD=claude INVOKING_AGENT=unknown \
+        SYNTH_DETAIL_MAX_CHARS=2 SYNTH_PROMPT_FILE="$prompt_file" \
+        SYNTH_RESULT='{"coverage":[{"point":"atomic","source_ids":["structured:1"]}],"weighted_recommendation":{"summary":"comprehensive synthesis","detailed":"comprehensive details"},"coverage_input_truncated":false,"truncated_consultants":["Forged"]}' \
+        "$SCRIPT_DIR/synthesize.sh" "$responses" "$output" test >/dev/null 2>&1; then
+        assert_eq success failure "truncation fixture completes"
+        return
+    fi
+
+    assert_contains ATOMIC_FINDING_LONGER_THAN_LIMIT "$(cat "$prompt_file")" \
+        "atomic normalized finding longer than the fallback limit reaches the prompt intact"
+    assert_contains $'\néx\n---' "$(cat "$prompt_file")" \
+        "over-limit fallback text is shortened once at a Unicode-code-point boundary"
+    assert_not_contains éxZ "$(cat "$prompt_file")" \
+        "over-limit fallback suffix is absent from the prompt"
+    assert_eq true "$(jq -r '.coverage_input_truncated' "$output")" \
+        "local truncation flag overwrites model-supplied metadata"
+    assert_eq 'Zulu,Alpha' "$(jq -r '.truncated_consultants | join(",")' "$output")" \
+        "truncated consultants are first-occurrence unique and stable"
+    assert_eq DEGRADED "$(jq -r '.coverage_integrity.status' "$output")" \
+        "truncated non-normalizable context degrades coverage union"
+    assert_contains 'truncated at the configured Unicode-code-point limit' "$(jq -r '.coverage_integrity.disclosure' "$output")" \
+        "coverage disclosure names the local truncation condition"
+    assert_not_contains comprehensive "$(jq -r '.weighted_recommendation.summary + " " + .weighted_recommendation.detailed' "$output")" \
+        "truncated coverage cannot retain positive comprehensive wording"
+
+    if ! PATH="$TMP_ROOT:$PATH" CLAUDE_CMD="$fake" SYNTHESIS_CMD=claude INVOKING_AGENT=unknown \
+        SYNTH_DETAIL_MAX_CHARS=2 SYNTH_PROMPT_FILE="$TMP_ROOT/truncation-clean-prompt" \
+        SYNTH_RESULT='{"coverage":[],"weighted_recommendation":{"summary":"manual"}}' \
+        "$SCRIPT_DIR/synthesize.sh" "$clean_responses" "$clean_output" test >/dev/null 2>&1; then
+        assert_eq success failure "short and exact-boundary fixture completes"
+        return
+    fi
+    assert_eq false "$(jq -r '.coverage_input_truncated' "$clean_output")" \
+        "short and exact Unicode-code-point boundary fallback text is not flagged"
+    assert_eq 0 "$(jq -r '.truncated_consultants | length' "$clean_output")" \
+        "untruncated fallback input has no affected consultants"
+
+    if ! PATH="$TMP_ROOT:$PATH" CLAUDE_CMD="$fake" SYNTHESIS_CMD=claude INVOKING_AGENT=unknown \
+        SYNTH_DETAIL_MAX_CHARS=2 SYNTH_PROMPT_FILE="$TMP_ROOT/truncation-failed-prompt" \
+        SYNTH_RESULT='[]' "$SCRIPT_DIR/synthesize.sh" "$responses" "$failed_output" test >/dev/null 2>&1; then
+        assert_eq success failure "failed-closed truncation fixture completes"
+        return
+    fi
+    assert_eq FAILED "$(jq -r '.coverage_integrity.status' "$failed_output")" \
+        "failed-closed synthesis artifact preserves integrity failure"
+    assert_eq true "$(jq -r '.coverage_input_truncated' "$failed_output")" \
+        "failed-closed synthesis artifact retains truncation metadata"
+
+    if ! PATH="$TMP_ROOT:$PATH" CLAUDE_CMD="$fake" SYNTHESIS_CMD=claude INVOKING_AGENT=unknown \
+        SYNTHESIS_STRATEGY=security_first SYNTH_DETAIL_MAX_CHARS=2 SYNTH_PROMPT_FILE="$TMP_ROOT/truncation-noncoverage-prompt" \
+        SYNTH_RESULT='{"coverage":[{"point":"atomic","source_ids":["structured:1"]}],"weighted_recommendation":{"summary":"comprehensive synthesis"}}' \
+        "$SCRIPT_DIR/synthesize.sh" "$responses" "$noncoverage_output" test >/dev/null 2>&1; then
+        assert_eq success failure "non-coverage truncation fixture completes"
+        return
+    fi
+    assert_eq NOT_APPLICABLE "$(jq -r '.coverage_integrity.status' "$noncoverage_output")" \
+        "non-coverage strategy remains explicitly not applicable"
+    assert_eq true "$(jq -r '.coverage_input_truncated' "$noncoverage_output")" \
+        "non-coverage artifact still exposes truncation metadata"
+    assert_contains 'Detail: éx' "$(cat "$TMP_ROOT/truncation-noncoverage-prompt")" \
+        "non-coverage strategy receives the same capped fallback context"
+    assert_not_contains éxZ "$(cat "$TMP_ROOT/truncation-noncoverage-prompt")" \
+        "non-coverage strategy never receives the truncated fallback suffix"
+    assert_contains 'not a coverage-union claim' "$(jq -r '.coverage_integrity.disclosure' "$noncoverage_output")" \
+        "non-coverage disclosure avoids a false coverage claim"
 }
 
 test_whitespace_synthesis_payload_fails_closed() {
@@ -369,14 +481,14 @@ test_synthesis_with_no_ready_cli_uses_local_fallback() {
     local responses="$TMP_ROOT/no-cli-responses" output="$TMP_ROOT/local-fallback.json"
     local cmd
     mkdir -p "$responses" "$TMP_ROOT/no-cli-bin"
-    printf '%s\n' '{"consultant":"A","model":"m","response":{"summary":"a","detailed":"detail","approach":"x"},"confidence":{"score":8},"metadata":{"response_quality":"structured"}}' > "$responses/a.json"
+    printf '%s\n' '{"consultant":"A","model":"m","response":{"summary":"a","detailed":"detail","approach":"unstructured-provider-response"},"confidence":{"score":8},"metadata":{"response_quality":"fallback"}}' > "$responses/a.json"
     for cmd in claude agy codex; do
         printf '%s\n' '#!/bin/bash' 'exit 1' > "$TMP_ROOT/no-cli-bin/$cmd"
         chmod +x "$TMP_ROOT/no-cli-bin/$cmd"
     done
 
     if ! PATH="$TMP_ROOT/no-cli-bin:$PATH" CLAUDE_CMD=claude GEMINI_CMD=agy CODEX_CMD=codex \
-        SYNTHESIS_CMD=claude SYNTHESIS_STRATEGY=security_first INVOKING_AGENT=unknown \
+        SYNTHESIS_CMD=claude SYNTHESIS_STRATEGY=security_first SYNTH_DETAIL_MAX_CHARS=1 INVOKING_AGENT=unknown \
         "$SCRIPT_DIR/synthesize.sh" "$responses" "$output" test >/dev/null 2>&1; then
         assert_eq success failure "local synthesis fallback completes with no ready CLI"
         return
@@ -390,6 +502,10 @@ test_synthesis_with_no_ready_cli_uses_local_fallback() {
         "local fallback reports the requested strategy"
     assert_eq false "$(jq -r 'has("consensus") or has("debate_evolution")' "$output")" \
         "local fallback excludes removed consensus and debate fields"
+    assert_eq true "$(jq -r '.coverage_input_truncated' "$output")" \
+        "local fallback retains locally detected truncation metadata"
+    assert_eq A "$(jq -r '.truncated_consultants | join(",")' "$output")" \
+        "local fallback retains the affected consultant"
 }
 
 test_claude_invoker_never_uses_claude_for_synthesis() {
@@ -504,6 +620,7 @@ EOF
 }
 
 run_test "Synthesis filters errors and preserves usable detail" test_synthesis_excludes_errors_and_keeps_fallback_detail
+run_test "Synthesis makes fallback truncation explicit without clipping atomic findings" test_synthesis_truncation_is_explicit_and_atomic_findings_are_complete
 run_test "Whitespace synthesis payload fails closed" test_whitespace_synthesis_payload_fails_closed
 run_test "Coverage integrity normalizes and audits local source IDs" test_coverage_integrity_normalizes_and_enforces_source_ids
 run_test "Coverage integrity closes edge contracts" test_coverage_integrity_edge_contracts
