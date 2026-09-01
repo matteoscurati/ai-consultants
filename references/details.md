@@ -16,7 +16,7 @@ Read this file when the user asks about presets, strategies, bash usage, best pr
 | `medium` | 3, standard models | General questions |
 | `fast` | 2, economy models | Quick checks |
 
-A preset only chooses the consultant set + model tier; every run fans out in parallel and returns the coverage union.
+A preset chooses the consultant set + model tier, then uses only statically configured transports (a CLI on `PATH`, or selected API mode with its key). After host self-exclusion it fills canonical slots from `ALL_CONSULTANTS` in canonical order. If the effective target cannot be met, including after an enabled health gate prunes the panel, it stops with promised/selected/missing-capacity guidance rather than silently running fewer consultants. Configured custom API agents are appended and can satisfy capacity; a full canonical preset may therefore exceed its advertised count. `max_quality` remains advertised as 10, but has an effective target of 9 under a canonical invoking host because self-exclusion is fail-closed.
 
 ## Synthesis Strategies
 

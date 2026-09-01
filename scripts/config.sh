@@ -910,6 +910,41 @@ _disable_all_consultants() {
     export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
 }
 
+# Return the promised number of canonical consultants for a preset.
+#
+# This deliberately describes the preset contract, rather than the transports
+# that happen to be usable on this machine.  consult_all.sh uses it after
+# self-exclusion to fill from ALL_CONSULTANTS without changing a preset's
+# models, tier, or primary ordering.
+# Usage: get_preset_panel_size <preset_name>
+get_preset_panel_size() {
+    case "$1" in
+        minimal|fast)                 echo 2 ;;
+        balanced|thorough|security|cost-capped|medium) echo 3 ;;
+        high-stakes)                  echo 4 ;;
+        max_quality|max-quality)      echo 10 ;;
+        *)                            return 1 ;;
+    esac
+}
+
+# Return the host-aware target for a preset. The raw max_quality contract is
+# ten consultants, but a canonical invoking host is fail-closed excluded and
+# cannot be replaced from a ten-member canonical roster. Its attainable panel
+# is therefore nine; every other preset retains its raw target and is filled
+# from the canonical roster by the orchestrator.
+# Usage: get_effective_preset_panel_size <preset_name>
+get_effective_preset_panel_size() {
+    local preset="$1" raw self_name
+    raw=$(get_preset_panel_size "$preset") || return 1
+    self_name=$(get_self_consultant_name)
+    case "$preset" in
+        max_quality|max-quality)
+            [[ -n "$self_name" ]] && echo $((raw - 1)) || echo "$raw"
+            ;;
+        *) echo "$raw" ;;
+    esac
+}
+
 # Apply a preset configuration
 # Usage: apply_preset <preset_name>
 apply_preset() {

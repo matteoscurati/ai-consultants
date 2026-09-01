@@ -412,6 +412,8 @@ echo "" >&2
 
 # --- Consultant Selection ---
 declare -a SELECTED_CONSULTANTS=()
+PRESET_RAW_PANEL_SIZE=""
+PRESET_EFFECTIVE_PANEL_SIZE=""
 
 if [[ "$ENABLE_SMART_ROUTING" == "true" ]]; then
     log_info "Smart routing for category $QUESTION_CATEGORY..."
@@ -423,26 +425,44 @@ else
     # Log self-exclusion status for debugging
     log_self_exclusion_status
 
-    # All enabled consultants - use a compact loop
-    # Order matches ALL_CONSULTANTS in config.sh for consistency
-    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek MINIMAX:MiniMax"
-    for _entry in $_consultant_map; do
-        _flag="${_entry%%:*}"
-        _name="${_entry#*:}"
-        _enable_var="ENABLE_${_flag}"
+    if [[ -n "$PRESET" ]]; then
+        # A preset promises a fixed canonical panel.  Select only transports
+        # that are statically configured, then fill a host-excluded slot from
+        # the canonical roster.  This does no provider health probing.
+        while IFS= read -r _name; do
+            [[ -n "$_name" ]] && SELECTED_CONSULTANTS+=("$_name")
+        done < <(select_preset_consultants "$PRESET")
+        PRESET_RAW_PANEL_SIZE=$(get_preset_panel_size "$PRESET")
+        PRESET_EFFECTIVE_PANEL_SIZE=$(get_effective_preset_panel_size "$PRESET")
+    else
+        # Explicit ENABLE_* selection keeps its existing semantics: enabled
+        # consultants are selected even when no static transport check has
+        # been requested by a preset.
+        for _name in "${ALL_CONSULTANTS[@]}"; do
+            _flag=$(to_upper "$_name")
+            _enable_var="ENABLE_${_flag}"
 
-        # Skip self (invoking agent shouldn't query itself)
-        if should_skip_consultant "$_flag"; then
-            log_debug "Skipping $_name (self-exclusion: invoking agent)"
-            continue
-        fi
+            # Skip self (invoking agent shouldn't query itself)
+            if should_skip_consultant "$_flag"; then
+                log_debug "Skipping $_name (self-exclusion: invoking agent)"
+                continue
+            fi
 
-        [[ "${!_enable_var:-false}" == "true" ]] && SELECTED_CONSULTANTS+=("$_name")
-    done
-    unset _consultant_map _entry _flag _name _enable_var
+            [[ "${!_enable_var:-false}" == "true" ]] && SELECTED_CONSULTANTS+=("$_name")
+        done
+        unset _flag _enable_var
+    fi
 
     # Discover custom API agents from environment
     _discover_custom_api_agents
+
+    # Custom API agents retain their existing behavior: they are appended to
+    # the canonical preset panel and may satisfy its effective cardinality.
+    # Canonical fallback itself remains limited to ALL_CONSULTANTS.
+    if [[ -n "$PRESET_EFFECTIVE_PANEL_SIZE" && ${#SELECTED_CONSULTANTS[@]} -lt $PRESET_EFFECTIVE_PANEL_SIZE ]]; then
+        log_preset_capacity_diagnostic "$PRESET" "$PRESET_RAW_PANEL_SIZE" "$PRESET_EFFECTIVE_PANEL_SIZE" "${#SELECTED_CONSULTANTS[@]}"
+        exit 1
+    fi
 fi
 
 # --- Health Gate (v2.19.0, opt-in) ---
@@ -482,6 +502,14 @@ if [[ "${ENABLE_HEALTH_GATE:-false}" == "true" && ${#SELECTED_CONSULTANTS[@]} -g
     _hg_total=${#SELECTED_CONSULTANTS[@]}
     SELECTED_CONSULTANTS=(${RESPONSIVE[@]+"${RESPONSIVE[@]}"})
     log_info "Health gate: ${#SELECTED_CONSULTANTS[@]} of ${_hg_total} usable"
+fi
+
+# A preset's static panel can still be reduced by the explicitly opt-in health
+# gate. Preserve its effective target rather than silently running a smaller
+# Round 1 panel.
+if [[ -n "$PRESET_EFFECTIVE_PANEL_SIZE" && ${#SELECTED_CONSULTANTS[@]} -lt $PRESET_EFFECTIVE_PANEL_SIZE ]]; then
+    log_preset_capacity_diagnostic "$PRESET" "$PRESET_RAW_PANEL_SIZE" "$PRESET_EFFECTIVE_PANEL_SIZE" "${#SELECTED_CONSULTANTS[@]}"
+    exit 1
 fi
 
 if [[ ${#SELECTED_CONSULTANTS[@]} -eq 0 ]]; then

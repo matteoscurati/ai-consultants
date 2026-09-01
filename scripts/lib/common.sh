@@ -567,6 +567,94 @@ log_self_exclusion_status() {
     fi
 }
 
+# Return success when a known consultant has a transport configured locally.
+# This is intentionally a static check: it only examines a selected API key or
+# whether the configured CLI resolves on PATH.  It must not invoke a CLI, ping
+# a provider, or otherwise make a network request.
+#
+# Usage: is_consultant_statically_configured <consultant_name>
+is_consultant_statically_configured() {
+    local consultant_upper="$1" use_api_var cmd_var api_key_var cmd
+    consultant_upper=$(to_upper "$consultant_upper")
+
+    case "$consultant_upper" in
+        GLM|DEEPSEEK)
+            api_key_var=$(get_api_key_var "$consultant_upper")
+            [[ -n "$api_key_var" && -n "${!api_key_var:-}" ]]
+            return
+            ;;
+        GEMINI|CODEX|MISTRAL|KIMI|CLAUDE|QWEN3|GROK|MINIMAX)
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    use_api_var="${consultant_upper}_USE_API"
+    if [[ "${!use_api_var:-false}" == "true" ]]; then
+        api_key_var=$(get_api_key_var "$consultant_upper")
+        [[ -n "$api_key_var" && -n "${!api_key_var:-}" ]]
+        return
+    fi
+
+    cmd_var="${consultant_upper}_CMD"
+    cmd="${!cmd_var:-}"
+    [[ -n "$cmd" ]] && command -v "$cmd" >/dev/null 2>&1
+}
+
+# Print canonical preset consultants that are statically configured and not
+# the invoking host.  Keep the preset's enabled consultants first, then fill
+# any lost slot from ALL_CONSULTANTS in its canonical order.  The caller owns
+# the promised-cardinality check so the helper remains useful to offline tests.
+#
+# Usage: select_preset_consultants <preset_name>
+select_preset_consultants() {
+    local preset="$1" promised consultant consultant_upper enable_var
+    local -a selected=()
+
+    promised=$(get_effective_preset_panel_size "$preset") || return 1
+
+    # Preserve the preset's existing primary panel and its ordering.
+    for consultant in "${ALL_CONSULTANTS[@]}"; do
+        consultant_upper=$(to_upper "$consultant")
+        enable_var="ENABLE_${consultant_upper}"
+        [[ "${!enable_var:-false}" == "true" ]] || continue
+        should_skip_consultant "$consultant_upper" && continue
+        is_consultant_statically_configured "$consultant_upper" || continue
+        selected+=("$consultant")
+    done
+
+    # Refill host-excluded or unavailable primary slots from the canonical
+    # roster.  The first pass above prevents a configured primary consultant
+    # from moving behind a fallback.
+    if [[ ${#selected[@]} -lt $promised ]]; then
+        for consultant in "${ALL_CONSULTANTS[@]}"; do
+            [[ ${#selected[@]} -ge $promised ]] && break
+            consultant_upper=$(to_upper "$consultant")
+            should_skip_consultant "$consultant_upper" && continue
+            is_consultant_statically_configured "$consultant_upper" || continue
+
+            case " ${selected[*]-} " in
+                *" $consultant "*) continue ;;
+            esac
+            selected+=("$consultant")
+        done
+    fi
+
+    printf '%s\n' "${selected[@]+"${selected[@]}"}"
+}
+
+# Render the actionable failure used when a preset's static transports cannot
+# fulfill its documented panel size.  Do not replace this with a health check:
+# availability here is purposely local and side-effect free.
+# Usage: log_preset_capacity_diagnostic <preset> <raw_promised> <effective_target> <selected_count>
+log_preset_capacity_diagnostic() {
+    local preset="$1" raw_promised="$2" effective_target="$3" selected_count="$4" missing
+    missing=$((effective_target - selected_count))
+    log_error "Preset '$preset' promises $raw_promised consultants (effective target: $effective_target after host self-exclusion), but static transport selection found $selected_count; missing capacity: $missing."
+    log_info "Install or configure $missing additional eligible consultant transport(s) (CLI on PATH or API mode with its API key), then rerun the preset."
+}
+
 # =============================================================================
 # SECURITY: INPUT VALIDATION
 # =============================================================================
