@@ -579,6 +579,9 @@ records_hash() {
 eligibility() {
   local run="$1" audit="$2" records counts expected attempted_ids completed_ids judges identities exact_ids cost_ok elapsed_ok audit_ok hashes_ok incomplete=false eligible=false rec_hash analysis_hash
   [[ -f "$run/state.json" && -d "$run/records" && -f "$run/analysis.json" && -f "$audit" ]] || die "eligibility requires completed RUN_DIR, analysis, and manual audit attestation"
+  # Synthetic state is always ineligible, but its diagnostics must remain
+  # reproducible on clean CI where the private corpus intentionally is absent.
+  [[ "$(jq -r '.test_only // false' "$run/state.json")" == "true" ]] && use_ci_fixture
   need_json "$audit"
   records="$run/records"; counts="$(record_counts "$run")"; expected="$(expected_call_ids_json "$PRIVATE_DEFAULT")"
   attempted_ids="$(jq -cS -s '[.[]|select(.status=="attempted")|.call_id]|sort' "$records"/*.json)"
