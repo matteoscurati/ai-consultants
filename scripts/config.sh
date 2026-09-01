@@ -1035,4 +1035,4 @@ list_presets() {
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="4.0.4"
+AI_CONSULTANTS_VERSION="5.0.0"

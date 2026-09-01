@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [5.0.0] - 2026-09-01
+
+### Added
+- Three public workflows: `--mode fast-check`, `--mode coverage-review`, and `--mode max-coverage`. Each selects a documented preset and defaults to the coverage strategy; an explicit `--strategy` still wins.
+- Locally assigned `response.findings[]` source IDs, per-item synthesis `source_ids`, and `coverage_integrity` metadata that audits missing, unknown, duplicated, and non-normalizable sources without removing legacy response or synthesis fields.
+- Explicit `coverage_input_truncated` and `truncated_consultants` metadata. Atomic findings are never clipped; capped fallback context is disclosed in JSON and Markdown.
+- A Bash 3.2-safe executable registry for modes, presets, aliases, targets, and strategies, plus generated README/SKILL/reference tables with a read-only drift check.
+
+### Changed
+- Presets retain their effective cardinality after host self-exclusion by filling from statically configured canonical transports. `max_quality` advertises ten consultants and has an effective target of nine under a canonical invoking host.
+- Preset capacity now fails closed with promised, selected, and missing counts instead of silently running a smaller panel. Explicit `ENABLE_<CONSULTANT>=false` choices remain opt-outs during preset fallback.
+- Coverage synthesis uses locally normalized atomic fields as its attributable input. Usable fallback prose remains visible as manual-review context but cannot support an audited coverage claim.
+- Fresh `init` scaffolding no longer forces `DEFAULT_PRESET=balanced`; `coverage` remains the sole default strategy.
+
+### Fixed
+- The README strategy table now derives its single default from the runtime registry, preventing the previous false `majority` default claim.
+- Empty source arrays, invented source IDs, malformed/non-object/empty synthesis output, zero-finding successful envelopes, and incomplete unions can no longer produce a `MET` or comprehensive coverage claim.
+- Fallback truncation is Unicode-code-point safe and compatible with the jq version shipped by the Ubuntu release runner.
+- `doctor --suggest-preset` no longer recommends a three-or-more-consultant preset when only two effective transports are available.
+
+### Breaking Changes
+- An explicitly selected preset now aborts before provider dispatch when its effective promised panel cannot be assembled. Automations that relied on a silently smaller degraded panel must configure enough transports or select a smaller preset/mode.
+- Coverage-mode synthesis no longer treats free-form structured `detailed` text as source-attributable. Consumers must inspect `coverage_integrity`; fallback-only or otherwise non-normalizable input is explicitly degraded.
+
 ## [4.0.4] - 2026-08-31
 
 ### Changed

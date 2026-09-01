@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 4.0.4
+**Version**: 5.0.0
 
 ## Distribution
 
@@ -759,6 +759,17 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v5.0.0
+
+- **Coverage claims are now locally auditable instead of resting on synthesis prose.** `scripts/lib/coverage_integrity.sh` normalizes successful structured envelopes into deterministic `<consultant-slug>:<index>` findings, overwriting any provider-supplied IDs. `scripts/synthesize.sh` asks the synthesizer to cite those IDs, then independently compares expected and represented IDs. Missing/duplicate/non-normalizable sources produce `DEGRADED`; unknown IDs and structural failures produce `FAILED`; invented IDs are removed from published coverage. The legacy `coverage`, `weighted_recommendation`, risk, action, and individual-response fields remain present.
+- **Truncation can no longer hide evidence loss.** Coverage/union prompts receive complete atomic findings. Only non-normalizable fallback context is capped, at Unicode code-point boundaries, and local `coverage_input_truncated` / `truncated_consultants` values overwrite model output in normal, local-fallback, and failed-closed artifacts. The report renders status, audited fields, truncation, and the affected consultants. The first Ubuntu CI run exposed an jq-expression compatibility gap; the final form uses jq 1.6-compatible string slicing and passed the release runner.
+- **Presets are host-aware and fail closed.** `get_effective_preset_panel_size` and `select_preset_consultants` preserve the advertised panel after self-exclusion by filling from the canonical roster using static transport evidence only. `max_quality` is ten in the catalog and nine for a canonical host. Insufficient capacity now aborts with promised/selected/missing counts, and health-gate pruning is rechecked before Round 1. Custom agents can satisfy capacity; explicit per-consultant false values remain fallback opt-outs.
+- **Public modes and their documentation have one executable source of truth.** `scripts/public_registry.sh` owns `fast-check -> fast/coverage`, `coverage-review -> balanced/coverage`, `max-coverage -> max_quality/coverage`, every existing preset/alias, and every strategy/default. `scripts/generate_public_docs.sh --check` renders and verifies README, SKILL, and reference tables. CLI conflict/override/unknown diagnostics run before user config, output directories, health checks, or adapters. `doctor --suggest-preset` downgrades to runnable `minimal` when only two effective transports remain.
+- **The v5 release path was exercised end to end within the preregistered cap.** One no-retry `coverage-review` smoke dispatched Gemini, Mistral, and Kimi once each, then synthesized once with Claude: four dispatches total, 3/3 consultant responses, `coverage_integrity=MET` with 12/12 source IDs, and no truncation. The release gate passed 27/27 suites, ShellCheck, Bash 3.2 syntax, generated-doc drift, packaging, and sentinel isolation.
+- **Development safety record.** An early P0.5 mode-registry lookup returned only the mode name, left the preset empty, and caused a local test to invoke ambient adapter auth/capability gates. Gemini/Codex were fixtures; the other adapters returned missing-key/auth/capability diagnostics. The retained transcript does not establish a network/provider request and no successful provider response was observed. The lookup was fixed, all later local release gates used provider/curl sentinels, and the final stub-only mode smoke recorded zero non-fixture adapter calls.
+
+  Deliberately retained: every v4 preset/alias, advanced configuration key, smart routing, custom agents, self-exclusion, and legacy JSON fields. Not claimed: semantic verification that a synthesized sentence faithfully paraphrases the cited atom; v5.0 verifies attribution-set integrity, not natural-language entailment.
 
 ### v4.0.4
 
