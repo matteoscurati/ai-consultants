@@ -17,11 +17,26 @@
 # are not already in the environment, so CLI flags / shell exports still win.
 # Also exports get_xdg_dir() — load-bearing for v2.13 XDG path defaults below.
 _CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=public_registry.sh
+source "$_CONFIG_DIR/public_registry.sh"
 if [[ -f "$_CONFIG_DIR/lib/user_config.sh" ]]; then
     # shellcheck source=lib/user_config.sh
     source "$_CONFIG_DIR/lib/user_config.sh"
     load_user_config
 fi
+
+# Preserve an explicit false from the environment or persistent user config
+# before the defaults below make every ENABLE_* value appear set. Presets and
+# their fallback selector honor this marker, especially for billed APIs.
+if [[ "${_AI_CONSULTANTS_PRESET_APPLIED:-false}" != "true" ]]; then
+    for _preset_optout_flag in ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KIMI \
+        ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX; do
+        if [[ -n "${!_preset_optout_flag+x}" && "${!_preset_optout_flag}" == "false" ]]; then
+            export "_AI_CONSULTANTS_PRESET_OPTOUT_${_preset_optout_flag}=true"
+        fi
+    done
+fi
+unset _preset_optout_flag
 
 # v2.13: get_xdg_dir() is required for the XDG path defaults below. If the
 # helper is missing (corrupt install, bad refactor) we'd silently regress to
@@ -363,15 +378,13 @@ SYNTHESIS_CMD="${SYNTHESIS_CMD:-claude}"
 # =============================================================================
 
 # Default preset to use when no --preset flag is provided
-# Options: minimal, balanced, thorough, high-stakes, security, cost-capped,
-#          max_quality, medium, fast
+# Accepted names (and aliases) are owned by public_registry.sh.
 # Leave empty to use individual ENABLE_* settings
 DEFAULT_PRESET="${DEFAULT_PRESET:-}"
 
 # Default synthesis strategy
-# Options: coverage (union of distinct points; default), majority, risk_averse,
-# security_first, cost_capped, compare_only
-DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-coverage}"
+# The registry owns the accepted names and its single default.
+DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-$(registry_default_strategy)}"
 
 # =============================================================================
 # SMART ROUTING (v2.0)
@@ -910,6 +923,22 @@ _disable_all_consultants() {
     export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
 }
 
+# A deliberate per-consultant false remains an opt-out when a preset is used.
+# This prevents a fallback from silently enrolling a billed API transport that
+# the user disabled.
+_enable_preset_consultant() {
+    local consultant="$1" flag="ENABLE_$1" optout="_AI_CONSULTANTS_PRESET_OPTOUT_ENABLE_$1"
+    [[ "${!optout:-false}" == "true" ]] && return 0
+    export "$flag=true"
+}
+
+_enable_preset_consultants() {
+    local consultant
+    for consultant in "$@"; do
+        _enable_preset_consultant "$consultant"
+    done
+}
+
 # Return the promised number of canonical consultants for a preset.
 #
 # This deliberately describes the preset contract, rather than the transports
@@ -918,13 +947,7 @@ _disable_all_consultants() {
 # models, tier, or primary ordering.
 # Usage: get_preset_panel_size <preset_name>
 get_preset_panel_size() {
-    case "$1" in
-        minimal|fast)                 echo 2 ;;
-        balanced|thorough|security|cost-capped|medium) echo 3 ;;
-        high-stakes)                  echo 4 ;;
-        max_quality|max-quality)      echo 10 ;;
-        *)                            return 1 ;;
-    esac
+    registry_preset_target "$1"
 }
 
 # Return the host-aware target for a preset. The raw max_quality contract is
@@ -937,8 +960,9 @@ get_effective_preset_panel_size() {
     local preset="$1" raw self_name
     raw=$(get_preset_panel_size "$preset") || return 1
     self_name=$(get_self_consultant_name)
+    preset=$(registry_canonical_preset "$preset") || return 1
     case "$preset" in
-        max_quality|max-quality)
+        max_quality)
             [[ -n "$self_name" ]] && echo $((raw - 1)) || echo "$raw"
             ;;
         *) echo "$raw" ;;
@@ -948,59 +972,54 @@ get_effective_preset_panel_size() {
 # Apply a preset configuration
 # Usage: apply_preset <preset_name>
 apply_preset() {
-    local preset="$1"
+    local preset
+    preset=$(registry_canonical_preset "$1") || {
+        echo "Unknown preset: $1" >&2
+        echo "Available presets: $(registry_preset_rows | cut -d'|' -f1 | tr '\n' ' ' | sed 's/ $//')" >&2
+        return 1
+    }
+    export _AI_CONSULTANTS_PRESET_APPLIED=true
 
     # Start with all disabled, then enable what's needed
     _disable_all_consultants
 
     case "$preset" in
         minimal)
-            export ENABLE_GEMINI=true ENABLE_CODEX=true
+            _enable_preset_consultants GEMINI CODEX
             ;;
         balanced)
-            export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true
+            _enable_preset_consultants GEMINI CODEX MISTRAL
             ;;
         thorough)
-            export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true
+            _enable_preset_consultants GEMINI CODEX MISTRAL
             ;;
         high-stakes)
-            export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
-            export ENABLE_CLAUDE=true
+            _enable_preset_consultants GEMINI CODEX MISTRAL CLAUDE
             ;;
         security)
-            export ENABLE_GEMINI=true ENABLE_CODEX=true
-            export ENABLE_MISTRAL=true
+            _enable_preset_consultants GEMINI CODEX MISTRAL
             ;;
         cost-capped)
             apply_model_tier "economy"
-            export ENABLE_GEMINI=true ENABLE_MISTRAL=true ENABLE_QWEN3=true
+            _enable_preset_consultants GEMINI MISTRAL QWEN3
             export MAX_SESSION_COST=0.10
             ;;
         # --- Quality Tier Presets (v2.5) ---
-        max_quality|max-quality)
+        max_quality)
             # Maximum quality - costly/separate-plan models stay confined here.
             apply_model_tier "maximum"
-            export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
-            export ENABLE_KIMI=true ENABLE_CLAUDE=true ENABLE_QWEN3=true
-            export ENABLE_GLM=true ENABLE_GROK=true ENABLE_DEEPSEEK=true ENABLE_MINIMAX=true
+            _enable_preset_consultants GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX
             ;;
         medium)
             # Balanced quality - standard models, good coverage
             apply_model_tier "standard"
-            export ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true
+            _enable_preset_consultants GEMINI CODEX MISTRAL
             ;;
         fast)
             # Super fast - economy models, minimal consultants
             apply_model_tier "economy"
-            export ENABLE_GEMINI=true ENABLE_CODEX=true
+            _enable_preset_consultants GEMINI CODEX
             export ENABLE_COMPACT_REPORT=true
-            ;;
-        *)
-            echo "Unknown preset: $preset" >&2
-            echo "Available presets: minimal, balanced, thorough, high-stakes, security, cost-capped, max_quality, medium, fast" >&2
-            return 1
             ;;
     esac
 
@@ -1009,24 +1028,7 @@ apply_preset() {
 
 # List available presets with descriptions
 list_presets() {
-    cat << 'EOF'
-Available presets:
-
-Quality Tiers (v2.5):
-  max_quality  All 10 consultants + maximum models and max provider effort
-  medium       3 consultants + standard models
-  fast         2 consultants + economy models
-
-Use Cases:
-  minimal      2 models (Gemini + Codex) - Fast, cheap
-  balanced     3 models (Gemini + Codex + Mistral) - Good coverage [DEFAULT]
-  thorough     3 models - Comprehensive analysis
-  high-stakes  Broad premium panel - Maximum breadth for critical decisions
-  security     Security-focused models - For security reviews
-  cost-capped  Budget-conscious options - Minimal API costs
-
-Usage: ./consult_all.sh --preset <name> "Your question"
-EOF
+    registry_list_presets
 }
 
 # =============================================================================

@@ -609,7 +609,7 @@ is_consultant_statically_configured() {
 #
 # Usage: select_preset_consultants <preset_name>
 select_preset_consultants() {
-    local preset="$1" promised consultant consultant_upper enable_var
+    local preset="$1" promised consultant consultant_upper enable_var optout_var
     local -a selected=()
 
     promised=$(get_effective_preset_panel_size "$preset") || return 1
@@ -632,6 +632,8 @@ select_preset_consultants() {
             [[ ${#selected[@]} -ge $promised ]] && break
             consultant_upper=$(to_upper "$consultant")
             should_skip_consultant "$consultant_upper" && continue
+            optout_var="_AI_CONSULTANTS_PRESET_OPTOUT_ENABLE_${consultant_upper}"
+            [[ "${!optout_var:-false}" == "true" ]] && continue
             is_consultant_statically_configured "$consultant_upper" || continue
 
             case " ${selected[*]-} " in

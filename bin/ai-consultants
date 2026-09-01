@@ -15,6 +15,17 @@ BIN_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 PROJECT_ROOT="$(cd -P "$BIN_DIR/.." && pwd)"
 SCRIPTS_DIR="$PROJECT_ROOT/scripts"
 
+load_public_registry() {
+  # Keep `version` and the lightweight malformed-install diagnostic usable even
+  # when a partial installation lacks the optional public registry file.
+  if [ ! -f "$SCRIPTS_DIR/public_registry.sh" ]; then
+    echo "Error: public registry missing at $SCRIPTS_DIR/public_registry.sh" >&2
+    return 1
+  fi
+  # shellcheck source=../scripts/public_registry.sh
+  source "$SCRIPTS_DIR/public_registry.sh"
+}
+
 # --- Ensure execute permissions (npm can strip them) ---
 ensure_permissions() {
   local needs_fix=false
@@ -47,11 +58,13 @@ case "${1:-}" in
     exit 0
     ;;
   help|--help|-h)
+    load_public_registry || exit 1
     cat <<EOF
 ai-consultants v$VERSION - Cross-vendor AI coverage panel
 
 Usage:
   ai-consultants "question" [files...]        Consult AI experts
+  ai-consultants --mode <name> "question"     Use a public mode
   ai-consultants --preset <name> "question"   Use a configuration preset
   ai-consultants --strategy <name> "question" Use a synthesis strategy
   ai-consultants doctor [--fix] [--json]      Run diagnostics
@@ -62,10 +75,9 @@ Usage:
   ai-consultants version                      Show version
   ai-consultants help                         Show this help
 
-Presets:   minimal, balanced, thorough, high-stakes, security, cost-capped,
-           max_quality, medium, fast
-
-Strategies: coverage, compare_only, majority, risk_averse, security_first, cost_capped
+Modes:      $(registry_mode_rows | cut -d'|' -f1 | tr '\n' ' ' | sed 's/ $//')
+Presets:    $(registry_preset_rows | cut -d'|' -f1 | tr '\n' ' ' | sed 's/ $//')
+Strategies: $(registry_strategy_rows | cut -d'|' -f1 | tr '\n' ' ' | sed 's/ $//')
 
 Examples:
   npx ai-consultants "How to optimize this SQL query?"

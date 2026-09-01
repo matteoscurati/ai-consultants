@@ -13,8 +13,9 @@
 # Usage: ./consult_all.sh [options] "Your question" [file1] [file2] ...
 #
 # Options:
-#   --preset <name>      Use a configuration preset (minimal, balanced, thorough, high-stakes, security, cost-capped)
-#   --strategy <name>    Synthesis strategy (coverage, compare_only, majority, risk_averse, security_first, cost_capped)
+#   --mode <name>        Use a public mode (preset plus default strategy)
+#   --preset <name>      Use a configuration preset
+#   --strategy <name>    Synthesis strategy
 #   --list-presets       List available presets
 #   --list-strategies    List available synthesis strategies
 #   --help               Show this help message
@@ -27,13 +28,16 @@ set -euo pipefail
 
 # --- Initial Setup ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/common.sh"
-source "$SCRIPT_DIR/lib/session.sh"
-source "$SCRIPT_DIR/lib/progress.sh"
-source "$SCRIPT_DIR/lib/costs.sh"
-source "$SCRIPT_DIR/lib/reliability.sh"
-source "$SCRIPT_DIR/lib/routing.sh"
-source "$SCRIPT_DIR/lib/cache.sh"
+# shellcheck source=public_registry.sh
+source "$SCRIPT_DIR/public_registry.sh"
+
+# Help must remain registry-only (no user config), while still reporting the
+# release version from the same read-only config source as the npm entry point.
+PUBLIC_VERSION=$(grep -E '^AI_CONSULTANTS_VERSION=' "$SCRIPT_DIR/config.sh" 2>/dev/null \
+    | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
+if ! [[ "$PUBLIC_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    PUBLIC_VERSION="unknown"
+fi
 
 # --- Custom API Agent Discovery ---
 # Discovers custom API agents from environment variables
@@ -49,45 +53,26 @@ _discover_custom_api_agents() {
 
 # --- Show usage help ---
 show_help() {
-    echo "AI Consultants v${AI_CONSULTANTS_VERSION:-2.10.0} - Multi-Model AI Consultation"
-    cat << 'EOF'
+    echo "AI Consultants v${PUBLIC_VERSION} - Multi-Model AI Consultation"
+    cat <<EOF
 
 Usage: ./consult_all.sh [options] "Your question" [file1[@TAG]] [file2[@TAG]] ...
 
   File @TAG: PRIMARY (default, focus of question) or CONTEXT (ambient reference)
 
 Options:
-  --preset <name>      Use a configuration preset:
-                         minimal      - 2 models, fast and cheap
-                         balanced     - 3 models, good coverage
-                         thorough     - 3 models, comprehensive
-                         high-stakes  - Broad premium panel
-                         max_quality  - All 10 + maximum models/max effort
-                         medium       - 3 models + standard models
-                         fast         - 2 models + economy models
-                         security     - Security-focused panel
-                         cost-capped  - Budget-conscious options
-
-  --strategy <name>    Synthesis strategy:
-                         coverage       - Union of every distinct point (default)
-                         majority       - Blended recommendation
-                         risk_averse    - Weight conservative responses higher
-                         security_first - Prioritize security-focused insights
-                         cost_capped    - Prefer cheaper consultant opinions
-                         compare_only   - No recommendation, just comparison
+$(registry_render_help_options)
 
   --query-file <path>  Read the question from a file. Remaining positional
                        arguments are existing context-file paths, optionally
                        tagged @PRIMARY or @CONTEXT.
   --context-root <dir> Resolve host-provided relative context paths from this
                        project root and stage regular in-root files privately.
-  --list-presets       List all available presets
-  --list-strategies    List all synthesis strategies
   --help, -h           Show this help message
 
 Examples:
   ./consult_all.sh "How to optimize this SQL query?"
-  ./consult_all.sh --preset minimal "Quick question about Python lists"
+  ./consult_all.sh --mode fast-check "Quick question about Python lists"
   ./consult_all.sh --preset high-stakes --strategy risk_averse "Critical architecture decision"
   ./consult_all.sh "Review this code" src/main.py src/utils.py
   ./consult_all.sh "Compare auth approaches" src/auth.ts@PRIMARY src/logger.ts@CONTEXT
@@ -104,23 +89,18 @@ EOF
 
 # --- List synthesis strategies ---
 list_strategies() {
-    cat << 'EOF'
-Available synthesis strategies:
-
-  coverage       Union of every distinct point (default)
-  majority       Produce one blended recommendation
-  risk_averse    Weight conservative responses higher, prefer safety
-  security_first Prioritize security-focused consultants and insights
-  cost_capped    Prefer opinions from cheaper consultants within budget
-  compare_only   No recommendation, just structured comparison table
-
-Usage: ./consult_all.sh --strategy <name> "Your question"
-EOF
+    registry_list_strategies
 }
+
+list_modes() { registry_list_modes; }
 
 # --- Argument Parsing ---
 PRESET=""
 SYNTHESIS_STRATEGY=""
+MODE=""
+MODE_DEFAULT_STRATEGY=""
+PRESET_EXPLICIT=false
+STRATEGY_EXPLICIT=false
 QUERY=""
 QUERY_FILE=""
 CONTEXT_ROOT=""
@@ -130,21 +110,32 @@ POSITIONALS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --mode)
+            if [[ -n "${2:-}" ]]; then
+                MODE="$2"
+                shift 2
+            else
+                echo "Error: --mode requires a value" >&2
+                exit 1
+            fi
+            ;;
         --preset)
             if [[ -n "${2:-}" ]]; then
                 PRESET="$2"
+                PRESET_EXPLICIT=true
                 shift 2
             else
-                log_error "--preset requires a value"
+                echo "Error: --preset requires a value" >&2
                 exit 1
             fi
             ;;
         --strategy)
             if [[ -n "${2:-}" ]]; then
                 SYNTHESIS_STRATEGY="$2"
+                STRATEGY_EXPLICIT=true
                 shift 2
             else
-                log_error "--strategy requires a value"
+                echo "Error: --strategy requires a value" >&2
                 exit 1
             fi
             ;;
@@ -153,7 +144,7 @@ while [[ $# -gt 0 ]]; do
                 QUERY_FILE="$2"
                 shift 2
             else
-                log_error "--query-file requires an existing file path"
+                echo "Error: --query-file requires an existing file path" >&2
                 exit 1
             fi
             ;;
@@ -162,16 +153,20 @@ while [[ $# -gt 0 ]]; do
                 CONTEXT_ROOT=$(cd "$2" && pwd -P)
                 shift 2
             else
-                log_error "--context-root requires an existing non-symlink directory"
+                echo "Error: --context-root requires an existing non-symlink directory" >&2
                 exit 1
             fi
             ;;
         --list-presets)
-            list_presets
+            registry_list_presets
             exit 0
             ;;
         --list-strategies)
-            list_strategies
+            registry_list_strategies
+            exit 0
+            ;;
+        --list-modes)
+            registry_list_modes
             exit 0
             ;;
         --help|-h)
@@ -179,7 +174,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         -*)
-            log_error "Unknown option: $1"
+            echo "Error: Unknown option: $1" >&2
             show_help
             exit 1
             ;;
@@ -189,6 +184,41 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Validate public contract arguments before loading user configuration, making
+# output directories, probing health, or considering any provider transport.
+if [[ -n "$MODE" && "$PRESET_EXPLICIT" == "true" ]]; then
+    echo "Error: --mode and --preset cannot be used together; choose one." >&2
+    exit 1
+fi
+if [[ -n "$MODE" ]]; then
+    if ! registry_mode_metadata "$MODE" >/dev/null; then
+        echo "Error: unknown mode '$MODE'. Run --list-modes to see supported modes." >&2
+        exit 1
+    fi
+    _mode_resolution=$(registry_resolve_mode "$MODE" "${SYNTHESIS_STRATEGY:-}")
+    PRESET="${_mode_resolution%%|*}"
+    MODE_DEFAULT_STRATEGY="${_mode_resolution#*|}"
+    unset _mode_resolution
+fi
+if [[ -n "$PRESET" ]] && ! registry_canonical_preset "$PRESET" >/dev/null; then
+    echo "Error: unknown preset '$PRESET'. Run --list-presets to see supported presets." >&2
+    exit 1
+fi
+if [[ -n "$SYNTHESIS_STRATEGY" ]] && ! registry_strategy_metadata "$SYNTHESIS_STRATEGY" >/dev/null; then
+    echo "Error: unknown strategy '$SYNTHESIS_STRATEGY'. Run --list-strategies to see supported strategies." >&2
+    exit 1
+fi
+
+# Runtime libraries source config.sh. Deferring them keeps registry listings and
+# invalid mode diagnostics side-effect-free with respect to user config.
+source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/session.sh"
+source "$SCRIPT_DIR/lib/progress.sh"
+source "$SCRIPT_DIR/lib/costs.sh"
+source "$SCRIPT_DIR/lib/reliability.sh"
+source "$SCRIPT_DIR/lib/routing.sh"
+source "$SCRIPT_DIR/lib/cache.sh"
 
 # Resolve query source. With --query-file, every positional argument is a
 # context file; reject non-files so an accidental inline query cannot be
@@ -254,8 +284,14 @@ if [[ -n "$PRESET" ]]; then
     log_info "Applied preset: $PRESET"
 fi
 
-# Set synthesis strategy: CLI flag > environment > DEFAULT_STRATEGY > fallback
-SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-${DEFAULT_STRATEGY:-coverage}}"
+# A public mode is a CLI selection: its default wins over persistent defaults,
+# while an explicit --strategy remains the highest strategy selection.
+if [[ "$STRATEGY_EXPLICIT" != "true" && -n "$MODE_DEFAULT_STRATEGY" ]]; then
+    SYNTHESIS_STRATEGY="$MODE_DEFAULT_STRATEGY"
+else
+    SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-${DEFAULT_STRATEGY:-$(registry_default_strategy)}}"
+fi
+log_info "Synthesis strategy: $SYNTHESIS_STRATEGY${MODE:+ (mode: $MODE)}"
 
 # Export synthesis strategy for use by synthesize.sh
 export SYNTHESIS_STRATEGY

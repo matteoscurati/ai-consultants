@@ -144,6 +144,21 @@ test_suggest_low_count_short_circuits() {
     assert_match 'preset minimal' "$out" "count<2 still proposes minimal preset"
 }
 
+# P0.1 follow-up: category heuristics must not recommend balanced (target 3)
+# when exactly two effective transports remain. This command only runs the
+# local classifier/recommendation path; it never dispatches a consultant.
+test_suggest_two_effective_transports_is_runnable() {
+    local out
+    out=$(ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=false ENABLE_KIMI=false \
+        ENABLE_CLAUDE=false ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false \
+        ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false "$DOCTOR" --suggest-preset \
+        --question "should I split this monolith into microservices?" 2>/dev/null)
+    assert_match 'preset minimal.*strategy risk_averse' "$out" \
+        "two effective transports downgrade architecture guidance to runnable minimal"
+    assert_match 'only 2 effective consultants' "$out" \
+        "runnable downgrade explains the capacity constraint"
+}
+
 # HIGH 1 fix: classifier failure surfaces a Warning, doesn't silently degrade.
 # Cleanup inline: assertions in this harness don't abort under set -e (they
 # increment $failed and continue), so a trap is unnecessary and bash 3.2
@@ -192,6 +207,7 @@ test_count_respects_enable_flags() {
 
 run_test "Test 8: --json output schema (v2.13 fix MED 5)"  test_suggest_json_output
 run_test "Test 9: count<2 short-circuit (v2.13 fix MED 6)" test_suggest_low_count_short_circuits
+run_test "Test 9b: two effective transports remain runnable" test_suggest_two_effective_transports_is_runnable
 run_test "Test 10: classifier failure surfaces (HIGH 1)"   test_suggest_surfaces_classifier_failure
 run_test "Test 11: config.sh fails loudly without get_xdg_dir (HIGH 2)" test_config_sh_aborts_without_xdg_helper
 run_test "Test 12: count respects ENABLE_* (HIGH 3)"       test_count_respects_enable_flags
