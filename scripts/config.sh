@@ -910,6 +910,23 @@ _disable_all_consultants() {
     export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
 }
 
+# Return the promised number of canonical consultants for a preset.
+#
+# This deliberately describes the preset contract, rather than the transports
+# that happen to be usable on this machine.  consult_all.sh uses it after
+# self-exclusion to fill from ALL_CONSULTANTS without changing a preset's
+# models, tier, or primary ordering.
+# Usage: get_preset_panel_size <preset_name>
+get_preset_panel_size() {
+    case "$1" in
+        minimal|fast)                 echo 2 ;;
+        balanced|thorough|security|cost-capped|medium) echo 3 ;;
+        high-stakes)                  echo 4 ;;
+        max_quality|max-quality)      echo 10 ;;
+        *)                            return 1 ;;
+    esac
+}
+
 # Apply a preset configuration
 # Usage: apply_preset <preset_name>
 apply_preset() {

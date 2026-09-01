@@ -423,23 +423,37 @@ else
     # Log self-exclusion status for debugging
     log_self_exclusion_status
 
-    # All enabled consultants - use a compact loop
-    # Order matches ALL_CONSULTANTS in config.sh for consistency
-    _consultant_map="GEMINI:Gemini CODEX:Codex MISTRAL:Mistral KIMI:Kimi CLAUDE:Claude QWEN3:Qwen3 GLM:GLM GROK:Grok DEEPSEEK:DeepSeek MINIMAX:MiniMax"
-    for _entry in $_consultant_map; do
-        _flag="${_entry%%:*}"
-        _name="${_entry#*:}"
-        _enable_var="ENABLE_${_flag}"
-
-        # Skip self (invoking agent shouldn't query itself)
-        if should_skip_consultant "$_flag"; then
-            log_debug "Skipping $_name (self-exclusion: invoking agent)"
-            continue
+    if [[ -n "$PRESET" ]]; then
+        # A preset promises a fixed canonical panel.  Select only transports
+        # that are statically configured, then fill a host-excluded slot from
+        # the canonical roster.  This does no provider health probing.
+        while IFS= read -r _name; do
+            [[ -n "$_name" ]] && SELECTED_CONSULTANTS+=("$_name")
+        done < <(select_preset_consultants "$PRESET")
+        _promised_panel_size=$(get_preset_panel_size "$PRESET")
+        if [[ ${#SELECTED_CONSULTANTS[@]} -lt $_promised_panel_size ]]; then
+            log_preset_capacity_diagnostic "$PRESET" "$_promised_panel_size" "${#SELECTED_CONSULTANTS[@]}"
+            exit 1
         fi
+        unset _promised_panel_size
+    else
+        # Explicit ENABLE_* selection keeps its existing semantics: enabled
+        # consultants are selected even when no static transport check has
+        # been requested by a preset.
+        for _name in "${ALL_CONSULTANTS[@]}"; do
+            _flag=$(to_upper "$_name")
+            _enable_var="ENABLE_${_flag}"
 
-        [[ "${!_enable_var:-false}" == "true" ]] && SELECTED_CONSULTANTS+=("$_name")
-    done
-    unset _consultant_map _entry _flag _name _enable_var
+            # Skip self (invoking agent shouldn't query itself)
+            if should_skip_consultant "$_flag"; then
+                log_debug "Skipping $_name (self-exclusion: invoking agent)"
+                continue
+            fi
+
+            [[ "${!_enable_var:-false}" == "true" ]] && SELECTED_CONSULTANTS+=("$_name")
+        done
+        unset _flag _enable_var
+    fi
 
     # Discover custom API agents from environment
     _discover_custom_api_agents
