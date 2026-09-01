@@ -115,8 +115,11 @@ Maximum-quality transports use smoke-tested runtime budgets: four advisory
 turns for Mistral/Grok, extended Qwen/DeepSeek timeouts, and larger response
 budgets for reasoning APIs and a compact native-system Markdown contract for
 MiniMax M3. Responses carry an explicit `structured`,
-`fallback`, or `error` quality. Truncated JSON fails closed; usable prose is
-retained and disclosed, and synthesis consumes successful envelopes only.
+`fallback`, or `error` quality. Truncated JSON fails closed. Coverage/union
+synthesis source-attributed claims use only locally normalized atomic fields;
+fallback prose remains visible as context-only manual-review material. Inspect
+`coverage_integrity`: `MET` applies only to its listed `audited_fields`, while
+`DEGRADED` and `FAILED` are never comprehensive coverage claims.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from the panel. When invoked from Claude Code, Claude is excluded; when invoked from Codex CLI, Codex is excluded, etc.
 

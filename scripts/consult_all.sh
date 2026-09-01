@@ -957,7 +957,9 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         integrity_expected=$(jq -r '.coverage_integrity.expected_count // 0' "$SYNTHESIS_FILE" 2>/dev/null)
         integrity_represented=$(jq -r '.coverage_integrity.represented_count // 0' "$SYNTHESIS_FILE" 2>/dev/null)
         integrity_disclosure=$(jq -r '.coverage_integrity.disclosure // "Coverage integrity was not recorded."' "$SYNTHESIS_FILE" 2>/dev/null)
+        integrity_fields=$(jq -r '(.coverage_integrity.audited_fields // []) | join(", ")' "$SYNTHESIS_FILE" 2>/dev/null)
         echo "**Coverage Integrity**: $integrity_status ($integrity_represented/$integrity_expected normalized source IDs represented)"
+        echo "**Audited Fields**: ${integrity_fields:-none} (MET applies only to these fields)"
         echo ""
         echo "> $integrity_disclosure"
         echo ""

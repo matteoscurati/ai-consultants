@@ -173,8 +173,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-z0-9]+:[1-9][0-9]*$",
-          "description": "Stable local ID: lowercase consultant name plus one-based deterministic index."
+          "pattern": "^[a-z0-9_]+:[1-9][0-9]*$",
+          "description": "Stable local ID: normalized lowercase consultant slug (alphanumeric/underscore) plus one-based deterministic index."
         },
         "kind": { "type": "string", "enum": ["summary", "recommendation", "trade_off", "alternative", "edge_case", "evidence"] },
         "field": { "type": "string", "enum": ["summary", "pros", "cons", "alternatives", "caveats", "references"] },
@@ -190,7 +190,7 @@
         "source_ids": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^[a-z0-9]+:[1-9][0-9]*$" },
+          "items": { "type": "string", "pattern": "^[a-z0-9_]+:[1-9][0-9]*$" },
           "description": "Required local normalized source IDs. Local integrity checking rejects IDs outside the expected response findings."
         },
         "kind": { "type": "string" }
