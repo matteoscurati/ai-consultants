@@ -612,7 +612,7 @@ select_preset_consultants() {
     local preset="$1" promised consultant consultant_upper enable_var
     local -a selected=()
 
-    promised=$(get_preset_panel_size "$preset") || return 1
+    promised=$(get_effective_preset_panel_size "$preset") || return 1
 
     # Preserve the preset's existing primary panel and its ordering.
     for consultant in "${ALL_CONSULTANTS[@]}"; do
@@ -641,17 +641,17 @@ select_preset_consultants() {
         done
     fi
 
-    printf '%s\n' "${selected[@]}"
+    printf '%s\n' "${selected[@]+"${selected[@]}"}"
 }
 
 # Render the actionable failure used when a preset's static transports cannot
 # fulfill its documented panel size.  Do not replace this with a health check:
 # availability here is purposely local and side-effect free.
-# Usage: log_preset_capacity_diagnostic <preset> <promised> <selected_count>
+# Usage: log_preset_capacity_diagnostic <preset> <raw_promised> <effective_target> <selected_count>
 log_preset_capacity_diagnostic() {
-    local preset="$1" promised="$2" selected_count="$3" missing
-    missing=$((promised - selected_count))
-    log_error "Preset '$preset' promises $promised consultants, but static transport selection found $selected_count; missing capacity: $missing."
+    local preset="$1" raw_promised="$2" effective_target="$3" selected_count="$4" missing
+    missing=$((effective_target - selected_count))
+    log_error "Preset '$preset' promises $raw_promised consultants (effective target: $effective_target after host self-exclusion), but static transport selection found $selected_count; missing capacity: $missing."
     log_info "Install or configure $missing additional eligible consultant transport(s) (CLI on PATH or API mode with its API key), then rerun the preset."
 }
 

@@ -455,6 +455,7 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 A preset only chooses the **consultant set and model tier** — every run then fans out in
 parallel and returns the coverage union.
+Preset panels use statically configured transports only (a CLI on `PATH`, or selected API mode with its key). Host self-exclusion is fail-closed; lost canonical slots are filled from `ALL_CONSULTANTS` in canonical order. If the effective target cannot be met, including after an enabled health gate prunes the panel, the run stops with promised/selected/missing-capacity guidance. Configured custom API agents are appended and may satisfy capacity, so a full preset can exceed its advertised count. `max_quality` still advertises 10 consultants, with an effective target of 9 for a canonical invoking host.
 For `max_quality`, Grok, GLM, and DeepSeek are also pinned to their highest
 accepted reasoning effort: Grok Build uses `xhigh`, while GLM and DeepSeek use
 `max`. Unsupported transport capabilities fail explicitly instead of reducing

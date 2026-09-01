@@ -927,6 +927,24 @@ get_preset_panel_size() {
     esac
 }
 
+# Return the host-aware target for a preset. The raw max_quality contract is
+# ten consultants, but a canonical invoking host is fail-closed excluded and
+# cannot be replaced from a ten-member canonical roster. Its attainable panel
+# is therefore nine; every other preset retains its raw target and is filled
+# from the canonical roster by the orchestrator.
+# Usage: get_effective_preset_panel_size <preset_name>
+get_effective_preset_panel_size() {
+    local preset="$1" raw self_name
+    raw=$(get_preset_panel_size "$preset") || return 1
+    self_name=$(get_self_consultant_name)
+    case "$preset" in
+        max_quality|max-quality)
+            [[ -n "$self_name" ]] && echo $((raw - 1)) || echo "$raw"
+            ;;
+        *) echo "$raw" ;;
+    esac
+}
+
 # Apply a preset configuration
 # Usage: apply_preset <preset_name>
 apply_preset() {

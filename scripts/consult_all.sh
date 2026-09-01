@@ -412,6 +412,8 @@ echo "" >&2
 
 # --- Consultant Selection ---
 declare -a SELECTED_CONSULTANTS=()
+PRESET_RAW_PANEL_SIZE=""
+PRESET_EFFECTIVE_PANEL_SIZE=""
 
 if [[ "$ENABLE_SMART_ROUTING" == "true" ]]; then
     log_info "Smart routing for category $QUESTION_CATEGORY..."
@@ -430,12 +432,8 @@ else
         while IFS= read -r _name; do
             [[ -n "$_name" ]] && SELECTED_CONSULTANTS+=("$_name")
         done < <(select_preset_consultants "$PRESET")
-        _promised_panel_size=$(get_preset_panel_size "$PRESET")
-        if [[ ${#SELECTED_CONSULTANTS[@]} -lt $_promised_panel_size ]]; then
-            log_preset_capacity_diagnostic "$PRESET" "$_promised_panel_size" "${#SELECTED_CONSULTANTS[@]}"
-            exit 1
-        fi
-        unset _promised_panel_size
+        PRESET_RAW_PANEL_SIZE=$(get_preset_panel_size "$PRESET")
+        PRESET_EFFECTIVE_PANEL_SIZE=$(get_effective_preset_panel_size "$PRESET")
     else
         # Explicit ENABLE_* selection keeps its existing semantics: enabled
         # consultants are selected even when no static transport check has
@@ -457,6 +455,14 @@ else
 
     # Discover custom API agents from environment
     _discover_custom_api_agents
+
+    # Custom API agents retain their existing behavior: they are appended to
+    # the canonical preset panel and may satisfy its effective cardinality.
+    # Canonical fallback itself remains limited to ALL_CONSULTANTS.
+    if [[ -n "$PRESET_EFFECTIVE_PANEL_SIZE" && ${#SELECTED_CONSULTANTS[@]} -lt $PRESET_EFFECTIVE_PANEL_SIZE ]]; then
+        log_preset_capacity_diagnostic "$PRESET" "$PRESET_RAW_PANEL_SIZE" "$PRESET_EFFECTIVE_PANEL_SIZE" "${#SELECTED_CONSULTANTS[@]}"
+        exit 1
+    fi
 fi
 
 # --- Health Gate (v2.19.0, opt-in) ---
@@ -496,6 +502,14 @@ if [[ "${ENABLE_HEALTH_GATE:-false}" == "true" && ${#SELECTED_CONSULTANTS[@]} -g
     _hg_total=${#SELECTED_CONSULTANTS[@]}
     SELECTED_CONSULTANTS=(${RESPONSIVE[@]+"${RESPONSIVE[@]}"})
     log_info "Health gate: ${#SELECTED_CONSULTANTS[@]} of ${_hg_total} usable"
+fi
+
+# A preset's static panel can still be reduced by the explicitly opt-in health
+# gate. Preserve its effective target rather than silently running a smaller
+# Round 1 panel.
+if [[ -n "$PRESET_EFFECTIVE_PANEL_SIZE" && ${#SELECTED_CONSULTANTS[@]} -lt $PRESET_EFFECTIVE_PANEL_SIZE ]]; then
+    log_preset_capacity_diagnostic "$PRESET" "$PRESET_RAW_PANEL_SIZE" "$PRESET_EFFECTIVE_PANEL_SIZE" "${#SELECTED_CONSULTANTS[@]}"
+    exit 1
 fi
 
 if [[ ${#SELECTED_CONSULTANTS[@]} -eq 0 ]]; then
