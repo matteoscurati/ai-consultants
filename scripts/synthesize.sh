@@ -411,7 +411,10 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
     RAW_OUTPUT=$(cat "$TEMP_OUTPUT")
 
     # Try to extract JSON
-    if echo "$RAW_OUTPUT" | jq '.' > /dev/null 2>&1; then
+    # jq accepts zero input with exit 0, so require at least one non-whitespace
+    # byte before accepting a provider payload. Valid falsy JSON values remain
+    # valid and are handed to the local failed-closed auditor.
+    if [[ "$RAW_OUTPUT" =~ [^[:space:]] ]] && printf '%s' "$RAW_OUTPUT" | jq '.' > /dev/null 2>&1; then
         # It's already valid JSON
         cat "$TEMP_OUTPUT" > "$OUTPUT_FILE"
     else

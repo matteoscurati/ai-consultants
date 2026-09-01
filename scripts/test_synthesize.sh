@@ -285,6 +285,37 @@ test_synthesis_excludes_errors_and_keeps_fallback_detail() {
         "live synthesis prompt excludes removed consensus and debate fields"
 }
 
+test_whitespace_synthesis_payload_fails_closed() {
+    local responses="$TMP_ROOT/whitespace-responses" output="$TMP_ROOT/whitespace-synthesis.json"
+    local fake="$TMP_ROOT/whitespace-claude"
+    mkdir -p "$responses"
+    printf '%s\n' '{"consultant":"Whitespace","model":"m","response":{"summary":"point","detailed":"detail","approach":"structured","pros":[],"cons":[]},"confidence":{"score":8,"reasoning":"ok"},"metadata":{"response_quality":"structured"}}' > "$responses/whitespace.json"
+    cat > "$fake" <<'EOF'
+#!/bin/bash
+if [[ "${1:-}" == "--help" ]]; then printf '%s\n' '--print --no-session-persistence --setting-sources --tools'; exit 0; fi
+if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then printf '%s\n' '{"loggedIn":true}'; exit 0; fi
+cat >/dev/null
+printf ' \n\t '
+EOF
+    chmod +x "$fake"
+
+    if ! PATH="$TMP_ROOT:$PATH" CLAUDE_CMD="$fake" SYNTHESIS_CMD=claude INVOKING_AGENT=unknown \
+        "$SCRIPT_DIR/synthesize.sh" "$responses" "$output" test >/dev/null 2>&1; then
+        assert_eq success failure "whitespace provider payload recovers to local artifact"
+        return
+    fi
+
+    assert_eq 1 "$([[ -s "$output" ]] && echo 1 || echo 0)" \
+        "whitespace provider payload never publishes an empty artifact"
+    assert_exit_success "whitespace recovery artifact is valid JSON" jq empty "$output"
+    assert_eq local-fallback "$(jq -r '.synthesis_provider' "$output")" \
+        "whitespace recovery records explicit local fallback provenance"
+    assert_ne MET "$(jq -r '.coverage_integrity.status // "UNKNOWN"' "$output")" \
+        "whitespace recovery cannot claim MET"
+    assert_ne UNKNOWN "$(jq -r '.coverage_integrity.status // "UNKNOWN"' "$output")" \
+        "whitespace recovery records coverage integrity"
+}
+
 test_synthesis_skips_unready_clis_and_uses_bounded_codex() {
     local responses="$TMP_ROOT/fallback-responses" output="$TMP_ROOT/codex-synthesis.json"
     local claude="$TMP_ROOT/claude" agy="$TMP_ROOT/agy" codex="$TMP_ROOT/codex"
@@ -473,6 +504,7 @@ EOF
 }
 
 run_test "Synthesis filters errors and preserves usable detail" test_synthesis_excludes_errors_and_keeps_fallback_detail
+run_test "Whitespace synthesis payload fails closed" test_whitespace_synthesis_payload_fails_closed
 run_test "Coverage integrity normalizes and audits local source IDs" test_coverage_integrity_normalizes_and_enforces_source_ids
 run_test "Coverage integrity closes edge contracts" test_coverage_integrity_edge_contracts
 run_test "Report renders coverage integrity status" test_report_renders_coverage_integrity_status

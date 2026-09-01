@@ -68,7 +68,7 @@ annotate_coverage_integrity() {
     local synthesis_file="$1" expected_ids_json="$2" non_normalizable_json="$3" strategy="$4"
     local tmp_file
     tmp_file=$(mktemp "${synthesis_file}.integrity.XXXXXX")
-    if ! jq --argjson expected "$expected_ids_json" \
+    if jq --argjson expected "$expected_ids_json" \
         --argjson non_normalizable "$non_normalizable_json" --arg strategy "$strategy" '
         def audited_fields: ["summary", "pros", "cons", "alternatives", "caveats", "references"];
         def safe_partial_wording:
@@ -129,9 +129,10 @@ annotate_coverage_integrity() {
                   else . end
             end
         end
-    ' "$synthesis_file" > "$tmp_file"; then
+    ' "$synthesis_file" > "$tmp_file" && [[ -s "$tmp_file" ]]; then
+        mv "$tmp_file" "$synthesis_file"
+    else
         rm -f "$tmp_file"
         return 1
     fi
-    mv "$tmp_file" "$synthesis_file"
 }
