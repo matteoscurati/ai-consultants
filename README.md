@@ -469,9 +469,11 @@ likewise receives a 16,384-token completion budget in the maximum tier and a
 provider-specific compact Markdown contract through mmx's native system channel.
 Provider output is tagged `structured`, `fallback`, or `error`;
 malformed/truncated JSON fails
-closed, while usable prose remains available to synthesis with its quality
-disclosed. Synthesis excludes error envelopes and retains bounded response
-detail instead of reducing every consultant to its summary.
+closed. In coverage/union mode, only locally atomized `summary`, `pros`,
+`cons`, `alternatives`, `caveats`, and `references` can be source-attributed;
+fallback prose remains context-only for manual review. `synthesis.json` records
+`coverage_integrity`: `MET` applies only to those audited fields, while
+`DEGRADED`/`FAILED` must not be read as comprehensive coverage.
 
 ### Models by Tier
 
@@ -694,7 +696,11 @@ Classify -> Route -> Fan out (parallel) -> Coverage synthesis
 1. **Classify** the question into a category.
 2. **Route** (optional, `ENABLE_SMART_ROUTING`) to the consultants with the best category affinity (`references/affinity.json`).
 3. **Fan out** to every selected consultant in parallel — one shot each, no serial rounds.
-4. **Synthesize** the **coverage union**: the deduplicated set of every distinct point, recommendation, risk, and edge case raised by any consultant. Override with `--strategy compare_only` (side-by-side) or `majority` (a single blended recommendation).
+4. **Synthesize** the **coverage union** over auditable normalized fields. Read
+   `coverage_integrity` before treating it as complete: `MET` means every local
+   atomic source ID is represented once; `DEGRADED` and `FAILED` are explicitly
+   non-comprehensive. Override with `--strategy compare_only` (side-by-side) or
+   `majority` (a single blended recommendation).
 
 ### Output
 
@@ -707,7 +713,7 @@ ${XDG_CACHE_HOME:-$HOME/.cache}/ai-consultants/consultations/TIMESTAMP/
 ├── codex.json           #   with confidence scores
 ├── mistral.json
 ├── grok.json
-├── synthesis.json       # Coverage union
+├── synthesis.json       # Coverage union plus coverage_integrity/audited_fields
 ├── optimization_metrics.json
 └── report.md            # Human-readable report
 ```

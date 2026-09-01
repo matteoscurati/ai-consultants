@@ -12,6 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/coverage_integrity.sh"
 
 # =============================================================================
 # FALLBACK FUNCTION (defined before use)
@@ -89,10 +90,26 @@ fi
 
 log_info "Starting automatic synthesis..."
 
+# Successful response envelopes gain local, deterministic source IDs before
+# entering either the model prompt or local fallback. Error envelopes remain
+# excluded by the existing success predicate.
+while IFS= read -r response_file; do
+    if _is_successful_consultant_response_file "$response_file"; then
+        if ! normalize_coverage_response_file "$response_file"; then
+            log_error "Could not normalize successful response: $response_file"
+            exit 1
+        fi
+    fi
+done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null)
+
 # --- Collect all responses ---
 COMBINED_RESPONSES=""
+COVERAGE_RESPONSES=""
+FALLBACK_CONTEXT_RESPONSES=""
 CONSULTANTS=()
 CONFIDENCE_SCORES=()
+EXPECTED_SOURCE_IDS_JSON="[]"
+NON_NORMALIZABLE_CONSULTANTS_JSON="[]"
 
 # Use process substitution to handle filenames with spaces correctly.
 # Cap at SYNTH_MAX *real* responses -- applied AFTER the metadata filter so
@@ -112,6 +129,13 @@ while IFS= read -r response_file; do
 
         CONSULTANTS+=("$CONSULTANT")
         CONFIDENCE_SCORES+=("$CONFIDENCE")
+        if response_is_non_normalizable "$response_file"; then
+            NON_NORMALIZABLE_CONSULTANTS_JSON=$(printf '%s' "$NON_NORMALIZABLE_CONSULTANTS_JSON" | \
+                jq --arg consultant "$CONSULTANT" '. + [$consultant]')
+        fi
+        RESPONSE_SOURCE_IDS=$(jq -c '[.response.findings[]?.id]' "$response_file" 2>/dev/null)
+        EXPECTED_SOURCE_IDS_JSON=$(printf '%s' "$EXPECTED_SOURCE_IDS_JSON" | \
+            jq --argjson ids "$RESPONSE_SOURCE_IDS" '. + $ids')
 
         # Token optimization v2.1: Extract only essential fields instead of full JSON
         SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
@@ -123,6 +147,23 @@ while IFS= read -r response_file; do
             CONF_REASONING=$(jq -r '.confidence.reasoning // "N/A"' "$response_file" 2>/dev/null)
             RESPONSE_QUALITY=$(jq -r '.metadata.response_quality // "unknown"' "$response_file" 2>/dev/null)
             DETAIL=$(jq -r '.response.detailed // ""' "$response_file" 2>/dev/null | cut -c1-"$SYNTH_DETAIL_MAX_CHARS")
+            FINDINGS=$(jq -r '(.response.findings // [])[] | "[\(.id)] \(.kind): \(.text)"' "$response_file" 2>/dev/null)
+
+            # Coverage/union receives only normalized atomic fields. Rich
+            # response detail remains available to non-coverage strategies.
+            COVERAGE_RESPONSES+="
+**$CONSULTANT** (quality:$RESPONSE_QUALITY)
+Attributable normalized findings:
+$FINDINGS
+---
+"
+            if response_is_non_normalizable "$response_file"; then
+                FALLBACK_CONTEXT_RESPONSES+="
+**$CONSULTANT** fallback context (human/manual review only; never create coverage items or source_ids from this prose):
+$DETAIL
+---
+"
+            fi
 
             COMBINED_RESPONSES+="
 **$CONSULTANT** (conf:$CONFIDENCE/10, approach:$APPROACH, quality:$RESPONSE_QUALITY)
@@ -130,6 +171,8 @@ Summary: $SUMMARY
 Detail: $DETAIL
 +: $PROS | -: $CONS
 Reasoning: $CONF_REASONING
+Normalized findings (cite every applicable local ID in coverage.source_ids):
+$FINDINGS
 ---
 "
         else
@@ -158,6 +201,17 @@ log_info "Found $NUM_CONSULTANTS responses to synthesize"
 # diverse models (it covers what one model misses), not a voted single recommendation.
 SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-coverage}"
 log_info "Using synthesis strategy: $SYNTHESIS_STRATEGY"
+
+if [[ "$SYNTHESIS_STRATEGY" == "coverage" || "$SYNTHESIS_STRATEGY" == "union" ]]; then
+    SYNTHESIS_INPUT_RESPONSES="$COVERAGE_RESPONSES"
+    if [[ -n "$FALLBACK_CONTEXT_RESPONSES" ]]; then
+        SYNTHESIS_INPUT_RESPONSES+="
+## Context-only fallback prose
+$FALLBACK_CONTEXT_RESPONSES"
+    fi
+else
+    SYNTHESIS_INPUT_RESPONSES="$COMBINED_RESPONSES"
+fi
 
 # --- Strategy-specific instructions ---
 get_strategy_instructions() {
@@ -201,7 +255,7 @@ fi
 
 SYNTHESIS_PROMPT+="
 ## Consultant Responses
-$COMBINED_RESPONSES
+$SYNTHESIS_INPUT_RESPONSES
 
 ## Instructions
 
@@ -216,6 +270,7 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
     {
       \"point\": \"<distinct recommendation, risk, edge case, trade-off, or evidence>\",
       \"raised_by\": [\"<consultant names>\"],
+      \"source_ids\": [\"<local normalized finding ID, for example gemini:1>\"],
       \"kind\": \"<recommendation|risk|edge_case|trade_off|evidence>\"
     }
   ],
@@ -250,14 +305,34 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
 RULES:
 - Build the union of every DISTINCT point. Deduplicate near-identical items but preserve points raised by only one consultant.
 - Attribute every coverage item through raised_by.
+- Every coverage item MUST include source_ids. Use only the local normalized finding IDs supplied with the consultant responses; never invent IDs, and represent every supplied ID exactly once across the union.
 - Do not calculate consensus, vote for a winner, or invent debate evolution.
-- Preserve usable fallback responses while keeping their quality disclosure.
+- Fallback prose is context-only for human/manual review. It has no legal atomic IDs: never create coverage items or source_ids from it.
 - Respond ONLY with valid JSON, no markdown or additional text
 "
 
 # --- Execute synthesis ---
 TEMP_OUTPUT=$(mktemp)
 SYNTHESIS_PAYLOAD_FILE="${TEMP_OUTPUT}.payload"
+cleanup_synthesis_temps() {
+    rm -f "$TEMP_OUTPUT" "$SYNTHESIS_PAYLOAD_FILE"
+}
+trap cleanup_synthesis_temps EXIT
+
+write_integrity_fallback() {
+    generate_fallback_synthesis "$RESPONSES_DIR" > "$OUTPUT_FILE"
+    SYNTH_CLI="local-fallback"
+    local annotated_output
+    annotated_output=$(mktemp)
+    if jq --arg provider "$SYNTH_CLI" '.synthesis_provider = $provider' "$OUTPUT_FILE" > "$annotated_output"; then
+        mv "$annotated_output" "$OUTPUT_FILE"
+    else
+        rm -f "$annotated_output"
+        return 1
+    fi
+    annotate_coverage_integrity "$OUTPUT_FILE" "$EXPECTED_SOURCE_IDS_JSON" \
+        "$NON_NORMALIZABLE_CONSULTANTS_JSON" "$SYNTHESIS_STRATEGY"
+}
 
 # Try the configured/selected synthesizer first, then the remaining ready
 # families. A timeout or provider failure is unavailability, not a reason to
@@ -336,7 +411,10 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
     RAW_OUTPUT=$(cat "$TEMP_OUTPUT")
 
     # Try to extract JSON
-    if echo "$RAW_OUTPUT" | jq -e '.' > /dev/null 2>&1; then
+    # jq accepts zero input with exit 0, so require at least one non-whitespace
+    # byte before accepting a provider payload. Valid falsy JSON values remain
+    # valid and are handed to the local failed-closed auditor.
+    if [[ "$RAW_OUTPUT" =~ [^[:space:]] ]] && printf '%s' "$RAW_OUTPUT" | jq '.' > /dev/null 2>&1; then
         # It's already valid JSON
         cat "$TEMP_OUTPUT" > "$OUTPUT_FILE"
     else
@@ -360,13 +438,23 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         rm -f "$annotated_output"
     fi
 
+    if ! annotate_coverage_integrity "$OUTPUT_FILE" "$EXPECTED_SOURCE_IDS_JSON" \
+            "$NON_NORMALIZABLE_CONSULTANTS_JSON" "$SYNTHESIS_STRATEGY"; then
+        log_warn "Could not evaluate model coverage integrity; replacing it with a local failed-closed fallback"
+        if ! write_integrity_fallback; then
+            log_error "Could not write a failed-closed synthesis artifact"
+            exit 1
+        fi
+    fi
+
     log_success "Synthesis completed: $OUTPUT_FILE"
-    rm -f "$TEMP_OUTPUT" "$SYNTHESIS_PAYLOAD_FILE"
     cat "$OUTPUT_FILE"
 else
     log_error "Synthesis failed"
-    generate_fallback_synthesis "$RESPONSES_DIR" > "$OUTPUT_FILE"
-    rm -f "$TEMP_OUTPUT" "$SYNTHESIS_PAYLOAD_FILE"
+    if ! write_integrity_fallback; then
+        log_error "Could not write a failed-closed synthesis artifact"
+        exit 1
+    fi
     cat "$OUTPUT_FILE"
     exit 1
 fi

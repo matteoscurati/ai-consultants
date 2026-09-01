@@ -22,7 +22,10 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
     "cons": [...],
     "alternatives": [...],
     "caveats": [...],
-    "references": [...]
+    "references": [...],
+    "findings": [
+      {"id": "gemini:1", "kind": "summary", "field": "summary", "text": "..."}
+    ]
   },
   "confidence": {
     "score": 8,
@@ -60,6 +63,51 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
 | `metadata` | object | Response metadata |
 
 ## Optional Fields
+
+### response.findings
+
+`findings` is added locally by the synthesis stage to successful consultant
+responses. It preserves all legacy fields and never trusts provider-supplied
+IDs. Each item has a deterministic local `id` of
+`<consultant-slug>:<one-based-index>`, plus `kind`, source `field`, and the
+atomically attributable `text`. The shared slug rule ASCII-lowercases the
+consultant name, retains `[a-z0-9_]`, replaces other runs with `_`, trims edge
+underscores, and uses `unknown` if empty. Thus the public custom name
+`My_agent` has IDs such as `my_agent:1`.
+
+The conservative normalization contract derives findings only from `summary`,
+`pros`, `cons`, `alternatives`, `caveats`, and `references`; alternatives may
+be meaningful strings or objects with meaningful name/reason text. Empty,
+null, or whitespace alternatives create no finding. Free-form fallback prose
+(`response_quality: fallback`) and successful envelopes with zero atomic
+findings are retained for human review but are non-normalizable; neither can
+be presented as audited coverage. Error envelopes remain excluded from
+synthesis.
+
+## Synthesis Coverage Attribution
+
+Each synthesized `coverage` item requires `source_ids`, containing only local
+IDs from normalized findings. `scripts/lib/schema.json` defines this as
+`definitions.synthesis_coverage_item`; the model prompt requests it, but the
+local post-check is authoritative.
+
+Every synthesis includes `coverage_integrity`:
+
+| Status | Meaning |
+|-------|---------|
+| `MET` | Every expected normalized source ID appears exactly once, with at least one expected ID and no non-normalizable success. It applies only to the audited fields. |
+| `DEGRADED` | A coverage-union source is missing or duplicated, no atomic source exists, or a successful response is non-normalizable. It is never comprehensive. |
+| `FAILED` | Coverage/source attribution is structurally unusable or includes an invented source ID; do not rely on coverage. |
+| `NOT_APPLICABLE` | A non-coverage strategy was selected and no attribution failure was found; it makes no coverage-union claim. |
+
+The object contains `expected_count`, `represented_count`, `missing_ids`,
+`unknown_ids`, `duplicate_ids`, `non_normalizable_consultants`,
+`structural_errors`, `audited_fields`, and `normalization_version`.
+`represented_count` is the count of unique expected IDs actually represented;
+unknown and duplicate IDs cannot inflate it. In coverage/union mode only
+`audited_fields` reach the attributable prompt. Structured `detailed` text and
+fallback prose are not atomized; fallback text is context-only and must never
+produce coverage items or source IDs.
 
 ### response.code_snippets
 
