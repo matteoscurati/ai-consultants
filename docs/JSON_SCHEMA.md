@@ -22,7 +22,10 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
     "cons": [...],
     "alternatives": [...],
     "caveats": [...],
-    "references": [...]
+    "references": [...],
+    "findings": [
+      {"id": "gemini:1", "kind": "summary", "field": "summary", "text": "..."}
+    ]
   },
   "confidence": {
     "score": 8,
@@ -60,6 +63,41 @@ The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-0
 | `metadata` | object | Response metadata |
 
 ## Optional Fields
+
+### response.findings
+
+`findings` is added locally by the synthesis stage to successful consultant
+responses. It preserves all legacy fields and never trusts provider-supplied
+IDs. Each item has a deterministic local `id` of
+`<consultant-lowercase>:<one-based-index>`, plus `kind`, source `field`, and
+the atomically attributable `text`.
+
+The conservative normalization contract derives findings only from `summary`,
+`pros`, `cons`, `alternatives`, `caveats`, and `references`. Free-form fallback
+prose (`response_quality: fallback`) is retained for human review but receives
+an empty findings array and is recorded as non-normalizable; it must not be
+presented as audited coverage. Error envelopes remain excluded from synthesis.
+
+## Synthesis Coverage Attribution
+
+Each synthesized `coverage` item requires `source_ids`, containing only local
+IDs from normalized findings. `scripts/lib/schema.json` defines this as
+`definitions.synthesis_coverage_item`; the model prompt requests it, but the
+local post-check is authoritative.
+
+Every synthesis includes `coverage_integrity`:
+
+| Status | Meaning |
+|-------|---------|
+| `MET` | Every expected normalized source ID appears exactly once; no fallback prose was non-normalizable. |
+| `DEGRADED` | A coverage-union source is missing or duplicated, or a successful fallback response was non-normalizable. It is never comprehensive. |
+| `FAILED` | Coverage/source attribution is structurally unusable or includes an invented source ID; do not rely on coverage. |
+| `NOT_APPLICABLE` | A non-coverage strategy was selected and no attribution failure was found; it makes no coverage-union claim. |
+
+The object contains `expected_count`, `represented_count`, `missing_ids`,
+`unknown_ids`, `duplicate_ids`, `non_normalizable_consultants`, and
+`structural_errors`. `represented_count` is the count of unique expected IDs
+actually represented; unknown and duplicate IDs cannot inflate it.
 
 ### response.code_snippets
 

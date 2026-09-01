@@ -953,6 +953,15 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         echo "**Synthesis Provider**: $synthesis_provider"
         echo ""
 
+        integrity_status=$(jq -r '.coverage_integrity.status // "UNKNOWN"' "$SYNTHESIS_FILE" 2>/dev/null)
+        integrity_expected=$(jq -r '.coverage_integrity.expected_count // 0' "$SYNTHESIS_FILE" 2>/dev/null)
+        integrity_represented=$(jq -r '.coverage_integrity.represented_count // 0' "$SYNTHESIS_FILE" 2>/dev/null)
+        integrity_disclosure=$(jq -r '.coverage_integrity.disclosure // "Coverage integrity was not recorded."' "$SYNTHESIS_FILE" 2>/dev/null)
+        echo "**Coverage Integrity**: $integrity_status ($integrity_represented/$integrity_expected normalized source IDs represented)"
+        echo ""
+        echo "> $integrity_disclosure"
+        echo ""
+
         recommendation=$(jq -r '.weighted_recommendation.summary // "N/A"' "$SYNTHESIS_FILE" 2>/dev/null)
         approach=$(jq -r '.weighted_recommendation.approach // "N/A"' "$SYNTHESIS_FILE" 2>/dev/null)
 

@@ -9,6 +9,122 @@ source "$SCRIPT_DIR/lib/test_helpers.sh"
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/test_synthesize.XXXXXX")
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
+run_integrity_fixture() {
+    local case_name="$1" payload="$2" strategy="${3:-coverage}" include_fallback="${4:-true}"
+    local responses="$TMP_ROOT/integrity-$case_name-responses"
+    local output="$TMP_ROOT/integrity-$case_name.json"
+    local fake="$TMP_ROOT/integrity-$case_name-claude"
+
+    mkdir -p "$responses"
+    printf '%s\n' '{"consultant":"Structured","model":"m","response":{"summary":"summary point","detailed":"detail","approach":"structured","pros":["pro point"],"cons":[]},"confidence":{"score":8,"reasoning":"ok"},"metadata":{"response_quality":"structured"}}' > "$responses/structured.json"
+    if [[ "$include_fallback" == "true" ]]; then
+        printf '%s\n' '{"consultant":"Fallback","model":"m","response":{"summary":"fallback","detailed":"fallback prose","approach":"unstructured-provider-response","pros":[],"cons":[]},"confidence":{"score":5,"reasoning":"format"},"metadata":{"response_quality":"fallback"}}' > "$responses/fallback.json"
+    fi
+
+    cat > "$fake" <<'EOF'
+#!/bin/bash
+if [[ "${1:-}" == "--help" ]]; then printf '%s\n' '--print --no-session-persistence --setting-sources --tools'; exit 0; fi
+if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then printf '%s\n' '{"loggedIn":true}'; exit 0; fi
+cat >/dev/null
+printf '%s\n' "$SYNTH_RESULT"
+EOF
+    chmod +x "$fake"
+
+    if ! PATH="$TMP_ROOT:$PATH" CLAUDE_CMD="$fake" SYNTHESIS_CMD=claude \
+        INVOKING_AGENT=unknown SYNTHESIS_STRATEGY="$strategy" SYNTH_RESULT="$payload" \
+        "$SCRIPT_DIR/synthesize.sh" "$responses" "$output" test >/dev/null 2>&1; then
+        assert_eq success failure "integrity fixture $case_name completes"
+    fi
+    printf '%s' "$output"
+}
+
+test_coverage_integrity_normalizes_and_enforces_source_ids() {
+    local output
+    output=$(run_integrity_fixture met '{"coverage":[{"point":"summary","source_ids":["structured:1"]},{"point":"pro","source_ids":["structured:2"]}],"weighted_recommendation":{"summary":"ok","detailed":"ok"}}' coverage false)
+
+    assert_eq "structured:1,structured:2" "$(jq -r '[.response.findings[].id] | join(",")' "$TMP_ROOT/integrity-met-responses/structured.json")" \
+        "normalization assigns deterministic local IDs"
+    assert_eq "" "$(jq -r '.response.findings[] | select(.id == "provider:9") | .id' "$TMP_ROOT/integrity-met-responses/structured.json")" \
+        "provider IDs are not trusted"
+    assert_eq MET "$(jq -r '.coverage_integrity.status' "$output")" \
+        "complete structured union meets integrity"
+    assert_eq 2 "$(jq -r '.coverage_integrity.expected_count' "$output")" \
+        "integrity counts normalized expected IDs"
+    assert_eq 2 "$(jq -r '.coverage_integrity.represented_count' "$output")" \
+        "integrity counts represented expected IDs"
+    assert_eq "summary point" "$(jq -r '.response.summary' "$TMP_ROOT/integrity-met-responses/structured.json")" \
+        "legacy response fields are preserved"
+
+    output=$(run_integrity_fixture mixed '{"coverage":[{"point":"summary","source_ids":["structured:1"]},{"point":"pro","source_ids":["structured:2"]}],"weighted_recommendation":{"summary":"ok"}}')
+    assert_eq 0 "$(jq -r '.response.findings | length' "$TMP_ROOT/integrity-mixed-responses/fallback.json")" \
+        "fallback prose is not atomically normalized"
+    assert_eq DEGRADED "$(jq -r '.coverage_integrity.status' "$output")" \
+        "mixed structured and fallback responses degrade coverage"
+    assert_eq Fallback "$(jq -r '.coverage_integrity.non_normalizable_consultants | join(",")' "$output")" \
+        "fallback consultant is exposed as non-normalizable"
+
+    output=$(run_integrity_fixture omitted '{"coverage":[{"point":"only one","source_ids":["structured:1"]}],"weighted_recommendation":{"summary":"comprehensive result","detailed":"comprehensive detail"}}')
+    assert_eq DEGRADED "$(jq -r '.coverage_integrity.status' "$output")" \
+        "omitted expected ID degrades coverage"
+    assert_eq structured:2 "$(jq -r '.coverage_integrity.missing_ids | join(",")' "$output")" \
+        "omitted ID is exposed"
+    assert_not_contains comprehensive "$(jq -r '.weighted_recommendation.summary' "$output")" \
+        "incomplete union cannot retain a comprehensive claim"
+
+    output=$(run_integrity_fixture duplicate '{"coverage":[{"point":"one","source_ids":["structured:1"]},{"point":"again","source_ids":["structured:1","structured:2"]}],"weighted_recommendation":{"summary":"ok"}}')
+    assert_eq DEGRADED "$(jq -r '.coverage_integrity.status' "$output")" \
+        "duplicate representation degrades coverage"
+    assert_eq structured:1 "$(jq -r '.coverage_integrity.duplicate_ids | join(",")' "$output")" \
+        "duplicate ID is exposed"
+
+    output=$(run_integrity_fixture unknown '{"coverage":[{"point":"one","source_ids":["structured:1","invented:9"]},{"point":"two","source_ids":["structured:2"]}],"weighted_recommendation":{"summary":"ok"}}')
+    assert_eq FAILED "$(jq -r '.coverage_integrity.status' "$output")" \
+        "invented source ID fails closed"
+    assert_eq invented:9 "$(jq -r '.coverage_integrity.unknown_ids | join(",")' "$output")" \
+        "invented source ID is exposed"
+    assert_eq 0 "$(jq -r '[.coverage[].source_ids[] | select(. == "invented:9")] | length' "$output")" \
+        "emitted coverage retains only expected local source IDs"
+
+    output=$(run_integrity_fixture invalid '{"coverage":"not-an-array","weighted_recommendation":{"summary":"comprehensive"}}')
+    assert_eq FAILED "$(jq -r '.coverage_integrity.status' "$output")" \
+        "invalid synthesis coverage fails closed"
+    assert_gt 0 "$(jq -r '.coverage_integrity.structural_errors | length' "$output")" \
+        "invalid synthesis explains structural failure"
+    assert_eq 0 "$(jq -r '.coverage | length' "$output")" \
+        "invalid coverage is not published as a source-attributed item"
+
+    output=$(run_integrity_fixture noncoverage '{"coverage":[{"point":"one","source_ids":["structured:1"]},{"point":"two","source_ids":["structured:2"]}],"weighted_recommendation":{"summary":"ok"}}' security_first)
+    assert_eq security_first "$(jq -r '.strategy' "$output")" \
+        "non-coverage strategy is preserved"
+    assert_eq NOT_APPLICABLE "$(jq -r '.coverage_integrity.status' "$output")" \
+        "non-coverage strategy makes no coverage-union claim"
+}
+
+test_report_renders_coverage_integrity_status() {
+    local run_out output_dir report
+    run_out=$(HOME="$TMP_ROOT/report-home" \
+        XDG_CACHE_HOME="$TMP_ROOT/report-xdg/cache" \
+        XDG_STATE_HOME="$TMP_ROOT/report-xdg/state" \
+        XDG_DATA_HOME="$TMP_ROOT/report-xdg/data" \
+        INVOKING_AGENT=none \
+        ENABLE_CLAUDE=true ENABLE_CODEX=true ENABLE_GEMINI=false ENABLE_MISTRAL=false \
+        ENABLE_KIMI=false ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false \
+        ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
+        CLAUDE_CMD="$SCRIPT_DIR/test_fixtures/stub_cli.sh" CODEX_CMD="$SCRIPT_DIR/test_fixtures/stub_cli.sh" \
+        ENABLE_SEMANTIC_CACHE=false ENABLE_SYNTHESIS=true ENABLE_SMART_ROUTING=false \
+        ENABLE_HEALTH_GATE=false SYNTHESIS_CMD=claude \
+        "$SCRIPT_DIR/consult_all.sh" "Render coverage integrity" 2>/dev/null)
+    output_dir=$(printf '%s\n' "$run_out" | tail -n 1)
+    report="$output_dir/report.md"
+
+    assert_eq 1 "$([[ -f "$report" ]] && echo 1 || echo 0)" \
+        "report is produced with synthesis enabled"
+    assert_contains "**Coverage Integrity**: FAILED" "$(cat "$report" 2>/dev/null)" \
+        "report renders the locally enforced integrity status"
+    assert_contains "Coverage attribution is unusable" "$(cat "$report" 2>/dev/null)" \
+        "report renders the integrity disclosure"
+}
+
 test_synthesis_excludes_errors_and_keeps_fallback_detail() {
     local responses="$TMP_ROOT/responses" fake="$TMP_ROOT/claude"
     local prompt_file="$TMP_ROOT/prompt" output="$TMP_ROOT/synthesis.json"
@@ -239,6 +355,8 @@ EOF
 }
 
 run_test "Synthesis filters errors and preserves usable detail" test_synthesis_excludes_errors_and_keeps_fallback_detail
+run_test "Coverage integrity normalizes and audits local source IDs" test_coverage_integrity_normalizes_and_enforces_source_ids
+run_test "Report renders coverage integrity status" test_report_renders_coverage_integrity_status
 run_test "Synthesis skips unready CLIs and uses bounded Codex" test_synthesis_skips_unready_clis_and_uses_bounded_codex
 run_test "Synthesis with no ready CLI uses local fallback" test_synthesis_with_no_ready_cli_uses_local_fallback
 run_test "Claude invoker never uses Claude for synthesis" test_claude_invoker_never_uses_claude_for_synthesis

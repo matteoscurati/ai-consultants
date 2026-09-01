@@ -12,6 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/coverage_integrity.sh"
 
 # =============================================================================
 # FALLBACK FUNCTION (defined before use)
@@ -89,10 +90,24 @@ fi
 
 log_info "Starting automatic synthesis..."
 
+# Successful response envelopes gain local, deterministic source IDs before
+# entering either the model prompt or local fallback. Error envelopes remain
+# excluded by the existing success predicate.
+while IFS= read -r response_file; do
+    if _is_successful_consultant_response_file "$response_file"; then
+        if ! normalize_coverage_response_file "$response_file"; then
+            log_error "Could not normalize successful response: $response_file"
+            exit 1
+        fi
+    fi
+done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null)
+
 # --- Collect all responses ---
 COMBINED_RESPONSES=""
 CONSULTANTS=()
 CONFIDENCE_SCORES=()
+EXPECTED_SOURCE_IDS_JSON="[]"
+NON_NORMALIZABLE_CONSULTANTS_JSON="[]"
 
 # Use process substitution to handle filenames with spaces correctly.
 # Cap at SYNTH_MAX *real* responses -- applied AFTER the metadata filter so
@@ -112,6 +127,13 @@ while IFS= read -r response_file; do
 
         CONSULTANTS+=("$CONSULTANT")
         CONFIDENCE_SCORES+=("$CONFIDENCE")
+        if response_is_non_normalizable "$response_file"; then
+            NON_NORMALIZABLE_CONSULTANTS_JSON=$(printf '%s' "$NON_NORMALIZABLE_CONSULTANTS_JSON" | \
+                jq --arg consultant "$CONSULTANT" '. + [$consultant]')
+        fi
+        RESPONSE_SOURCE_IDS=$(jq -c '[.response.findings[]?.id]' "$response_file" 2>/dev/null)
+        EXPECTED_SOURCE_IDS_JSON=$(printf '%s' "$EXPECTED_SOURCE_IDS_JSON" | \
+            jq --argjson ids "$RESPONSE_SOURCE_IDS" '. + $ids')
 
         # Token optimization v2.1: Extract only essential fields instead of full JSON
         SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
@@ -123,6 +145,7 @@ while IFS= read -r response_file; do
             CONF_REASONING=$(jq -r '.confidence.reasoning // "N/A"' "$response_file" 2>/dev/null)
             RESPONSE_QUALITY=$(jq -r '.metadata.response_quality // "unknown"' "$response_file" 2>/dev/null)
             DETAIL=$(jq -r '.response.detailed // ""' "$response_file" 2>/dev/null | cut -c1-"$SYNTH_DETAIL_MAX_CHARS")
+            FINDINGS=$(jq -r '(.response.findings // [])[] | "[\(.id)] \(.kind): \(.text)"' "$response_file" 2>/dev/null)
 
             COMBINED_RESPONSES+="
 **$CONSULTANT** (conf:$CONFIDENCE/10, approach:$APPROACH, quality:$RESPONSE_QUALITY)
@@ -130,6 +153,8 @@ Summary: $SUMMARY
 Detail: $DETAIL
 +: $PROS | -: $CONS
 Reasoning: $CONF_REASONING
+Normalized findings (cite every applicable local ID in coverage.source_ids):
+$FINDINGS
 ---
 "
         else
@@ -216,6 +241,7 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
     {
       \"point\": \"<distinct recommendation, risk, edge case, trade-off, or evidence>\",
       \"raised_by\": [\"<consultant names>\"],
+      \"source_ids\": [\"<local normalized finding ID, for example gemini:1>\"],
       \"kind\": \"<recommendation|risk|edge_case|trade_off|evidence>\"
     }
   ],
@@ -250,6 +276,7 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
 RULES:
 - Build the union of every DISTINCT point. Deduplicate near-identical items but preserve points raised by only one consultant.
 - Attribute every coverage item through raised_by.
+- Every coverage item MUST include source_ids. Use only the local normalized finding IDs supplied with the consultant responses; never invent IDs, and represent every supplied ID exactly once across the union.
 - Do not calculate consensus, vote for a winner, or invent debate evolution.
 - Preserve usable fallback responses while keeping their quality disclosure.
 - Respond ONLY with valid JSON, no markdown or additional text
@@ -358,6 +385,12 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         mv "$annotated_output" "$OUTPUT_FILE"
     else
         rm -f "$annotated_output"
+    fi
+
+    if ! annotate_coverage_integrity "$OUTPUT_FILE" "$EXPECTED_SOURCE_IDS_JSON" \
+            "$NON_NORMALIZABLE_CONSULTANTS_JSON" "$SYNTHESIS_STRATEGY"; then
+        log_error "Could not evaluate coverage integrity"
+        exit 1
     fi
 
     log_success "Synthesis completed: $OUTPUT_FILE"
