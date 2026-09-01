@@ -1,0 +1,2 @@
+{"status":"incomplete","provider_reached":false,"arm":"A","effective_identity":{"family":"gemini"},"latency_ms":5,"countable_cost_usd":0,"metrics":{"true_positive":0,"false_positive":2,"false_negative":3,"high_severity_hit":0,"source_ids_retained":0,"unique_contribution":0}}
+{"status":"completed","provider_reached":true,"arm":"judge","effective_identity":{"family":"codex"},"latency_ms":5,"countable_cost_usd":0,"judge":{"valid":false},"metrics":{"true_positive":0,"false_positive":0,"false_negative":0,"high_severity_hit":0,"source_ids_retained":0,"unique_contribution":0}}

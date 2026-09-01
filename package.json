@@ -13,6 +13,7 @@
     "!scripts/lib/test_helpers.sh",
     "!scripts/release.sh",
     "!scripts/experiment/",
+    "!benchmarks/",
     "templates/",
     ".env.example",
     ".claude/commands/",
