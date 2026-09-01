@@ -163,14 +163,12 @@ $FINDINGS
 "
             if response_is_non_normalizable "$response_file"; then
                 # The detail cap applies only to usable, non-attributable
-                # fallback context. jq's explode/implode operates on Unicode
-                # code points, so a UTF-8 character is never split. Exact
-                # boundary input is not truncation.
+                # fallback context. jq 1.6 string length and slicing operate
+                # on Unicode code points, so a UTF-8 character is never split.
+                # Exact-boundary input is not truncation.
                 FALLBACK_DETAIL_RECORD=$(jq -c --argjson limit "$SYNTH_DETAIL_MAX_CHARS" '
-                    (.response.detailed // "")
-                    | if type == "string" then . else "" end as $detail
-                    | ($detail | explode) as $codepoints
-                    | {text: ($codepoints[:$limit] | implode), truncated: (($codepoints | length) > $limit)}
+                    ((.response.detailed // "") | if type == "string" then . else "" end) as $detail
+                    | {text: $detail[0:$limit], truncated: (($detail | length) > $limit)}
                 ' "$response_file" 2>/dev/null)
                 DETAIL=$(printf '%s' "$FALLBACK_DETAIL_RECORD" | jq -r '.text')
                 if [[ "$(printf '%s' "$FALLBACK_DETAIL_RECORD" | jq -r '.truncated')" == "true" ]]; then

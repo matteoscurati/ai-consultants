@@ -294,7 +294,22 @@ test_synthesis_truncation_is_explicit_and_atomic_findings_are_complete() {
     local prompt_file="$TMP_ROOT/truncation-prompt" fake="$TMP_ROOT/truncation-claude"
     local clean_responses="$TMP_ROOT/truncation-clean-responses" clean_output="$TMP_ROOT/truncation-clean.json"
     local failed_output="$TMP_ROOT/truncation-failed.json" noncoverage_output="$TMP_ROOT/truncation-noncoverage.json"
+    local portable_record
     mkdir -p "$responses" "$clean_responses"
+
+    # This is the exact jq-1.6-compatible primitive used by synthesize.sh.
+    # Keep it explicit so a parser/runtime incompatibility cannot silently turn
+    # fallback input into a missing artifact.
+    if ! portable_record=$(jq -nr --arg detail 'éxZ' --argjson limit 2 '
+        ($detail) as $detail
+        | {text: $detail[0:$limit], truncated: (($detail | length) > $limit)}
+        | [.text, (.truncated | tostring)] | join(",")
+    '); then
+        assert_eq success failure "jq portable Unicode truncation primitive runs"
+        return
+    fi
+    assert_eq 'éx,true' "$portable_record" \
+        "jq portable Unicode truncation primitive keeps whole code points and detects overflow"
 
     # Filename order is deliberate: the public list keeps first occurrence
     # order while remaining reproducible across filesystems.
@@ -374,6 +389,10 @@ EOF
         "non-coverage strategy remains explicitly not applicable"
     assert_eq true "$(jq -r '.coverage_input_truncated' "$noncoverage_output")" \
         "non-coverage artifact still exposes truncation metadata"
+    assert_contains 'Detail: éx' "$(cat "$TMP_ROOT/truncation-noncoverage-prompt")" \
+        "non-coverage strategy receives the same capped fallback context"
+    assert_not_contains éxZ "$(cat "$TMP_ROOT/truncation-noncoverage-prompt")" \
+        "non-coverage strategy never receives the truncated fallback suffix"
     assert_contains 'not a coverage-union claim' "$(jq -r '.coverage_integrity.disclosure' "$noncoverage_output")" \
         "non-coverage disclosure avoids a false coverage claim"
 }
