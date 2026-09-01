@@ -551,13 +551,15 @@ Choose how many consultants to use:
 
 Control how responses are combined:
 
-| Strategy | Description |
-|----------|-------------|
-| `majority` | Most common answer wins (default) |
-| `risk_averse` | Weight conservative responses higher |
-| `security_first` | Prioritize security considerations |
-| `cost_capped` | Prefer simpler, cheaper solutions |
-| `compare_only` | No recommendation, just comparison |
+<!-- ai-consultants:default-synthesis-strategy=coverage -->
+| Strategy | Default | Description |
+|----------|---------|-------------|
+| `coverage` | **Default** | Union of distinct points from every response |
+| `majority` |  | Most common answer wins |
+| `risk_averse` |  | Weight conservative responses higher |
+| `security_first` |  | Prioritize security considerations |
+| `cost_capped` |  | Prefer simpler, cheaper solutions |
+| `compare_only` |  | No recommendation, just comparison |
 
 **Bash:**
 ```bash
