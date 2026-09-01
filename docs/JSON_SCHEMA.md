@@ -109,6 +109,20 @@ unknown and duplicate IDs cannot inflate it. In coverage/union mode only
 fallback prose are not atomized; fallback text is context-only and must never
 produce coverage items or source IDs.
 
+Every synthesis artifact also carries locally authoritative
+`coverage_input_truncated` (boolean) and `truncated_consultants` (a stable,
+first-occurrence-unique array of consultant names discovered in lexically
+ordered response-file order). These fields overwrite any values supplied by a
+model and are present even on local fallback or failed-closed artifacts.
+`SYNTH_DETAIL_MAX_CHARS` applies only to usable, non-normalizable fallback
+context, never to normalized finding text. Its unit is Unicode code points:
+input with exactly the limit is retained and does not set the flag; only input
+with more code points is shortened to that limit, preserving complete
+multibyte UTF-8 characters. When such context is truncated, coverage/union is
+at least `DEGRADED` and its disclosure names the affected consultants; it is
+never a comprehensive claim. A non-coverage strategy can remain
+`NOT_APPLICABLE`, but still exposes this metadata and disclosure.
+
 ### response.code_snippets
 
 Array of code snippets:

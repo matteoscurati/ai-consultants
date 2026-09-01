@@ -66,11 +66,19 @@ response_is_non_normalizable() {
 # synthesis artifact.
 annotate_coverage_integrity() {
     local synthesis_file="$1" expected_ids_json="$2" non_normalizable_json="$3" strategy="$4"
+    local coverage_input_truncated="${5:-false}" truncated_consultants_json="${6:-[]}"
     local tmp_file
     tmp_file=$(mktemp "${synthesis_file}.integrity.XXXXXX")
     if jq --argjson expected "$expected_ids_json" \
-        --argjson non_normalizable "$non_normalizable_json" --arg strategy "$strategy" '
+        --argjson non_normalizable "$non_normalizable_json" --arg strategy "$strategy" \
+        --argjson coverage_input_truncated "$coverage_input_truncated" \
+        --argjson truncated_consultants "$truncated_consultants_json" '
         def audited_fields: ["summary", "pros", "cons", "alternatives", "caveats", "references"];
+        def truncation_disclosure:
+            if $coverage_input_truncated then
+                " Usable non-normalizable fallback context was truncated at the configured Unicode-code-point limit for: "
+                + ($truncated_consultants | join(", ")) + "."
+            else "" end;
         def safe_partial_wording:
             if type != "string" then . else
                 gsub("(?i)\\bnot[[:space:]]+comprehensive\\b"; "__NEGATED_COMPREHENSIVE__")
@@ -82,7 +90,7 @@ annotate_coverage_integrity() {
             missing_ids: $expected, unknown_ids: [], duplicate_ids: [],
             non_normalizable_consultants: $non_normalizable, structural_errors: [$error],
             audited_fields: audited_fields, normalization_version: "1",
-            disclosure: "Coverage attribution is unusable; do not treat this synthesis as comprehensive."
+            disclosure: ("Coverage attribution is unusable; do not treat this synthesis as comprehensive." + truncation_disclosure)
         };
         def valid_source_ids: type == "array" and length > 0 and all(.[]?; type == "string" and length > 0);
         def structural_error:
@@ -95,8 +103,12 @@ annotate_coverage_integrity() {
              coverage: [], weighted_recommendation: {approach: "manual_review", summary: "Automatic synthesis output was unusable.", detailed: "Consult individual responses."},
              risk_assessment: {overall_risk: "unknown", risks: []}, action_items: [], follow_up_questions: [], fallback: true}
             | .coverage_integrity = integrity_failure("synthesis top level must be an object")
+            | .coverage_input_truncated = $coverage_input_truncated
+            | .truncated_consultants = $truncated_consultants
         else
             .strategy = $strategy |
+            .coverage_input_truncated = $coverage_input_truncated |
+            .truncated_consultants = $truncated_consultants |
             (structural_error) as $structural_error |
             if $structural_error != "" then
                 .coverage = [] |
@@ -111,7 +123,7 @@ annotate_coverage_integrity() {
                 ([$represented[] as $id | select(($expected | index($id)) != null) | $id] | unique) as $known_represented |
                 (if ($unknown | length) > 0 then "FAILED"
                  elif ($strategy != "coverage" and $strategy != "union") then "NOT_APPLICABLE"
-                 elif (($expected | length) == 0 or ($missing | length) > 0 or ($duplicates | length) > 0 or ($non_normalizable | length) > 0) then "DEGRADED"
+                 elif (($expected | length) == 0 or ($missing | length) > 0 or ($duplicates | length) > 0 or ($non_normalizable | length) > 0 or $coverage_input_truncated) then "DEGRADED"
                  else "MET" end) as $status |
                 (if ($unknown | length) > 0 then
                     .coverage |= (map(.source_ids |= [.[] as $id | select(($expected | index($id)) != null) | $id]) | map(select((.source_ids | length) > 0)))
@@ -120,11 +132,11 @@ annotate_coverage_integrity() {
                     missing_ids: $missing, unknown_ids: $unknown, duplicate_ids: $duplicates,
                     non_normalizable_consultants: $non_normalizable, structural_errors: [], audited_fields: audited_fields,
                     normalization_version: "1",
-                    disclosure: (if $status == "MET" then "Every normalized source ID from the audited fields is represented exactly once."
+                    disclosure: ((if $status == "MET" then "Every normalized source ID from the audited fields is represented exactly once."
                         elif $status == "NOT_APPLICABLE" then "The selected strategy is not a coverage-union claim."
                         elif $status == "DEGRADED" then "Coverage is incomplete over the audited fields; do not treat this synthesis as comprehensive."
-                        else "Coverage attribution contains unknown source IDs; do not treat this synthesis as comprehensive." end)}
-                | if $status == "DEGRADED" or $status == "FAILED" then
+                        else "Coverage attribution contains unknown source IDs; do not treat this synthesis as comprehensive." end) + truncation_disclosure)}
+                | if $status == "DEGRADED" or $status == "FAILED" or $coverage_input_truncated then
                     (.weighted_recommendation.summary? |= safe_partial_wording) | (.weighted_recommendation.detailed? |= safe_partial_wording)
                   else . end
             end

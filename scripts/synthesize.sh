@@ -100,7 +100,7 @@ while IFS= read -r response_file; do
             exit 1
         fi
     fi
-done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null)
+done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null | sort)
 
 # --- Collect all responses ---
 COMBINED_RESPONSES=""
@@ -110,6 +110,10 @@ CONSULTANTS=()
 CONFIDENCE_SCORES=()
 EXPECTED_SOURCE_IDS_JSON="[]"
 NON_NORMALIZABLE_CONSULTANTS_JSON="[]"
+# These values are computed exclusively from the local response files.  They
+# deliberately never inherit model-supplied artifact fields.
+COVERAGE_INPUT_TRUNCATED=false
+TRUNCATED_CONSULTANTS_JSON="[]"
 
 # Use process substitution to handle filenames with spaces correctly.
 # Cap at SYNTH_MAX *real* responses -- applied AFTER the metadata filter so
@@ -146,7 +150,7 @@ while IFS= read -r response_file; do
             CONS=$(jq -r '(.response.cons // []) | join("; ")' "$response_file" 2>/dev/null)
             CONF_REASONING=$(jq -r '.confidence.reasoning // "N/A"' "$response_file" 2>/dev/null)
             RESPONSE_QUALITY=$(jq -r '.metadata.response_quality // "unknown"' "$response_file" 2>/dev/null)
-            DETAIL=$(jq -r '.response.detailed // ""' "$response_file" 2>/dev/null | cut -c1-"$SYNTH_DETAIL_MAX_CHARS")
+            DETAIL=$(jq -r '.response.detailed // ""' "$response_file" 2>/dev/null)
             FINDINGS=$(jq -r '(.response.findings // [])[] | "[\(.id)] \(.kind): \(.text)"' "$response_file" 2>/dev/null)
 
             # Coverage/union receives only normalized atomic fields. Rich
@@ -158,6 +162,22 @@ $FINDINGS
 ---
 "
             if response_is_non_normalizable "$response_file"; then
+                # The detail cap applies only to usable, non-attributable
+                # fallback context. jq's explode/implode operates on Unicode
+                # code points, so a UTF-8 character is never split. Exact
+                # boundary input is not truncation.
+                FALLBACK_DETAIL_RECORD=$(jq -c --argjson limit "$SYNTH_DETAIL_MAX_CHARS" '
+                    (.response.detailed // "")
+                    | if type == "string" then . else "" end as $detail
+                    | ($detail | explode) as $codepoints
+                    | {text: ($codepoints[:$limit] | implode), truncated: (($codepoints | length) > $limit)}
+                ' "$response_file" 2>/dev/null)
+                DETAIL=$(printf '%s' "$FALLBACK_DETAIL_RECORD" | jq -r '.text')
+                if [[ "$(printf '%s' "$FALLBACK_DETAIL_RECORD" | jq -r '.truncated')" == "true" ]]; then
+                    COVERAGE_INPUT_TRUNCATED=true
+                    TRUNCATED_CONSULTANTS_JSON=$(printf '%s' "$TRUNCATED_CONSULTANTS_JSON" | \
+                        jq --arg consultant "$CONSULTANT" 'if index($consultant) == null then . + [$consultant] else . end')
+                fi
                 FALLBACK_CONTEXT_RESPONSES+="
 **$CONSULTANT** fallback context (human/manual review only; never create coverage items or source_ids from this prose):
 $DETAIL
@@ -187,7 +207,7 @@ $(cat "$response_file")
         SYNTH_COLLECTED=$((SYNTH_COLLECTED + 1))
         [[ "$SYNTH_COLLECTED" -ge "$SYNTH_MAX" ]] && break
     fi
-done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null)
+done < <(find "$RESPONSES_DIR" -name "*.json" -type f 2>/dev/null | sort)
 
 NUM_CONSULTANTS=${#CONSULTANTS[@]}
 if [[ "$NUM_CONSULTANTS" -eq 0 ]]; then
@@ -331,7 +351,8 @@ write_integrity_fallback() {
         return 1
     fi
     annotate_coverage_integrity "$OUTPUT_FILE" "$EXPECTED_SOURCE_IDS_JSON" \
-        "$NON_NORMALIZABLE_CONSULTANTS_JSON" "$SYNTHESIS_STRATEGY"
+        "$NON_NORMALIZABLE_CONSULTANTS_JSON" "$SYNTHESIS_STRATEGY" \
+        "$COVERAGE_INPUT_TRUNCATED" "$TRUNCATED_CONSULTANTS_JSON"
 }
 
 # Try the configured/selected synthesizer first, then the remaining ready
@@ -439,7 +460,8 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
     fi
 
     if ! annotate_coverage_integrity "$OUTPUT_FILE" "$EXPECTED_SOURCE_IDS_JSON" \
-            "$NON_NORMALIZABLE_CONSULTANTS_JSON" "$SYNTHESIS_STRATEGY"; then
+            "$NON_NORMALIZABLE_CONSULTANTS_JSON" "$SYNTHESIS_STRATEGY" \
+            "$COVERAGE_INPUT_TRUNCATED" "$TRUNCATED_CONSULTANTS_JSON"; then
         log_warn "Could not evaluate model coverage integrity; replacing it with a local failed-closed fallback"
         if ! write_integrity_fallback; then
             log_error "Could not write a failed-closed synthesis artifact"
