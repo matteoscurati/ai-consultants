@@ -153,7 +153,46 @@ For detailed CLI installation instructions, see [Setup Guide](docs/SETUP.md).
 /ai-consultants:consult "What could go wrong with this design?" src/service.ts
 ```
 
-Presets: `minimal`, `balanced`, `thorough`, `high-stakes`, `security`, `cost-capped`, `max_quality`, `medium`, `fast`. Strategies: `coverage` (default; union of distinct points), `compare_only`, `majority`, `risk_averse`, `security_first`, `cost_capped`. See [Reference Details](references/details.md) for full tables, bash usage, and best practices.
+<!-- ai-consultants:public-registry:start -->
+<!-- ai-consultants:default-synthesis-strategy=coverage -->
+## Public Modes
+
+| Mode | Preset | Default strategy | Use case |
+|---|---|---|---|
+| `fast-check` | `fast` | `coverage` | Fast economy panel for a quick coverage check |
+| `coverage-review` | `balanced` | `coverage` | Balanced panel for a general coverage review |
+| `max-coverage` | `max_quality` | `coverage` | Maximum-quality panel for the broadest coverage |
+
+## Configuration Presets
+
+| Preset | Alias | Target | Tier | Use case |
+|---|---|---:|---|---|
+| `minimal` | — | 2 | base | Quick questions |
+| `balanced` | — | 3 | base | Standard coverage |
+| `thorough` | — | 3 | base | Comprehensive analysis |
+| `high-stakes` | — | 4 | premium | Critical decisions |
+| `security` | — | 3 | base | Security reviews |
+| `cost-capped` | — | 3 | economy | Budget-conscious options |
+| `max_quality` | `max-quality` | 10 | maximum | Maximum coverage for critical decisions |
+| `medium` | — | 3 | standard | General questions |
+| `fast` | — | 2 | economy | Quick checks |
+
+## Synthesis Strategies
+
+| Strategy | Description |
+|---|---|
+| `coverage` | Union of every distinct point across the panel **Default** |
+| `compare_only` | Present each consultant side-by-side, without a synthesized union |
+| `majority` | Produce one blended recommendation, weighting all equally |
+| `risk_averse` | Weight conservative responses higher |
+| `security_first` | Prioritize security-focused insights |
+| `cost_capped` | Prefer cheaper consultant opinions within budget |
+<!-- ai-consultants:public-registry:end -->
+
+Agents may use `--mode` instead of `--preset`; the mode chooses its mapped
+preset and coverage strategy unless an explicit `--strategy` is supplied. See
+[Reference Details](references/details.md) for capacity, fallback, and Bash
+usage details.
 
 ## Workflow
 

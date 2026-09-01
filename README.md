@@ -532,40 +532,46 @@ apply_model_tier "economy"   # Set all to economy models
 
 ## Configuration
 
-### Presets
+<!-- ai-consultants:public-registry:start -->
+<!-- ai-consultants:default-synthesis-strategy=coverage -->
+### Public Modes
 
-Choose how many consultants to use:
+| Mode | Preset | Default strategy | Use case |
+|---|---|---|---|
+| `fast-check` | `fast` | `coverage` | Fast economy panel for a quick coverage check |
+| `coverage-review` | `balanced` | `coverage` | Balanced panel for a general coverage review |
+| `max-coverage` | `max_quality` | `coverage` | Maximum-quality panel for the broadest coverage |
 
-| Preset | Consultants | Tier | Use Case |
-|--------|-------------|------|----------|
-| `max_quality` | All 10 | Maximum + max effort | Critical decisions |
-| `medium` | 3 | Standard | General questions |
-| `fast` | 2 | Economy | Quick checks |
-| `minimal` | 2 (Gemini + Codex) | Default | Quick questions, low cost |
-| `balanced` | 3 (+ Mistral) | Default | Standard consultations |
-| `thorough` | 3 | Default | Comprehensive analysis |
-| `high-stakes` | Expanded panel (4 of 10) | Default | Critical decisions |
-| `security` | Security-focused (3) | Default | Security reviews |
-| `cost-capped` | Budget-conscious | Default | Minimal API costs |
+### Configuration Presets
+
+| Preset | Alias | Target | Tier | Use case |
+|---|---|---:|---|---|
+| `minimal` | — | 2 | base | Quick questions |
+| `balanced` | — | 3 | base | Standard coverage |
+| `thorough` | — | 3 | base | Comprehensive analysis |
+| `high-stakes` | — | 4 | premium | Critical decisions |
+| `security` | — | 3 | base | Security reviews |
+| `cost-capped` | — | 3 | economy | Budget-conscious options |
+| `max_quality` | `max-quality` | 10 | maximum | Maximum coverage for critical decisions |
+| `medium` | — | 3 | standard | General questions |
+| `fast` | — | 2 | economy | Quick checks |
+
+### Synthesis Strategies
+
+| Strategy | Description |
+|---|---|
+| `coverage` | Union of every distinct point across the panel **Default** |
+| `compare_only` | Present each consultant side-by-side, without a synthesized union |
+| `majority` | Produce one blended recommendation, weighting all equally |
+| `risk_averse` | Weight conservative responses higher |
+| `security_first` | Prioritize security-focused insights |
+| `cost_capped` | Prefer cheaper consultant opinions within budget |
+<!-- ai-consultants:public-registry:end -->
 
 **Bash:**
 ```bash
 ./scripts/consult_all.sh --preset balanced "Question"
 ```
-
-### Synthesis Strategies
-
-Control how responses are combined:
-
-<!-- ai-consultants:default-synthesis-strategy=coverage -->
-| Strategy | Default | Description |
-|----------|---------|-------------|
-| `coverage` | **Default** | Union of distinct points from every response |
-| `majority` |  | Most common answer wins |
-| `risk_averse` |  | Weight conservative responses higher |
-| `security_first` |  | Prioritize security considerations |
-| `cost_capped` |  | Prefer simpler, cheaper solutions |
-| `compare_only` |  | No recommendation, just comparison |
 
 **Bash:**
 ```bash

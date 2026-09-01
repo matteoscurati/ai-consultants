@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 README="$REPO_ROOT/README.md"
 CONFIG="$SCRIPT_DIR/config.sh"
+# shellcheck source=public_registry.sh
+source "$SCRIPT_DIR/public_registry.sh"
 
 source "$SCRIPT_DIR/lib/test_helpers.sh"
 
@@ -14,10 +16,10 @@ test_readme_synthesis_default_matches_runtime() {
     local runtime_defaults runtime_default documented_markers documented_default
     local strategy_section table_defaults table_default_count
 
-    runtime_defaults=$(sed -n 's/^DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-\([^}]*\)}"$/\1/p' "$CONFIG")
+    runtime_defaults=$(sed -n 's/^DEFAULT_STRATEGY="${DEFAULT_STRATEGY:-\$(registry_default_strategy)}"$/registry/p' "$CONFIG")
     assert_eq 1 "$(printf '%s\n' "$runtime_defaults" | sed '/^$/d' | wc -l | tr -d ' ')" \
-        "config declares one DEFAULT_STRATEGY runtime default"
-    runtime_default=$(printf '%s\n' "$runtime_defaults" | sed -n '1p')
+        "config delegates its DEFAULT_STRATEGY runtime default to the registry"
+    runtime_default=$(registry_default_strategy)
 
     documented_markers=$(sed -n \
         's/^<!--[[:space:]]*ai-consultants:default-synthesis-strategy=\([a-z_][a-z_]*\)[[:space:]]*-->$/\1/p' \

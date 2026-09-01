@@ -1000,6 +1000,17 @@ suggest_preset() {
     strategy="${combo%%|*}"
     reason="${combo#*|}"
 
+    # A recommendation must be executable with the currently effective
+    # transports. Category heuristics can prefer balanced/high-stakes panels,
+    # but must not recommend a three-or-more preset when only two transports
+    # survive configuration and host self-exclusion.
+    local target
+    target=$(get_effective_preset_panel_size "$preset" 2>/dev/null || echo 0)
+    if (( count >= 2 && target > count )); then
+        preset="minimal"
+        reason="${category} detected, but only ${count} effective consultants are available; minimal is the runnable coverage preset"
+    fi
+
     if [[ "$JSON_OUTPUT" == "true" ]]; then
         # Pre-flight jq because suggest_preset short-circuits before the main
         # check_dependencies pipeline. Without this, missing jq aborts via

@@ -98,13 +98,15 @@ test_template_covers_config_contract() {
         | sort -u > "$declared"
     : > "$runtime"
     # Externally-owned env vars we only read (never persist): CODEX_HOME, HOME, TMPDIR, XAI_API_KEY, XDG_CONFIG_HOME.
+    # AI_CONSULTANTS_DOC_ROOT is an internal test/doc-generator root override,
+    # never a runtime configure key or public persistent configuration.
     # Project-owned vars that configure persists belong in .env.example, not this list.
     while IFS= read -r file; do
         grep -Eho '\$\{[A-Z][A-Z0-9_]*:[-=]' "$file" 2>/dev/null || true
     done < <(find "$SCRIPT_DIR" -type f -name '*.sh' \
         ! -name 'test_*.sh' ! -path '*/test_fixtures/*' ! -path '*/experiment/*' | sort) \
         | sed -E 's/^\$\{//; s/:[-=]$//' \
-        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|RUN_QUERY_REDACT_ERRORS|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
+        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_DOC_ROOT|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|RUN_QUERY_REDACT_ERRORS|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
         | sort -u > "$runtime"
     sort -u "$declared" "$runtime" -o "$declared"
     $BIN configure --show-parameters | sort -u > "$supported"
