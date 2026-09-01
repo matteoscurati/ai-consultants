@@ -17,7 +17,7 @@
           "rubric": {
             "type": "object", "required": ["atomic_findings", "high_severity_ids", "source_ids"],
             "properties": {
-              "atomic_findings": {"type": "array", "minItems": 3, "items": {"type": "string", "minLength": 12}},
+              "atomic_findings": {"type": "array", "minItems": 3, "items": {"type":"object","required":["id","text","severity","source_ids"],"properties":{"id":{"type":"string"},"text":{"type":"string","minLength":12},"severity":{"enum":["low","medium","high","critical"]},"source_ids":{"type":"array","minItems":1,"items":{"type":"string"}}}}},
               "high_severity_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
               "source_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}
             }

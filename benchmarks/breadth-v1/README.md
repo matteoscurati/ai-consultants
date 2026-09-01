@@ -16,24 +16,46 @@ bash benchmarks/breadth-v1/scripts/breadth.sh preflight --json
 bash benchmarks/breadth-v1/scripts/breadth.sh analyze fixtures/positive-run.jsonl
 ```
 
-`smoke` uses only the synthetic fixture and the sentinel runner. It creates a
-temporary directory, makes zero provider calls, and leaves no live-run state.
+CI uses the committed `fixtures/ci-dataset.json` and `ci-manifest.json`:
+
+```bash
+bash benchmarks/breadth-v1/scripts/breadth.sh validate --ci
+```
+
+It contains no held-out material and is permanently refused by `run`. `smoke`
+uses only the synthetic fixture and sentinel runner. The hidden `test-run`
+entrypoint additionally traverses the real 750-call scheduler, but accepts only
+the bundled sentinel, temporary state, and an explicit test-only environment
+gate. It can never accept evidence or a live runner.
 
 ## Binding execution boundary
 
-`run` first validates the private dataset and frozen preregistration. It prints
-a receipt containing all identities, transports, models, efforts, hashes,
-planned dispatches, pricing status, caps, and expiry. It creates no run state
-until an action-time confirmation token derived from that receipt is supplied.
-There is intentionally no enabled provider runner in P1.6: a maintainer must
-inject an executable runner using `BREADTH_RUNNER=/absolute/path/runner` after
-reviewing the receipt. The runner protocol is JSON-in/JSON-out and is tested
-only with `scripts/sentinel-runner.sh`; no transport probing or health call is
-performed by this harness.
+`preflight --evidence FILE --json` validates the private dataset,
+preregistration, exact premium roster, schedule, provider-backed identity
+evidence, per-transport pricing and the three caps. Missing, stale, unpriced or
+over-cap evidence produces a non-actionable receipt with no confirmation token.
+The token binds manifest, preregistration, dataset, evidence, schedule, caps and
+expiry. `run` requires that same evidence file and the action-time token before
+creating state.
+
+`scripts/live-runner.sh` is the only accepted binding runner. It pins each
+transport/model/effort, disables panel routing, cache, fallback features and
+adapter retry, creates distinct primary and joint-judge prompts, and records
+the raw adapter envelope locally alongside normalized findings, accounted cost,
+and provider-backed identity provenance. It remains fail-closed
+until a reviewed evidence file exists and `BREADTH_LIVE_RUNNER_REVIEWED=true`
+is set at action time. No such evidence file is committed by this PR.
 
 Run state is append-only per-attempt and per-completion JSON records in the
 ignored run directory, protected by a lock and installed with atomic `mv`.
-Each request has a deterministic `call_id` and idempotency key. Completed call
-IDs are never scheduled again. An admitted transient retry
-is recorded but makes the binding run incomplete because 750 calls already
-consume the full dispatch cap.
+Each request has a deterministic `call_id` and idempotency key. Admission is
+durable before transport. Completed IDs are skipped on resume; an attempted ID
+without a terminal record blocks resume as uncertain. Every attempt, including
+the one preregistered transient retry, is checked against integer-cent cost,
+dispatch and elapsed-time caps. Any retry makes the binding run incomplete.
+
+`analyze` derives the item-by-arm matrix and aggregate metrics solely from the
+single structured judge record per item. `eligibility` separately requires the
+exact expected 750 call IDs, 30 valid judges, provider-backed identities, no
+retry/incomplete/unpriced record, the three caps, and a manual audit attestation
+binding the frozen inputs, evidence, records-set hash and analysis hash.
