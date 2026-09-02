@@ -24,7 +24,7 @@ jobs:
       - name: Bash syntax check
         run: |
           status=0
-          for f in scripts/*.sh scripts/lib/*.sh; do
+          for f in scripts/*.sh scripts/lib/*.sh benchmarks/breadth-v1/scripts/*.sh benchmarks/breadth-v1/fixtures/stub-adapters/*.sh; do
             if ! bash -n "$f"; then
               echo "FAIL: $f"
               status=1
@@ -34,7 +34,7 @@ jobs:
 
       - name: ShellCheck lint
         run: |
-          shellcheck -S warning -x -e SC1091,SC1090,SC2034,SC2155 scripts/*.sh scripts/lib/*.sh
+          shellcheck -S warning -x -e SC1091,SC1090,SC2034,SC2155 scripts/*.sh scripts/lib/*.sh benchmarks/breadth-v1/scripts/*.sh benchmarks/breadth-v1/fixtures/stub-adapters/*.sh
 
       - name: Run full test suite
         run: npm test

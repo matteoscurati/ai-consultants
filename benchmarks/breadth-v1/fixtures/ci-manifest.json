@@ -1,0 +1,384 @@
+{
+  "version": "breadth-v1-ci",
+  "frozen_at": "2026-09-01T00:00:00Z",
+  "dataset_sha256": "f6272f23db7827cb26990c66f4f4c528b197d77e7f0575f1c4125c6c2b88f646",
+  "preregistration_sha256": "571f2eb5207dd009e0c8bcdfa67e9bdb94b0f827682fa60acb6859783b9b7418",
+  "contract": {
+    "items": 30,
+    "categories": {
+      "security": 10,
+      "architecture-risk": 10,
+      "operational-failure-mode": 10
+    },
+    "primary_calls_per_item": 24,
+    "judge_calls_per_item": 1,
+    "primary_dispatches": 720,
+    "judge_dispatches": 30,
+    "planned_dispatches": 750,
+    "dispatch_cap": 750,
+    "cost_cap_usd": 150,
+    "elapsed_hours_cap": 24
+  },
+  "pricing": {
+    "reservation_per_dispatch_usd": 0.20,
+    "reservation_per_dispatch_cents": 20,
+    "cost_cap_cents": 15000,
+    "estimated_countable_cost_usd": 150,
+    "status": "frozen-worst-case-owner-approval-required"
+  },
+  "arms": {
+    "A": {
+      "calls_per_item": 1,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ]
+    },
+    "B": {
+      "calls_per_item": 9,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ]
+    },
+    "C": {
+      "calls_per_item": 2,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "mistral",
+          "requested_model": "mistral-medium-3.5",
+          "effort": "native/default",
+          "transport": "mistral-vibe-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ]
+    },
+    "D": {
+      "calls_per_item": 3,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "mistral",
+          "requested_model": "mistral-medium-3.5",
+          "effort": "native/default",
+          "transport": "mistral-vibe-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "kimi",
+          "requested_model": "kimi-code/k3",
+          "effort": "native/default",
+          "transport": "kimi-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ]
+    },
+    "E": {
+      "calls_per_item": 9,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "mistral",
+          "requested_model": "mistral-medium-3.5",
+          "effort": "native/default",
+          "transport": "mistral-vibe-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "kimi",
+          "requested_model": "kimi-code/k3",
+          "effort": "native/default",
+          "transport": "kimi-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "claude",
+          "requested_model": "claude-opus-5",
+          "effort": "native/default",
+          "transport": "claude-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "qwen",
+          "requested_model": "qwen3.7-max",
+          "effort": "native/default",
+          "transport": "qwen-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "glm",
+          "requested_model": "glm-5.3-flash",
+          "effort": "native/default",
+          "transport": "glm-api",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "grok",
+          "requested_model": "grok-4.6",
+          "effort": "native/default",
+          "transport": "grok-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "deepseek",
+          "requested_model": "deepseek-v4-pro",
+          "effort": "native/default",
+          "transport": "deepseek-api",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "minimax",
+          "requested_model": "MiniMax-M2.7",
+          "effort": "native/default",
+          "transport": "minimax-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ],
+      "excluded_families": [
+        "codex"
+      ]
+    },
+    "judge": {
+      "calls_per_item": 1,
+      "members": [
+        {
+          "family": "codex",
+          "requested_model": "gpt-5.6-sol",
+          "effort": "high",
+          "transport": "codex-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ],
+      "joint_arm_grading": true
+    }
+  },
+  "items": [
+    {
+      "id": "SEC-01",
+      "category": "security",
+      "item_sha256": "a33c3409ee91ecb61dfa52e2d37b49f743e4d2cb2a7b123bed6e5efbf32cf72b",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-02",
+      "category": "security",
+      "item_sha256": "2e35eea741a1997f81e4a7778506f6095a1fa29fc4b4caa166e56e2d60a00693",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-03",
+      "category": "security",
+      "item_sha256": "bbf272b2bce0ab6d674a478aa2fb95f4cea3a958f5a1cc2081070228ddc5ed55",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-04",
+      "category": "security",
+      "item_sha256": "cb063e5442fd99e52d3110db9328757b416bd3d6bea26ff81a073576cf32b775",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-05",
+      "category": "security",
+      "item_sha256": "209875fbe2718baddbfb5482ec73536349d3adc408cd142d305b3c93bfc742f3",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-06",
+      "category": "security",
+      "item_sha256": "de42f2c8fa47fd37262a5f853f024f2289be4896e1866f62b660d0d2654a7bdf",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-07",
+      "category": "security",
+      "item_sha256": "1e167da59abcc2e79672f67b736f15be5220a37d44215870e16c8121f4a4f656",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-08",
+      "category": "security",
+      "item_sha256": "d8a09e57065743ce2b02b3636876834dd0b832b5d9b27822353ac2bcfc1ec4ab",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-09",
+      "category": "security",
+      "item_sha256": "2c9b55856b494ca704aa9a6f3d240e0c9592d059d0c5d3ffea50d8d42a992620",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "SEC-10",
+      "category": "security",
+      "item_sha256": "9fa1f822f21dcee1d0a89099e79bae9daee7d53285627fe56d7e39074421e609",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-01",
+      "category": "architecture-risk",
+      "item_sha256": "69dcf886e8ed8a414c3d03f0ba82f6b85ce520cacb065c9b146d1d5343cf6df3",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-02",
+      "category": "architecture-risk",
+      "item_sha256": "3b51b8194bd1b39ea0f2113f2fd139229ccfc338e0670b397329b0f307eef4ab",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-03",
+      "category": "architecture-risk",
+      "item_sha256": "f84851d1915ca22a1d121748f31d03b24eb883e4705266605144e65b07af5060",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-04",
+      "category": "architecture-risk",
+      "item_sha256": "71d43a11e5dfc2ee2e9bf59d2d0383ae49582e0ed34a4998fb3def7166dccb89",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-05",
+      "category": "architecture-risk",
+      "item_sha256": "587db6e9d9669daf84d21a9536a1e92a6a8e700c9f68e6d9b4e9698efb8a4251",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-06",
+      "category": "architecture-risk",
+      "item_sha256": "b747dee40b5f2c2404d8039830909777090bfaa2d464324e52795fc36f4e872f",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-07",
+      "category": "architecture-risk",
+      "item_sha256": "c6a1c87b18b84189b195d1783ede460e07a64a7cc88c49ee3b34bc0d723b6a1d",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-08",
+      "category": "architecture-risk",
+      "item_sha256": "3ebdf30b835365d9d3f095ded807b4fce51dc14b8e587247e4ff9636953e6f3f",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-09",
+      "category": "architecture-risk",
+      "item_sha256": "12fbbc2ad9203c43b7b396ff1aa19c868d1914dceeef772240f13fa8d5341a1f",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "ARC-10",
+      "category": "architecture-risk",
+      "item_sha256": "0889ac9ece7d34803a94b61253a5b07a67f36d1a0c3a11b790ffb4bc2558e778",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-01",
+      "category": "operational-failure-mode",
+      "item_sha256": "cb8d1a94aafe0a45cc9d4692208e8de27420e7263e12b0052a9659b7b3eaaf88",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-02",
+      "category": "operational-failure-mode",
+      "item_sha256": "1d4c242ff129acba9502b778578a7efaf86b1bed007c68c550cf78d8468309b6",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-03",
+      "category": "operational-failure-mode",
+      "item_sha256": "1ec222ce2e8455de095ce67754ed5fdef3744aa4f4ed523e7c1b06f1ce67bd0c",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-04",
+      "category": "operational-failure-mode",
+      "item_sha256": "8af484a013c79d380b5d621db398d7de27c107f7f13b3b082f89babe7752c8b8",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-05",
+      "category": "operational-failure-mode",
+      "item_sha256": "6ccf23bee431ed1da9138d308c730fd04ef901a545505453326449913cbc7886",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-06",
+      "category": "operational-failure-mode",
+      "item_sha256": "31149b145a5d5864a8a999b84e9b6e870ea01b4e1d38a6eb5fa80755a466e2bc",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-07",
+      "category": "operational-failure-mode",
+      "item_sha256": "26866d20bc7c6c56c796c5815b2a3ae84119eed33220ec0fc96689fa0b2b0c79",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-08",
+      "category": "operational-failure-mode",
+      "item_sha256": "d000b5f5adedcccc50043cdfaf13db354c2613f04fa41975acd45b2fc212d2ca",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-09",
+      "category": "operational-failure-mode",
+      "item_sha256": "6103ecce918878a558d6188e56d0b0babfb9b8133d2f2c1679a024e336173598",
+      "source_id": "CI-PRIMARY"
+    },
+    {
+      "id": "OPS-10",
+      "category": "operational-failure-mode",
+      "item_sha256": "638144363ae01c1343dadc4e9fc4dca65ed58c1b8e34f85c07414499f2bbbb67",
+      "source_id": "CI-PRIMARY"
+    }
+  ],
+  "fixture_only": true
+}

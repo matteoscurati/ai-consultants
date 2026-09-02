@@ -184,17 +184,19 @@ test_shipped_surfaces_exclude_removed_cursor_consultant() {
 
 # ---------------------------------------------------------------------------
 test_package_excludes_release_archive() {
-    local project_root manifest release_count test_count release_script_count setup_count
+    local project_root manifest release_count test_count release_script_count benchmark_count setup_count
     project_root="$(cd "$SCRIPT_DIR/.." && pwd)"
     manifest=$(cd "$project_root" && npm pack --dry-run --json 2>/dev/null)
     release_count=$(jq '[.[0].files[].path | select(startswith("docs/releases/"))] | length' <<< "$manifest")
     test_count=$(jq '[.[0].files[].path | select(startswith("scripts/test_"))] | length' <<< "$manifest")
     release_script_count=$(jq '[.[0].files[].path | select(. == "scripts/release.sh")] | length' <<< "$manifest")
+    benchmark_count=$(jq '[.[0].files[].path | select(startswith("benchmarks/"))] | length' <<< "$manifest")
     setup_count=$(jq '[.[0].files[].path | select(. == "docs/SETUP.md")] | length' <<< "$manifest")
 
     assert_eq "0" "$release_count" "npm package excludes the GitHub release-note archive"
     assert_eq "0" "$test_count" "npm package excludes test suites"
     assert_eq "0" "$release_script_count" "npm package excludes maintainer release tooling"
+    assert_eq "0" "$benchmark_count" "npm package excludes maintainer benchmarks and held-out scaffolding"
     assert_eq "1" "$setup_count" "npm package keeps active setup documentation"
 }
 

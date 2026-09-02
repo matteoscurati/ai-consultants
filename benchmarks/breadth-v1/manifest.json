@@ -1,0 +1,383 @@
+{
+  "version": "breadth-v1",
+  "frozen_at": "2026-09-01T00:00:00Z",
+  "dataset_sha256": "6f93a2ed1bf51adf3ce1cc9ecd71888aea88a764bb79c9f34140288992742526",
+  "preregistration_sha256": "641382df2a32e3f032db0386bc6e8b0b3c4d161a4eb59f97d1a15d3186aaba9e",
+  "contract": {
+    "items": 30,
+    "categories": {
+      "security": 10,
+      "architecture-risk": 10,
+      "operational-failure-mode": 10
+    },
+    "primary_calls_per_item": 24,
+    "judge_calls_per_item": 1,
+    "primary_dispatches": 720,
+    "judge_dispatches": 30,
+    "planned_dispatches": 750,
+    "dispatch_cap": 750,
+    "cost_cap_usd": 150,
+    "elapsed_hours_cap": 24
+  },
+  "pricing": {
+    "reservation_per_dispatch_usd": 0.20,
+    "reservation_per_dispatch_cents": 20,
+    "cost_cap_cents": 15000,
+    "estimated_countable_cost_usd": 150,
+    "status": "frozen-worst-case-owner-approval-required"
+  },
+  "arms": {
+    "A": {
+      "calls_per_item": 1,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ]
+    },
+    "B": {
+      "calls_per_item": 9,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ]
+    },
+    "C": {
+      "calls_per_item": 2,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "mistral",
+          "requested_model": "mistral-medium-3.5",
+          "effort": "native/default",
+          "transport": "mistral-vibe-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ]
+    },
+    "D": {
+      "calls_per_item": 3,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "mistral",
+          "requested_model": "mistral-medium-3.5",
+          "effort": "native/default",
+          "transport": "mistral-vibe-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "kimi",
+          "requested_model": "kimi-code/k3",
+          "effort": "native/default",
+          "transport": "kimi-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ]
+    },
+    "E": {
+      "calls_per_item": 9,
+      "members": [
+        {
+          "family": "gemini",
+          "requested_model": "Gemini 3.7 Flash (High)",
+          "effort": "high",
+          "transport": "gemini-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "mistral",
+          "requested_model": "mistral-medium-3.5",
+          "effort": "native/default",
+          "transport": "mistral-vibe-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "kimi",
+          "requested_model": "kimi-code/k3",
+          "effort": "native/default",
+          "transport": "kimi-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "claude",
+          "requested_model": "claude-opus-5",
+          "effort": "native/default",
+          "transport": "claude-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "qwen",
+          "requested_model": "qwen3.7-max",
+          "effort": "native/default",
+          "transport": "qwen-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "glm",
+          "requested_model": "glm-5.3-flash",
+          "effort": "native/default",
+          "transport": "glm-api",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "grok",
+          "requested_model": "grok-4.6",
+          "effort": "native/default",
+          "transport": "grok-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "deepseek",
+          "requested_model": "deepseek-v4-pro",
+          "effort": "native/default",
+          "transport": "deepseek-api",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        },
+        {
+          "family": "minimax",
+          "requested_model": "MiniMax-M2.7",
+          "effort": "native/default",
+          "transport": "minimax-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ],
+      "excluded_families": [
+        "codex"
+      ]
+    },
+    "judge": {
+      "calls_per_item": 1,
+      "members": [
+        {
+          "family": "codex",
+          "requested_model": "gpt-5.6-sol",
+          "effort": "high",
+          "transport": "codex-cli",
+          "identity_evidence": "response.model",
+          "tier": "premium"
+        }
+      ],
+      "joint_arm_grading": true
+    }
+  },
+  "items": [
+    {
+      "id": "SEC-01",
+      "category": "security",
+      "item_sha256": "7d33bad0b63f4d72254b3a7ca0853e410d77fcb7e2a2c0e1c2e8de274a5ac6da",
+      "source_id": "RFC6749-10.15"
+    },
+    {
+      "id": "SEC-02",
+      "category": "security",
+      "item_sha256": "9905daeac3a6998ecdf3350be8b98e7df26f0d8cd66f81dc2f6152b8fc8d409d",
+      "source_id": "RFC8725-3"
+    },
+    {
+      "id": "SEC-03",
+      "category": "security",
+      "item_sha256": "b06bdcef03e9df05e75c6570d69a974aa99258a8898d0035d0f89f5bc54c6bec",
+      "source_id": "OWASP-Forgot"
+    },
+    {
+      "id": "SEC-04",
+      "category": "security",
+      "item_sha256": "01069b453ee9493fdb9f5569a61aa1b8459b4c641f2f70b093e04fc36aa211a6",
+      "source_id": "OWASP-API1"
+    },
+    {
+      "id": "SEC-05",
+      "category": "security",
+      "item_sha256": "5967a3ece989df64d32682113a318e00218c8fec601a6a4e504632c214c24e45",
+      "source_id": "OWASP-Webhooks"
+    },
+    {
+      "id": "SEC-06",
+      "category": "security",
+      "item_sha256": "018f5717cf8b7f8f00f195c228409cf6927e2be08e4c580befb880f6d163a911",
+      "source_id": "OWASP-Upload"
+    },
+    {
+      "id": "SEC-07",
+      "category": "security",
+      "item_sha256": "5fd65b49f9556655a081e41afb827ed641fbb3c62308af0a629a6d83443e3f2f",
+      "source_id": "OWASP-GraphQL"
+    },
+    {
+      "id": "SEC-08",
+      "category": "security",
+      "item_sha256": "86eba36b23846d12e7a69308870c35bc6d3e12b512eba1eb03ab442e6647745d",
+      "source_id": "OWASP-CSRF"
+    },
+    {
+      "id": "SEC-09",
+      "category": "security",
+      "item_sha256": "2a093cd538fb5cf9d7bbf47add64230c354415d6b40d6834f9fda7d834e69fd0",
+      "source_id": "GH-Actions-Security"
+    },
+    {
+      "id": "SEC-10",
+      "category": "security",
+      "item_sha256": "e1524a028da15ce06289c9014019ab436de500d60232f382e644d4205cf1f561",
+      "source_id": "OWASP-SQLi"
+    },
+    {
+      "id": "ARC-01",
+      "category": "architecture-risk",
+      "item_sha256": "23fea5ea49a6168edabff672739bfbbb55df058fb7d1957c86ef28719b7eedf9",
+      "source_id": "AWS-Saga"
+    },
+    {
+      "id": "ARC-02",
+      "category": "architecture-risk",
+      "item_sha256": "f611786b6acffd17788be2a45548486cfcce74113597a77e3a71b696dbc191e6",
+      "source_id": "MS-Microservices"
+    },
+    {
+      "id": "ARC-03",
+      "category": "architecture-risk",
+      "item_sha256": "d5a1df2fa8ea23d91f0b6f026b5ee44f0bb8672b5fe0bf79c8b5968d2ecbc2d2",
+      "source_id": "AWS-Timeouts"
+    },
+    {
+      "id": "ARC-04",
+      "category": "architecture-risk",
+      "item_sha256": "baa01b390e0abbcfe82f7801437a3069c4de7fa4ddb62d97fd69bd6e2198506d",
+      "source_id": "AWS-SaaS"
+    },
+    {
+      "id": "ARC-05",
+      "category": "architecture-risk",
+      "item_sha256": "701950e73ae5fde24d8afafd001df7ffdf0aa675a631a15cc9fa11566654a43d",
+      "source_id": "AWS-Caching"
+    },
+    {
+      "id": "ARC-06",
+      "category": "architecture-risk",
+      "item_sha256": "5ac6406f17d7eaa9faf7d0dcebd821f4433168d38e2872822f6ca2a86959302c",
+      "source_id": "Google-AIP-180"
+    },
+    {
+      "id": "ARC-07",
+      "category": "architecture-risk",
+      "item_sha256": "6e0638d47be871a8919c87374c3a9c0fc357bdb8fe853dc693d88862725c364f",
+      "source_id": "AWS-Outbox"
+    },
+    {
+      "id": "ARC-08",
+      "category": "architecture-risk",
+      "item_sha256": "3bddf2aec9ab235073618849c581786064f372347cb46dd539667f48caa26dce",
+      "source_id": "NIST-800-57"
+    },
+    {
+      "id": "ARC-09",
+      "category": "architecture-risk",
+      "item_sha256": "25a6e7f535e48f5920d8de9e59f3f3378751bdceda8ed4c9ff89d8657d4b09f4",
+      "source_id": "Stripe-Idempotency"
+    },
+    {
+      "id": "ARC-10",
+      "category": "architecture-risk",
+      "item_sha256": "61adb494325772039e65d3ff80952d888496da29ebf2f54aeda5d0cc30ac8700",
+      "source_id": "NIST-800-190"
+    },
+    {
+      "id": "OPS-01",
+      "category": "operational-failure-mode",
+      "item_sha256": "f0347b3647d35ddaae448b0c49bae35f64d113aba1e44dac8bed509bd8a73b49",
+      "source_id": "SRE-Canary"
+    },
+    {
+      "id": "OPS-02",
+      "category": "operational-failure-mode",
+      "item_sha256": "b874c36ca489c80935fd02aa7ea2297c3199539460f2f7e2ca8a6d6618f8a738",
+      "source_id": "NIST-CP-9"
+    },
+    {
+      "id": "OPS-03",
+      "category": "operational-failure-mode",
+      "item_sha256": "9729c4ef2b36a57d6528528d1917cc548e725ebfa8aca1128a17d6928602c083",
+      "source_id": "AWS-SQS"
+    },
+    {
+      "id": "OPS-04",
+      "category": "operational-failure-mode",
+      "item_sha256": "7d3d99c05e4fe21477cded505a3c0ed352742075f68b3c1c663b017d801e03f7",
+      "source_id": "AWS-Retry"
+    },
+    {
+      "id": "OPS-05",
+      "category": "operational-failure-mode",
+      "item_sha256": "2b0406f2707ee9a1aafedc5a98cb533df5f8fc67449ff7e5db4392f957a5e69a",
+      "source_id": "OWASP-Logging"
+    },
+    {
+      "id": "OPS-06",
+      "category": "operational-failure-mode",
+      "item_sha256": "9aaedbfab194831ec66a4407c8b69fb0e0b55436fe727e7c4c4a974ab989a8ab",
+      "source_id": "K8S-Probes"
+    },
+    {
+      "id": "OPS-07",
+      "category": "operational-failure-mode",
+      "item_sha256": "3212599c2bf4c4f054438c4dad205819ef47ae739653ed2931ba49b0df313377",
+      "source_id": "MS-Data"
+    },
+    {
+      "id": "OPS-08",
+      "category": "operational-failure-mode",
+      "item_sha256": "ccc95f83005ccbdf2aad67772ffd5dcf53e48e7ebfc676283b39d930dff77573",
+      "source_id": "NIST-AU-3"
+    },
+    {
+      "id": "OPS-09",
+      "category": "operational-failure-mode",
+      "item_sha256": "05ec947311bbdb21498bc243ead53c1afcf28f77ef41eb64ff20812cc192e5c7",
+      "source_id": "IETF-RateLimit"
+    },
+    {
+      "id": "OPS-10",
+      "category": "operational-failure-mode",
+      "item_sha256": "0441152a4959d70a408c7029ebde37d2ecaca07626c6b7132e3bd16ee5f6a3a3",
+      "source_id": "OWASP-TLS"
+    }
+  ]
+}

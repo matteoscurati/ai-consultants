@@ -1,0 +1,1385 @@
+{
+  "version": "breadth-v1-ci",
+  "items": [
+    {
+      "id": "SEC-01",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 1: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-02",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 2: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-03",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 3: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-04",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 4: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-05",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 5: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-06",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 6: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-07",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 7: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-08",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 8: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-09",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 9: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "SEC-10",
+      "category": "security",
+      "prompt": "SYNTHETIC CI ITEM 10: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-01",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 11: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-02",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 12: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-03",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 13: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-04",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 14: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-05",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 15: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-06",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 16: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-07",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 17: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-08",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 18: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-09",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 19: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "ARC-10",
+      "category": "architecture-risk",
+      "prompt": "SYNTHETIC CI ITEM 20: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-01",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 21: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-02",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 22: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-03",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 23: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-04",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 24: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-05",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 25: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-06",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 26: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-07",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 27: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-08",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 28: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-09",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 29: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    },
+    {
+      "id": "OPS-10",
+      "category": "operational-failure-mode",
+      "prompt": "SYNTHETIC CI ITEM 30: evaluate a deliberately non-production boundary.",
+      "rubric": {
+        "atomic_findings": [
+          {
+            "id": "finding-1",
+            "text": "synthetic high finding",
+            "severity": "high",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-2",
+            "text": "synthetic validity finding",
+            "severity": "medium",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          },
+          {
+            "id": "finding-3",
+            "text": "synthetic recovery finding",
+            "severity": "low",
+            "source_ids": [
+              "CI-PRIMARY"
+            ]
+          }
+        ],
+        "high_severity_ids": [
+          "finding-1"
+        ],
+        "source_ids": [
+          "CI-PRIMARY"
+        ]
+      },
+      "sources": [
+        {
+          "id": "CI-PRIMARY",
+          "kind": "primary-synthetic",
+          "url": "https://example.invalid/ci-primary"
+        }
+      ]
+    }
+  ]
+}
