@@ -25,7 +25,13 @@ metadata and item hashes.
 Codex is excluded from every primary arm. There is no fallback model, model
 substitution, provider preflight, health request, or separate synthesis call.
 All source normalization and arm synthesis is deterministic local work; the
-judge receives all arm results together.
+judge receives all arm results together. Every atomic arm finding carries its
+locally assigned source ID and originating consultant family. Source-ID
+retention is the fraction of those attributed arm-input IDs that the joint
+judge marks as represented by supported true-positive findings. Unique
+contribution is judged only from the attached family attribution. Rubric
+high-severity and source-ID denominators are supplied and enforced locally,
+never accepted from the judge.
 
 The exact adapter bridge is deliberately not live-ready by default:
 provider-backed model, effort, transport, billing and pricing evidence has not
@@ -47,8 +53,8 @@ retry/incomplete/orphan records, exact provider-backed
 requested/effective/billing identities, valid structured judges, integer-cent
 accounting within USD 150, completion within 24 hours, frozen hashes, and a
 separate manual-audit gate. The audit binds the evidence, deterministic record
-set and analysis hashes. Otherwise the result is negative or inconclusive,
-never binding.
+set, harness, live runner and analysis hashes. Otherwise the result is negative
+or inconclusive, never binding.
 
 Primary outcomes: rubric recall, precision, high-severity capture, unique
 consultant contribution, and source-ID retention. Secondary evidence records

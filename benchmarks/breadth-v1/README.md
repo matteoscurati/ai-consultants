@@ -1,20 +1,23 @@
 # Breadth v1 maintainer benchmark
 
-This tree is a maintainer-only, preregistered benchmark harness. It is not part
-of the shipped package (see `package.json`) and does not change consultation
-defaults. The held-out prompts and rubrics are deliberately local-only in
+This tree is a maintainer-only, preregistered benchmark harness. It is excluded
+from the npm package (see `package.json`) and does not change consultation
+defaults. Repository-based installs may contain the harness, but never the
+ignored private corpus. The held-out prompts and rubrics are deliberately local-only in
 `private/heldout-v1.json`; that path is ignored. P1.7 may publish that corpus
 only after a binding run.
 
 ## Offline checks
 
 ```bash
-bash benchmarks/breadth-v1/scripts/breadth.sh validate \
-  benchmarks/breadth-v1/private/heldout-v1.json
+bash benchmarks/breadth-v1/scripts/breadth.sh validate --ci
 bash benchmarks/breadth-v1/scripts/breadth.sh smoke
-bash benchmarks/breadth-v1/scripts/breadth.sh preflight --json
+bash benchmarks/breadth-v1/scripts/breadth.sh preflight --ci --json
 bash benchmarks/breadth-v1/scripts/breadth.sh analyze fixtures/positive-run.jsonl
 ```
+
+The private `validate` and `preflight --evidence FILE` variants require the
+maintainer-held corpus and intentionally fail on a clean checkout.
 
 CI uses the committed `fixtures/ci-dataset.json` and `ci-manifest.json`:
 
@@ -34,8 +37,8 @@ gate. It can never accept evidence or a live runner.
 preregistration, exact premium roster, schedule, provider-backed identity
 evidence, per-transport pricing and the three caps. Missing, stale, unpriced or
 over-cap evidence produces a non-actionable receipt with no confirmation token.
-The token binds manifest, preregistration, dataset, evidence, schedule, caps and
-expiry. `run` requires that same evidence file and the action-time token before
+The token binds manifest, preregistration, dataset, evidence, schedule, harness,
+live runner, caps and expiry. `run` requires that same evidence file and the action-time token before
 creating state.
 
 `scripts/live-runner.sh` is the only accepted binding runner. It pins each
@@ -59,3 +62,7 @@ single structured judge record per item. `eligibility` separately requires the
 exact expected 750 call IDs, 30 valid judges, provider-backed identities, no
 retry/incomplete/unpriced record, the three caps, and a manual audit attestation
 binding the frozen inputs, evidence, records-set hash and analysis hash.
+Every arm finding reaches the judge as `{text, source_id, family}`. Retention is
+the locally validated fraction of attributed IDs that the judge identifies as
+supported true positives; high-severity and expected-source denominators come
+from the frozen rubric/arm packet rather than judge-supplied counts.

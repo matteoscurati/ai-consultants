@@ -90,6 +90,7 @@ validate_contract() {
     (.arms.judge.members[0].family == "codex") and
     (.arms.judge.members[0].requested_model == "gpt-5.6-sol") and
     (.arms.judge.members[0].effort == "high") and
+    ([.arms.A.members[],.arms.B.members[],.arms.C.members[],.arms.D.members[]|select(.family=="codex")]|length==0) and
     (.arms.E.excluded_families | index("codex")) and
     ([.arms[]?.members[]? | select(.tier != "premium")] | length == 0) and
     (.items | length == 30) and
@@ -140,14 +141,14 @@ validate_dataset() {
 }
 
 receipt_material() {
-  local manifest_hash="$1" prereg_hash="$2" data_hash="$3" evidence_hash="$4" schedule_sha="$5" expires="$6"
-  printf 'breadth-v1|%s|%s|%s|%s|%s|750|15000|86400|%s' "$manifest_hash" "$prereg_hash" "$data_hash" "$evidence_hash" "$schedule_sha" "$expires"
+  local manifest_hash="$1" prereg_hash="$2" data_hash="$3" evidence_hash="$4" schedule_sha="$5" harness_sha="$6" runner_sha="$7" expires="$8"
+  printf 'breadth-v1|%s|%s|%s|%s|%s|%s|%s|750|15000|86400|%s' "$manifest_hash" "$prereg_hash" "$data_hash" "$evidence_hash" "$schedule_sha" "$harness_sha" "$runner_sha" "$expires"
 }
 
 receipt_json() {
-  local dataset="$1" evidence="${2:-}" allow_test_actionable="${3:-false}" expires token material manifest_hash prereg_hash data_hash evidence_hash="" schedule_sha summary='{}' actionable=false
+  local dataset="$1" evidence="${2:-}" allow_test_actionable="${3:-false}" expires token material manifest_hash prereg_hash data_hash evidence_hash="" schedule_sha harness_sha runner_sha summary='{}' actionable=false
   manifest_hash="$(sha_file "$MANIFEST")"; prereg_hash="$(sha_file "$PREREG")"; data_hash="$(sha_file "$dataset")"
-  schedule_sha="$(schedule_hash)"
+  schedule_sha="$(schedule_hash)"; harness_sha="$(sha_file "$ROOT/scripts/breadth.sh")"; runner_sha="$(sha_file "$ROOT/scripts/live-runner.sh")"
   expires=$(( $(date +%s) + 600 ))
   if [[ -n "$evidence" && -f "$evidence" ]]; then
     evidence_hash="$(sha_file "$evidence")"
@@ -161,11 +162,11 @@ receipt_json() {
       summary='{"entries":[],"unpriced":[{"reason":"invalid-evidence"}],"estimated_countable_cost_cents":0,"all_provider_backed":false}'
     fi
   fi
-  material="$(receipt_material "$manifest_hash" "$prereg_hash" "$data_hash" "$evidence_hash" "$schedule_sha" "$expires")"
+  material="$(receipt_material "$manifest_hash" "$prereg_hash" "$data_hash" "$evidence_hash" "$schedule_sha" "$harness_sha" "$runner_sha" "$expires")"
   $actionable && token="$(sha_text "$material")" || token=""
   jq -n --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --argjson expires_at "$expires" --arg manifest_hash "$manifest_hash" --arg prereg_hash "$prereg_hash" \
-    --arg dataset_hash "$data_hash" --arg evidence_hash "$evidence_hash" --arg schedule_hash "$schedule_sha" --arg confirmation_token "$token" --argjson actionable "$actionable" --argjson evidence_summary "$summary" \
+    --arg dataset_hash "$data_hash" --arg evidence_hash "$evidence_hash" --arg schedule_hash "$schedule_sha" --arg harness_hash "$harness_sha" --arg runner_hash "$runner_sha" --arg confirmation_token "$token" --argjson actionable "$actionable" --argjson evidence_summary "$summary" \
     --slurpfile manifest "$MANIFEST" '{
       benchmark:"breadth-v1", generated_at:$generated_at, expires_at_epoch:$expires_at,
       manifest_sha256:$manifest_hash, preregistration_sha256:$prereg_hash, dataset_sha256:$dataset_hash,
@@ -174,6 +175,7 @@ receipt_json() {
       estimated_countable_cost_cents:$evidence_summary.estimated_countable_cost_cents,
       unpriced:$evidence_summary.unpriced, no_provider_preflight:true,
       roster:$manifest[0].arms, schedule_sha256:$schedule_hash,
+      harness_sha256:$harness_hash,runner_sha256:$runner_hash,
       evidence_sha256:($evidence_hash | if . == "" then null else . end),
       runner_ready:$actionable, actionable_confirmation:$actionable,
       confirmation_token:($confirmation_token | if . == "" then null else . end)
@@ -210,7 +212,7 @@ preflight() {
 }
 
 validate_receipt() {
-  local receipt="$1" token="$2" dataset="$3" evidence="$4" expires material expected evidence_hash schedule_sha
+  local receipt="$1" token="$2" dataset="$3" evidence="$4" expires material expected evidence_hash schedule_sha harness_sha runner_sha
   need_json "$receipt"
   expires="$(jq -r '.expires_at_epoch' "$receipt")"
   [[ "$expires" =~ ^[0-9]+$ ]] && (( expires >= $(date +%s) )) || die "receipt expired"
@@ -220,10 +222,11 @@ validate_receipt() {
   [[ "$(jq -r '.runner_ready == true and .actionable_confirmation == true' "$receipt")" == "true" ]] || die "receipt is not actionable"
   [[ -n "$evidence" && -f "$evidence" ]] || die "run requires the reviewed evidence file"
   evidence_summary "$evidence" >/dev/null || die "identity/pricing evidence is invalid or expired"
-  evidence_hash="$(sha_file "$evidence")"; schedule_sha="$(schedule_hash)"
+  evidence_hash="$(sha_file "$evidence")"; schedule_sha="$(schedule_hash)"; harness_sha="$(sha_file "$ROOT/scripts/breadth.sh")"; runner_sha="$(sha_file "$ROOT/scripts/live-runner.sh")"
   [[ "$(jq -r '.evidence_sha256' "$receipt")" == "$evidence_hash" ]] || die "receipt evidence hash drift"
   [[ "$(jq -r '.schedule_sha256' "$receipt")" == "$schedule_sha" ]] || die "receipt schedule hash drift"
-  material="$(receipt_material "$(sha_file "$MANIFEST")" "$(sha_file "$PREREG")" "$(sha_file "$dataset")" "$evidence_hash" "$schedule_sha" "$expires")"
+  [[ "$(jq -r '.harness_sha256' "$receipt")" == "$harness_sha" && "$(jq -r '.runner_sha256' "$receipt")" == "$runner_sha" ]] || die "receipt executable hash drift"
+  material="$(receipt_material "$(sha_file "$MANIFEST")" "$(sha_file "$PREREG")" "$(sha_file "$dataset")" "$evidence_hash" "$schedule_sha" "$harness_sha" "$runner_sha" "$expires")"
   expected="$(sha_text "$material")"
   [[ "$token" == "$expected" && "$token" == "$(jq -r '.confirmation_token' "$receipt")" ]] || die "action-time confirmation token does not bind this receipt"
 }
@@ -283,6 +286,19 @@ mark_incomplete() {
   mv "$tmp" "$run/incomplete.json"
 }
 
+acquire_lock() {
+  local run="$1" owner="" stale
+  if ! mkdir "$run/.lock" 2>/dev/null; then
+    [[ -f "$run/.lock/pid" ]] && owner="$(cat "$run/.lock/pid" 2>/dev/null || true)"
+    if [[ "$owner" =~ ^[1-9][0-9]*$ ]] && kill -0 "$owner" 2>/dev/null; then die "run lock is held by pid $owner"; fi
+    stale="$run/.lock.stale.$(date +%s).$$"; mv "$run/.lock" "$stale" || die "cannot preserve stale run lock"
+    mkdir "$run/.lock" || die "cannot acquire run lock"
+  fi
+  printf '%s\n' "$$" > "$run/.lock/pid"
+}
+
+release_lock() { local run="$1"; rm -f "$run/.lock/pid" 2>/dev/null || true; rmdir "$run/.lock" 2>/dev/null || true; }
+
 append_record() {
   local run="$1" call_id="$2" record="$3" tmp state
   state="$(printf '%s' "$record" | jq -r '.status')"
@@ -320,27 +336,29 @@ run_live() {
     [[ "$(jq -r '.dataset_sha256' "$run/state.json")" == "$(sha_file "$dataset")" ]] || die "resume dataset hash drift"
     [[ "$(jq -r '.receipt_sha256' "$run/state.json")" == "$receipt_hash" ]] || die "resume receipt hash drift"
     [[ "$(jq -r '.evidence_sha256' "$run/state.json")" == "$(sha_file "$evidence")" ]] || die "resume evidence hash drift"
+    [[ "$(jq -r '.harness_sha256' "$run/state.json")" == "$(sha_file "$ROOT/scripts/breadth.sh")" && "$(jq -r '.runner_sha256' "$run/state.json")" == "$(sha_file "$ROOT/scripts/live-runner.sh")" ]] || die "resume executable hash drift"
     [[ ! -f "$run/incomplete.json" ]] || die "run is already marked incomplete"
     if orphan="$(first_orphan_attempt "$run")"; then die "uncertain attempted call blocks resume: $orphan"; fi
   else
     mkdir -p "$run/records" || die "cannot create run directory"
   fi
-  mkdir "$run/.lock" || die "run lock is held"
-  trap 'rmdir "${run:-}/.lock" 2>/dev/null || true' EXIT
+  acquire_lock "$run"
+  trap 'release_lock "${run:-}"' EXIT
   if [[ ! -f "$run/state.json" ]]; then
     jq -n --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson start_epoch "$(date +%s)" \
       --arg manifest_sha256 "$(sha_file "$MANIFEST")" --arg dataset_sha256 "$(sha_file "$dataset")" \
       --arg preregistration_sha256 "$(sha_file "$PREREG")" --arg schedule_sha256 "$(schedule_hash)" \
       --arg receipt_sha256 "$receipt_hash" --arg evidence_sha256 "$(sha_file "$evidence")" \
+      --arg harness_sha256 "$(sha_file "$ROOT/scripts/breadth.sh")" --arg runner_sha256 "$(sha_file "$ROOT/scripts/live-runner.sh")" \
       '{started_at:$started,start_epoch:$start_epoch,manifest_sha256:$manifest_sha256,dataset_sha256:$dataset_sha256,
         preregistration_sha256:$preregistration_sha256,schedule_sha256:$schedule_sha256,
-        receipt_sha256:$receipt_sha256,evidence_sha256:$evidence_sha256,test_only:false}' > "$run/state.json"
+        receipt_sha256:$receipt_sha256,evidence_sha256:$evidence_sha256,harness_sha256:$harness_sha256,runner_sha256:$runner_sha256,test_only:false}' > "$run/state.json"
   fi
   BREADTH_EVIDENCE_FILE="$evidence" dispatch_dataset "$dataset" "$run" "$runner" \
     "$(jq '.contract.dispatch_cap' "$MANIFEST")" "$(jq '.pricing.cost_cap_cents' "$MANIFEST")"
   local state_tmp
   state_tmp="$(mktemp "$run/.state.XXXXXX")"; jq --argjson completed_epoch "$(date +%s)" '.completed_epoch=$completed_epoch' "$run/state.json" > "$state_tmp"; mv "$state_tmp" "$run/state.json"
-  rmdir "$run/.lock"
+  release_lock "$run"
   trap - EXIT
 }
 
@@ -364,15 +382,39 @@ run_test_only() {
     if orphan="$(first_orphan_attempt "$run")"; then die "uncertain attempted call blocks resume: $orphan"; fi
   else
     mkdir -p "$run/records"
-    jq -n --argjson start_epoch "${BREADTH_TEST_START_EPOCH:-$(date +%s)}" --arg manifest "$(sha_file "$MANIFEST")" --arg dataset "$(sha_file "$PRIVATE_DEFAULT")" --arg prereg "$(sha_file "$PREREG")" --arg schedule "$(schedule_hash)" --arg runner "sentinel-runner" '{start_epoch:$start_epoch,manifest_sha256:$manifest,dataset_sha256:$dataset,preregistration_sha256:$prereg,schedule_sha256:$schedule,runner_identity:$runner,test_only:true}' > "$run/state.json"
+    jq -n --argjson start_epoch "${BREADTH_TEST_START_EPOCH:-$(date +%s)}" --arg manifest "$(sha_file "$MANIFEST")" --arg dataset "$(sha_file "$PRIVATE_DEFAULT")" --arg prereg "$(sha_file "$PREREG")" --arg schedule "$(schedule_hash)" --arg harness "$(sha_file "$ROOT/scripts/breadth.sh")" --arg runner_sha "$(sha_file "$ROOT/scripts/live-runner.sh")" --arg runner "sentinel-runner" '{start_epoch:$start_epoch,manifest_sha256:$manifest,dataset_sha256:$dataset,preregistration_sha256:$prereg,schedule_sha256:$schedule,harness_sha256:$harness,runner_sha256:$runner_sha,runner_identity:$runner,test_only:true}' > "$run/state.json"
   fi
-  mkdir "$run/.lock" || die "test-run lock is held"
-  trap 'rmdir "${run:-}/.lock" 2>/dev/null || true' EXIT
+  acquire_lock "$run"
+  trap 'release_lock "${run:-}"' EXIT
   dispatch_dataset "$PRIVATE_DEFAULT" "$run" "$sentinel" "$cap" "$cost_cap"
   local state_tmp
   state_tmp="$(mktemp "$run/.state.XXXXXX")"; jq --argjson completed_epoch "$(date +%s)" '.completed_epoch=$completed_epoch' "$run/state.json" > "$state_tmp"; mv "$state_tmp" "$run/state.json"
-  rmdir "$run/.lock"; trap - EXIT
+  release_lock "$run"; trap - EXIT
   [[ -f "$run/analysis.json" ]] && cat "$run/analysis.json"
+}
+
+normalize_judge_response() {
+  local response="$1" request="$2"
+  jq -ce -n --argjson response "$response" --argjson request "$request" '
+    $response | .judge.scores |= map(
+      . as $score |
+      ($request.arm_outputs[] | select(.arm==$score.arm)) as $packet |
+      ([$packet.findings[].source_id]|unique) as $expected_sources |
+      ([$packet.findings[].family]|unique) as $allowed_families |
+      select(($score.retained_source_ids|type)=="array" and ($score.retained_source_ids|length)==($score.retained_source_ids|unique|length)) |
+      select(all($score.retained_source_ids[]; . as $id | ($expected_sources|index($id))!=null)) |
+      select(all($score.unique_contributions[].family; . as $family | ($allowed_families|index($family))!=null)) |
+      . + {high_severity_total:($request.item.rubric.high_severity_ids|length),
+           source_ids_expected:($expected_sources|length),
+           source_ids_retained:($score.retained_source_ids|length)}
+    )
+  '
+}
+
+test_normalize_judge() {
+  local response_file="$1" request_file="$2"
+  [[ "${BREADTH_TEST_ONLY:-}" == "1" ]] || die "test-normalize-judge requires BREADTH_TEST_ONLY=1"
+  normalize_judge_response "$(cat "$response_file")" "$(cat "$request_file")"
 }
 
 dispatch_dataset() {
@@ -388,17 +430,17 @@ dispatch_dataset() {
         [[ ! -f "$run/records/$call_id.failed.json" ]] || die "failed call blocks continuation: $call_id"
         member="$(member_for "$arm" "$pos")"; reserve="$(reservation_for_member "$member")" || die "missing priced reservation for $call_id"
         now="$(date +%s)"; elapsed=$((now - start_epoch))
-        (( elapsed < 86400 )) || die "elapsed-time cap reached before dispatch"
+        (( elapsed < 86400 )) || { mark_incomplete "$run" "elapsed-time cap reached before dispatch: $call_id"; die "elapsed-time cap reached before dispatch"; }
         counts="$(record_counts "$run")"
-        (( $(printf '%s' "$counts" | jq -r '.attempted') < cap )) || die "dispatch cap reached before dispatch"
+        (( $(printf '%s' "$counts" | jq -r '.attempted') < cap )) || { mark_incomplete "$run" "dispatch cap reached before dispatch: $call_id"; die "dispatch cap reached before dispatch"; }
         base_spend="$(printf '%s' "$counts" | jq '[.reserved_cents,.accounted_cents]|max')"
-        (( base_spend + reserve <= cost_cap_cents )) || die "cost reservation would exceed cap before dispatch"
+        (( base_spend + reserve <= cost_cap_cents )) || { mark_incomplete "$run" "cost reservation would exceed cap before dispatch: $call_id"; die "cost reservation would exceed cap before dispatch"; }
         item="$(jq -c --arg id "$id" '.items[] | select(.id == $id) | {id,category,prompt}' "$dataset")"
         if [[ "$arm" == "judge" ]]; then
           # The only rubric-bearing payload is the one joint Codex judge request.
           item="$(jq -c --arg id "$id" '.items[] | select(.id == $id)' "$dataset")"
           local arms_packet
-          arms_packet="$(jq -s --arg id "$id" '[.[] | select(.item_id == $id and (.arm == "A" or .arm == "B" or .arm == "C" or .arm == "D" or .arm == "E") and .status == "completed") | {arm:.arm, findings:(.result.findings // []), source_ids:(.result.source_ids // [])}] | group_by(.arm) | map({arm:.[0].arm, findings:([.[].findings[]] | unique), source_ids:([.[].source_ids[]] | unique)})' "$run/records"/*.json)"
+          arms_packet="$(jq -s --arg id "$id" '[.[] | select(.item_id == $id and (.arm == "A" or .arm == "B" or .arm == "C" or .arm == "D" or .arm == "E") and .status == "completed") as $record | range(0; ($record.result.findings|length)) as $index | {arm:$record.arm,finding:{text:$record.result.findings[$index],source_id:$record.result.source_ids[$index],family:$record.effective_identity.family}}] | group_by(.arm) | map({arm:.[0].arm,findings:[.[].finding]})' "$run/records"/*.json)"
           [[ "$(printf '%s' "$arms_packet" | jq 'length')" == "5" ]] || die "judge blocked: all five deterministic arm packets are required"
           request="$(jq -n --arg call_id "$call_id" --arg item_id "$id" --arg category "$category" --arg arm "$arm" --argjson position "$pos" --argjson item "$item" --argjson arm_outputs "$arms_packet" --argjson requested_identity "$member" --arg key "$(sha_text "$call_id")" --arg evidence "$(jq -r '.evidence_sha256 // "test-only"' "$run/state.json")" --arg receipt "$(jq -r '.receipt_sha256 // "test-only"' "$run/state.json")" --arg schedule "$(jq -r '.schedule_sha256' "$run/state.json")" '{call_id:$call_id,idempotency_key:$key,item_id:$item_id,category:$category,arm:$arm,position:$position,item:$item,arm_outputs:$arm_outputs,requested_identity:$requested_identity,evidence_sha256:$evidence,receipt_sha256:$receipt,schedule_sha256:$schedule}')"
         else
@@ -431,6 +473,9 @@ dispatch_dataset() {
             mark_incomplete "$run" "transient retry transport failure: $call_id"
             die "transient retry failed; run is incomplete"
           fi
+          if [[ "$arm" == "judge" ]]; then
+            retry_response="$(normalize_judge_response "$retry_response" "$retry_request")" || { mark_incomplete "$run" "invalid judge retry attribution: $call_id"; die "invalid judge retry attribution"; }
+          fi
           retry_record="$(jq -n --argjson request "$retry_request" --argjson response "$retry_response" '$response + {call_id:$request.call_id,arm:$request.arm,item_id:$request.item_id,requested_identity:$request.requested_identity}')"
           if ! validate_response "$retry_record" "$arm"; then
             append_record "$run" "$retry_id" "$(printf '%s' "$retry_record" | jq '.status="failed" | .failure_kind="retry-schema-or-identity" | .accounted_cost_cents=(.accounted_cost_cents // 0) | .pricing_status=(.pricing_status // "unpriced")')"
@@ -440,6 +485,12 @@ dispatch_dataset() {
           append_record "$run" "$retry_id" "$retry_record"
           mark_incomplete "$run" "cap-consuming transient retry: $call_id"
           die "transient retry recorded; binding run is incomplete and must not continue"
+        fi
+        if [[ "$arm" == "judge" ]]; then
+          response="$(normalize_judge_response "$response" "$request")" || {
+            append_record "$run" "$call_id" "$(jq -n --argjson request "$request" '{call_id:$request.call_id,arm:$request.arm,item_id:$request.item_id,category:$request.category,position:$request.position,status:"failed",provider_reached:true,requested_identity:$request.requested_identity,accounted_cost_cents:0,pricing_status:"unpriced",failure_kind:"judge-attribution"}')"
+            mark_incomplete "$run" "invalid judge attribution: $call_id"; die "invalid judge attribution"
+          }
         fi
         record="$(jq -n --argjson request "$request" --argjson response "$response" --arg attempted_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
           $response + {call_id:$request.call_id,idempotency_key:$request.idempotency_key,arm:$request.arm,item_id:$request.item_id,category:$request.category,position:$request.position,requested_identity:$request.requested_identity,attempted_at:$attempted_at}
@@ -485,21 +536,23 @@ validate_response() {
         ($s.fn|type == "number" and . >= 0 and floor == .) and
         ($s.high_severity_hit|type == "number" and . >= 0 and floor == .) and
         ($s.high_severity_total|type == "number" and . >= $s.high_severity_hit and floor == .) and
+        ($s.retained_source_ids|type == "array" and length == (unique|length)) and
         ($s.source_ids_retained|type == "number" and . >= 0 and floor == .) and
         ($s.source_ids_expected|type == "number" and . >= $s.source_ids_retained and floor == .) and
+        ($s.source_ids_retained == ($s.retained_source_ids|length)) and
         ($s.unique_contributions|type == "array") and
         ([ $s.unique_contributions[] | select((.family|type)=="string" and (.count|type)=="number" and .count >= 0 and (.count|floor)==.count) ] | length == ($s.unique_contributions|length)) and
         ([ $s.unique_contributions[].family ] | length == (unique|length))
       )] | length == 5)
     ' >/dev/null || return 1
   else
-    printf '%s' "$record" | jq -e '(.result.findings | type == "array") and (.result.source_ids | type == "array") and (.result.source_ids|length == (unique|length))' >/dev/null || return 1
+    printf '%s' "$record" | jq -e '(.result.findings | type == "array" and length>0) and (.result.source_ids | type == "array") and (.result.findings|length)==(.result.source_ids|length) and (.result.source_ids|length == (unique|length))' >/dev/null || return 1
   fi
 }
 
 analyze_records() {
   local input="$1" output="${2:-}"
-  local report judge_file
+  local report judge_file judge_record
   local -a files
   if [[ -f "$input" ]]; then
     files=("$input")
@@ -511,9 +564,10 @@ analyze_records() {
   # Validate every completed judge before aggregation. A malformed judge makes
   # the analysis invalid rather than silently contributing zeros.
   for judge_file in "${files[@]}"; do
-    if [[ "$(jq -r 'select(.status=="completed" and .arm=="judge") | .arm' "$judge_file" 2>/dev/null || true)" == "judge" ]]; then
-      validate_response "$(cat "$judge_file")" judge || die "analyzer rejected invalid judge: $(basename "$judge_file")"
-    fi
+    while IFS= read -r judge_record; do
+      [[ -n "$judge_record" ]] || continue
+      validate_response "$judge_record" judge || die "analyzer rejected invalid judge: $(basename "$judge_file")"
+    done < <(jq -c 'select(.status=="completed" and .arm=="judge")' "$judge_file" 2>/dev/null || true)
   done
   report="$(jq -s '
     def div0($a;$b): if $b == 0 then null else $a / $b end;
@@ -530,6 +584,7 @@ analyze_records() {
     item_scores as $matrix |
     ([.[]|select(.status=="completed")]|group_by(.arm)|map(
       {arm:.[0].arm,calls:length,accounted_cost_cents:([.[].accounted_cost_cents//0]|add),
+       measured_cost_calls:([.[]|select(.pricing_status=="measured")]|length),estimated_cost_calls:([.[]|select(.pricing_status=="estimated")]|length),unpriced_calls:([.[]|select(.pricing_status=="unpriced")]|length),
        measured_tokens:([.[]|.tokens_measured//0]|add),estimated_tokens:([.[]|.tokens_estimated//0]|add),
        mean_latency_ms:(if length==0 then null else ([.[].latency_ms]|add)/length end)})) as $accounting |
     ($matrix|group_by(.arm)|map(
@@ -549,6 +604,8 @@ analyze_records() {
      judge_valid:(($matrix|length)>0),item_arm_matrix:$matrix,aggregate_by_arm:$aggregates,
      accounting_by_arm:$accounting,
      total_accounted_cost_cents:([.[]|select(.status=="completed" or .status=="failed")|.accounted_cost_cents//0]|add),
+     measured_cost_calls:([.[]|select((.status=="completed" or .status=="failed") and .pricing_status=="measured")]|length),
+     estimated_cost_calls:([.[]|select((.status=="completed" or .status=="failed") and .pricing_status=="estimated")]|length),
      unpriced_call_ids:[.[]|select((.status=="completed" or .status=="failed") and .pricing_status=="unpriced")|.call_id],
      unique_contribution_by_consultant:([$matrix[].unique_contributions[]]|sort_by(.family)|group_by(.family)|map({family:.[0].family,unique_findings:([.[].count]|add)})),
      binding_claim:false,binding_reason:"manual-audit eligibility is a separate gate"}
@@ -593,12 +650,12 @@ eligibility() {
   [[ "$(jq -r '(.completed_epoch // 0) > 0 and ((.completed_epoch-.start_epoch) <= 86400)' "$run/state.json")" == "true" ]] && elapsed_ok=true || elapsed_ok=false
   [[ ! -f "$run/incomplete.json" ]] || incomplete=true
   rec_hash="$(records_hash "$records")"; analysis_hash="$(sha_file "$run/analysis.json")"
-  hashes_ok="$(jq -r --arg manifest "$(sha_file "$MANIFEST")" --arg prereg "$(sha_file "$PREREG")" --arg dataset "$(sha_file "$PRIVATE_DEFAULT")" --arg schedule "$(schedule_hash)" '.manifest_sha256==$manifest and .preregistration_sha256==$prereg and .dataset_sha256==$dataset and .schedule_sha256==$schedule' "$run/state.json")"
-  audit_ok="$(jq -r --arg manifest "$(sha_file "$MANIFEST")" --arg prereg "$(sha_file "$PREREG")" --arg dataset "$(sha_file "$PRIVATE_DEFAULT")" --arg evidence "$(jq -r '.evidence_sha256 // ""' "$run/state.json")" --arg schedule "$(schedule_hash)" --arg records "$rec_hash" --arg analysis "$analysis_hash" '
+  hashes_ok="$(jq -r --arg manifest "$(sha_file "$MANIFEST")" --arg prereg "$(sha_file "$PREREG")" --arg dataset "$(sha_file "$PRIVATE_DEFAULT")" --arg schedule "$(schedule_hash)" --arg harness "$(sha_file "$ROOT/scripts/breadth.sh")" --arg runner "$(sha_file "$ROOT/scripts/live-runner.sh")" '.manifest_sha256==$manifest and .preregistration_sha256==$prereg and .dataset_sha256==$dataset and .schedule_sha256==$schedule and .harness_sha256==$harness and .runner_sha256==$runner' "$run/state.json")"
+  audit_ok="$(jq -r --arg manifest "$(sha_file "$MANIFEST")" --arg prereg "$(sha_file "$PREREG")" --arg dataset "$(sha_file "$PRIVATE_DEFAULT")" --arg evidence "$(jq -r '.evidence_sha256 // ""' "$run/state.json")" --arg schedule "$(schedule_hash)" --arg harness "$(sha_file "$ROOT/scripts/breadth.sh")" --arg runner "$(sha_file "$ROOT/scripts/live-runner.sh")" --arg records "$rec_hash" --arg analysis "$analysis_hash" '
     .approved==true and .scope=="breadth-v1-manual-audit" and
     (.auditor|type=="string" and length>0) and (.timestamp|type=="string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T")) and
     .manifest_sha256==$manifest and .preregistration_sha256==$prereg and .dataset_sha256==$dataset and
-    .evidence_sha256==$evidence and .schedule_sha256==$schedule and .records_sha256==$records and .analysis_sha256==$analysis
+    .evidence_sha256==$evidence and .schedule_sha256==$schedule and .harness_sha256==$harness and .runner_sha256==$runner and .records_sha256==$records and .analysis_sha256==$analysis
   ' "$audit")"
   if $exact_ids && [[ "$judges" == "30" && "$identities" == "true" && "$(printf '%s' "$counts" | jq '.attempted')" == "750" && "$(printf '%s' "$counts" | jq '.completed')" == "750" && "$(printf '%s' "$counts" | jq '.failed')" == "0" && "$(printf '%s' "$counts" | jq '.retries')" == "0" ]] && $cost_ok && $elapsed_ok && ! $incomplete && [[ "$hashes_ok" == "true" && "$audit_ok" == "true" && "$(jq -r '.test_only' "$run/state.json")" == "false" ]]; then eligible=true; fi
   jq -n --argjson eligible "$eligible" --argjson counts "$counts" --argjson exact_ids "$exact_ids" --argjson judges "$judges" --arg identities "$identities" --argjson cost_ok "$cost_ok" --argjson elapsed_ok "$elapsed_ok" --argjson incomplete "$incomplete" --arg hashes_ok "$hashes_ok" --arg audit_ok "$audit_ok" --arg records_sha256 "$rec_hash" --arg analysis_sha256 "$analysis_hash" '{binding_claim_eligible:$eligible,counts:$counts,exact_expected_call_ids:$exact_ids,valid_judges:$judges,exact_provider_backed_identities:($identities=="true"),cost_cap_met:$cost_ok,elapsed_cap_met:$elapsed_ok,incomplete_marker:$incomplete,frozen_hashes_match:($hashes_ok=="true"),manual_audit_bound:($audit_ok=="true"),records_sha256:$records_sha256,analysis_sha256:$analysis_sha256}'
@@ -623,6 +680,7 @@ smoke() {
           request="$(jq -n --arg call_id "$call_id" --arg item_id "$id" --arg category "$category" --arg arm "$arm" --argjson position "$pos" --argjson item "$(jq -c --arg id "$id" '.items[] | select(.id == $id) | {id,category,prompt}' "$SYNTHETIC")" --argjson requested_identity "$member" --arg key "$(sha_text "$call_id")" '{call_id:$call_id,idempotency_key:$key,item_id:$item_id,category:$category,arm:$arm,position:$position,item:$item,requested_identity:$requested_identity}')"
         fi
         response="$(printf '%s\n' "$request" | "$runner")"
+        [[ "$arm" != "judge" ]] || response="$(normalize_judge_response "$response" "$request")"
         record="$(jq -n --argjson request "$request" --argjson response "$response" '$response + {call_id:$request.call_id,arm:$request.arm,item_id:$request.item_id,requested_identity:$request.requested_identity}')"
         validate_response "$record" "$arm"; append_record "$tmp" "$call_id" "$record"
       done
@@ -642,6 +700,7 @@ case "${1:-}" in
   test-run) shift; run_test_only "${1:-}" ;;
   test-receipt) shift; [[ $# -eq 1 ]] || die "test-receipt requires EVIDENCE"; test_receipt "$1" ;;
   test-validate-receipt) shift; [[ $# -eq 3 ]] || die "test-validate-receipt requires RECEIPT TOKEN EVIDENCE"; test_validate_receipt "$1" "$2" "$3" ;;
+  test-normalize-judge) shift; [[ $# -eq 2 ]] || die "test-normalize-judge requires RESPONSE REQUEST"; test_normalize_judge "$1" "$2" ;;
   schedule) shift; [[ "${1:-}" == "--ci" ]] && use_ci_fixture && shift; [[ $# -eq 0 ]] || die "schedule accepts only --ci"; schedule_json ;;
   analyze) shift; [[ $# -ge 1 ]] || die "analyze requires records directory"; analyze_records "$1" "${2:-}" ;;
   eligibility) shift; [[ $# -eq 2 ]] || die "eligibility requires RUN_DIR MANUAL_AUDIT.json"; eligibility "$1" "$2" ;;

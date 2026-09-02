@@ -23,10 +23,10 @@ fi
 if [[ "$arm" != "judge" ]]; then
   printf '%s' "$request" | jq -e '(.item | keys | sort) == ["category", "id", "prompt"] and (tostring | test("atomic_findings|high_severity_ids|source_ids|sources") | not)' >/dev/null || { echo "sentinel: primary held-out leak" >&2; exit 91; }
 else
-  printf '%s' "$request" | jq -e '(.arm_outputs | length == 5) and (.item.rubric != null) and (.item.sources != null)' >/dev/null || { echo "sentinel: invalid joint judge packet" >&2; exit 92; }
+  printf '%s' "$request" | jq -e '(.arm_outputs | length == 5) and ([.arm_outputs[].arm]|sort==["A","B","C","D","E"]) and (.item.rubric != null) and (.item.sources != null) and all(.arm_outputs[].findings[]; (.text|type)=="string" and (.source_id|type)=="string" and (.family|type)=="string")' >/dev/null || { echo "sentinel: invalid joint judge packet" >&2; exit 92; }
 fi
 if [[ "$arm" == "judge" ]]; then
-  scores="$(jq -n --arg item_id "$(printf '%s' "$request" | jq -r '.item_id')" '["A","B","C","D","E"]|map({item_id:$item_id,arm:.,tp:1,fp:0,fn:0,high_severity_hit:1,high_severity_total:1,source_ids_retained:1,source_ids_expected:1,unique_contributions:[{family:"gemini",count:1}]})')"
+  scores="$(printf '%s' "$request" | jq -c '[.arm_outputs[] | {item_id:$item_id,arm,tp:1,fp:0,fn:0,high_severity_hit:1,retained_source_ids:([.findings[0].source_id]|map(select(.!=null))),unique_contributions:([.findings[0].family]|map(select(.!=null))|unique|map({family:.,count:1}))}]' --arg item_id "$(printf '%s' "$request" | jq -r '.item_id')")"
   case "${BREADTH_SENTINEL_JUDGE_MUTATION:-}" in
     duplicate) scores="$(printf '%s' "$scores" | jq '.[4]=.[0]')" ;;
     missing) scores="$(printf '%s' "$scores" | jq '.[0:4]')" ;;

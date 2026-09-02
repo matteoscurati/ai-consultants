@@ -2,7 +2,7 @@
   "version": "breadth-v1",
   "frozen_at": "2026-09-01T00:00:00Z",
   "dataset_sha256": "6f93a2ed1bf51adf3ce1cc9ecd71888aea88a764bb79c9f34140288992742526",
-  "preregistration_sha256": "e4faa15bd44e0ee611241e27668841ec4f08cd72705035057750db40e294bf96",
+  "preregistration_sha256": "641382df2a32e3f032db0386bc6e8b0b3c4d161a4eb59f97d1a15d3186aaba9e",
   "contract": {
     "items": 30,
     "categories": {
