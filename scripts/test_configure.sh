@@ -362,24 +362,38 @@ test_grok_cli_first_with_api_fallback() {
 test_claude_default_migration_and_pin() {
     local cfg="$TMP/claude-model-migration"
     mkdir -p "$cfg"
-    printf '%s\n' 'CLAUDE_MODEL=claude-opus-4-8' > "$cfg/.env"
+    printf '%s\n' 'CLAUDE_MODEL=claude-opus-5' > "$cfg/.env"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "historical generated Claude default migrates to Opus 5"
+    assert_eq "claude-fable-5-1" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "unpinned Opus 5 default migrates to Fable 5.1"
     assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:default" \
         "migrated Claude default records managed provenance"
 
     run_clean_configure "$cfg" --force \
-        --set CLAUDE_MODEL=claude-opus-4-8 >/dev/null 2>&1
-    assert_eq "claude-opus-4-8" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "explicit legacy Claude model remains selectable"
+        --set CLAUDE_MODEL=claude-opus-5 >/dev/null 2>&1
+    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "explicit lower-cost Opus 5 remains selectable"
     assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:pin" \
         "explicit model override records pin provenance"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "claude-opus-4-8" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "pinned Opus 4.8 survives later configure runs"
+    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "pinned Opus 5 survives later configure runs"
+
+    cfg="$TMP/claude-old-default-migration"
+    mkdir -p "$cfg"
+    printf '%s\n' 'CLAUDE_MODEL=claude-opus-4-8' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "claude-fable-5-1" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "older unpinned Claude default migrates directly to Fable 5.1"
+
+    cfg="$TMP/claude-non-opus-choice"
+    mkdir -p "$cfg"
+    printf '%s\n' 'CLAUDE_MODEL=claude-fable-5' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "claude-fable-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "non-Opus legacy Claude choice is not migrated"
 }
 
 test_codex_default_migration_and_pin() {

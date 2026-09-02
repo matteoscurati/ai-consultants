@@ -639,8 +639,12 @@ test_cost_per1k_contract() {
     local saved="${COST_RATES_FILE:-}"
     COST_RATES_FILE="$SCRIPT_DIR/../docs/cost_rates.json"
 
-    assert_equals "0.005" "$(get_input_cost_per_1k claude-opus-5)"  "opus-5 input is per-1K (0.005)"
-    assert_equals "0.025" "$(get_output_cost_per_1k claude-opus-5)" "opus-5 output is per-1K (0.025)"
+    assert_equals "0.01" "$(get_input_cost_per_1k claude-fable-5-1)"  "Fable 5.1 input is per-1K (0.01)"
+    assert_equals "0.05" "$(get_output_cost_per_1k claude-fable-5-1)" "Fable 5.1 output is per-1K (0.05)"
+    assert_equals "0.004" "$(get_input_cost_per_1k gpt-5.6-sol)"  "Sol input is per-1K (0.004)"
+    assert_equals "0.020" "$(get_output_cost_per_1k gpt-5.6-sol)" "Sol output is per-1K (0.020)"
+    assert_equals "0.002" "$(get_input_cost_per_1k gpt-5.6-terra)" "Terra input stays per-1K (0.002)"
+    assert_equals "0.012" "$(get_output_cost_per_1k gpt-5.6-terra)" "Terra output stays per-1K (0.012)"
     assert_equals "0.005" "$(get_input_cost_per_1k claude-opus-4-8)"  "legacy opus-4-8 input remains priced"
     assert_equals "0.025" "$(get_output_cost_per_1k claude-opus-4-8)" "legacy opus-4-8 output remains priced"
     assert_equals "0.001" "$(get_input_cost_per_1k claude-haiku-4-5)" "haiku-4-5 input is per-1K (0.001)"
@@ -648,7 +652,7 @@ test_cost_per1k_contract() {
 
     # End-to-end: per-1K rates => correct dollar costs (pre-fix opus 1k+1k was $30, not $0.03).
     # Leading zero restored in v2.17.0 (bc drops it).
-    assert_equals "0.030000" "$(estimate_query_cost claude-opus-5 1000 1000)"  "opus 1k+1k = 0.03 (regression: pre-fix was 30)"
+    assert_equals "0.060000" "$(estimate_query_cost claude-fable-5-1 1000 1000)"  "Fable 5.1 1k+1k = 0.06"
     assert_equals "0.006000" "$(estimate_query_cost claude-haiku-4-5 1000 1000)" "haiku 1k+1k = 0.006"
 
     # Cost lookup must be case-insensitive for display-name model IDs.
@@ -796,7 +800,7 @@ test_response_tokens() {
     assert_equals "0.107500" "$(calculate_session_cost "$rd")" "unknown requested model uses default rate, not consultant premium fallback"
 
     printf '{"consultant":"Codex","model":"unknown-legacy-model","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
-    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "legacy response without requested_model retains consultant fallback"
+    assert_equals "0.090000" "$(calculate_session_cost "$rd")" "legacy response without requested_model uses the current Sol fallback"
 
     # Claude CLI reports exact costUSD, including adaptive-thinking tokens and
     # cache pricing. It must win over reconstructing cost from visible output.
@@ -1411,8 +1415,8 @@ test_escalation() {
 test_model_for_tier() {
     suite "config.sh: get_model_for_tier"
 
-    assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "premium")"  "claude premium is claude-opus-5"
-    assert_equals "claude-sonnet-5"       "$(get_model_for_tier "claude" "standard")" "claude standard is claude-sonnet-5"
+    assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "premium")"  "claude premium is Fable 5.1"
+    assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "standard")" "claude standard is lower-cost Opus 5"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
     assert_equals "Gemini 3.7 Flash (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is promoted Gemini 3.7 Flash (High)"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium" api)" "gemini API premium uses the provider ID"
@@ -1446,7 +1450,7 @@ test_model_for_tier() {
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-v4-flash"
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3-flash"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.5"
-    assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "maximum")"    "timed-out Fable 5 stays out of maximum tier"
+    assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "maximum")"    "Claude maximum is Fable 5.1"
     assert_equals "kimi-code/k3-256k"     "$(get_model_for_tier "kimi" "maximum")"      "maximum tier confines K3-256k"
     assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "maximum")"     "maximum catalog includes Qwen3.8-Max"
     assert_equals "MiniMax-M3"            "$(get_model_for_tier "minimax" "maximum")"   "maximum tier confines MiniMax M3"

@@ -279,15 +279,17 @@ while IFS= read -r key; do
     fi
 done < <(list_parameters)
 
-# Before model defaults had provenance markers, `init` copied the then-current
-# Claude default as an ordinary-looking value. Refresh that exact historical
-# default when configure rewrites the file. A real legacy pin is preserved by
-# `--set CLAUDE_MODEL=claude-opus-4-8`, which records the pin marker.
-if [[ "$(read_value "$WORK_FILE" CLAUDE_MODEL 2>/dev/null || true)" == "claude-opus-4-8" ]] \
-    && ! has_value_marker "$WORK_FILE" CLAUDE_MODEL "$PIN_MARKER"; then
-    set_value CLAUDE_MODEL "claude-opus-5 $DEFAULT_MARKER"
-    echo "Migrated managed Claude default: claude-opus-4-8 -> claude-opus-5" >&2
-fi
+# Promote only the historical generated Claude defaults. Both the old unmarked
+# Opus 4.8 scaffold and every unpinned Opus 5 value are managed defaults;
+# explicit # ai-consultants:pin overrides always remain user-owned.
+case "$(read_value "$WORK_FILE" CLAUDE_MODEL 2>/dev/null || true)" in
+    claude-opus-4-8|claude-opus-5)
+        if ! has_value_marker "$WORK_FILE" CLAUDE_MODEL "$PIN_MARKER"; then
+            set_value CLAUDE_MODEL "claude-fable-5-1 $DEFAULT_MARKER"
+            echo "Migrated managed Claude default to claude-fable-5-1" >&2
+        fi
+        ;;
+esac
 
 # Same shape for Codex: `init` once wrote gpt-5.5 as an unmarked value, so
 # configure treated it as a deliberate pin and never reached gpt-5.6-sol. A

@@ -305,7 +305,7 @@ KIMI_CMD="${KIMI_CMD:-kimi}"
 # CLAUDE CONFIGURATION - The Synthesizer (v2.2)
 # =============================================================================
 
-CLAUDE_MODEL="${CLAUDE_MODEL:-claude-opus-5}"
+CLAUDE_MODEL="${CLAUDE_MODEL:-claude-fable-5-1}"
 CLAUDE_API_MAX_TOKENS="${CLAUDE_API_MAX_TOKENS:-16384}"
 CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
@@ -618,7 +618,7 @@ get_model_for_tier() {
     case "$tier" in
         maximum|max_quality|max-quality)
             case "$consultant" in
-                claude)   echo "claude-opus-5" ;;
+                claude)   echo "claude-fable-5-1" ;;
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-5.6-sol" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
@@ -633,7 +633,7 @@ get_model_for_tier() {
             ;;
         premium|max|best)
             case "$consultant" in
-                claude)   echo "claude-opus-5" ;;
+                claude)   echo "claude-fable-5-1" ;;
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-5.6-sol" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
@@ -648,7 +648,7 @@ get_model_for_tier() {
             ;;
         standard|medium|balanced)
             case "$consultant" in
-                claude)   echo "claude-sonnet-5" ;;
+                claude)   echo "claude-opus-5" ;;
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-5.6-terra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;

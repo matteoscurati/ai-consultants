@@ -381,10 +381,12 @@ test_anthropic_thinking_blocks_and_budget() {
     assert_eq $'first\nsecond' "$(parse_anthropic_response "$response")" \
         "Anthropic parser skips thinking and joins visible text blocks"
 
-    body=$(build_anthropic_request "hello" "claude-opus-5" 16384)
+    body=$(build_anthropic_request "hello" "claude-fable-5-1" 16384)
+    assert_eq "claude-fable-5-1" "$(jq -r '.model' <<<"$body")" \
+        "Anthropic API request selects Fable 5.1"
     assert_eq "16384" "$(jq -r '.max_tokens' <<<"$body")" \
         "Anthropic request accepts the larger shared thinking/output budget"
-    assert_eq "16384" "$(build_anthropic_request "hello" "claude-opus-5" | jq -r '.max_tokens')" \
+    assert_eq "16384" "$(build_anthropic_request "hello" "claude-fable-5-1" | jq -r '.max_tokens')" \
         "Anthropic request helper defaults to the Opus 5 budget"
 }
 

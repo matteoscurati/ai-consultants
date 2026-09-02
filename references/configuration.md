@@ -56,9 +56,10 @@ for API keys; command-line arguments may be visible in shell history and process
 inspection.
 Model defaults carry an `# ai-consultants:default` marker. On rewrite,
 `configure` upgrades the historical unmarked
-`CLAUDE_MODEL=claude-opus-4-8` generated default to Opus 5. An explicit model
-override supplied with `--set` is stored with `# ai-consultants:pin`, so
-`--set CLAUDE_MODEL=claude-opus-4-8` keeps the legacy model intentionally.
+`CLAUDE_MODEL=claude-opus-4-8` and `claude-opus-5` generated defaults to
+Fable 5.1. An explicit model override supplied with `--set` is stored with
+`# ai-consultants:pin`, so `--set CLAUDE_MODEL=claude-opus-5` keeps the
+lower-cost standard model intentionally.
 The exhaustive parameter contract is [`.env.example`](../.env.example); the
 configurator derives its accepted keys from that template, while
 [`scripts/config.sh`](../scripts/config.sh) remains the runtime source of truth.
@@ -242,7 +243,8 @@ ENABLE_DEEPSEEK=false
 GEMINI_MODEL=Gemini 3.7 Flash (High) # verified agy CLI default; API mode uses GEMINI_API_MODEL
 CODEX_MODEL=gpt-5.6-sol
 CODEX_API_MAX_TOKENS=4096
-CLAUDE_MODEL=claude-opus-5
+CLAUDE_MODEL=claude-fable-5-1
+# Lower-cost standard override: CLAUDE_MODEL=claude-opus-5
 CLAUDE_API_MAX_TOKENS=16384  # API only: adaptive thinking + visible output
 MISTRAL_MODEL=mistral-large-3
 MISTRAL_CLI_MODEL=mistral-medium-3.5
