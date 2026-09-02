@@ -4,7 +4,7 @@
 # Usage: ./query_claude.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   CLAUDE_MODEL - Model to use (default: claude-opus-5)
+#   CLAUDE_MODEL - Model to use (default: claude-fable-5-1)
 #   CLAUDE_TIMEOUT - Timeout in seconds (default: 240)
 #   CLAUDE_USE_API - Use API mode instead of CLI (default: false)
 #   CLAUDE_API_MAX_TOKENS - API thinking + visible-output budget (default: 16384)
@@ -27,7 +27,7 @@ OUTPUT_FILE="${3:-/tmp/claude_response.json}"
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Claude"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
-MODEL_USED="${CLAUDE_MODEL:-claude-opus-5}"
+MODEL_USED="${CLAUDE_MODEL:-claude-fable-5-1}"
 
 # --- Build query ---
 FULL_QUERY=$(build_full_query "$QUERY" "$CONTEXT_FILE")
@@ -168,6 +168,16 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
                 "Claude CLI returned an invalid JSON result envelope" "$LATENCY_MS" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
             cat "$OUTPUT_FILE"
             exit 1
+        fi
+        # A top-level model is the CLI's content-model attestation. Do not use
+        # modelUsage keys here: they describe billing participants and may not
+        # identify a safety-routed content model.
+        CLI_REPORTED_MODEL=$(echo "$CLI_ENVELOPE" | jq -r '.model // empty')
+        if [[ -n "$CLI_REPORTED_MODEL" && "$CLI_REPORTED_MODEL" =~ ^[A-Za-z0-9._/-]{1,128}$ ]]; then
+            EFFECTIVE_MODEL="$CLI_REPORTED_MODEL"
+            MODEL_IDENTITY_SOURCE="provider-reported"
+        elif [[ -n "$CLI_REPORTED_MODEL" && "$CLI_REPORTED_MODEL" != "null" ]]; then
+            log_warn "[$CONSULTANT_NAME] Claude CLI returned an invalid model identifier; retaining requested-only identity"
         fi
         RAW_RESPONSE=$(echo "$CLI_ENVELOPE" | jq -r '.result')
         _TOK_IN=$(echo "$CLI_ENVELOPE" | jq -r \

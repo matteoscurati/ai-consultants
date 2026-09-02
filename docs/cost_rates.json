@@ -3,7 +3,11 @@
   "updated": "2026-08-23",
   "models": {
     "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
-    "_comment_premium": "Premium tier models - Aug 2026",
+    "_comment_premium": "Premium tier models - Sep 2026",
+    "claude-fable-5-1": {
+      "input": 0.01,
+      "output": 0.05
+    },
     "claude-opus-5": {
       "input": 0.005,
       "output": 0.025
@@ -42,8 +46,8 @@
       "output": 0.00375
     },
     "gpt-5.6-sol": {
-      "input": 0.005,
-      "output": 0.030
+      "input": 0.004,
+      "output": 0.020
     },
     "gpt-5.6-terra": {
       "input": 0.002,
@@ -419,8 +423,8 @@
     "kimi-code/k3-256k"
   ],
   "consultant_fallbacks": {
-    "_comment": "Premium defaults - Updated Aug 2026",
-    "claude": "claude-opus-5",
+    "_comment": "Premium defaults - Updated Sep 2026",
+    "claude": "claude-fable-5-1",
     "gemini": "Gemini 3.7 Flash (High)",
     "codex": "gpt-5.6-sol",
     "mistral": "mistral-large-3",
@@ -434,7 +438,7 @@
   "model_tiers": {
     "_comment": "Model tiers for apply_model_tier() function",
     "maximum": {
-      "claude": "claude-opus-5",
+      "claude": "claude-fable-5-1",
       "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-5.6-sol",
       "mistral": "mistral-medium-3.5",
@@ -446,7 +450,7 @@
       "minimax": "MiniMax-M3"
     },
     "premium": {
-      "claude": "claude-opus-5",
+      "claude": "claude-fable-5-1",
       "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-5.6-sol",
       "mistral": "mistral-medium-3.5",
@@ -458,7 +462,7 @@
       "minimax": "MiniMax-M2.7"
     },
     "standard": {
-      "claude": "claude-sonnet-5",
+      "claude": "claude-opus-5",
       "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-5.6-terra",
       "mistral": "mistral-medium-3.5",
@@ -501,7 +505,7 @@
     "gemini_cli": ["Gemini 3.1 Pro (High)", "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Low)"],
     "gemini_api": ["gemini-3.7-flash"],
     "mistral_api": ["mistral-medium-3-5", "mistral-large-2512", "mistral-small-2603"],
-    "claude": ["claude-fable-5"]
+    "claude": []
   },
   "default_rate": {
     "input": 0.005,

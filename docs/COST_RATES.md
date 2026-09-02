@@ -28,12 +28,13 @@ models programmatically.
 | Gemini 3.1 Pro (High) | CLI opt-in | $0.002 | Gemini (agy CLI) |
 | gemini-3.1-pro-preview | API default | $0.00125 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0015 | Gemini |
-| gpt-5.6-sol | Premium | $0.005 | Codex |
+| gpt-5.6-sol | Maximum/Premium | $0.004 | Codex |
 | gpt-5.6-terra | Standard | $0.002 | Codex |
 | gpt-5.6-luna | Economy | $0.0002 | Codex |
-| claude-opus-5 | Premium | $0.005 | Claude |
-| claude-fable-5 | Opt-in | $0.010 | Claude |
-| claude-sonnet-5 | Standard | $0.003 | Claude |
+| claude-fable-5-1 | Maximum/Premium | $0.010 | Claude |
+| claude-opus-5 | Standard | $0.005 | Claude |
+| claude-fable-5 | Legacy pins | $0.010 | Claude |
+| claude-sonnet-5 | Legacy pins | $0.003 | Claude |
 | claude-haiku-4-5 | Economy | $0.001 | Claude |
 | mistral-large-3 | Premium | $0.002 | Mistral |
 | mistral-medium-3.5 / mistral-medium-3-5 | Premium CLI / API opt-in | $0.0015 | Mistral |
@@ -70,12 +71,13 @@ models programmatically.
 | Gemini 3.1 Pro (High) | CLI opt-in | $0.012 | Gemini (agy CLI) |
 | gemini-3.1-pro-preview | API default | $0.005 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0075 | Gemini |
-| gpt-5.6-sol | Premium | $0.030 | Codex |
+| gpt-5.6-sol | Maximum/Premium | $0.020 | Codex |
 | gpt-5.6-terra | Standard | $0.012 | Codex |
 | gpt-5.6-luna | Economy | $0.0012 | Codex |
-| claude-opus-5 | Premium | $0.025 | Claude |
-| claude-fable-5 | Opt-in | $0.050 | Claude |
-| claude-sonnet-5 | Standard | $0.015 | Claude |
+| claude-fable-5-1 | Maximum/Premium | $0.050 | Claude |
+| claude-opus-5 | Standard | $0.025 | Claude |
+| claude-fable-5 | Legacy pins | $0.050 | Claude |
+| claude-sonnet-5 | Legacy pins | $0.015 | Claude |
 | claude-haiku-4-5 | Economy | $0.005 | Claude |
 | mistral-large-3 | Premium | $0.006 | Mistral |
 | mistral-medium-3.5 / mistral-medium-3-5 | Premium CLI / API opt-in | $0.0075 | Mistral |

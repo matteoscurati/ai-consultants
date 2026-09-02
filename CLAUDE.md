@@ -349,9 +349,9 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-opus-5, Gemini 3.7 Flash (High), gpt-5.6-sol |
-| **maximum** | All 10 consultants; maximum targets and highest provider effort | K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
-| **standard** | Good quality at reasonable cost | claude-sonnet-5, Gemini 3.7 Flash (High), gpt-5.6-terra |
+| **premium** | Latest flagship models | claude-fable-5-1, Gemini 3.7 Flash (High), gpt-5.6-sol |
+| **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
+| **standard** | Good quality at reasonable cost | claude-opus-5, Gemini 3.7 Flash (High), gpt-5.6-terra |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.7 Flash (Low), gpt-5.6-luna |
 
 **Default models are now premium tier** for maximum quality.
@@ -383,12 +383,12 @@ Three new presets leverage the model tiers:
 ./scripts/consult_all.sh --preset fast "quick syntax question"
 ```
 
-### Premium Model Defaults (August 2026)
+### Premium Model Defaults (September 2026)
 All consultants now use premium models by default:
 
 | Consultant | Default Model |
 |------------|---------------|
-| Claude | claude-opus-5 |
+| Claude | claude-fable-5-1 |
 | Gemini | Gemini 3.7 Flash (High) (via agy CLI); API: gemini-3.1-pro-preview |
 | Codex | gpt-5.6-sol |
 | Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
@@ -586,7 +586,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_SMART_ROUTING` | false | Intelligent routing by category |
 | `ENABLE_COST_TRACKING` | true | Track costs |
 | `MAX_SESSION_COST` | 1.00 | Max budget ($) |
-| `CLAUDE_MODEL` | claude-opus-5 | Claude model (v2.5) |
+| `CLAUDE_MODEL` | claude-fable-5-1 | Claude model (use claude-opus-5 for lower-cost standard) |
 | `CLAUDE_API_MAX_TOKENS` | 16384 | Claude API thinking + visible-output budget |
 | `GEMINI_MODEL` | Gemini 3.7 Flash (High) | Gemini agy CLI model |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |

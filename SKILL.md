@@ -106,7 +106,8 @@ smoke-tested K3-256k and MiniMax M3 targets, plus Qwen3.8-Max when an authentica
 already configured. Gemini 3.7 Flash High is the exact-transport-smoked `agy`
 default for maximum, premium, and standard CLI tiers; Low serves economy. The
 Gemini API target remains 3.1 Pro until `gemini-3.7-flash` completes a separate
-API smoke. Claude Fable 5 and the new Mistral API IDs remain explicit opt-ins.
+API smoke. Claude Fable 5.1 is the default/premium/maximum target; the new
+Mistral API IDs remain explicit opt-ins.
 Grok, GLM, and DeepSeek receive their
 highest accepted reasoning effort in this preset (`xhigh`, `max`, and `max`
 respectively); no failed target is silently replaced.
