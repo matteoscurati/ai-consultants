@@ -233,8 +233,8 @@ estimate_query_cost() {
 
     # Long-context multiplier applies to the entire request, not only excess.
     if [[ "$model" == gpt-6-astra && "$input_tokens" -gt 272000 ]]; then
-        input_rate=$(echo "$input_rate * 2" | bc)
-        output_rate=$(echo "$output_rate * 1.5" | bc)
+        input_rate=$(echo "scale=6; $input_rate * 2" | bc)
+        output_rate=$(echo "scale=6; $output_rate * 1.5" | bc)
     fi
     # Calculate cost
     local input_cost output_cost total_cost

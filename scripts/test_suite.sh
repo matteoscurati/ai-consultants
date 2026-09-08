@@ -800,7 +800,7 @@ test_response_tokens() {
     assert_equals "0.107500" "$(calculate_session_cost "$rd")" "unknown requested model uses default rate, not consultant premium fallback"
 
     printf '{"consultant":"Codex","model":"unknown-legacy-model","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
-    assert_equals "0.090000" "$(calculate_session_cost "$rd")" "legacy response without requested_model uses the current Sol fallback"
+    assert_equals "0.225000" "$(calculate_session_cost "$rd")" "legacy response without requested_model uses the current Astra fallback"
 
     # Claude CLI reports exact costUSD, including adaptive-thinking tokens and
     # cache pricing. It must win over reconstructing cost from visible output.
