@@ -167,11 +167,17 @@ PROVIDER_COST=""
 _TOK=0 _TOK_IN=0 _TOK_OUT=0 _TOK_SRC=estimated
 BILLING_MODELS='[]'
 if ! is_api_mode "claude" && [[ -s "$TEMP_OUTPUT" ]]; then
-    CLI_ENVELOPE=$(jq -Rs -f "$SCRIPT_DIR/lib/claude_stream.jq" "$TEMP_OUTPUT")
+    if ! CLI_ENVELOPE=$(jq -Rs -f "$SCRIPT_DIR/lib/claude_stream.jq" "$TEMP_OUTPUT" 2>/dev/null); then
+        log_error "[$CONSULTANT_NAME] Cannot parse Claude CLI stream"
+        CLI_ENVELOPE='{"success":false,"input_tokens":0,"output_tokens":0,"tokens_source":"estimated","billing_models":[]}'
+        [[ $exit_code -ne 0 ]] || exit_code=1
+    fi
     CLI_REPORTED_MODEL=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.content_model // empty')
     if [[ -n "$CLI_REPORTED_MODEL" ]]; then
         EFFECTIVE_MODEL="$CLI_REPORTED_MODEL"
         MODEL_IDENTITY_SOURCE=provider-reported
+    else
+        log_warn "[$CONSULTANT_NAME] Stream does not attest one valid content model"
     fi
     RAW_RESPONSE=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.result // ""')
     _TOK_IN=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.input_tokens')
@@ -180,8 +186,11 @@ if ! is_api_mode "claude" && [[ -s "$TEMP_OUTPUT" ]]; then
     _TOK_SRC=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.tokens_source')
     PROVIDER_COST=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.cost // empty')
     BILLING_MODELS=$(printf '%s' "$CLI_ENVELOPE" | jq -c '.billing_models')
+    if [[ "$_TOK_SRC" == estimated ]]; then
+        read -r _TOK _TOK_SRC _TOK_IN _TOK_OUT <<< "$(resolve_response_tokens "$FULL_QUERY" "$RAW_RESPONSE")"
+    fi
     if ! printf '%s' "$CLI_ENVELOPE" | jq -e '.success' >/dev/null; then
-        exit_code=1
+        [[ $exit_code -ne 0 ]] || exit_code=1
     fi
 fi
 
@@ -216,14 +225,19 @@ if [[ $exit_code -eq 0 && -s "$TEMP_OUTPUT" ]]; then
         exit_code=1
     fi
 else
-    exit_code=1
+    [[ $exit_code -ne 0 ]] || exit_code=1
     rm -f "$TEMP_OUTPUT"
     build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "Query failed or incomplete terminal stream (exit code $exit_code)" "$LATENCY_MS" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" > "$OUTPUT_FILE"
 fi
 
 if ! is_api_mode "claude"; then
-    jq --argjson models "$BILLING_MODELS" '.metadata.billing_models = $models' "$OUTPUT_FILE" > "$TEMP_OUTPUT"
-    mv "$TEMP_OUTPUT" "$OUTPUT_FILE"
+    if response_tmp=$(mktemp); then
+        if jq --argjson models "$BILLING_MODELS" '.metadata.billing_models = $models' "$OUTPUT_FILE" > "$response_tmp" \
+                && mv "$response_tmp" "$OUTPUT_FILE"; then :; else
+            log_warn "[$CONSULTANT_NAME] Could not annotate billing models; original envelope retained"
+        fi
+        rm -f "$response_tmp"
+    fi
 fi
 cat "$OUTPUT_FILE"
 exit $exit_code
