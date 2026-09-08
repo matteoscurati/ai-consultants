@@ -49,4 +49,13 @@ env HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/config" AI_CONSULTANTS_CONFIG_DIR="$T
     bash "$SCRIPT_DIR/query_grok.sh" hello '' "$TMP/error.json" >/dev/null 2>&1 || rc=$?
 [[ $rc -eq 78 && ! -e "$TMP/dispatched" ]]
 jq -e '.metadata.response_quality == "error"' "$TMP/error.json" >/dev/null
-printf '%s\n' 'Grok socket and sandbox refusal checks passed'
+rc=0
+env HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/config" AI_CONSULTANTS_CONFIG_DIR="$TMP/config" \
+    PATH="$TMP/bin:$PATH" GROK_CMD="$TMP/bin/grok" GROK_USE_API=false ENABLE_GROK=true \
+    ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false ENABLE_KIMI=false \
+    ENABLE_CLAUDE=false ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
+    DISPATCH_FILE="$TMP/dispatched" \
+    bash "$SCRIPT_DIR/doctor.sh" --json --quick > "$TMP/doctor.json" 2>/dev/null || rc=$?
+[[ $rc -ne 0 && ! -e "$TMP/dispatched" ]]
+jq -e 'any(.doctor.issues[]; .description | contains("sandbox_runtime_socket_symlink"))' "$TMP/doctor.json" >/dev/null
+printf '%s\n' 'Grok socket and sandbox refusal checks passed' 
