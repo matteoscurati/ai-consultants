@@ -288,6 +288,7 @@ EOF
 
     rm -f "$request_body"
     PATH="$td:$PATH" OPENAI_API_KEY=test CODEX_FORMAT=openai CODEX_API_MAX_TOKENS=16384 \
+        CODEX_MODEL=gpt-6-astra CODEX_REASONING_EFFORT='' \
         REQUEST_BODY_FILE="$request_body" RATE_LIMIT_DIR="$td/rate-codex-api" MAX_RETRIES=1 \
         run_api_consultant Codex test "" "$output" >/dev/null 2>&1
     assert_eq 16384 "$(jq -r '.max_completion_tokens' "$request_body")" "Codex maximum API budget reaches the wire"
