@@ -60,7 +60,12 @@ trap cleanup EXIT
 if is_api_mode "codex"; then
     # --- API Mode ---
     log_api_mode_status "codex"
-    validate_api_mode "codex" || exit 1
+    if ! validate_api_mode "codex"; then
+        build_error_response "$CONSULTANT_NAME" "$CODEX_MODEL" "$(get_persona_name "$CONSULTANT_NAME")" \
+            "missing_openai_api_key_pre_dispatch" 0 "$CODEX_MODEL" requested-only > "$OUTPUT_FILE"
+        cat "$OUTPUT_FILE"
+        exit 1
+    fi
 
     source "$SCRIPT_DIR/lib/api_query.sh"
 

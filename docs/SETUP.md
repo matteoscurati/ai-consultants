@@ -797,3 +797,14 @@ less "$output_dir/report.md"
 ```
 
 See [README.md](../README.md) for usage examples and full documentation.
+
+For a configuration outside the standard user config directory, set
+`AI_CONSULTANTS_CONFIG_DIR=/absolute/private/config-directory` explicitly.
+The loader does not discover project `.env` files. Keep credentials in your
+existing private configuration; do not copy them into this repository.
+
+Claude CLI uses `stream-json --verbose`. Only response-bearing assistant
+messages attest the content model; terminal `modelUsage` records billing
+participants separately. A missing or conflicting content model remains
+`requested-only` and cannot pass a model-promotion gate. Successful terminal
+completion is required even when partial response text or billing is available.

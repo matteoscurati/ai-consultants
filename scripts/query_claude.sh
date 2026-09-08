@@ -70,7 +70,13 @@ claude_cli_is_authenticated() {
 if is_api_mode "claude"; then
     # --- API Mode ---
     log_api_mode_status "claude"
-    validate_api_mode "claude" || exit 1
+    if ! validate_api_mode "claude"; then
+        build_error_response "$CONSULTANT_NAME" "$MODEL_USED" "$(get_persona_name "$CONSULTANT_NAME")" \
+            "missing_anthropic_api_key_pre_dispatch" 0 "$MODEL_USED" requested-only > "$OUTPUT_FILE"
+        rm -f "$TEMP_OUTPUT"
+        cat "$OUTPUT_FILE"
+        exit 1
+    fi
 
     source "$SCRIPT_DIR/lib/api_query.sh"
 
@@ -113,7 +119,7 @@ else
     # Optional CLI effort control. Unset leaves the CLI's own default alone;
     # when set, pass --effort through after the shared validation gate. Do not
     # invent a local allowlist — the provider rejects what it does not accept.
-    CLAUDE_ARGS=("$CLAUDE_CMD" --print --model "$MODEL_USED" --output-format json \
+    CLAUDE_ARGS=("$CLAUDE_CMD" --print --model "$MODEL_USED" --output-format stream-json --verbose \
         --no-session-persistence --setting-sources "" --tools "" \
         --strict-mcp-config --mcp-config '{"mcpServers":{}}' --permission-mode plan)
     if [[ -n "${CLAUDE_REASONING_EFFORT:-}" ]]; then
@@ -156,46 +162,32 @@ if is_api_mode "claude"; then
     MODEL_IDENTITY_SOURCE="${_API_MODEL_IDENTITY_SOURCE:-requested-only}"
 fi
 
+# Parse even failed runs: terminal billing and partial usage remain evidence.
+PROVIDER_COST=""
+_TOK=0 _TOK_IN=0 _TOK_OUT=0 _TOK_SRC=estimated
+BILLING_MODELS='[]'
+if ! is_api_mode "claude" && [[ -s "$TEMP_OUTPUT" ]]; then
+    CLI_ENVELOPE=$(jq -Rs -f "$SCRIPT_DIR/lib/claude_stream.jq" "$TEMP_OUTPUT")
+    CLI_REPORTED_MODEL=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.content_model // empty')
+    if [[ -n "$CLI_REPORTED_MODEL" ]]; then
+        EFFECTIVE_MODEL="$CLI_REPORTED_MODEL"
+        MODEL_IDENTITY_SOURCE=provider-reported
+    fi
+    RAW_RESPONSE=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.result // ""')
+    _TOK_IN=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.input_tokens')
+    _TOK_OUT=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.output_tokens')
+    _TOK=$((_TOK_IN + _TOK_OUT))
+    _TOK_SRC=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.tokens_source')
+    PROVIDER_COST=$(printf '%s' "$CLI_ENVELOPE" | jq -r '.cost // empty')
+    BILLING_MODELS=$(printf '%s' "$CLI_ENVELOPE" | jq -c '.billing_models')
+    if ! printf '%s' "$CLI_ENVELOPE" | jq -e '.success' >/dev/null; then
+        exit_code=1
+    fi
+fi
+
 # --- Post-processing: wrap in full schema using shared helpers ---
-if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
-    PROVIDER_COST=""
-    if ! is_api_mode "claude"; then
-        CLI_ENVELOPE=$(cat "$TEMP_OUTPUT")
-        if ! echo "$CLI_ENVELOPE" | jq -e \
-                '.type == "result" and (.result | type == "string")' >/dev/null 2>&1; then
-            rm -f "$TEMP_OUTPUT"
-            build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" \
-                "Claude CLI returned an invalid JSON result envelope" "$LATENCY_MS" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
-            cat "$OUTPUT_FILE"
-            exit 1
-        fi
-        # A top-level model is the CLI's content-model attestation. Do not use
-        # modelUsage keys here: they describe billing participants and may not
-        # identify a safety-routed content model.
-        CLI_REPORTED_MODEL=$(echo "$CLI_ENVELOPE" | jq -r '.model // empty')
-        if [[ -n "$CLI_REPORTED_MODEL" && "$CLI_REPORTED_MODEL" =~ ^[A-Za-z0-9._/-]{1,128}$ ]]; then
-            EFFECTIVE_MODEL="$CLI_REPORTED_MODEL"
-            MODEL_IDENTITY_SOURCE="provider-reported"
-        elif [[ -n "$CLI_REPORTED_MODEL" && "$CLI_REPORTED_MODEL" != "null" ]]; then
-            log_warn "[$CONSULTANT_NAME] Claude CLI returned an invalid model identifier; retaining requested-only identity"
-        fi
-        RAW_RESPONSE=$(echo "$CLI_ENVELOPE" | jq -r '.result')
-        _TOK_IN=$(echo "$CLI_ENVELOPE" | jq -r \
-            '([.modelUsage[]?
-                | (.inputTokens // 0)
-                  + (.cacheCreationInputTokens // 0)
-                  + (.cacheReadInputTokens // 0)] | add)
-             // ((.usage.input_tokens // 0)
-                 + (.usage.cache_creation_input_tokens // 0)
-                 + (.usage.cache_read_input_tokens // 0))')
-        _TOK_OUT=$(echo "$CLI_ENVELOPE" | jq -r \
-            '([.modelUsage[]? | (.outputTokens // 0)] | add)
-             // (.usage.output_tokens // 0)')
-        _TOK=$((_TOK_IN + _TOK_OUT))
-        _TOK_SRC="measured"
-        PROVIDER_COST=$(echo "$CLI_ENVELOPE" | jq -r \
-            '[.modelUsage[]?.costUSD | numbers] | add // empty')
-    else
+if [[ $exit_code -eq 0 && -s "$TEMP_OUTPUT" ]]; then
+    if is_api_mode "claude"; then
         RAW_RESPONSE=$(cat "$TEMP_OUTPUT")
         read -r _TOK _TOK_SRC _TOK_IN _TOK_OUT <<< "$(resolve_response_tokens "$FULL_QUERY" "$RAW_RESPONSE")"
     fi
@@ -219,9 +211,14 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         exit_code=1
     fi
 else
+    exit_code=1
     rm -f "$TEMP_OUTPUT"
-    build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "Query failed with exit code $exit_code" "$LATENCY_MS" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" > "$OUTPUT_FILE"
+    build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" "Query failed or incomplete terminal stream (exit code $exit_code)" "$LATENCY_MS" "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" > "$OUTPUT_FILE"
 fi
 
+if ! is_api_mode "claude"; then
+    jq --argjson models "$BILLING_MODELS" '.metadata.billing_models = $models' "$OUTPUT_FILE" > "$TEMP_OUTPUT"
+    mv "$TEMP_OUTPUT" "$OUTPUT_FILE"
+fi
 cat "$OUTPUT_FILE"
 exit $exit_code

@@ -22,10 +22,11 @@ if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
   printf '%s\n' '{"loggedIn":true}'
   exit 0
 fi
-[[ " $* " == *" --output-format json "* ]] || exit 19
+[[ " $* " == *" --output-format stream-json --verbose "* ]] || exit 19
 printf '%s\n' "$@" > "$CLAUDE_ARGS_FILE"
 prompt=$(cat)
 [[ -z "${CLAUDE_PROMPT_FILE:-}" ]] || printf '%s' "$prompt" > "$CLAUDE_PROMPT_FILE"
+printf '%s\n' '{"type":"assistant","message":{"id":"msg1","model":"claude-fable-5-1","content":[{"type":"text","text":"hello"}]}}'
 printf '%s\n' '{"type":"result","subtype":"success","model":"claude-fable-5-1","result":"hello","stop_reason":"end_turn","usage":{"input_tokens":10,"cache_creation_input_tokens":20,"cache_read_input_tokens":30,"output_tokens":40},"modelUsage":{"claude-fable-5-1":{"inputTokens":10,"outputTokens":40,"cacheReadInputTokens":30,"cacheCreationInputTokens":20,"costUSD":0.42}}}'
 EOF
     chmod +x "$fake"
@@ -77,6 +78,7 @@ if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
   exit 0
 fi
 cat >/dev/null
+printf '%s\n' '{"type":"assistant","message":{"id":"msg1","model":"claude-opus-5","content":[{"type":"text","text":"hello"}]}}'
 printf '%s\n' '{"type":"result","subtype":"success","model":"claude-opus-5","result":"hello","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude-opus-5":{"inputTokens":1,"outputTokens":1,"costUSD":0.01}}}'
 EOF
     chmod +x "$fake"
