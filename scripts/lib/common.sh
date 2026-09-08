@@ -210,7 +210,7 @@ run_query() {
         if [[ "$consultant_name" == Grok ]]; then
             source "$(dirname "${BASH_SOURCE[0]}")/grok_sandbox.sh"
             local sandbox_failure
-            if sandbox_failure=$(grok_sandbox_failure "$output_file" "$error_file"); then
+            if sandbox_failure=$(grok_sandbox_failure "$error_file"); then
                 printf '%s\n' "$sandbox_failure" > "$error_file"
                 log_error "[Grok] $sandbox_failure; retries suppressed"
                 return 78

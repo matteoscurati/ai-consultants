@@ -281,7 +281,8 @@ grok_cli_is_unavailable() {
 source "$SCRIPT_DIR/lib/grok_sandbox.sh"
 if ! is_api_mode "grok" && ! sandbox_diagnostic=$(grok_sandbox_preflight); then
     build_error_response "$CONSULTANT_NAME" "$GROK_MODEL" "$(get_persona_name "$CONSULTANT_NAME")" \
-        "$sandbox_diagnostic" 0 "$GROK_MODEL" requested-only > "$OUTPUT_FILE"
+        "$sandbox_diagnostic" 0 "$GROK_MODEL" requested-only |
+        jq '.metadata.transport = "cli"' > "$OUTPUT_FILE"
     log_error "[Grok] $sandbox_diagnostic; dispatch blocked"
     cat "$OUTPUT_FILE"
     exit 78

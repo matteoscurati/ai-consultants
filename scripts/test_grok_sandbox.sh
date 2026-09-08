@@ -3,6 +3,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/grok_sandbox.sh"
+set -euo pipefail
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 grok_sandbox_preflight "$TMP/absent"
@@ -20,6 +21,20 @@ ln -s "$TMP/socket" "$TMP/link"
 if grok_sandbox_preflight "$TMP/link"; then exit 1; fi
 printf '%s\n' 'The recommendation is to never run without a sandbox.' > "$TMP/advice"
 if grok_sandbox_failure "$TMP/advice" >/dev/null; then exit 1; fi
+[[ $(grok_sandbox_failure /dev/stdin <<< "Warning: sandbox not applied") == sandbox_not_applied ]] || exit 1
+[[ $(grok_sandbox_failure /dev/stdin <<< "sandbox_not_applied") == sandbox_not_applied ]] || exit 1
+[[ $(grok_sandbox_failure /dev/stdin <<< "sandbox_profile_refused") == sandbox_profile_refused ]] || exit 1
+# An unset HOME must not produce an empty nounset diagnostic.
+if (unset HOME; grok_sandbox_preflight) > "$TMP/no-home" 2> "$TMP/no-home.err"; then :; else
+    grep -q '^sandbox_runtime_socket_symlink:' "$TMP/no-home" || exit 1
+fi
+[[ ! -s "$TMP/no-home.err" ]] || exit 1
+# Answer text is never evidence that the CLI failed to apply its sandbox.
+MAX_RETRIES=1 run_query Grok "$TMP/advice.out" 10 bash -c \
+    'printf "Sandbox is disabled in the sample. Example error: sandbox_profile_refused.\n"' </dev/null >/dev/null 2>&1 || exit 1
+grep -q 'sandbox_profile_refused' "$TMP/advice.out" || exit 1
+MAX_RETRIES=1 run_query Codex "$TMP/other.out" 10 bash -c \
+    'printf "Warning: sandbox not applied\n" >&2; printf "answer\n"' </dev/null >/dev/null 2>&1 || exit 1
 for message in sandbox_profile_refused 'Warning: sandbox not applied'; do
     printf '%s\n' "$message" > "$TMP/message"
     for status in 0 1; do
@@ -35,7 +50,7 @@ STUB
         rc=0
         CALLS="$TMP/calls" MESSAGE="$TMP/message" STATUS="$status" MAX_RETRIES=3 \
             run_query Grok "$TMP/out" 10 "$TMP/fake" </dev/null >/dev/null 2>&1 || rc=$?
-        [[ $rc -eq 78 && $(wc -l < "$TMP/calls" | tr -d ' ') == 1 ]]
+        [[ $rc -eq 78 && $(wc -l < "$TMP/calls" | tr -d ' ') == 1 ]] || exit 1
     done
 done
 # Adapter and doctor both stop before even probing the binary.
@@ -49,8 +64,8 @@ env HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/config" AI_CONSULTANTS_CONFIG_DIR="$T
     PATH="$TMP/bin:$PATH" GROK_CMD="$TMP/bin/grok" GROK_USE_API=false GROK_API_KEY=test \
     DISPATCH_FILE="$TMP/dispatched" ENABLE_PERSONA=false \
     bash "$SCRIPT_DIR/query_grok.sh" hello '' "$TMP/error.json" >/dev/null 2>&1 || rc=$?
-[[ $rc -eq 78 && ! -e "$TMP/dispatched" ]]
-jq -e '.metadata.response_quality == "error"' "$TMP/error.json" >/dev/null
+[[ $rc -eq 78 && ! -e "$TMP/dispatched" ]] || exit 1
+jq -e '.metadata.response_quality == "error" and .metadata.transport == "cli"' "$TMP/error.json" >/dev/null
 rc=0
 env HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/config" AI_CONSULTANTS_CONFIG_DIR="$TMP/config" \
     PATH="$TMP/bin:$PATH" GROK_CMD="$TMP/bin/grok" GROK_USE_API=false ENABLE_GROK=true \
@@ -58,6 +73,6 @@ env HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/config" AI_CONSULTANTS_CONFIG_DIR="$T
     ENABLE_CLAUDE=false ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
     DISPATCH_FILE="$TMP/dispatched" \
     bash "$SCRIPT_DIR/doctor.sh" --json --quick > "$TMP/doctor.json" 2>/dev/null || rc=$?
-[[ $rc -ne 0 && ! -e "$TMP/dispatched" ]]
+[[ $rc -ne 0 && ! -e "$TMP/dispatched" ]] || exit 1
 jq -e 'any(.doctor.issues[]; .description | contains("sandbox_runtime_socket_symlink"))' "$TMP/doctor.json" >/dev/null
 printf '%s\n' 'Grok socket and sandbox refusal checks passed' 
