@@ -164,7 +164,7 @@ fi
 
 # Parse even failed runs: terminal billing and partial usage remain evidence.
 PROVIDER_COST=""
-_TOK=0 _TOK_IN=0 _TOK_OUT=0 _TOK_SRC=estimated
+_TOK=0 _TOK_IN="" _TOK_OUT="" _TOK_SRC=unknown
 BILLING_MODELS='[]'
 if ! is_api_mode "claude" && [[ -s "$TEMP_OUTPUT" ]]; then
     if ! CLI_ENVELOPE=$(jq -Rs -f "$SCRIPT_DIR/lib/claude_stream.jq" "$TEMP_OUTPUT" 2>/dev/null); then
@@ -231,7 +231,7 @@ else
 fi
 
 if ! is_api_mode "claude"; then
-    if response_tmp=$(mktemp); then
+    if response_tmp=$(mktemp "${OUTPUT_FILE}.metadata.XXXXXX"); then
         if jq --argjson models "$BILLING_MODELS" '.metadata.billing_models = $models' "$OUTPUT_FILE" > "$response_tmp" \
                 && mv "$response_tmp" "$OUTPUT_FILE"; then :; else
             log_warn "[$CONSULTANT_NAME] Could not annotate billing models; original envelope retained"
