@@ -808,3 +808,11 @@ messages attest the content model; terminal `modelUsage` records billing
 participants separately. A missing or conflicting content model remains
 `requested-only` and cannot pass a model-promotion gate. Successful terminal
 completion is required even when partial response text or billing is available.
+
+Grok CLI and doctor passively inspect the container-runtime socket deny paths,
+including Docker Desktop locations. Symlink endpoints (including dangling links)
+block CLI dispatch because the sandbox cannot safely resolve those deny rules.
+Absent paths and ordinary socket files pass this check. Nothing is removed and
+Docker configuration is never changed. Runtime `sandbox_profile_refused` and
+`sandbox_not_applied` diagnostics fail even with exit zero; they cannot trigger
+retry or API fallback. OAuth synchronization and per-run isolation remain active.

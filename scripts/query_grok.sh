@@ -111,6 +111,9 @@ grok_cli_supports_required_interface() {
     help=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
         env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
         "$GROK_CMD" --help 2>&1 || true)
+    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure /dev/stdin <<< "$help"); then
+        return 1
+    fi
     for flag in \
         --prompt-file --model --cwd --output-format --no-plan --no-subagents \
         --no-memory --disable-web-search --max-turns --permission-mode \
@@ -162,8 +165,13 @@ grok_cli_supports_required_interface() {
 
     # Exercise the complete headless argument surface under --help. This checks
     # parser compatibility without starting a session or sending a prompt.
-    run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
-        "${probe_args[@]}" --help >/dev/null 2>&1 || return 1
+    local probe_output probe_rc=0
+    probe_output=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+        "${probe_args[@]}" --help 2>&1) || probe_rc=$?
+    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure /dev/stdin <<< "$probe_output"); then
+        return 1
+    fi
+    [[ $probe_rc -eq 0 ]] || return 1
 
     if grep -q -- '--no-auto-update' <<< "$help"; then
         GROK_SUPPORTS_NO_AUTO_UPDATE=true
@@ -187,11 +195,16 @@ grok_cli_exposes_requested_model() {
     if ! models=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
             env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
             "$GROK_CMD" models 2>&1); then
-        if grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
+        if _GROK_MODEL_PROBE_ERROR=$(grok_sandbox_failure /dev/stdin <<< "$models"); then
+            return 1
+        elif grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
             _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable (inventory_command_failed_auth)"
         else
             _GROK_MODEL_PROBE_ERROR="Grok Build CLI model inventory failed (inventory_command_failed)"
         fi
+        return 1
+    fi
+    if _GROK_MODEL_PROBE_ERROR=$(grok_sandbox_failure /dev/stdin <<< "$models"); then
         return 1
     fi
     grok_oauth_credential_valid "$isolated_grok_home/auth.json" || {
@@ -252,6 +265,9 @@ grok_cli_is_unavailable() {
     esac
 
     [[ -s "$error_file" ]] || return 1
+    if grok_sandbox_failure "$error_file" >/dev/null; then
+        return 1
+    fi
 
     # Authentication is part of CLI availability: without a usable Grok Build
     # login the subscription transport cannot start a request. Do not classify
@@ -261,6 +277,15 @@ grok_cli_is_unavailable() {
         'not authenticated|authentication( is)? (required|unavailable)|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)' \
         "$error_file"
 }
+
+source "$SCRIPT_DIR/lib/grok_sandbox.sh"
+if ! is_api_mode "grok" && ! sandbox_diagnostic=$(grok_sandbox_preflight); then
+    build_error_response "$CONSULTANT_NAME" "$GROK_MODEL" "$(get_persona_name "$CONSULTANT_NAME")" \
+        "$sandbox_diagnostic" 0 "$GROK_MODEL" requested-only > "$OUTPUT_FILE"
+    log_error "[Grok] $sandbox_diagnostic; dispatch blocked"
+    cat "$OUTPUT_FILE"
+    exit 78
+fi
 
 if is_api_mode "grok"; then
     log_api_mode_status "grok"
