@@ -259,13 +259,21 @@ is_pin_managed_key() {
     [[ "$1" == *_MODEL ]]
 }
 
+# Pin wins over default, including hand-edited lines carrying both markers.
 # Merge existing persistent values first, then current environment overrides.
 while IFS= read -r key; do
     if [[ -f "$OUTPUT_FILE" ]] && value=$(read_value "$OUTPUT_FILE" "$key"); then
         if has_value_marker "$OUTPUT_FILE" "$key" "$PIN_MARKER"; then
             set_value "$key" "$value $PIN_MARKER"
         elif has_value_marker "$OUTPUT_FILE" "$key" "$DEFAULT_MARKER"; then
-            provenance=$(sed -n "s/^${key}=.*migrated-from=\\([^ ]*\\).*/\\1/p" "$OUTPUT_FILE")
+            provenance=$(awk -v key="$key" '
+                { sub(/\r$/, ""); sub(/^[[:space:]]*(export[[:space:]]+)?/, "") }
+                index($0, key "=") == 1 {
+                    origin=""
+                    if (match($0, /migrated-from=gpt-5[.]5|migrated-from=gpt-5[.]6-sol/))
+                        origin=substr($0, RSTART+14, RLENGTH-14)
+                }
+                END { printf "%s", origin }' "$OUTPUT_FILE")
             set_value "$key" "$value $DEFAULT_MARKER${provenance:+ migrated-from=$provenance}"
         else
             set_value "$key" "$value"

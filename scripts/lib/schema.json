@@ -110,6 +110,13 @@
     "metadata": {
       "type": "object",
       "properties": {
+        "cost_source": {
+          "type": "string",
+          "enum": ["unavailable", "estimated-standard-rates", "estimated-long-context-standard-rates"],
+          "description": "Codex estimate provenance; not a provider invoice."
+        },
+        "cost_note": {"type": "string", "description": "Limitations of the local cost estimate."},
+        "tokens_cached_input": {"type": "integer", "minimum": 0, "description": "Cached subset of CLI total input tokens; not added again."},
         "tokens_used": {
           "type": "integer",
           "description": "Tokens consumed. Provider-reported in API mode, approximated locally in CLI mode - read tokens_source before treating it as exact."

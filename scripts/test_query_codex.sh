@@ -62,6 +62,7 @@ case "$mode" in
             printf '%s\n' '{"response":{"summary":"Codex payload answered","detailed":"from payload file","approach":"payload","pros":[],"cons":[],"caveats":[]},"confidence":{"score":9,"reasoning":"test"}}' > "$payload"
         fi
         # Plausible stdout chatter that must NOT be treated as the answer.
+        printf '%s\n' '5' '"noise"' '[1,2]' '{"type":"turn.completed","usage":7}'
         printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":20,"output_tokens":80}}'
         printf '%s\n' '{"response":{"summary":"stdout chatter must not win","detailed":"wrong","approach":"stdout","pros":[],"cons":[],"caveats":[]},"confidence":{"score":1,"reasoning":"noise"}}'
         exit 0
@@ -147,6 +148,7 @@ test_cli_isolation_contract() {
     assert_match '^HOME=.*/ai-consultants-codex\.' "$(head -1 "$env_file")" "CLI uses an isolated HOME"
     assert_eq "CODEX_HOME=${user_home}/.codex" "$(sed -n '2p' "$env_file")" "CODEX_HOME stays on the real Codex home"
     assert_eq "Codex payload answered" "$(jq -r '.response.summary' "$output_file")" "answer is taken from the -o payload"
+    assert_eq 20 "$(jq -r '.metadata.tokens_cached_input' "$output_file")" "cached input is recorded as a subset"
     assert_eq 200 "$(jq -r '.metadata.tokens_used' "$output_file")" "Codex event tokens are measured"
     assert_eq measured "$(jq -r '.metadata.tokens_source' "$output_file")" "usage event is token evidence"
     assert_eq requested-only "$(jq -r '.metadata.model_identity_source' "$output_file")" "model argument is not provider attestation"

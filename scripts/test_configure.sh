@@ -439,6 +439,14 @@ test_codex_default_migration_and_pin() {
         assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "environment model overrides migration"
     done
 
+    printf 'CODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.5\r\nCODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.6-sol\r\n' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq gpt-6-astra "$(read_env "$cfg/.env" CODEX_MODEL)" "CRLF duplicate entries retain the final model"
+    assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" 'migrated-from=gpt-5.6-sol' "CRLF duplicate entries retain final provenance"
+    printf '%s\n' 'CLAUDE_MODEL=claude-opus-5 # ai-consultants:default # ai-consultants:pin' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq claude-opus-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "pin precedence also preserves Claude"
+
     local other_cfg="$TMP/codex-model-unrelated"
     mkdir -p "$other_cfg"
     printf '%s\n' 'CODEX_MODEL=gpt-5.4' > "$other_cfg/.env"

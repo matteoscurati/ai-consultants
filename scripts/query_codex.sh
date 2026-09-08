@@ -163,11 +163,16 @@ else
         fi
 
         # stdout is event telemetry; the -o payload alone is answer content.
-        usage=$(jq -Rs '[split("\n")[] | fromjson? | select(.type == "turn.completed") | .usage] | last // {}' "$TEMP_OUTPUT")
-        if printf '%s' "$usage" | jq -e '.input_tokens | numbers' >/dev/null; then
-            set_api_token_split "$(printf '%s' "$usage" | jq -r '.input_tokens // 0')" \
-                "$(printf '%s' "$usage" | jq -r '.output_tokens // 0')"
+        # input_tokens is treated as total input, including the cached subset.
+        # Preserve the subset separately so estimates can be audited.
+        if ! usage=$(jq -Rs '[split("\n")[] | fromjson? | objects | select(.type == "turn.completed") | .usage | objects] | last // {}' "$TEMP_OUTPUT" 2>/dev/null); then
+            usage='{}'
         fi
+        if printf '%s' "$usage" | jq -e 'all(.input_tokens, .output_tokens; type == "number" and . >= 0 and floor == .)' >/dev/null 2>&1; then
+            set_api_token_split "$(printf '%s' "$usage" | jq -r '.input_tokens')" \
+                "$(printf '%s' "$usage" | jq -r '.output_tokens')"
+        fi
+        CLI_CACHED_INPUT=$(printf '%s' "$usage" | jq -c '.cached_input_tokens | if type == "number" and . >= 0 and floor == . then . else null end')
 
         # Prefer the -o payload over stdout only when the run succeeded.
         # A non-empty payload must never rewrite a timeout, auth error, or
@@ -213,9 +218,17 @@ else
     [[ $exit_code -ne 0 ]] || exit_code=$response_rc
 fi
 
-jq '.metadata.cost_source = "estimated-standard-rates" |
-    .metadata.cost_note = "Estimate excludes cache writes, cache discounts and service-tier adjustments; not a provider invoice"' \
-    "$OUTPUT_FILE" > "$TEMP_OUTPUT"
-mv "$TEMP_OUTPUT" "$OUTPUT_FILE"
+if response_tmp=$(mktemp); then
+    if jq --arg model "$MODEL_USED" --argjson cached "${CLI_CACHED_INPUT:-null}" '
+        .metadata.cost_source = (if (.metadata.tokens_used // 0) == 0 then "unavailable"
+            elif $model == "gpt-6-astra" and (.metadata.tokens_input // 0) > 272000 then "estimated-long-context-standard-rates"
+            else "estimated-standard-rates" end) |
+        .metadata.cost_note = "Estimate includes applicable long-context pricing; excludes cache writes, cache discounts and service-tier adjustments; not a provider invoice" |
+        if $cached != null then .metadata.tokens_cached_input = $cached else . end' \
+            "$OUTPUT_FILE" > "$response_tmp" && mv "$response_tmp" "$OUTPUT_FILE"; then :; else
+        log_warn "[$CONSULTANT_NAME] Could not annotate cost estimate; original envelope retained"
+    fi
+    rm -f "$response_tmp"
+fi
 cat "$OUTPUT_FILE"
 exit $exit_code
