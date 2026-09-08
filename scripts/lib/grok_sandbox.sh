@@ -23,7 +23,7 @@ grok_sandbox_failure() {
         printf '%s\n' sandbox_profile_refused
         return 0
     fi
-    if grep -Eiq '(sandbox.*(not applied|not enforced|disabled|unavailable)|without.*sandbox|unsandboxed|could not apply.*sandbox)' "$@" 2>/dev/null; then
+    if grep -Eiq '^[[:space:]]*((\[[^]]+\]|warning|warn|error)[[:space:]:]*)?(sandbox.*(not applied|not enforced|disabled|unavailable)|running without.*sandbox|running unsandboxed|could not apply.*sandbox)' "$@" 2>/dev/null; then
         printf '%s\n' sandbox_not_applied
         return 0
     fi

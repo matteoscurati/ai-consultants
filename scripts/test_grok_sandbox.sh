@@ -18,6 +18,8 @@ PY
 grok_sandbox_preflight "$TMP/socket"
 ln -s "$TMP/socket" "$TMP/link"
 if grok_sandbox_preflight "$TMP/link"; then exit 1; fi
+printf '%s\n' 'The recommendation is to never run without a sandbox.' > "$TMP/advice"
+if grok_sandbox_failure "$TMP/advice" >/dev/null; then exit 1; fi
 for message in sandbox_profile_refused 'Warning: sandbox not applied'; do
     printf '%s\n' "$message" > "$TMP/message"
     for status in 0 1; do
