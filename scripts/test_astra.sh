@@ -18,6 +18,12 @@ for effort in none minimal invalid; do
     if resolve_codex_effort gpt-6-astra "$effort" >/dev/null 2>&1; then exit 1; fi
 done
 [[ -z $(resolve_codex_effort gpt-5.6-terra '') ]] || { printf "Astra assertion failed at line %s\n" "$LINENO" >&2; exit 1; }
+for tier in maximum premium; do
+    [[ $(get_model_for_tier codex "$tier") == gpt-6-astra ]] || exit 1
+done
+[[ $(get_model_for_tier codex standard) == gpt-5.6-terra ]] || exit 1
+[[ $(get_model_for_tier codex economy) == gpt-5.6-luna ]] || exit 1
+jq -e '.model_tiers.maximum.codex == "gpt-6-astra" and .model_tiers.premium.codex == "gpt-6-astra" and .model_tiers.standard.codex == "gpt-5.6-terra" and .model_tiers.economy.codex == "gpt-5.6-luna"' "$SCRIPT_DIR/../docs/cost_rates.json" >/dev/null || exit 1
 for tier in maximum economy premium standard maximum economy; do
     unset CODEX_REASONING_EFFORT
     apply_model_tier "$tier"

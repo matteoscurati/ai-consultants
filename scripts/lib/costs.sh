@@ -439,7 +439,7 @@ format_cost_caveats() {
         parts="${parts:+$parts; }$unknown contributed no token data"
     fi
     if [[ $astra_estimate -eq 1 ]]; then
-        parts="${parts:+$parts; }Astra cost estimated at Standard rates; cache/service adjustments excluded, not an invoice"
+        parts="${parts:+$parts; }cost estimated using Astra Standard rates; cache/service adjustments excluded, not an invoice"
     fi
     local unpriced=""
     if (( ${#unpriced_models[@]} > 0 )); then

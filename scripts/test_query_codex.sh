@@ -49,6 +49,16 @@ case "$mode" in
         printf '%s\n' "session chatter only"
         exit 0
         ;;
+    turn_failed_zero|missing_terminal|invalid_cache|invalid_totals)
+        printf '%s\n' '{"response":{"summary":"payload","detailed":"text","approach":"test"},"confidence":{"score":8}}' > "$payload"
+        case "$mode" in
+            turn_failed_zero) printf '%s\n' '{"type":"turn.failed","error":{"message":"failure"}}' ;;
+            missing_terminal) printf '%s\n' '{"type":"thread.started"}' ;;
+            invalid_cache) printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":4,"cached_input_tokens":11}}' ;;
+            invalid_totals) printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":"bad","output_tokens":4,"cached_input_tokens":3}}' ;;
+        esac
+        exit 0
+        ;;
     fail_with_payload)
         # Non-empty -o payload after a real CLI failure must NOT become success.
         if [[ -n "$payload" ]]; then
@@ -62,7 +72,7 @@ case "$mode" in
             printf '%s\n' '{"response":{"summary":"Codex payload answered","detailed":"from payload file","approach":"payload","pros":[],"cons":[],"caveats":[]},"confidence":{"score":9,"reasoning":"test"}}' > "$payload"
         fi
         # Plausible stdout chatter that must NOT be treated as the answer.
-        printf '%s\n' '5' '"noise"' '[1,2]' '{"type":"turn.completed","usage":7}'
+        printf '%s\n' '5' '"noise"' '[1,2]' '{"type":"item.completed","usage":7}'
         printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":20,"output_tokens":80}}'
         printf '%s\n' '{"response":{"summary":"stdout chatter must not win","detailed":"wrong","approach":"stdout","pros":[],"cons":[],"caveats":[]},"confidence":{"score":1,"reasoning":"noise"}}'
         exit 0
@@ -403,6 +413,26 @@ test_warn_effort_still_fires_for_unsupported_cli() {
     )
     assert_match 'ignored in CLI mode' "$out" "warn_effort_ignored_in_cli still warns for CLIs without effort control"
 }
+
+test_stream_failure_and_cached_subset() {
+    local mode rc output="$TMP_ROOT/events.json" fake="$TMP_ROOT/events-codex"
+    make_codex_stub "$fake"
+    for mode in turn_failed_zero missing_terminal invalid_cache invalid_totals; do
+        rc=0
+        CODEX_CMD="$fake" CODEX_USE_API=false CODEX_MODEL=gpt-6-astra CODEX_REASONING_EFFORT=high \
+            CODEX_ARGS_FILE="$TMP_ROOT/events-args" CODEX_STUB_MODE="$mode" MAX_RETRIES=1 \
+            "$SCRIPT_DIR/query_codex.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
+        case "$mode" in
+            turn_failed_zero|missing_terminal)
+                assert_eq 1 "$rc" "$mode fails despite exit zero and a payload"
+                assert_eq error "$(jq -r '.metadata.response_quality' "$output")" "$mode writes an error envelope" ;;
+            *)
+                assert_eq 0 "$rc" "$mode retains valid completed content"
+                assert_eq null "$(jq -r '.metadata.tokens_cached_input' "$output")" "$mode omits unauditable cached subset" ;;
+        esac
+    done
+}
+run_test "Codex terminal failures and cache subset integrity" test_stream_failure_and_cached_subset
 
 run_test "Test 1: CLI isolation contract and payload preference" test_cli_isolation_contract
 run_test "Test 2: explicit CODEX_HOME is preserved" test_explicit_codex_home_preserved

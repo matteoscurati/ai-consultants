@@ -443,6 +443,9 @@ test_codex_default_migration_and_pin() {
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq gpt-6-astra "$(read_env "$cfg/.env" CODEX_MODEL)" "CRLF duplicate entries retain the final model"
     assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" 'migrated-from=gpt-5.6-sol' "CRLF duplicate entries retain final provenance"
+    local loaded_model
+    loaded_model=$(env -u CODEX_MODEL bash -c 'source "$1/lib/user_config.sh"; _apply_env_file "$2"; printf "%s" "$CODEX_MODEL"' _ "$SCRIPT_DIR" "$cfg/.env")
+    assert_eq gpt-6-astra "$loaded_model" "real runtime loader strips migration provenance"
     printf '%s\n' 'CLAUDE_MODEL=claude-opus-5 # ai-consultants:default # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq claude-opus-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "pin precedence also preserves Claude"

@@ -372,7 +372,7 @@ jq 'has("consultant") and has("response") and has("confidence")' output.json
 
 ### Codex cost and cached-input metadata
 
-`metadata.cost_source` is `unavailable` without token data, otherwise
+When present, `metadata.cost_source` is `unavailable` without token data, otherwise
 `estimated-standard-rates` or `estimated-long-context-standard-rates`.
 `metadata.cost_note` discloses excluded cache/service adjustments; an estimate
 is not a provider invoice. `metadata.tokens_cached_input`, when supplied by

@@ -169,11 +169,19 @@ else
         if ! usage=$(jq -Rs '[split("\n")[] | fromjson? | objects | select(.type == "turn.completed") | .usage | objects] | last // {}' "$TEMP_OUTPUT" 2>/dev/null); then
             usage='{}'
         fi
-        if printf '%s' "$usage" | jq -e 'all(.input_tokens, .output_tokens; type == "number" and . >= 0 and floor == .)' >/dev/null 2>&1; then
+        if printf '%s' "$usage" | jq -e 'all(.input_tokens, .output_tokens; type == "number" and . >= 0 and floor == .) and (.input_tokens + .output_tokens > 0)' >/dev/null 2>&1; then
             set_api_token_split "$(printf '%s' "$usage" | jq -r '.input_tokens')" \
                 "$(printf '%s' "$usage" | jq -r '.output_tokens')"
+            cli_cached_input=$(printf '%s' "$usage" | jq -c '.input_tokens as $total | .cached_input_tokens | if type == "number" and . >= 0 and floor == . and . <= $total then . else null end')
         fi
-        cli_cached_input=$(printf '%s' "$usage" | jq -c '.cached_input_tokens | if type == "number" and . >= 0 and floor == . then . else null end')
+        # CLI status alone cannot turn an explicitly failed/unfinished JSON turn
+        # into a successful consultation just because -o contains partial text.
+        if ! jq -Rse '[split("\n")[] | fromjson? | objects] as $events |
+            ([$events[] | select(.type == "turn.completed")] | length) == 1 and
+            all($events[]; .type != "turn.failed" and .type != "error")' "$TEMP_OUTPUT" >/dev/null 2>&1; then
+            [[ $exit_code -ne 0 ]] || exit_code=1
+            log_warn "[$CONSULTANT_NAME] Codex stream lacks a successful terminal turn"
+        fi
 
         # Prefer the -o payload over stdout only when the run succeeded.
         # A non-empty payload must never rewrite a timeout, auth error, or
@@ -219,7 +227,7 @@ else
     [[ $exit_code -ne 0 ]] || exit_code=$response_rc
 fi
 
-if response_tmp=$(mktemp); then
+if response_tmp=$(mktemp "${OUTPUT_FILE}.metadata.XXXXXX"); then
     if jq --arg model "$MODEL_USED" --argjson cached "$cli_cached_input" '
         .metadata.cost_source = (if (.metadata.tokens_used // 0) == 0 then "unavailable"
             elif $model == "gpt-6-astra" and (.metadata.tokens_input // 0) > 272000 then "estimated-long-context-standard-rates"
