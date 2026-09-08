@@ -592,10 +592,16 @@ shell history or observed by other local processes. Use `--interactive`,
 ### Using .env file
 
 ```bash
-cp .env.example .env
+mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/ai-consultants"
+# For a new configuration only; keep existing credentials/settings if present.
+cp -n .env.example "${XDG_CONFIG_HOME:-$HOME/.config}/ai-consultants/.env"
+chmod 600 "${XDG_CONFIG_HOME:-$HOME/.config}/ai-consultants/.env"
 ```
 
-Edit `.env`:
+Edit that user configuration `.env`. A different existing private directory must
+be selected explicitly with `AI_CONSULTANTS_CONFIG_DIR`; project `.env` files
+are not discovered automatically:
+
 
 ```bash
 # Enable/disable consultants (10 available)

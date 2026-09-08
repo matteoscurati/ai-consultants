@@ -110,6 +110,11 @@
     "metadata": {
       "type": "object",
       "properties": {
+        "billing_models": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Billing participants; not content-model attestation."
+        },
         "tokens_used": {
           "type": "integer",
           "description": "Tokens consumed. Provider-reported in API mode, approximated locally in CLI mode - read tokens_source before treating it as exact."
