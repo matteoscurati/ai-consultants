@@ -41,7 +41,7 @@ assert_contains() {
 read_env() {
     local file="$1" key="$2"
     sed -nE "s/^${key}=(.*)$/\\1/p" "$file" \
-        | sed -E 's/[[:space:]]# ai-consultants:(auto|default|pin)( migrated-from=[^ ]+)?$//' | tail -1
+        | sed -E 's/[[:space:]]+#.*$//' | tail -1
 }
 
 clean_path() {
@@ -420,7 +420,7 @@ test_codex_default_migration_and_pin() {
 
     local old marker
     for old in gpt-5.5 gpt-5.6-sol; do
-        for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin'; do
+        for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin' ' # ai-consultants:default # ai-consultants:pin'; do
             printf 'CODEX_MODEL=%s%s\n' "$old" "$marker" > "$cfg/.env"
             run_clean_configure "$cfg" --force >/dev/null 2>&1
             if [[ "$marker" == *pin* ]]; then
@@ -434,6 +434,9 @@ test_codex_default_migration_and_pin() {
         done
         run_clean_configure "$cfg" --force --set "CODEX_MODEL=$old" >/dev/null 2>&1
         assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "explicit old model override survives"
+        env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
+            CODEX_MODEL="$old" "$BIN" configure --force >/dev/null 2>&1
+        assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "environment model overrides migration"
     done
 
     local other_cfg="$TMP/codex-model-unrelated"

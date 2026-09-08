@@ -242,7 +242,7 @@ ENABLE_DEEPSEEK=false
 ```bash
 GEMINI_MODEL=Gemini 3.7 Flash (High) # verified agy CLI default; API mode uses GEMINI_API_MODEL
 CODEX_MODEL=gpt-6-astra
-CODEX_API_MAX_TOKENS=4096
+CODEX_API_MAX_TOKENS=16384
 CLAUDE_MODEL=claude-fable-5-1
 # Lower-cost standard override: CLAUDE_MODEL=claude-opus-5
 CLAUDE_API_MAX_TOKENS=16384  # API only: adaptive thinking + visible output
