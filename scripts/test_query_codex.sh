@@ -86,7 +86,7 @@ if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
 fi
 printf '%s\n' "$@" > "${CLAUDE_ARGS_FILE}"
 cat >/dev/null
-printf '%s\n' '{"type":"result","result":"{\"response\":{\"summary\":\"Claude answered\",\"detailed\":\"ok\",\"approach\":\"cli\",\"pros\":[],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":9,\"reasoning\":\"test\"}}","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude":{"inputTokens":1,"outputTokens":1,"costUSD":0.0}}}'
+printf '%s\n' '{"type":"result","subtype":"success","result":"{\"response\":{\"summary\":\"Claude answered\",\"detailed\":\"ok\",\"approach\":\"cli\",\"pros\":[],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":9,\"reasoning\":\"test\"}}","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude":{"inputTokens":1,"outputTokens":1,"costUSD":0.0}}}'
 EOF
     chmod +x "$path"
 }

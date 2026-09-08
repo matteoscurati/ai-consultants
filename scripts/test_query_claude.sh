@@ -50,7 +50,7 @@ EOF
     assert_eq claude-fable-5-1 "$(jq -r '.model' "$output")" \
         "CLI provider attestation supplies the effective content model"
     assert_eq provider-reported "$(jq -r '.metadata.model_identity_source' "$output")" \
-        "top-level provider model is distinguished from billing participants"
+        "assistant content model is distinguished from billing participants"
     assert_eq 0.420000 "$(calculate_session_cost "$TMP")" \
         "session cost uses Claude CLI costUSD exactly"
     assert_match 'under 5000 characters' "$(cat "$TMP/prompt")" \

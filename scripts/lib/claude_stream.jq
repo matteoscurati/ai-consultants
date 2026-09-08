@@ -17,7 +17,7 @@ split("\n") | map(select(test("\\S"))) | map(try fromjson catch null) as $events
     output_tokens: ([$unique_messages[].usage.output_tokens // 0] | add // 0)
   } end)) as $usage
 | {
-  success: (($events | all(. != null)) and ($terminals | length) == 1 and $events[-1] == $terminal
+  success: (($events | all(type == "object" and .type != "error" and .is_error != true)) and ($terminals | length) == 1 and $events[-1] == $terminal
     and $terminal.subtype == "success" and $terminal.is_error != true and ($terminal.result | type == "string")
     and $terminal.stop_reason != "max_tokens" and all($messages[]; .stop_reason != "max_tokens" and .error == null)),
   result: $terminal.result,
