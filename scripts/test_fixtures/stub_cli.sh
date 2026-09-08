@@ -75,7 +75,11 @@ if [[ -n "$payload" ]]; then
     # Real Codex emits progress/status on stdout while `-o` carries the final
     # answer. run_query correctly rejects a completely empty transport, so the
     # fixture must model both surfaces rather than only the payload file.
-    printf '%s\n' 'codex stub completed'
+    if [[ " $* " == *" --json "* ]]; then
+        printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5,"cached_input_tokens":0}}'
+    else
+        printf '%s\n' 'codex stub completed'
+    fi
     exit 0
 fi
 
