@@ -3,6 +3,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
+export HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/config" XDG_CACHE_HOME="$TMP/cache" XDG_STATE_HOME="$TMP/state" XDG_DATA_HOME="$TMP/data"
+export AI_CONSULTANTS_CONFIG_DIR="$TMP/config" CLAUDE_REASONING_EFFORT='' CLAUDE_TIMEOUT=10
+mkdir -p "$HOME" "$XDG_CONFIG_HOME"
 python3 - "$SCRIPT_DIR" <<'PY'
 import json, subprocess, sys
 script=sys.argv[1]+'/lib/claude_stream.jq'
@@ -60,7 +63,7 @@ cat "$STREAM_FIXTURE"
 exit "${STREAM_EXIT:-0}"
 STUB
 chmod +x "$TMP/bin/claude"
-for kind in provider_error nonzero empty no_usage; do
+for kind in provider_error nonzero empty no_usage identity_missing identity_conflict; do
     python3 - "$TMP/stream" "$kind" <<'PYFIXTURE'
 import json,sys
 kind=sys.argv[2]
@@ -69,7 +72,13 @@ t={'type':'result','subtype':'success','result':'hello','total_cost_usd':0.7,'us
 if kind=='provider_error':t['subtype']='error_provider'
 if kind=='empty':t['result']=''
 if kind=='no_usage':t.pop('usage');t.pop('total_cost_usd')
-open(sys.argv[1],'w').write(json.dumps(a)+'\n'+json.dumps(t)+'\n')
+events=[a]
+if kind=='identity_missing':a['message'].pop('model')
+if kind=='identity_conflict':
+ b=json.loads(json.dumps(a));b['message']['id']='b';b['message']['model']='claude-opus-5';events.append(b)
+t['model']='claude-fable-5-1'
+t['modelUsage']={'claude-fable-5-1':{'costUSD':0.7}}
+open(sys.argv[1],'w').write('\n'.join(map(json.dumps,events+[t]))+'\n')
 PYFIXTURE
     rc=0; provider_exit=0
     [[ "$kind" != nonzero ]] || provider_exit=42
@@ -77,7 +86,10 @@ PYFIXTURE
         AI_CONSULTANTS_CONFIG_DIR="$TMP/config" ENABLE_PERSONA=false MAX_RETRIES=1 \
         STREAM_FIXTURE="$TMP/stream" STREAM_EXIT="$provider_exit" \
         bash "$SCRIPT_DIR/query_claude.sh" hello '' "$TMP/envelope.json" >/dev/null 2>&1 || rc=$?
-    if [[ "$kind" == no_usage ]]; then
+    if [[ "$kind" == identity_* ]]; then
+        [[ $rc -eq 0 ]] || exit 1
+        jq -e '.metadata.model_identity_source == "requested-only"' "$TMP/envelope.json" >/dev/null || exit 1
+    elif [[ "$kind" == no_usage ]]; then
         [[ $rc -eq 0 ]] || exit 1
         jq -e '.metadata.tokens_source == "estimated" and .metadata.tokens_used > 0' "$TMP/envelope.json" >/dev/null || exit 1
     else

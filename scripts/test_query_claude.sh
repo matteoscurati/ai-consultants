@@ -79,7 +79,7 @@ if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
 fi
 cat >/dev/null
 printf '%s\n' '{"type":"assistant","message":{"id":"msg1","model":"claude-opus-5","content":[{"type":"text","text":"hello"}]}}'
-printf '%s\n' '{"type":"result","subtype":"success","model":"claude-opus-5","result":"hello","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude-opus-5":{"inputTokens":1,"outputTokens":1,"costUSD":0.01}}}'
+printf '%s\n' '{"type":"result","subtype":"success","model":"claude-fable-5-1","result":"hello","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude-opus-5":{"inputTokens":1,"outputTokens":1,"costUSD":0.01}}}'
 EOF
     chmod +x "$fake"
 
