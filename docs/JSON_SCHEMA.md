@@ -380,3 +380,12 @@ CLI telemetry, is the cached subset of `tokens_input` and is not added again.
 Unknown splits use the documented estimation heuristic; they cannot establish
 an exact long-context bill. Astra maximum/premium uses `high` by default,
 including in max_quality; valid explicit Codex effort always takes precedence.
+
+### Claude streaming billing metadata
+
+`metadata.billing_models` is an optional array of provider billing model IDs.
+It does not attest the content model. Claude content identity comes only from
+response-bearing assistant events; successful terminal completion is a separate
+requirement. `provider_cost_usd`, when present, is the provider's terminal cost.
+Token accounting prefers a supplied per-model billing aggregate over terminal
+usage, without adding those two summaries together; absent usage is estimated.

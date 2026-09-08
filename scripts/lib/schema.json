@@ -117,6 +117,12 @@
         },
         "cost_note": {"type": "string", "description": "Limitations of the local cost estimate."},
         "tokens_cached_input": {"type": "integer", "minimum": 0, "description": "Cached subset of CLI total input tokens; not added again."},
+
+        "billing_models": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Billing participants; not content-model attestation."
+        },
         "tokens_used": {
           "type": "integer",
           "description": "Tokens consumed. Provider-reported in API mode, approximated locally in CLI mode - read tokens_source before treating it as exact."
