@@ -24,6 +24,8 @@ assert not parse([a,t], '\n{"cut":')['success']
 for field,value in [('subtype','error_max_turns'),('is_error',True),('stop_reason','max_tokens')]:
  u=dict(t);u[field]=value;r=parse([a,u]);assert not r['success'] and r['cost']==0.7
 assert not parse([a,t,t])['success']
+assert not parse([a,{'type':'error','error':'provider failure'},t])['success']
+assert not parse([42,a,t])['success']
 print('Claude stream identity, completion and accounting checks passed')
 PY
 mkdir -p "$TMP/bin" "$TMP/home" "$TMP/config"
