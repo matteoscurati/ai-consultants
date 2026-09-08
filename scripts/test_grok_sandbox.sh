@@ -35,6 +35,7 @@ MAX_RETRIES=1 run_query Grok "$TMP/advice.out" 10 bash -c \
 grep -q 'sandbox_profile_refused' "$TMP/advice.out" || exit 1
 MAX_RETRIES=1 run_query Codex "$TMP/other.out" 10 bash -c \
     'printf "Warning: sandbox not applied\n" >&2; printf "answer\n"' </dev/null >/dev/null 2>&1 || exit 1
+if grok_sandbox_failure --explicit /dev/stdin <<< '          sandbox is disabled by default'; then exit 1; fi
 for message in sandbox_profile_refused 'Warning: sandbox not applied'; do
     printf '%s\n' "$message" > "$TMP/message"
     for status in 0 1; do
@@ -56,6 +57,8 @@ done
 # Adapter and doctor both stop before even probing the binary.
 mkdir -p "$TMP/home/.docker/run" "$TMP/config" "$TMP/bin"
 ln -s "$TMP/missing" "$TMP/home/.docker/run/docker.sock"
+# A user .env must not activate the process-only harness inventory.
+printf '_AI_CONSULTANTS_GROK_TEST_SOCKET_PATHS=%s\n' "$TMP/absent" > "$TMP/config/.env"
 printf '#!/bin/bash\n: > "$DISPATCH_FILE"\nexit 99\n' > "$TMP/bin/grok"
 cp "$TMP/bin/grok" "$TMP/bin/curl"
 chmod +x "$TMP/bin/"*

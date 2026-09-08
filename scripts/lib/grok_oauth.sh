@@ -8,6 +8,8 @@
 # Serialized mode retains a per-run GROK_HOME and holds that adapter lock for
 # the full CLI sequence as a diagnostic fallback.
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/grok_sandbox.sh"
+
 GROK_OAUTH_SOURCE_HOME=""
 GROK_OAUTH_SHARED_ROOT=""
 GROK_OAUTH_ACTIVE_HOME=""
@@ -314,7 +316,7 @@ grok_oauth_prepare() {
 grok_oauth_bootstrap_shared() {
     local probe_home="$1" grok_cmd="$2"
     local sentinel="$GROK_OAUTH_ACTIVE_HOME/.ai-consultants-ready.json"
-    local candidate models lock_rc=0
+    local candidate models lock_rc=0 models_rc=0 sandbox_failure
     [[ "$GROK_OAUTH_MODE" == "shared" ]] || return 0
     if [[ -f "$sentinel" && ! -L "$sentinel" ]] &&
        jq -e --arg generation "$GROK_OAUTH_GENERATION" '
@@ -341,9 +343,15 @@ grok_oauth_bootstrap_shared() {
         return 0
     fi
 
-    if ! models=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+    models=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
         env HOME="$probe_home" GROK_HOME="$GROK_OAUTH_ACTIVE_HOME" \
-        "$grok_cmd" models 2>&1); then
+        "$grok_cmd" models 2>&1) || models_rc=$?
+    if sandbox_failure=$(grok_sandbox_failure /dev/stdin <<< "$models"); then
+        GROK_OAUTH_ERROR="$sandbox_failure"
+        grok_oauth_release_lock
+        return 5
+    fi
+    if [[ $models_rc -ne 0 ]]; then
         if grep -Eiq 'not logged in|logged out|login required|authentication required|unauthorized|run .?grok login|status.?401' <<< "$models"; then
             GROK_OAUTH_ERROR="Grok Build authentication unavailable"
             grok_oauth_release_lock

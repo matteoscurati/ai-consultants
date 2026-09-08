@@ -18,6 +18,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/grok_sandbox.sh"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/personas.sh"
 source "$SCRIPT_DIR/lib/grok_oauth.sh"
@@ -111,7 +112,7 @@ grok_cli_supports_required_interface() {
     help=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
         env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
         "$GROK_CMD" --help 2>&1 || true)
-    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure /dev/stdin <<< "$help"); then
+    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure --explicit /dev/stdin <<< "$help"); then
         return 1
     fi
     for flag in \
@@ -168,7 +169,7 @@ grok_cli_supports_required_interface() {
     local probe_output probe_rc=0
     probe_output=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
         "${probe_args[@]}" --help 2>&1) || probe_rc=$?
-    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure /dev/stdin <<< "$probe_output"); then
+    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure --explicit /dev/stdin <<< "$probe_output"); then
         return 1
     fi
     [[ $probe_rc -eq 0 ]] || return 1
@@ -257,6 +258,10 @@ grok_cli_is_unavailable() {
     local cli_exit_code="$1"
     local error_file="$2"
 
+    if [[ -s "$error_file" ]] && grok_sandbox_failure "$error_file" >/dev/null; then
+        return 1
+    fi
+
     # A missing command is detected before execution. 126/127 cover a binary
     # that was resolved but cannot be executed (bad interpreter, permissions,
     # or a race with an uninstall).
@@ -265,9 +270,6 @@ grok_cli_is_unavailable() {
     esac
 
     [[ -s "$error_file" ]] || return 1
-    if grok_sandbox_failure "$error_file" >/dev/null; then
-        return 1
-    fi
 
     # Authentication is part of CLI availability: without a usable Grok Build
     # login the subscription transport cannot start a request. Do not classify
@@ -371,7 +373,12 @@ else
         elif [[ "$GROK_OAUTH_MODE" == "shared" ]] &&
              ! grok_shared_oauth_bootstrap_ready "$isolated_home"; then
             _GROK_OAUTH_PREPARED=false
-            if [[ "$oauth_rc" -eq 4 ]]; then
+            if [[ "$oauth_rc" -eq 5 ]]; then
+                _GROK_OAUTH_FAILURE=true
+                printf '%s\n' "$GROK_OAUTH_ERROR" > "${TEMP_OUTPUT}.err"
+                log_error "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
+                exit_code=78
+            elif [[ "$oauth_rc" -eq 4 ]]; then
                 printf '%s\n' "Grok Build authentication unavailable; run grok login" > "${TEMP_OUTPUT}.err"
                 log_warn "[$CONSULTANT_NAME] Grok Build authentication unavailable"
                 exit_code=69
@@ -521,8 +528,12 @@ fi
 
 # Preserve which route actually answered without changing the shared schema.
 if [[ -s "$OUTPUT_FILE" ]]; then
-    response_tmp=$(mktemp)
-    if jq --arg transport "$TRANSPORT" \
+    response_tmp=$(mktemp "${OUTPUT_FILE}.metadata.XXXXXX")
+    sandbox_failure=""
+    if [[ "$TRANSPORT" == cli && $exit_code -ne 0 ]]; then
+        sandbox_failure=$(grok_sandbox_failure "${TEMP_OUTPUT}.err") || sandbox_failure=""
+    fi
+    if jq --arg sandbox_failure "$sandbox_failure" --arg transport "$TRANSPORT" \
             --arg cli_version "$GROK_CLI_VERSION" \
             --arg cli_compatibility "$GROK_CLI_COMPATIBILITY" '
             .metadata.transport = $transport |
@@ -531,10 +542,13 @@ if [[ -s "$OUTPUT_FILE" ]]; then
                 .metadata.cli_compatibility = $cli_compatibility
             else
                 .
-            end
+            end |
+            if $sandbox_failure != "" then
+                .metadata.error = $sandbox_failure | .response.detailed = $sandbox_failure
+            else . end
         ' \
-            "$OUTPUT_FILE" > "$response_tmp"; then
-        mv "$response_tmp" "$OUTPUT_FILE"
+            "$OUTPUT_FILE" > "$response_tmp" && mv "$response_tmp" "$OUTPUT_FILE"; then
+        :
     else
         rm -f "$response_tmp"
     fi
