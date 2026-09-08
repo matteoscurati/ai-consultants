@@ -40,6 +40,7 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution (CLI or API mode) ---
 TEMP_OUTPUT=$(mktemp)
+cli_cached_input=null
 CODEX_RUNTIME_DIR=""
 exit_code=1
 
@@ -172,7 +173,7 @@ else
             set_api_token_split "$(printf '%s' "$usage" | jq -r '.input_tokens')" \
                 "$(printf '%s' "$usage" | jq -r '.output_tokens')"
         fi
-        CLI_CACHED_INPUT=$(printf '%s' "$usage" | jq -c '.cached_input_tokens | if type == "number" and . >= 0 and floor == . then . else null end')
+        cli_cached_input=$(printf '%s' "$usage" | jq -c '.cached_input_tokens | if type == "number" and . >= 0 and floor == . then . else null end')
 
         # Prefer the -o payload over stdout only when the run succeeded.
         # A non-empty payload must never rewrite a timeout, auth error, or
@@ -219,7 +220,7 @@ else
 fi
 
 if response_tmp=$(mktemp); then
-    if jq --arg model "$MODEL_USED" --argjson cached "${CLI_CACHED_INPUT:-null}" '
+    if jq --arg model "$MODEL_USED" --argjson cached "$cli_cached_input" '
         .metadata.cost_source = (if (.metadata.tokens_used // 0) == 0 then "unavailable"
             elif $model == "gpt-6-astra" and (.metadata.tokens_input // 0) > 272000 then "estimated-long-context-standard-rates"
             else "estimated-standard-rates" end) |
