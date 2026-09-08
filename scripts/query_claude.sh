@@ -185,6 +185,11 @@ if ! is_api_mode "claude" && [[ -s "$TEMP_OUTPUT" ]]; then
     fi
 fi
 
+# Failed API responses can still carry measured usage.
+if is_api_mode "claude" && [[ -n "${_API_TOKEN_SPLIT:-}" ]]; then
+    read -r _TOK _TOK_SRC _TOK_IN _TOK_OUT <<< "$(resolve_response_tokens "$FULL_QUERY" "$(cat "$TEMP_OUTPUT")")"
+fi
+
 # --- Post-processing: wrap in full schema using shared helpers ---
 if [[ $exit_code -eq 0 && -s "$TEMP_OUTPUT" ]]; then
     if is_api_mode "claude"; then

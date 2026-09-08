@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, feat/fable-5-1-model-policy]
 
 jobs:
   lint-and-check:
