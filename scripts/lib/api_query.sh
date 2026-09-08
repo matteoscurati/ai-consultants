@@ -146,7 +146,9 @@ run_api_mode_query() {
                 log_error "[$consultant_name] $max_tokens_var must be a positive integer (got: $api_max_tokens)"
                 return 1
             fi
-            if [[ -n "$effort" ]]; then
+            if [[ "$consultant_name" == Codex ]]; then
+                request_body=$(build_codex_request "$query" "$model" "$api_max_tokens" "$effort") || return 1
+            elif [[ -n "$effort" ]]; then
                 request_body=$(build_openai_request "$query" "$model" "$api_max_tokens" "$effort")
             else
                 request_body=$(build_openai_request "$query" "$model" "$api_max_tokens")

@@ -349,7 +349,7 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-fable-5-1, Gemini 3.7 Flash (High), gpt-5.6-sol |
+| **premium** | Latest flagship models | claude-fable-5-1, Gemini 3.7 Flash (High), gpt-6-astra |
 | **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
 | **standard** | Good quality at reasonable cost | claude-opus-5, Gemini 3.7 Flash (High), gpt-5.6-terra |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.7 Flash (Low), gpt-5.6-luna |
@@ -390,7 +390,7 @@ All consultants now use premium models by default:
 |------------|---------------|
 | Claude | claude-fable-5-1 |
 | Gemini | Gemini 3.7 Flash (High) (via agy CLI); API: gemini-3.1-pro-preview |
-| Codex | gpt-5.6-sol |
+| Codex | gpt-6-astra |
 | Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
 | DeepSeek | deepseek-v4-pro |
 | GLM | glm-5.3-flash |
@@ -590,7 +590,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `CLAUDE_API_MAX_TOKENS` | 16384 | Claude API thinking + visible-output budget |
 | `GEMINI_MODEL` | Gemini 3.7 Flash (High) | Gemini agy CLI model |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
-| `CODEX_MODEL` | gpt-5.6-sol | Codex model (v2.5) |
+| `CODEX_MODEL` | gpt-6-astra | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
 | `MISTRAL_CLI_MODEL` | mistral-medium-3.5 | Vibe CLI model alias |
 | `SYNTHESIS_STRATEGY` | coverage | Synthesis strategy (coverage=union of distinct points) |

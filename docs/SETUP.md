@@ -808,3 +808,24 @@ messages attest the content model; terminal `modelUsage` records billing
 participants separately. A missing or conflicting content model remains
 `requested-only` and cannot pass a model-promotion gate. Successful terminal
 completion is required even when partial response text or billing is available.
+
+Codex defaults to `gpt-6-astra`; premium and maximum select Astra, standard
+selects `gpt-5.6-terra`, economy selects `gpt-5.6-luna`. Sol remains an explicit
+`CODEX_MODEL=gpt-5.6-sol` override. Configure migrates exact unpinned persisted
+`gpt-5.5` and `gpt-5.6-sol` values to Astra and records `migrated-from` provenance.
+Use `# ai-consultants:pin`, an environment override or `--set` to keep a model.
+
+Astra uses `high` effort when no effort is configured. Explicit `low`, `medium`,
+`high`, `xhigh`, and `max` prevail; `none`/`minimal` fail before dispatch.
+The default completion budget is 16384 tokens, including reasoning; override
+`CODEX_API_MAX_TOKENS` explicitly as needed. The text-only Chat Completions
+request uses `max_completion_tokens` and `reasoning_effort`, without tools.
+See the [official migration guide](https://developers.openai.com/api/docs/guides/latest-model).
+CLI JSON events supply token telemetry; the final message file supplies content.
+A CLI `-m` selection remains `requested-only`, not provider attestation.
+
+[Astra Standard pricing](https://developers.openai.com/api/docs/models/gpt-6-astra)
+is $10/M input and $50/M output. More than 272K input tokens doubles input
+and multiplies output by 1.5 for the whole request. Reported cost is an estimate
+unless a provider cost is supplied: cache writes, cached-input discounts and
+service processing rates can change the invoice.

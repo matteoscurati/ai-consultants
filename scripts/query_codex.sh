@@ -4,7 +4,7 @@
 # Usage: ./query_codex.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   CODEX_MODEL - Model to use (default: gpt-5.6-sol)
+#   CODEX_MODEL - Model to use (default: gpt-6-astra)
 #   CODEX_TIMEOUT - Timeout in seconds (default: 180)
 #   CODEX_USE_API - Use API mode instead of CLI (default: false)
 #   OPENAI_API_KEY - API key for API mode
@@ -108,16 +108,11 @@ else
     : > "$payload_file"
     chmod 600 "$prompt_file" "$payload_file"
 
-    cli_effort=""
+    source "$SCRIPT_DIR/lib/api.sh"
     effort_ok=true
-    if [[ -n "${CODEX_REASONING_EFFORT:-}" ]]; then
-        # Keep the existing validate_reasoning_effort gate; pass the value
-        # through and let the CLI reject what it does not accept.
-        source "$SCRIPT_DIR/lib/api.sh"
-        if ! cli_effort=$(validate_reasoning_effort "$CODEX_REASONING_EFFORT" "$CONSULTANT_NAME"); then
-            effort_ok=false
-            exit_code=1
-        fi
+    if ! cli_effort=$(resolve_codex_effort "$CODEX_MODEL" "${CODEX_REASONING_EFFORT:-}"); then
+        effort_ok=false
+        exit_code=1
     fi
 
     if [[ "$effort_ok" == "true" ]]; then
@@ -139,6 +134,7 @@ else
             CODEX_HOME="$real_codex_home"
             "$CODEX_CMD"
             exec
+            --json
             --ephemeral
             --ignore-user-config
             --ignore-rules
@@ -166,6 +162,13 @@ else
             exit_code=$?
         fi
 
+        # stdout is event telemetry; the -o payload alone is answer content.
+        usage=$(jq -Rs '[split("\n")[] | fromjson? | select(.type == "turn.completed") | .usage] | last // {}' "$TEMP_OUTPUT")
+        if printf '%s' "$usage" | jq -e '.input_tokens | numbers' >/dev/null; then
+            set_api_token_split "$(printf '%s' "$usage" | jq -r '.input_tokens // 0')" \
+                "$(printf '%s' "$usage" | jq -r '.output_tokens // 0')"
+        fi
+
         # Prefer the -o payload over stdout only when the run succeeded.
         # A non-empty payload must never rewrite a timeout, auth error, or
         # exhausted-retry into success — a partial answer would enter synthesis
@@ -188,7 +191,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${CODEX_MODEL:-gpt-5.6-sol}"
+MODEL_USED="${CODEX_MODEL:-gpt-6-astra}"
 MODEL_IDENTITY_SOURCE="requested-only"
 EFFECTIVE_MODEL="$MODEL_USED"
 if is_api_mode "codex"; then
@@ -210,5 +213,9 @@ else
     [[ $exit_code -ne 0 ]] || exit_code=$response_rc
 fi
 
+jq '.metadata.cost_source = "estimated-standard-rates" |
+    .metadata.cost_note = "Estimate excludes cache writes, cache discounts and service-tier adjustments; not a provider invoice"' \
+    "$OUTPUT_FILE" > "$TEMP_OUTPUT"
+mv "$TEMP_OUTPUT" "$OUTPUT_FILE"
 cat "$OUTPUT_FILE"
 exit $exit_code

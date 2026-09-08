@@ -290,7 +290,7 @@ EOF
     PATH="$td:$PATH" OPENAI_API_KEY=test CODEX_FORMAT=openai CODEX_API_MAX_TOKENS=16384 \
         REQUEST_BODY_FILE="$request_body" RATE_LIMIT_DIR="$td/rate-codex-api" MAX_RETRIES=1 \
         run_api_consultant Codex test "" "$output" >/dev/null 2>&1
-    assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "Codex maximum API budget reaches the wire"
+    assert_eq 16384 "$(jq -r '.max_completion_tokens' "$request_body")" "Codex maximum API budget reaches the wire"
 
     rm -f "$request_body"
     PATH="$td:$PATH" MISTRAL_API_KEY=test MISTRAL_FORMAT=openai MISTRAL_API_MAX_TOKENS=16384 \

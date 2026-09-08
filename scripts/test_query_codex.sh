@@ -62,7 +62,7 @@ case "$mode" in
             printf '%s\n' '{"response":{"summary":"Codex payload answered","detailed":"from payload file","approach":"payload","pros":[],"cons":[],"caveats":[]},"confidence":{"score":9,"reasoning":"test"}}' > "$payload"
         fi
         # Plausible stdout chatter that must NOT be treated as the answer.
-        printf '%s\n' 'hook noise: session started'
+        printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":20,"output_tokens":80}}'
         printf '%s\n' '{"response":{"summary":"stdout chatter must not win","detailed":"wrong","approach":"stdout","pros":[],"cons":[],"caveats":[]},"confidence":{"score":1,"reasoning":"noise"}}'
         exit 0
         ;;
@@ -86,7 +86,7 @@ if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
 fi
 printf '%s\n' "$@" > "${CLAUDE_ARGS_FILE}"
 cat >/dev/null
-printf '%s\n' '{"type":"result","result":"{\"response\":{\"summary\":\"Claude answered\",\"detailed\":\"ok\",\"approach\":\"cli\",\"pros\":[],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":9,\"reasoning\":\"test\"}}","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude":{"inputTokens":1,"outputTokens":1,"costUSD":0.0}}}'
+printf '%s\n' '{"type":"result","subtype":"success","result":"{\"response\":{\"summary\":\"Claude answered\",\"detailed\":\"ok\",\"approach\":\"cli\",\"pros\":[],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":9,\"reasoning\":\"test\"}}","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude":{"inputTokens":1,"outputTokens":1,"costUSD":0.0}}}'
 EOF
     chmod +x "$path"
 }
@@ -119,7 +119,7 @@ test_cli_isolation_contract() {
     if ! HOME="$user_home" \
         CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$args_file" \
         CODEX_ENV_FILE="$env_file" \
         CODEX_STDIN_FILE="$stdin_file" \
@@ -136,7 +136,7 @@ test_cli_isolation_contract() {
     assert_match '(^|[[:space:]])--ignore-user-config($|[[:space:]])' "$args" "CLI ignores ambient user config"
     assert_match '(^|[[:space:]])--ignore-rules($|[[:space:]])' "$args" "CLI ignores project rules"
     assert_match '(^|[[:space:]])--skip-git-repo-check($|[[:space:]])' "$args" "CLI skips git-repo check"
-    assert_match '(^|[[:space:]])-m[[:space:]]+gpt-5\.6-sol($|[[:space:]])' "$args" "CLI pins the model"
+    assert_match '(^|[[:space:]])-m[[:space:]]+gpt-6-astra($|[[:space:]])' "$args" "CLI pins the model"
     assert_match '(^|[[:space:]])-s[[:space:]]+read-only($|[[:space:]])' "$args" "CLI sandbox is read-only"
     assert_match '(^|[[:space:]])-C($|[[:space:]])' "$args" "CLI pins an isolated CWD"
     assert_match '(^|[[:space:]])-o($|[[:space:]])' "$args" "CLI writes the final message to -o"
@@ -163,7 +163,7 @@ test_explicit_codex_home_preserved() {
         CODEX_HOME="$real_codex_home" \
         CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$TMP_ROOT/explicit-args" \
         CODEX_ENV_FILE="$env_file" \
         MAX_RETRIES=1 \
@@ -187,7 +187,7 @@ test_large_context_uses_stdin() {
 
     if ! CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$args_file" \
         CODEX_STDIN_FILE="$stdin_file" \
         MAX_RETRIES=1 \
@@ -209,7 +209,7 @@ test_empty_payload_is_failure() {
 
     if CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_STUB_MODE=empty_payload \
         CODEX_ARGS_FILE="$TMP_ROOT/empty-args" \
         MAX_RETRIES=1 \
@@ -231,7 +231,7 @@ test_failed_run_with_payload_is_failure() {
 
     if CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_STUB_MODE=fail_with_payload \
         CODEX_ARGS_FILE="$TMP_ROOT/fail-payload-args" \
         MAX_RETRIES=1 \
@@ -255,7 +255,7 @@ test_runtime_dirs_cleaned_up() {
 
     if ! CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$TMP_ROOT/cleanup-args" \
         MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_codex.sh" "Cleanup check" "" "$output_file" >/dev/null 2>&1; then
@@ -278,7 +278,7 @@ test_codex_effort_flag() {
 
     if ! CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_REASONING_EFFORT=high \
         CODEX_ARGS_FILE="$args_with" \
         MAX_RETRIES=1 \
@@ -295,7 +295,7 @@ test_codex_effort_flag() {
 
     if ! CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$args_without" \
         MAX_RETRIES=1 \
         env -u CODEX_REASONING_EFFORT \
@@ -304,7 +304,7 @@ test_codex_effort_flag() {
         return
     fi
 
-    assert_eq "0" "$(grep -c 'model_reasoning_effort' "$args_without" || true)" "Codex omits effort when unset"
+    assert_eq "1" "$(grep -c 'model_reasoning_effort=high' "$args_without" || true)" "Astra defaults to high effort"
 }
 
 test_claude_effort_flag() {

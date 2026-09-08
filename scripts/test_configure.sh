@@ -41,7 +41,7 @@ assert_contains() {
 read_env() {
     local file="$1" key="$2"
     sed -nE "s/^${key}=(.*)$/\\1/p" "$file" \
-        | sed -E 's/[[:space:]]# ai-consultants:(auto|default|pin)$//' | tail -1
+        | sed -E 's/[[:space:]]# ai-consultants:(auto|default|pin)( migrated-from=[^ ]+)?$//' | tail -1
 }
 
 clean_path() {
@@ -402,8 +402,8 @@ test_codex_default_migration_and_pin() {
     printf '%s\n' 'CODEX_MODEL=gpt-5.5' > "$cfg/.env"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "gpt-5.6-sol" "$(read_env "$cfg/.env" CODEX_MODEL)" \
-        "historical generated Codex default migrates to gpt-5.6-sol"
+    assert_eq "gpt-6-astra" "$(read_env "$cfg/.env" CODEX_MODEL)" \
+        "historical generated Codex default migrates to gpt-6-astra"
     assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "# ai-consultants:default" \
         "migrated Codex default records managed provenance"
 
@@ -417,6 +417,24 @@ test_codex_default_migration_and_pin() {
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq "gpt-5.5" "$(read_env "$cfg/.env" CODEX_MODEL)" \
         "pinned gpt-5.5 survives later configure runs"
+
+    local old marker
+    for old in gpt-5.5 gpt-5.6-sol; do
+        for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin'; do
+            printf 'CODEX_MODEL=%s%s\n' "$old" "$marker" > "$cfg/.env"
+            run_clean_configure "$cfg" --force >/dev/null 2>&1
+            if [[ "$marker" == *pin* ]]; then
+                assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "exact pin survives"
+            else
+                assert_eq gpt-6-astra "$(read_env "$cfg/.env" CODEX_MODEL)" "marked/unmarked legacy migrates"
+                assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "migrated-from=$old" "migration records origin"
+                run_clean_configure "$cfg" --force >/dev/null 2>&1
+                assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "migrated-from=$old" "origin persists idempotently"
+            fi
+        done
+        run_clean_configure "$cfg" --force --set "CODEX_MODEL=$old" >/dev/null 2>&1
+        assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "explicit old model override survives"
+    done
 
     local other_cfg="$TMP/codex-model-unrelated"
     mkdir -p "$other_cfg"

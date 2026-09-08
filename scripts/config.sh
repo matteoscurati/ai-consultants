@@ -159,10 +159,10 @@ export GEMINI_USE_API
 # CODEX CONFIGURATION - The Pragmatist
 # =============================================================================
 
-# Model: "gpt-5.6-sol" (default), "gpt-5.6-terra", "gpt-5.6-luna", etc.
-CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-sol}"
+# Model: "gpt-6-astra" (default), "gpt-5.6-terra", "gpt-5.6-luna", etc.
+CODEX_MODEL="${CODEX_MODEL:-gpt-6-astra}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
-CODEX_API_MAX_TOKENS="${CODEX_API_MAX_TOKENS:-4096}"
+CODEX_API_MAX_TOKENS="${CODEX_API_MAX_TOKENS:-16384}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
 # =============================================================================
@@ -620,7 +620,7 @@ get_model_for_tier() {
             case "$consultant" in
                 claude)   echo "claude-fable-5-1" ;;
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
-                codex)    echo "gpt-5.6-sol" ;;
+                codex)    echo "gpt-6-astra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.3-flash" ;;
@@ -635,7 +635,7 @@ get_model_for_tier() {
             case "$consultant" in
                 claude)   echo "claude-fable-5-1" ;;
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
-                codex)    echo "gpt-5.6-sol" ;;
+                codex)    echo "gpt-6-astra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-v4-pro" ;;
                 glm)      echo "glm-5.3-flash" ;;

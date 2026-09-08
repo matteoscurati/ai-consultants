@@ -1433,7 +1433,7 @@ test_model_for_tier() {
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "standard")"   "kimi standard is K3"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "economy")"    "kimi economy is K3"
     # Codex / Gemini tier refresh (Aug 2026)
-    assert_equals "gpt-5.6-sol"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-5.6-sol"
+    assert_equals "gpt-6-astra"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-6-astra"
     assert_equals "gpt-5.6-terra"         "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.6-terra"
     assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
     assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
