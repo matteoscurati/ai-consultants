@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [5.1.0] - 2026-09-09
+
+### Changed
+- Claude defaults to `claude-fable-5-1` for premium/maximum, with `claude-opus-5` at standard/medium and Haiku at economy. Codex defaults to `gpt-6-astra` with implicit high effort, retaining Terra/Luna for standard/economy and Sol as an explicit override.
+- `configure` migrates exact unpinned persisted Codex defaults `gpt-5.5` and `gpt-5.6-sol` directly to Astra with migration provenance; pins, environment overrides and `--set` remain authoritative.
+- Codex API requests use a dedicated Chat Completions builder with `reasoning_effort` and `max_completion_tokens`; the default completion budget is 16,384 tokens. Other providers retain their request builders.
+- Astra cost estimates use Standard rates with the full-request long-context multiplier, with cache/service adjustments explicitly excluded.
+
+### Fixed
+- Claude CLI reads stream JSON, attests content identity from response-bearing assistant messages, records billing participants separately and requires successful terminal completion. Available tokens and provider cost survive failed responses.
+- Codex CLI separates token events from its final answer and rejects failed or unfinished turns; requested model selection remains explicitly distinct from provider attestation.
+- Claude and Codex write JSON error envelopes when API-key validation fails before dispatch.
+- Grok adapter and doctor detect incompatible runtime socket symlinks passively. Sandbox refusal or non-application cannot trigger retry or API fallback, including when paired with authentication failures or exit zero.
+- Hidden Grok advisory flags are validated through native parser probes; memory remains disabled in actual requests. Metadata temporary-file failures preserve the result envelope and original adapter status.
+- Fable cost fallbacks match its catalog rates, and lower-cost Claude configuration guidance survives repeated `configure` runs.
+
+### Added
+- Maintainer-only Breadth v1 preregistered harness and offline regression checks, excluded from npm. Frozen roster and preregistration are unchanged; no completed live benchmark or measured coverage improvement is claimed.
+
+### Verification scope
+- Release live acceptance is CLI-only. API implementations retain automated coverage, but API transports are not claimed live-verified on this release candidate.
+
 ## [5.0.0] - 2026-09-01
 
 ### Added

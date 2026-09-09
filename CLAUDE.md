@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 5.0.0
+**Version**: 5.1.0
 
 ## Distribution
 
@@ -759,6 +759,15 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v5.1.0 (2026-09-09)
+
+- **Fable and Astra model policy.** `scripts/config.sh` and `scripts/configure.sh` align default/premium/maximum with Fable 5.1 and Astra, retain Opus 5/Terra for standard and Haiku/Luna for economy, and migrate exact historical unpinned Codex defaults while recording their origin. `resolve_codex_effort` applies implicit high per request so a later tier cannot inherit an automatically exported value.
+- **Completion and identity are independent checks.** `scripts/lib/claude_stream.jq` derives content identity from assistant text events, keeps billing participants separate, rejects incomplete/error/max-token streams and preserves available accounting. `query_codex.sh` reads usage from JSON events while keeping the final-message file as the answer. Requested-only Codex identity remains truthful and is not an invented promotion blocker.
+- **Grok sandbox checks precede fallback decisions.** `scripts/lib/grok_sandbox.sh` supplies passive socket and diagnostic checks shared with doctor/OAuth. Hidden `--no-memory` is supported by the installed parser even though omitted from help: the earlier diagnosis of an unsupported flag was incorrect. It remains mandatory in dispatch. Metadata annotation cannot replace the adapter's status when its same-directory temporary file fails.
+- **Accounting and configuration.** Fable and Astra both have catalog-independent rate fallbacks. Astra estimates disclose long-context multipliers and excluded cache/service adjustments; no estimate is called a provider invoice. Explicit `AI_CONSULTANTS_CONFIG_DIR` selects private configuration; project dotenv discovery and credential import are not added.
+- **Validation scope.** CLI-only acceptance was selected explicitly. The three provider smoke results retain their actual commit and identity provenance; API paths retain automated tests without a live-promotion claim. The maintainer Breadth v1 harness is included in the repository but excluded from npm, and its frozen inputs are unchanged. No completed P1 benchmark or coverage-gain claim is made.
+
 
 ### v5.0.0
 
