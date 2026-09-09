@@ -592,10 +592,16 @@ shell history or observed by other local processes. Use `--interactive`,
 ### Using .env file
 
 ```bash
-cp .env.example .env
+mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/ai-consultants"
+# For a new configuration only; keep existing credentials/settings if present.
+cp -n .env.example "${XDG_CONFIG_HOME:-$HOME/.config}/ai-consultants/.env"
+chmod 600 "${XDG_CONFIG_HOME:-$HOME/.config}/ai-consultants/.env"
 ```
 
-Edit `.env`:
+Edit that user configuration `.env`. A different existing private directory must
+be selected explicitly with `AI_CONSULTANTS_CONFIG_DIR`; project `.env` files
+are not discovered automatically:
+
 
 ```bash
 # Enable/disable consultants (10 available)
@@ -797,3 +803,50 @@ less "$output_dir/report.md"
 ```
 
 See [README.md](../README.md) for usage examples and full documentation.
+
+For a configuration outside the standard user config directory, set
+`AI_CONSULTANTS_CONFIG_DIR=/absolute/private/config-directory` explicitly.
+The loader does not discover project `.env` files. Keep credentials in your
+existing private configuration; do not copy them into this repository.
+
+Claude CLI uses `stream-json --verbose`. Only response-bearing assistant
+messages attest the content model; terminal `modelUsage` records billing
+participants separately. A missing or conflicting content model remains
+`requested-only` and cannot pass a model-promotion gate. Successful terminal
+completion is required even when partial response text or billing is available.
+
+Codex defaults to `gpt-6-astra`; premium and maximum select Astra, standard
+selects `gpt-5.6-terra`, economy selects `gpt-5.6-luna`. Sol remains an explicit
+`CODEX_MODEL=gpt-5.6-sol` override. Configure migrates exact unpinned persisted
+`gpt-5.5` and `gpt-5.6-sol` values to Astra and records `migrated-from` provenance.
+Use `# ai-consultants:pin`, an environment override or `--set` to keep a model.
+
+Astra uses `high` effort when no effort is configured. Explicit `low`, `medium`,
+`high`, `xhigh`, and `max` prevail; `none`/`minimal` fail before dispatch.
+The default completion budget is 16384 tokens, including reasoning; override
+`CODEX_API_MAX_TOKENS` explicitly as needed. The text-only Chat Completions
+request uses `max_completion_tokens` and `reasoning_effort`, without tools.
+See the [official migration guide](https://developers.openai.com/api/docs/guides/latest-model).
+CLI JSON events supply token telemetry; the final message file supplies content.
+A CLI `-m` selection remains `requested-only`, not provider attestation.
+
+[Astra Standard pricing](https://developers.openai.com/api/docs/models/gpt-6-astra)
+is $10/M input and $50/M output. More than 272K input tokens doubles input
+and multiplies output by 1.5 for the whole request. Reported cost is an estimate
+unless a provider cost is supplied: cache writes, cached-input discounts and
+service processing rates can change the invoice.
+
+Grok CLI and doctor passively inspect the container-runtime socket deny paths,
+including Docker Desktop locations. Symlink endpoints (including dangling links)
+block CLI dispatch because the sandbox cannot safely resolve those deny rules.
+Absent paths and ordinary socket files pass this check. Nothing is removed and
+Docker configuration is never changed. Runtime `sandbox_profile_refused` and
+`sandbox_not_applied` diagnostics fail even with exit zero; they cannot trigger
+retry or API fallback. OAuth synchronization and per-run isolation remain active.
+
+
+Grok compatibility includes a provider-free parser probe of the complete advisory
+argument list. Hidden flags such as `--no-memory` are still required in the
+actual request even when omitted from public help. Unsupported mandatory flags
+block dispatch; the optional `--no-auto-update` guard is used when its parser
+probe succeeds, including on CLIs that hide it from help.

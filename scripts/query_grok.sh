@@ -18,6 +18,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/grok_sandbox.sh"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/personas.sh"
 source "$SCRIPT_DIR/lib/grok_oauth.sh"
@@ -111,9 +112,12 @@ grok_cli_supports_required_interface() {
     help=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
         env HOME="$probe_home" GROK_HOME="$probe_grok_home" \
         "$GROK_CMD" --help 2>&1 || true)
+    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure --explicit /dev/stdin <<< "$help"); then
+        return 1
+    fi
     for flag in \
         --prompt-file --model --cwd --output-format --no-plan --no-subagents \
-        --no-memory --disable-web-search --max-turns --permission-mode \
+        --disable-web-search --max-turns --permission-mode \
         --sandbox --tools --deny --verbatim; do
         grep -q -- "$flag" <<< "$help" || return 1
     done
@@ -160,12 +164,29 @@ grok_cli_supports_required_interface() {
         probe_args+=(--reasoning-effort "$GROK_CLI_EFFORT")
     fi
 
-    # Exercise the complete headless argument surface under --help. This checks
-    # parser compatibility without starting a session or sending a prompt.
-    run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
-        "${probe_args[@]}" --help >/dev/null 2>&1 || return 1
+    # Exercise the complete headless argument surface under --help. Hidden
+    # compatibility flags such as --no-memory need not appear in help text;
+    # they remain mandatory in both this parser probe and the actual request.
+    local probe_output probe_rc=0
+    probe_output=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+        "${probe_args[@]}" --help 2>&1) || probe_rc=$?
+    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure --explicit /dev/stdin <<< "$probe_output"); then
+        return 1
+    fi
+    if [[ $probe_rc -ne 0 ]]; then
+        _GROK_CAPABILITY_ERROR="Grok Build CLI rejects the required advisory argument surface (exit $probe_rc)"
+        return 1
+    fi
 
-    if grep -q -- '--no-auto-update' <<< "$help"; then
+    # Probe the optional update guard too: recent CLIs accept it as a hidden
+    # flag. Never infer support solely from its visibility in --help.
+    probe_rc=0
+    probe_output=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+        "${probe_args[@]}" --no-auto-update --help 2>&1) || probe_rc=$?
+    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure --explicit /dev/stdin <<< "$probe_output"); then
+        return 1
+    fi
+    if [[ $probe_rc -eq 0 ]]; then
         GROK_SUPPORTS_NO_AUTO_UPDATE=true
     else
         GROK_SUPPORTS_NO_AUTO_UPDATE=false
@@ -187,11 +208,16 @@ grok_cli_exposes_requested_model() {
     if ! models=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
             env HOME="$isolated_home" GROK_HOME="$isolated_grok_home" \
             "$GROK_CMD" models 2>&1); then
-        if grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
+        if _GROK_MODEL_PROBE_ERROR=$(grok_sandbox_failure /dev/stdin <<< "$models"); then
+            return 1
+        elif grep -Eiq 'auth|log ?in|credential|token|401|unauthor' <<<"$models"; then
             _GROK_MODEL_PROBE_ERROR="Grok Build CLI authentication unavailable (inventory_command_failed_auth)"
         else
             _GROK_MODEL_PROBE_ERROR="Grok Build CLI model inventory failed (inventory_command_failed)"
         fi
+        return 1
+    fi
+    if _GROK_MODEL_PROBE_ERROR=$(grok_sandbox_failure /dev/stdin <<< "$models"); then
         return 1
     fi
     grok_oauth_credential_valid "$isolated_grok_home/auth.json" || {
@@ -244,6 +270,10 @@ grok_cli_is_unavailable() {
     local cli_exit_code="$1"
     local error_file="$2"
 
+    if [[ -s "$error_file" ]] && grok_sandbox_failure "$error_file" >/dev/null; then
+        return 1
+    fi
+
     # A missing command is detected before execution. 126/127 cover a binary
     # that was resolved but cannot be executed (bad interpreter, permissions,
     # or a race with an uninstall).
@@ -261,6 +291,16 @@ grok_cli_is_unavailable() {
         'not authenticated|authentication( is)? (required|unavailable)|authentication failed|unauthorized|run .?grok login|please .*log ?in|no (valid )?(credentials|access token)|missing .*credential|token.*expired|(^|[^0-9])401([^0-9]|$)|permission denied|cannot execute|exec format error|no such file or directory|failed to (start|launch|spawn)|could not (start|launch|spawn)' \
         "$error_file"
 }
+
+source "$SCRIPT_DIR/lib/grok_sandbox.sh"
+if ! is_api_mode "grok" && ! sandbox_diagnostic=$(grok_sandbox_preflight); then
+    build_error_response "$CONSULTANT_NAME" "$GROK_MODEL" "$(get_persona_name "$CONSULTANT_NAME")" \
+        "$sandbox_diagnostic" 0 "$GROK_MODEL" requested-only |
+        jq '.metadata.transport = "cli"' > "$OUTPUT_FILE"
+    log_error "[Grok] $sandbox_diagnostic; dispatch blocked"
+    cat "$OUTPUT_FILE"
+    exit 78
+fi
 
 if is_api_mode "grok"; then
     log_api_mode_status "grok"
@@ -345,7 +385,12 @@ else
         elif [[ "$GROK_OAUTH_MODE" == "shared" ]] &&
              ! grok_shared_oauth_bootstrap_ready "$isolated_home"; then
             _GROK_OAUTH_PREPARED=false
-            if [[ "$oauth_rc" -eq 4 ]]; then
+            if [[ "$oauth_rc" -eq 5 ]]; then
+                _GROK_OAUTH_FAILURE=true
+                printf '%s\n' "$GROK_OAUTH_ERROR" > "${TEMP_OUTPUT}.err"
+                log_error "[$CONSULTANT_NAME] $GROK_OAUTH_ERROR"
+                exit_code=78
+            elif [[ "$oauth_rc" -eq 4 ]]; then
                 printf '%s\n' "Grok Build authentication unavailable; run grok login" > "${TEMP_OUTPUT}.err"
                 log_warn "[$CONSULTANT_NAME] Grok Build authentication unavailable"
                 exit_code=69
@@ -494,9 +539,12 @@ else
 fi
 
 # Preserve which route actually answered without changing the shared schema.
-if [[ -s "$OUTPUT_FILE" ]]; then
-    response_tmp=$(mktemp)
-    if jq --arg transport "$TRANSPORT" \
+if [[ -s "$OUTPUT_FILE" ]] && response_tmp=$(mktemp "${OUTPUT_FILE}.metadata.XXXXXX"); then
+    sandbox_failure=""
+    if [[ "$TRANSPORT" == cli && $exit_code -ne 0 ]]; then
+        sandbox_failure=$(grok_sandbox_failure "${TEMP_OUTPUT}.err") || sandbox_failure=""
+    fi
+    if jq --arg sandbox_failure "$sandbox_failure" --arg transport "$TRANSPORT" \
             --arg cli_version "$GROK_CLI_VERSION" \
             --arg cli_compatibility "$GROK_CLI_COMPATIBILITY" '
             .metadata.transport = $transport |
@@ -505,10 +553,13 @@ if [[ -s "$OUTPUT_FILE" ]]; then
                 .metadata.cli_compatibility = $cli_compatibility
             else
                 .
-            end
+            end |
+            if $sandbox_failure != "" then
+                .metadata.error = $sandbox_failure | .response.detailed = $sandbox_failure
+            else . end
         ' \
-            "$OUTPUT_FILE" > "$response_tmp"; then
-        mv "$response_tmp" "$OUTPUT_FILE"
+            "$OUTPUT_FILE" > "$response_tmp" && mv "$response_tmp" "$OUTPUT_FILE"; then
+        :
     else
         rm -f "$response_tmp"
     fi

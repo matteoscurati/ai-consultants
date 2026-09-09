@@ -41,7 +41,7 @@ assert_contains() {
 read_env() {
     local file="$1" key="$2"
     sed -nE "s/^${key}=(.*)$/\\1/p" "$file" \
-        | sed -E 's/[[:space:]]# ai-consultants:(auto|default|pin)$//' | tail -1
+        | sed -E 's/[[:space:]]+#.*$//' | tail -1
 }
 
 clean_path() {
@@ -362,24 +362,40 @@ test_grok_cli_first_with_api_fallback() {
 test_claude_default_migration_and_pin() {
     local cfg="$TMP/claude-model-migration"
     mkdir -p "$cfg"
-    printf '%s\n' 'CLAUDE_MODEL=claude-opus-4-8' > "$cfg/.env"
+    printf '%s\n' 'CLAUDE_MODEL=claude-opus-5' > "$cfg/.env"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "historical generated Claude default migrates to Opus 5"
+    assert_eq "claude-fable-5-1" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "unpinned Opus 5 default migrates to Fable 5.1"
     assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:default" \
         "migrated Claude default records managed provenance"
 
     run_clean_configure "$cfg" --force \
-        --set CLAUDE_MODEL=claude-opus-4-8 >/dev/null 2>&1
-    assert_eq "claude-opus-4-8" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "explicit legacy Claude model remains selectable"
+        --set CLAUDE_MODEL=claude-opus-5 >/dev/null 2>&1
+    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "explicit lower-cost Opus 5 remains selectable"
     assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:pin" \
         "explicit model override records pin provenance"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "claude-opus-4-8" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "pinned Opus 4.8 survives later configure runs"
+    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "pinned Opus 5 survives later configure runs"
+    assert_contains "$(cat "$cfg/.env")" "# claude-opus-5 (or apply_model_tier standard for a single run)." \
+        "lower-cost Claude guidance survives configure rewrites"
+
+    cfg="$TMP/claude-old-default-migration"
+    mkdir -p "$cfg"
+    printf '%s\n' 'CLAUDE_MODEL=claude-opus-4-8' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "claude-fable-5-1" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "older unpinned Claude default migrates directly to Fable 5.1"
+
+    cfg="$TMP/claude-non-opus-choice"
+    mkdir -p "$cfg"
+    printf '%s\n' 'CLAUDE_MODEL=claude-fable-5' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "claude-fable-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "non-Opus legacy Claude choice is not migrated"
 }
 
 test_codex_default_migration_and_pin() {
@@ -388,8 +404,8 @@ test_codex_default_migration_and_pin() {
     printf '%s\n' 'CODEX_MODEL=gpt-5.5' > "$cfg/.env"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "gpt-5.6-sol" "$(read_env "$cfg/.env" CODEX_MODEL)" \
-        "historical generated Codex default migrates to gpt-5.6-sol"
+    assert_eq "gpt-6-astra" "$(read_env "$cfg/.env" CODEX_MODEL)" \
+        "historical generated Codex default migrates to gpt-6-astra"
     assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "# ai-consultants:default" \
         "migrated Codex default records managed provenance"
 
@@ -403,6 +419,38 @@ test_codex_default_migration_and_pin() {
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq "gpt-5.5" "$(read_env "$cfg/.env" CODEX_MODEL)" \
         "pinned gpt-5.5 survives later configure runs"
+
+    local old marker
+    for old in gpt-5.5 gpt-5.6-sol; do
+        for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin' ' # ai-consultants:default # ai-consultants:pin'; do
+            printf 'CODEX_MODEL=%s%s\n' "$old" "$marker" > "$cfg/.env"
+            run_clean_configure "$cfg" --force >/dev/null 2>&1
+            if [[ "$marker" == *pin* ]]; then
+                assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "exact pin survives"
+            else
+                assert_eq gpt-6-astra "$(read_env "$cfg/.env" CODEX_MODEL)" "marked/unmarked legacy migrates"
+                assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "migrated-from=$old" "migration records origin"
+                run_clean_configure "$cfg" --force >/dev/null 2>&1
+                assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "migrated-from=$old" "origin persists idempotently"
+            fi
+        done
+        run_clean_configure "$cfg" --force --set "CODEX_MODEL=$old" >/dev/null 2>&1
+        assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "explicit old model override survives"
+        env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
+            CODEX_MODEL="$old" "$BIN" configure --force >/dev/null 2>&1
+        assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "environment model overrides migration"
+    done
+
+    printf 'CODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.5\r\nCODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.6-sol\r\n' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq gpt-6-astra "$(read_env "$cfg/.env" CODEX_MODEL)" "CRLF duplicate entries retain the final model"
+    assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" 'migrated-from=gpt-5.6-sol' "CRLF duplicate entries retain final provenance"
+    local loaded_model
+    loaded_model=$(env -u CODEX_MODEL bash -c 'source "$1/lib/user_config.sh"; _apply_env_file "$2"; printf "%s" "$CODEX_MODEL"' _ "$SCRIPT_DIR" "$cfg/.env")
+    assert_eq gpt-6-astra "$loaded_model" "real runtime loader strips migration provenance"
+    printf '%s\n' 'CLAUDE_MODEL=claude-opus-5 # ai-consultants:default # ai-consultants:pin' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq claude-opus-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "pin precedence also preserves Claude"
 
     local other_cfg="$TMP/codex-model-unrelated"
     mkdir -p "$other_cfg"

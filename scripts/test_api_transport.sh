@@ -287,10 +287,17 @@ EOF
     assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "Grok maximum API budget reaches the wire"
 
     rm -f "$request_body"
+    local codex_case
+    for codex_case in Codex codex CODEX; do
     PATH="$td:$PATH" OPENAI_API_KEY=test CODEX_FORMAT=openai CODEX_API_MAX_TOKENS=16384 \
+        CODEX_MODEL=gpt-6-astra CODEX_REASONING_EFFORT='' \
         REQUEST_BODY_FILE="$request_body" RATE_LIMIT_DIR="$td/rate-codex-api" MAX_RETRIES=1 \
-        run_api_consultant Codex test "" "$output" >/dev/null 2>&1
-    assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "Codex maximum API budget reaches the wire"
+        run_api_consultant "$codex_case" test "" "$output" >/dev/null 2>&1
+    assert_eq 16384 "$(jq -r '.max_completion_tokens' "$request_body")" "Codex maximum API budget reaches the wire"
+    assert_eq gpt-6-astra "$(jq -r '.model' "$request_body")" "Astra API model reaches wire"
+    assert_eq high "$(jq -r '.reasoning_effort' "$request_body")" "Astra API default effort reaches wire"
+
+    done
 
     rm -f "$request_body"
     PATH="$td:$PATH" MISTRAL_API_KEY=test MISTRAL_FORMAT=openai MISTRAL_API_MAX_TOKENS=16384 \
@@ -381,10 +388,12 @@ test_anthropic_thinking_blocks_and_budget() {
     assert_eq $'first\nsecond' "$(parse_anthropic_response "$response")" \
         "Anthropic parser skips thinking and joins visible text blocks"
 
-    body=$(build_anthropic_request "hello" "claude-opus-5" 16384)
+    body=$(build_anthropic_request "hello" "claude-fable-5-1" 16384)
+    assert_eq "claude-fable-5-1" "$(jq -r '.model' <<<"$body")" \
+        "Anthropic API request selects Fable 5.1"
     assert_eq "16384" "$(jq -r '.max_tokens' <<<"$body")" \
         "Anthropic request accepts the larger shared thinking/output budget"
-    assert_eq "16384" "$(build_anthropic_request "hello" "claude-opus-5" | jq -r '.max_tokens')" \
+    assert_eq "16384" "$(build_anthropic_request "hello" "claude-fable-5-1" | jq -r '.max_tokens')" \
         "Anthropic request helper defaults to the Opus 5 budget"
 }
 

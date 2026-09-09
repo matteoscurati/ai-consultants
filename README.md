@@ -483,10 +483,10 @@ and cannot support a comprehensive coverage claim.
 
 | Consultant | `max_quality` | Premium | Standard | Economy |
 |------------|---------------|---------|----------|---------|
-| Claude | claude-opus-5 | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
+| Claude | claude-fable-5-1 | claude-fable-5-1 | claude-opus-5 | claude-haiku-4-5 |
 | Gemini CLI | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (Low) |
 | Gemini API | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview |
-| Codex | gpt-5.6-sol | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna |
+| Codex | gpt-6-astra | gpt-6-astra | gpt-5.6-terra | gpt-5.6-luna |
 | Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | devstral-small-2 |
 | Mistral API | mistral-large-3 | mistral-large-3 | mistral-large-3 | mistral-large-3 |
 | DeepSeek | deepseek-v4-pro | deepseek-v4-pro | deepseek-v4-flash | deepseek-v4-flash |
@@ -501,8 +501,9 @@ smoke through the `agy` adapter and is now the CLI default; Low is the CLI
 economy target. The Google API model remains `gemini-3.1-pro-preview`, while
 `gemini-3.7-flash` stays an API-only opt-in until that separate transport is
 verified. The new Mistral API IDs (`mistral-medium-3-5`,
-`mistral-large-2512`, `mistral-small-2603`) and Claude Fable 5 likewise remain
-catalogued opt-ins. Selecting a preset later intentionally reapplies that
+`mistral-large-2512`, `mistral-small-2603`) remain catalogued opt-ins. Claude
+Fable 5.1 is the default/premium/maximum target; use
+`CLAUDE_MODEL=claude-opus-5` for the lower-cost standard override. Selecting a preset later intentionally reapplies that
 preset's tier and can replace an explicit model override for the run.
 Qwen3.8-Max is likewise selected by `max_quality` only when API mode already
 points at an authenticated OpenAI-compatible Token Plan `/chat/completions`
@@ -609,11 +610,11 @@ Auto-selected `*_USE_API` values are marked `# ai-consultants:auto`, allowing a
 later run to adapt when a CLI or credential changes. Environment variables,
 `--set`, and unmarked values remain explicit user choices, except for the exact
 historical generated Claude default described below.
-Managed model defaults use `# ai-consultants:default`; `configure` upgrades the
-historical unmarked `CLAUDE_MODEL=claude-opus-4-8` default to Opus 5 and upgrades
-the exact managed Gemini CLI, GLM, and Grok defaults. To keep
-4.8 intentionally, run
-`ai-consultants configure --set CLAUDE_MODEL=claude-opus-4-8`; explicit model
+Managed model defaults use `# ai-consultants:default`; `configure` upgrades
+un-pinned historical `CLAUDE_MODEL=claude-opus-4-8` and `claude-opus-5` defaults
+to Fable 5.1, along with the exact managed Gemini CLI, GLM, and Grok defaults.
+To keep the lower-cost Opus 5 choice, run
+`ai-consultants configure --set CLAUDE_MODEL=claude-opus-5`; explicit model
 overrides are stored with `# ai-consultants:pin`.
 
 Enter credentials through `--interactive`/`--advanced` or export them before the

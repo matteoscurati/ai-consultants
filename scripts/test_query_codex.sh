@@ -49,6 +49,16 @@ case "$mode" in
         printf '%s\n' "session chatter only"
         exit 0
         ;;
+    turn_failed_zero|missing_terminal|invalid_cache|invalid_totals)
+        printf '%s\n' '{"response":{"summary":"payload","detailed":"text","approach":"test"},"confidence":{"score":8}}' > "$payload"
+        case "$mode" in
+            turn_failed_zero) printf '%s\n' '{"type":"turn.failed","error":{"message":"failure"}}' ;;
+            missing_terminal) printf '%s\n' '{"type":"thread.started"}' ;;
+            invalid_cache) printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":4,"cached_input_tokens":11}}' ;;
+            invalid_totals) printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":"bad","output_tokens":4,"cached_input_tokens":3}}' ;;
+        esac
+        exit 0
+        ;;
     fail_with_payload)
         # Non-empty -o payload after a real CLI failure must NOT become success.
         if [[ -n "$payload" ]]; then
@@ -62,7 +72,8 @@ case "$mode" in
             printf '%s\n' '{"response":{"summary":"Codex payload answered","detailed":"from payload file","approach":"payload","pros":[],"cons":[],"caveats":[]},"confidence":{"score":9,"reasoning":"test"}}' > "$payload"
         fi
         # Plausible stdout chatter that must NOT be treated as the answer.
-        printf '%s\n' 'hook noise: session started'
+        printf '%s\n' '5' '"noise"' '[1,2]' '{"type":"item.completed","usage":7}'
+        printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":20,"output_tokens":80}}'
         printf '%s\n' '{"response":{"summary":"stdout chatter must not win","detailed":"wrong","approach":"stdout","pros":[],"cons":[],"caveats":[]},"confidence":{"score":1,"reasoning":"noise"}}'
         exit 0
         ;;
@@ -86,7 +97,7 @@ if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
 fi
 printf '%s\n' "$@" > "${CLAUDE_ARGS_FILE}"
 cat >/dev/null
-printf '%s\n' '{"type":"result","result":"{\"response\":{\"summary\":\"Claude answered\",\"detailed\":\"ok\",\"approach\":\"cli\",\"pros\":[],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":9,\"reasoning\":\"test\"}}","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude":{"inputTokens":1,"outputTokens":1,"costUSD":0.0}}}'
+printf '%s\n' '{"type":"result","subtype":"success","result":"{\"response\":{\"summary\":\"Claude answered\",\"detailed\":\"ok\",\"approach\":\"cli\",\"pros\":[],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":9,\"reasoning\":\"test\"}}","usage":{"input_tokens":1,"output_tokens":1},"modelUsage":{"claude":{"inputTokens":1,"outputTokens":1,"costUSD":0.0}}}'
 EOF
     chmod +x "$path"
 }
@@ -119,7 +130,7 @@ test_cli_isolation_contract() {
     if ! HOME="$user_home" \
         CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$args_file" \
         CODEX_ENV_FILE="$env_file" \
         CODEX_STDIN_FILE="$stdin_file" \
@@ -136,7 +147,7 @@ test_cli_isolation_contract() {
     assert_match '(^|[[:space:]])--ignore-user-config($|[[:space:]])' "$args" "CLI ignores ambient user config"
     assert_match '(^|[[:space:]])--ignore-rules($|[[:space:]])' "$args" "CLI ignores project rules"
     assert_match '(^|[[:space:]])--skip-git-repo-check($|[[:space:]])' "$args" "CLI skips git-repo check"
-    assert_match '(^|[[:space:]])-m[[:space:]]+gpt-5\.6-sol($|[[:space:]])' "$args" "CLI pins the model"
+    assert_match '(^|[[:space:]])-m[[:space:]]+gpt-6-astra($|[[:space:]])' "$args" "CLI pins the model"
     assert_match '(^|[[:space:]])-s[[:space:]]+read-only($|[[:space:]])' "$args" "CLI sandbox is read-only"
     assert_match '(^|[[:space:]])-C($|[[:space:]])' "$args" "CLI pins an isolated CWD"
     assert_match '(^|[[:space:]])-o($|[[:space:]])' "$args" "CLI writes the final message to -o"
@@ -147,6 +158,11 @@ test_cli_isolation_contract() {
     assert_match '^HOME=.*/ai-consultants-codex\.' "$(head -1 "$env_file")" "CLI uses an isolated HOME"
     assert_eq "CODEX_HOME=${user_home}/.codex" "$(sed -n '2p' "$env_file")" "CODEX_HOME stays on the real Codex home"
     assert_eq "Codex payload answered" "$(jq -r '.response.summary' "$output_file")" "answer is taken from the -o payload"
+    assert_eq 20 "$(jq -r '.metadata.tokens_cached_input' "$output_file")" "cached input is recorded as a subset"
+    assert_eq 200 "$(jq -r '.metadata.tokens_used' "$output_file")" "Codex event tokens are measured"
+    assert_eq measured "$(jq -r '.metadata.tokens_source' "$output_file")" "usage event is token evidence"
+    assert_eq requested-only "$(jq -r '.metadata.model_identity_source' "$output_file")" "model argument is not provider attestation"
+    assert_match '(^|[[:space:]])--json($|[[:space:]])' "$args" "CLI captures JSON events"
     assert_eq "payload" "$(jq -r '.response.approach' "$output_file")" "stdout chatter did not win"
 }
 
@@ -163,7 +179,7 @@ test_explicit_codex_home_preserved() {
         CODEX_HOME="$real_codex_home" \
         CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$TMP_ROOT/explicit-args" \
         CODEX_ENV_FILE="$env_file" \
         MAX_RETRIES=1 \
@@ -187,7 +203,7 @@ test_large_context_uses_stdin() {
 
     if ! CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$args_file" \
         CODEX_STDIN_FILE="$stdin_file" \
         MAX_RETRIES=1 \
@@ -209,7 +225,7 @@ test_empty_payload_is_failure() {
 
     if CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_STUB_MODE=empty_payload \
         CODEX_ARGS_FILE="$TMP_ROOT/empty-args" \
         MAX_RETRIES=1 \
@@ -231,7 +247,7 @@ test_failed_run_with_payload_is_failure() {
 
     if CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_STUB_MODE=fail_with_payload \
         CODEX_ARGS_FILE="$TMP_ROOT/fail-payload-args" \
         MAX_RETRIES=1 \
@@ -255,7 +271,7 @@ test_runtime_dirs_cleaned_up() {
 
     if ! CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$TMP_ROOT/cleanup-args" \
         MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_codex.sh" "Cleanup check" "" "$output_file" >/dev/null 2>&1; then
@@ -278,7 +294,7 @@ test_codex_effort_flag() {
 
     if ! CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_REASONING_EFFORT=high \
         CODEX_ARGS_FILE="$args_with" \
         MAX_RETRIES=1 \
@@ -295,7 +311,7 @@ test_codex_effort_flag() {
 
     if ! CODEX_CMD="$fake_codex" \
         CODEX_USE_API=false \
-        CODEX_MODEL=gpt-5.6-sol \
+        CODEX_MODEL=gpt-6-astra \
         CODEX_ARGS_FILE="$args_without" \
         MAX_RETRIES=1 \
         env -u CODEX_REASONING_EFFORT \
@@ -304,7 +320,7 @@ test_codex_effort_flag() {
         return
     fi
 
-    assert_eq "0" "$(grep -c 'model_reasoning_effort' "$args_without" || true)" "Codex omits effort when unset"
+    assert_eq "1" "$(grep -c 'model_reasoning_effort=high' "$args_without" || true)" "Astra defaults to high effort"
 }
 
 test_claude_effort_flag() {
@@ -397,6 +413,26 @@ test_warn_effort_still_fires_for_unsupported_cli() {
     )
     assert_match 'ignored in CLI mode' "$out" "warn_effort_ignored_in_cli still warns for CLIs without effort control"
 }
+
+test_stream_failure_and_cached_subset() {
+    local mode rc output="$TMP_ROOT/events.json" fake="$TMP_ROOT/events-codex"
+    make_codex_stub "$fake"
+    for mode in turn_failed_zero missing_terminal invalid_cache invalid_totals; do
+        rc=0
+        CODEX_CMD="$fake" CODEX_USE_API=false CODEX_MODEL=gpt-6-astra CODEX_REASONING_EFFORT=high \
+            CODEX_ARGS_FILE="$TMP_ROOT/events-args" CODEX_STUB_MODE="$mode" MAX_RETRIES=1 \
+            "$SCRIPT_DIR/query_codex.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
+        case "$mode" in
+            turn_failed_zero|missing_terminal)
+                assert_eq 1 "$rc" "$mode fails despite exit zero and a payload"
+                assert_eq error "$(jq -r '.metadata.response_quality' "$output")" "$mode writes an error envelope" ;;
+            *)
+                assert_eq 0 "$rc" "$mode retains valid completed content"
+                assert_eq null "$(jq -r '.metadata.tokens_cached_input' "$output")" "$mode omits unauditable cached subset" ;;
+        esac
+    done
+}
+run_test "Codex terminal failures and cache subset integrity" test_stream_failure_and_cached_subset
 
 run_test "Test 1: CLI isolation contract and payload preference" test_cli_isolation_contract
 run_test "Test 2: explicit CODEX_HOME is preserved" test_explicit_codex_home_preserved

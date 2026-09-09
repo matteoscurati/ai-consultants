@@ -684,3 +684,24 @@ check_rate_limit() {
 
     return 0
 }
+
+# Resolve per request, without exporting automatic effort into later tiers.
+resolve_codex_effort() {
+    local model="$1" effort="${2:-}"
+    [[ "$model" != gpt-6-astra || -n "$effort" ]] || effort=high
+    [[ -n "$effort" ]] || return 0
+    effort=$(validate_reasoning_effort "$effort" Codex) || return 1
+    if [[ "$model" == gpt-6-astra && ( "$effort" == none || "$effort" == minimal ) ]]; then
+        log_error "[Codex] Astra requires low|medium|high|xhigh|max reasoning effort"
+        return 1
+    fi
+    printf '%s' "$effort"
+}
+
+# Codex-only wire adaptation; other OpenAI-compatible providers keep their body.
+build_codex_request() {
+    local model="$2" effort
+    effort=$(resolve_codex_effort "$model" "${4:-}") || return 1
+    build_openai_request "$1" "$model" "${3:-16384}" "$effort" |
+        jq '.max_completion_tokens = .max_tokens | del(.max_tokens)'
+}

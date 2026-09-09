@@ -4,7 +4,7 @@
 # Usage: ./query_codex.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   CODEX_MODEL - Model to use (default: gpt-5.6-sol)
+#   CODEX_MODEL - Model to use (default: gpt-6-astra)
 #   CODEX_TIMEOUT - Timeout in seconds (default: 180)
 #   CODEX_USE_API - Use API mode instead of CLI (default: false)
 #   OPENAI_API_KEY - API key for API mode
@@ -40,6 +40,7 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution (CLI or API mode) ---
 TEMP_OUTPUT=$(mktemp)
+cli_cached_input=null
 CODEX_RUNTIME_DIR=""
 exit_code=1
 
@@ -60,7 +61,12 @@ trap cleanup EXIT
 if is_api_mode "codex"; then
     # --- API Mode ---
     log_api_mode_status "codex"
-    validate_api_mode "codex" || exit 1
+    if ! validate_api_mode "codex"; then
+        build_error_response "$CONSULTANT_NAME" "$CODEX_MODEL" "$(get_persona_name "$CONSULTANT_NAME")" \
+            "missing_openai_api_key_pre_dispatch" 0 "$CODEX_MODEL" requested-only > "$OUTPUT_FILE"
+        cat "$OUTPUT_FILE"
+        exit 1
+    fi
 
     source "$SCRIPT_DIR/lib/api_query.sh"
 
@@ -103,16 +109,11 @@ else
     : > "$payload_file"
     chmod 600 "$prompt_file" "$payload_file"
 
-    cli_effort=""
+    source "$SCRIPT_DIR/lib/api.sh"
     effort_ok=true
-    if [[ -n "${CODEX_REASONING_EFFORT:-}" ]]; then
-        # Keep the existing validate_reasoning_effort gate; pass the value
-        # through and let the CLI reject what it does not accept.
-        source "$SCRIPT_DIR/lib/api.sh"
-        if ! cli_effort=$(validate_reasoning_effort "$CODEX_REASONING_EFFORT" "$CONSULTANT_NAME"); then
-            effort_ok=false
-            exit_code=1
-        fi
+    if ! cli_effort=$(resolve_codex_effort "$CODEX_MODEL" "${CODEX_REASONING_EFFORT:-}"); then
+        effort_ok=false
+        exit_code=1
     fi
 
     if [[ "$effort_ok" == "true" ]]; then
@@ -134,6 +135,7 @@ else
             CODEX_HOME="$real_codex_home"
             "$CODEX_CMD"
             exec
+            --json
             --ephemeral
             --ignore-user-config
             --ignore-rules
@@ -161,6 +163,26 @@ else
             exit_code=$?
         fi
 
+        # stdout is event telemetry; the -o payload alone is answer content.
+        # input_tokens is treated as total input, including the cached subset.
+        # Preserve the subset separately so estimates can be audited.
+        if ! usage=$(jq -Rs '[split("\n")[] | fromjson? | objects | select(.type == "turn.completed") | .usage | objects] | last // {}' "$TEMP_OUTPUT" 2>/dev/null); then
+            usage='{}'
+        fi
+        if printf '%s' "$usage" | jq -e 'all(.input_tokens, .output_tokens; type == "number" and . >= 0 and floor == .) and (.input_tokens + .output_tokens > 0)' >/dev/null 2>&1; then
+            set_api_token_split "$(printf '%s' "$usage" | jq -r '.input_tokens')" \
+                "$(printf '%s' "$usage" | jq -r '.output_tokens')"
+            cli_cached_input=$(printf '%s' "$usage" | jq -c '.input_tokens as $total | .cached_input_tokens | if type == "number" and . >= 0 and floor == . and . <= $total then . else null end')
+        fi
+        # CLI status alone cannot turn an explicitly failed/unfinished JSON turn
+        # into a successful consultation just because -o contains partial text.
+        if ! jq -Rse '[split("\n")[] | fromjson? | objects] as $events |
+            ([$events[] | select(.type == "turn.completed")] | length) == 1 and
+            all($events[]; .type != "turn.failed" and .type != "error")' "$TEMP_OUTPUT" >/dev/null 2>&1; then
+            [[ $exit_code -ne 0 ]] || exit_code=1
+            log_warn "[$CONSULTANT_NAME] Codex stream lacks a successful terminal turn"
+        fi
+
         # Prefer the -o payload over stdout only when the run succeeded.
         # A non-empty payload must never rewrite a timeout, auth error, or
         # exhausted-retry into success — a partial answer would enter synthesis
@@ -183,7 +205,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${CODEX_MODEL:-gpt-5.6-sol}"
+MODEL_USED="${CODEX_MODEL:-gpt-6-astra}"
 MODEL_IDENTITY_SOURCE="requested-only"
 EFFECTIVE_MODEL="$MODEL_USED"
 if is_api_mode "codex"; then
@@ -205,5 +227,17 @@ else
     [[ $exit_code -ne 0 ]] || exit_code=$response_rc
 fi
 
+if response_tmp=$(mktemp "${OUTPUT_FILE}.metadata.XXXXXX"); then
+    if jq --arg model "$MODEL_USED" --argjson cached "$cli_cached_input" '
+        .metadata.cost_source = (if (.metadata.tokens_used // 0) == 0 then "unavailable"
+            elif $model == "gpt-6-astra" and (.metadata.tokens_input // 0) > 272000 then "estimated-long-context-standard-rates"
+            else "estimated-standard-rates" end) |
+        .metadata.cost_note = "Estimate includes applicable long-context pricing; excludes cache writes, cache discounts and service-tier adjustments; not a provider invoice" |
+        if $cached != null then .metadata.tokens_cached_input = $cached else . end' \
+            "$OUTPUT_FILE" > "$response_tmp" && mv "$response_tmp" "$OUTPUT_FILE"; then :; else
+        log_warn "[$CONSULTANT_NAME] Could not annotate cost estimate; original envelope retained"
+    fi
+    rm -f "$response_tmp"
+fi
 cat "$OUTPUT_FILE"
 exit $exit_code

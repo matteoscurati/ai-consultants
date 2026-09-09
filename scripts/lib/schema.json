@@ -110,22 +110,35 @@
     "metadata": {
       "type": "object",
       "properties": {
+        "cost_source": {
+          "type": "string",
+          "enum": ["unavailable", "estimated-standard-rates", "estimated-long-context-standard-rates"],
+          "description": "Codex estimate provenance; not a provider invoice."
+        },
+        "cost_note": {"type": "string", "description": "Limitations of the local cost estimate."},
+        "tokens_cached_input": {"type": "integer", "minimum": 0, "description": "Cached subset of CLI total input tokens; not added again."},
+
+        "billing_models": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Billing participants; not content-model attestation."
+        },
         "tokens_used": {
           "type": "integer",
-          "description": "Tokens consumed. Provider-reported in API mode, approximated locally in CLI mode - read tokens_source before treating it as exact."
+          "description": "Tokens consumed. CLI/API usage can be measured, estimated or unknown; read tokens_source before treating it as exact."
         },
         "tokens_input": {
           "type": "integer",
-          "description": "Prompt tokens, when the provider reported them (API mode). Absent in CLI mode. Cost depends on the split - output rates run several times input rates - so consumers should prefer this over re-splitting tokens_used."
+          "description": "Prompt tokens from CLI/API usage or local estimation; interpret together with tokens_source. Prefer a recorded split over re-splitting tokens_used."
         },
         "tokens_output": {
           "type": "integer",
-          "description": "Completion tokens, when the provider reported them (API mode). Absent in CLI mode."
+          "description": "Completion tokens from CLI/API usage or local estimation; interpret together with tokens_source."
         },
         "tokens_source": {
           "type": "string",
           "enum": ["measured", "estimated", "unknown"],
-          "description": "Where tokens_used came from: 'measured' = the provider's own usage figures (API mode), 'estimated' = local 4-chars-per-token approximation over prompt + reply (CLI mode exposes no counts), 'unknown' = not recorded."
+          "description": "Where tokens_used came from: measured = CLI/API usage, estimated = local prompt/reply approximation, unknown = not recorded. Key presence alone does not identify transport or measurement."
         },
         "latency_ms": {
           "type": "integer",

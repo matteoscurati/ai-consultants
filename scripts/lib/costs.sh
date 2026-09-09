@@ -136,6 +136,7 @@ get_input_cost_per_1k() {
         gemini-2.5-pro)   echo "0.00125" ;;
         gemini-2.5-flash) echo "0.000075" ;;
         gemini-2.0-flash) echo "0.0001" ;;
+        gpt-6-astra|claude-fable-5-1) echo "0.01" ;;
         gpt-4)            echo "0.03" ;;
         gpt-4-turbo)      echo "0.01" ;;
         gpt-4o)           echo "0.005" ;;
@@ -182,6 +183,7 @@ get_output_cost_per_1k() {
         gemini-2.5-pro)   echo "0.005" ;;
         gemini-2.5-flash) echo "0.0003" ;;
         gemini-2.0-flash) echo "0.0004" ;;
+        gpt-6-astra|claude-fable-5-1) echo "0.05" ;;
         gpt-4)            echo "0.06" ;;
         gpt-4-turbo)      echo "0.03" ;;
         gpt-4o)           echo "0.015" ;;
@@ -229,6 +231,11 @@ estimate_query_cost() {
     input_rate=$(get_input_cost_per_1k "$model")
     output_rate=$(get_output_cost_per_1k "$model")
 
+    # Long-context multiplier applies to the entire request, not only excess.
+    if [[ "$model" == gpt-6-astra && "$input_tokens" -gt 272000 ]]; then
+        input_rate=$(echo "scale=6; $input_rate * 2" | bc)
+        output_rate=$(echo "scale=6; $output_rate * 1.5" | bc)
+    fi
     # Calculate cost
     local input_cost output_cost total_cost
     input_cost=$(echo "scale=6; $input_tokens / 1000 * $input_rate" | bc)
@@ -394,7 +401,7 @@ format_cost_caveats() {
     local responses_dir="${1:-}"
     [[ -d "$responses_dir" ]] || return 0
 
-    local estimated=0 unknown=0 priced=0 f
+    local estimated=0 unknown=0 priced=0 f astra_estimate=0
     local unpriced_models=()
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
@@ -413,6 +420,9 @@ format_cost_caveats() {
 
         local model seen item
         model=$(_billing_model_for_response "$f")
+        if [[ "$model" == gpt-6-astra ]] && ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
+            astra_estimate=1
+        fi
         is_unpriced_model "$model" || continue
         seen=false
         for item in "${unpriced_models[@]+"${unpriced_models[@]}"}"; do
@@ -427,6 +437,9 @@ format_cost_caveats() {
     fi
     if [[ $unknown -gt 0 ]]; then
         parts="${parts:+$parts; }$unknown contributed no token data"
+    fi
+    if [[ $astra_estimate -eq 1 ]]; then
+        parts="${parts:+$parts; }cost estimated using Astra Standard rates; cache/service adjustments excluded, not an invoice"
     fi
     local unpriced=""
     if (( ${#unpriced_models[@]} > 0 )); then
