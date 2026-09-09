@@ -918,20 +918,24 @@ test_hidden_memory_flag_uses_parser_contract() {
     mkdir -p "$fake_bin"
     make_grok_stub "$fake_bin/grok" success
     make_curl_stub "$fake_bin/curl"
-    GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_FAKE_HIDDEN_FLAGS=true GROK_ARGS_FILE="$args" \
+    PATH="$fake_bin:$PATH" AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/hidden-config" GROK_REASONING_EFFORT='' \
+        GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_FAKE_HIDDEN_FLAGS=true GROK_ARGS_FILE="$args" \
         GROK_MODEL=grok-4.6 MAX_RETRIES=1 "$SCRIPT_DIR/query_grok.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
     assert_eq 0 "$rc" "hidden mandatory flag accepted by parser permits the CLI"
     assert_eq 1 "$(grep -c -x -- '--no-memory' "$args")" "memory remains disabled in the actual request"
     assert_eq 1 "$(grep -c -x -- '--no-auto-update' "$args")" "hidden supported update guard reaches the request"
     rc=0
-    PATH="$fake_bin:$PATH" GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_FAKE_HIDDEN_FLAGS=true \
+    PATH="$fake_bin:$PATH" AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/hidden-config" GROK_REASONING_EFFORT='' \
+        GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_FAKE_HIDDEN_FLAGS=true GROK_MODEL=grok-4.6 \
         GROK_FAKE_REJECT_MEMORY=true GROK_REQUEST_FILE="$request" GROK_API_KEY=test CURL_CALLED_FILE="$curl_called" \
         MAX_RETRIES=1 "$SCRIPT_DIR/query_grok.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
     assert_eq 69 "$rc" "a genuinely unsupported memory guard fails before inference"
     assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" "unsupported memory guard never dispatches"
     assert_eq false "$([[ -e "$curl_called" ]] && echo true || echo false)" "unsupported memory guard never falls back to API"
     rc=0
-    GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_FAKE_HIDDEN_FLAGS=true GROK_FAKE_REJECT_AUTO_UPDATE=true \
+    : > "$args"
+    PATH="$fake_bin:$PATH" AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/hidden-config" GROK_REASONING_EFFORT='' \
+        GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_MODEL=grok-4.6 GROK_FAKE_HIDDEN_FLAGS=true GROK_FAKE_REJECT_AUTO_UPDATE=true \
         GROK_ARGS_FILE="$args" MAX_RETRIES=1 "$SCRIPT_DIR/query_grok.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
     assert_eq 0 "$rc" "unsupported optional update flag does not reject an otherwise compatible CLI"
     assert_eq 0 "$(grep -c -x -- '--no-auto-update' "$args" || true)" "unsupported optional flag is omitted"
