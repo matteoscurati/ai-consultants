@@ -19,6 +19,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCTOR="$SCRIPT_DIR/doctor.sh"
+GROK_SOCKET_TEST_ROOT=$(mktemp -d)
+trap 'rm -rf "$GROK_SOCKET_TEST_ROOT"' EXIT
+export _AI_CONSULTANTS_GROK_TEST_SOCKET_PATHS="$GROK_SOCKET_TEST_ROOT/absent.sock"
 
 # shellcheck source=lib/test_helpers.sh
 source "$SCRIPT_DIR/lib/test_helpers.sh"

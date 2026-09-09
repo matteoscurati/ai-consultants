@@ -23,6 +23,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/grok_sandbox.sh"
 source "$SCRIPT_DIR/lib/common.sh"
 
 # --- Parameters ---
@@ -227,6 +228,17 @@ check_cli_consultant() {
     if [[ "${!use_api_var:-false}" == "true" ]]; then
         [[ "$VERBOSE" == "true" ]] && _print "  ○ $name: API mode (CLI not required)"
         return 0
+    fi
+
+    if [[ "$env_var" == GROK ]]; then
+        source "$SCRIPT_DIR/lib/grok_sandbox.sh"
+        local sandbox_diagnostic
+        if ! sandbox_diagnostic=$(grok_sandbox_preflight); then
+            _print "  ✗ $name: $sandbox_diagnostic"
+            add_issue "sandbox" "$sandbox_diagnostic" "Inspect the runtime socket before using Grok strict sandbox"
+            check_fail
+            return 0
+        fi
     fi
 
     # Check if installed

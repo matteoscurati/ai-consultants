@@ -207,6 +207,16 @@ run_query() {
             exit_code=$?
         fi
 
+        if [[ "$consultant_name" == Grok ]]; then
+            source "$(dirname "${BASH_SOURCE[0]}")/grok_sandbox.sh"
+            local sandbox_failure
+            if sandbox_failure=$(grok_sandbox_failure "$error_file"); then
+                printf '%s\n' "$sandbox_failure" > "$error_file"
+                log_error "[Grok] $sandbox_failure; retries suppressed"
+                return 78
+            fi
+        fi
+
         if [[ $exit_code -eq 0 ]]; then
             # Verify that the output is not empty
             if [[ -s "$output_file" ]]; then

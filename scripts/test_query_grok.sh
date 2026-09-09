@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/lib/grok_oauth.sh"
 
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/test_query_grok.XXXXXX")
 trap 'rm -rf "$TMP_ROOT"' EXIT
+export _AI_CONSULTANTS_GROK_TEST_SOCKET_PATHS="$TMP_ROOT/controlled-absent.sock"
 export XDG_DATA_HOME="$TMP_ROOT/xdg-data"
 export _AI_CONSULTANTS_XDG_DATA="$XDG_DATA_HOME/ai-consultants"
 export GROK_HOME="$TMP_ROOT/default-grok-home"
@@ -38,15 +39,33 @@ if [[ "${1:-}" == "--version" ]]; then
     exit 0
 fi
 if [[ " $* " == *" --help "* ]]; then
-    cat <<'HELP'
---prompt-file --model --cwd --output-format --no-plan --no-subagents
+    if [[ "${GROK_FAKE_REJECT_MEMORY:-false}" == true && " $* " == *" --no-memory "* ]]; then
+        printf '%s\n' 'unknown argument --no-memory' >&2
+        exit 2
+    fi
+    if [[ "${GROK_FAKE_REJECT_AUTO_UPDATE:-false}" == true && " $* " == *" --no-auto-update "* ]]; then
+        printf '%s\n' 'unknown argument --no-auto-update' >&2
+        exit 2
+    fi
+    help_text='--prompt-file --model --cwd --output-format --no-plan --no-subagents
 --no-memory --disable-web-search --max-turns --permission-mode --sandbox
 --tools --deny --verbatim --no-auto-update --reasoning-effort
-  models  List available models
-HELP
+          sandbox is disabled by default unless configured
+  models  List available models'
+    if [[ "${GROK_FAKE_HIDDEN_FLAGS:-false}" == true ]]; then
+        help_text="${help_text/--no-memory/}"
+        help_text="${help_text/--no-auto-update/}"
+    fi
+    printf '%s\n' "$help_text"
     exit 0
 fi
 if [[ "${1:-}" == "models" ]]; then
+    if [[ -n "${GROK_FAKE_SANDBOX_EXIT:-}" ]]; then
+        printf '%s\n' 'Warning: sandbox not applied' >&2
+        printf '%s\n' 'Authentication required; run grok login'
+        printf 'call\n' >> "$GROK_FAKE_MODEL_CALLS"
+        exit "$GROK_FAKE_SANDBOX_EXIT"
+    fi
     if [[ -n "${GROK_FAKE_INIT_GUARD_DIR:-}" && ! -e "$GROK_FAKE_INIT_GUARD_DIR/ready" ]]; then
         mkdir -p "$GROK_FAKE_INIT_GUARD_DIR"
         if ! mkdir "$GROK_FAKE_INIT_GUARD_DIR/initializing" 2>/dev/null; then
@@ -874,6 +893,52 @@ test_invalid_turn_budget_never_dispatches() {
     assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" \
         "invalid Grok turn budget never dispatches"
 }
+
+test_bootstrap_sandbox_never_falls_back() {
+    local status source_home fake_bin="$TMP_ROOT/bootstrap-bin" output="$TMP_ROOT/bootstrap-response.json" calls="$TMP_ROOT/bootstrap-calls" curl_called="$TMP_ROOT/bootstrap-curl" rc
+    mkdir -p "$fake_bin"
+    make_grok_stub "$fake_bin/grok" success
+    make_curl_stub "$fake_bin/curl"
+    for status in 0 1; do
+        source_home="$TMP_ROOT/bootstrap-home-$status"
+        mkdir -p "$source_home"
+        write_oauth "$source_home/auth.json" test-access test-refresh
+        : > "$calls"; rm -f "$curl_called"; rc=0
+        PATH="$fake_bin:$PATH" GROK_CMD="$fake_bin/grok" GROK_HOME="$source_home" GROK_USE_API=false GROK_OAUTH_MODE=shared \
+            GROK_MODEL=grok-4.6 GROK_API_KEY=test-key GROK_FAKE_SANDBOX_EXIT="$status" GROK_FAKE_MODEL_CALLS="$calls" \
+            CURL_CALLED_FILE="$curl_called" MAX_RETRIES=2 "$SCRIPT_DIR/query_grok.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
+        assert_eq 78 "$rc" "bootstrap sandbox failure dominates auth at exit $status"
+        assert_eq false "$([[ -e "$curl_called" ]] && echo true || echo false)" "bootstrap sandbox failure never calls API"
+        assert_eq 1 "$(wc -l < "$calls" | tr -d ' ')" "bootstrap runs once with no inventory/inference retry"
+        assert_eq sandbox_not_applied "$(jq -r '.metadata.error' "$output")" "canonical bootstrap diagnostic survives in envelope"
+    done
+}
+test_hidden_memory_flag_uses_parser_contract() {
+    local fake_bin="$TMP_ROOT/hidden-flags" output="$TMP_ROOT/hidden.json" args="$TMP_ROOT/hidden.args" request="$TMP_ROOT/hidden.request" curl_called="$TMP_ROOT/hidden.curl" rc=0
+    mkdir -p "$fake_bin"
+    make_grok_stub "$fake_bin/grok" success
+    make_curl_stub "$fake_bin/curl"
+    GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_FAKE_HIDDEN_FLAGS=true GROK_ARGS_FILE="$args" \
+        GROK_MODEL=grok-4.6 MAX_RETRIES=1 "$SCRIPT_DIR/query_grok.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 0 "$rc" "hidden mandatory flag accepted by parser permits the CLI"
+    assert_eq 1 "$(grep -c -x -- '--no-memory' "$args")" "memory remains disabled in the actual request"
+    assert_eq 1 "$(grep -c -x -- '--no-auto-update' "$args")" "hidden supported update guard reaches the request"
+    rc=0
+    PATH="$fake_bin:$PATH" GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_FAKE_HIDDEN_FLAGS=true \
+        GROK_FAKE_REJECT_MEMORY=true GROK_REQUEST_FILE="$request" GROK_API_KEY=test CURL_CALLED_FILE="$curl_called" \
+        MAX_RETRIES=1 "$SCRIPT_DIR/query_grok.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 69 "$rc" "a genuinely unsupported memory guard fails before inference"
+    assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" "unsupported memory guard never dispatches"
+    assert_eq false "$([[ -e "$curl_called" ]] && echo true || echo false)" "unsupported memory guard never falls back to API"
+    rc=0
+    GROK_CMD="$fake_bin/grok" GROK_USE_API=false GROK_FAKE_HIDDEN_FLAGS=true GROK_FAKE_REJECT_AUTO_UPDATE=true \
+        GROK_ARGS_FILE="$args" MAX_RETRIES=1 "$SCRIPT_DIR/query_grok.sh" test '' "$output" >/dev/null 2>&1 || rc=$?
+    assert_eq 0 "$rc" "unsupported optional update flag does not reject an otherwise compatible CLI"
+    assert_eq 0 "$(grep -c -x -- '--no-auto-update' "$args" || true)" "unsupported optional flag is omitted"
+}
+run_test "Hidden Grok flags retain mandatory isolation" test_hidden_memory_flag_uses_parser_contract
+
+run_test "Bootstrap sandbox failure suppresses authentication fallback" test_bootstrap_sandbox_never_falls_back
 
 run_test "Test 1: CLI headless contract and model pin" test_cli_pins_model_and_headless_contract
 run_test "Test 2: alternate compatible version is accepted" test_alternate_compatible_version_is_accepted
