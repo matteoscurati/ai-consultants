@@ -117,7 +117,7 @@ grok_cli_supports_required_interface() {
     fi
     for flag in \
         --prompt-file --model --cwd --output-format --no-plan --no-subagents \
-        --no-memory --disable-web-search --max-turns --permission-mode \
+        --disable-web-search --max-turns --permission-mode \
         --sandbox --tools --deny --verbatim; do
         grep -q -- "$flag" <<< "$help" || return 1
     done
@@ -164,17 +164,29 @@ grok_cli_supports_required_interface() {
         probe_args+=(--reasoning-effort "$GROK_CLI_EFFORT")
     fi
 
-    # Exercise the complete headless argument surface under --help. This checks
-    # parser compatibility without starting a session or sending a prompt.
+    # Exercise the complete headless argument surface under --help. Hidden
+    # compatibility flags such as --no-memory need not appear in help text;
+    # they remain mandatory in both this parser probe and the actual request.
     local probe_output probe_rc=0
     probe_output=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
         "${probe_args[@]}" --help 2>&1) || probe_rc=$?
     if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure --explicit /dev/stdin <<< "$probe_output"); then
         return 1
     fi
-    [[ $probe_rc -eq 0 ]] || return 1
+    if [[ $probe_rc -ne 0 ]]; then
+        _GROK_CAPABILITY_ERROR="Grok Build CLI rejects the required advisory argument surface (exit $probe_rc)"
+        return 1
+    fi
 
-    if grep -q -- '--no-auto-update' <<< "$help"; then
+    # Probe the optional update guard too: recent CLIs accept it as a hidden
+    # flag. Never infer support solely from its visibility in --help.
+    probe_rc=0
+    probe_output=$(run_with_timeout "$GROK_OAUTH_BOOTSTRAP_TIMEOUT_SECONDS" \
+        "${probe_args[@]}" --no-auto-update --help 2>&1) || probe_rc=$?
+    if _GROK_CAPABILITY_ERROR=$(grok_sandbox_failure --explicit /dev/stdin <<< "$probe_output"); then
+        return 1
+    fi
+    if [[ $probe_rc -eq 0 ]]; then
         GROK_SUPPORTS_NO_AUTO_UPDATE=true
     else
         GROK_SUPPORTS_NO_AUTO_UPDATE=false

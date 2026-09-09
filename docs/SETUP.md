@@ -822,3 +822,10 @@ Absent paths and ordinary socket files pass this check. Nothing is removed and
 Docker configuration is never changed. Runtime `sandbox_profile_refused` and
 `sandbox_not_applied` diagnostics fail even with exit zero; they cannot trigger
 retry or API fallback. OAuth synchronization and per-run isolation remain active.
+
+
+Grok compatibility includes a provider-free parser probe of the complete advisory
+argument list. Hidden flags such as `--no-memory` are still required in the
+actual request even when omitted from public help. Unsupported mandatory flags
+block dispatch; the optional `--no-auto-update` guard is used when its parser
+probe succeeds, including on CLIs that hide it from help.
