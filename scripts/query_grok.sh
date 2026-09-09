@@ -539,8 +539,7 @@ else
 fi
 
 # Preserve which route actually answered without changing the shared schema.
-if [[ -s "$OUTPUT_FILE" ]]; then
-    response_tmp=$(mktemp "${OUTPUT_FILE}.metadata.XXXXXX")
+if [[ -s "$OUTPUT_FILE" ]] && response_tmp=$(mktemp "${OUTPUT_FILE}.metadata.XXXXXX"); then
     sandbox_failure=""
     if [[ "$TRANSPORT" == cli && $exit_code -ne 0 ]]; then
         sandbox_failure=$(grok_sandbox_failure "${TEMP_OUTPUT}.err") || sandbox_failure=""

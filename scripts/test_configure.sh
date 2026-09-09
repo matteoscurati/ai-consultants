@@ -380,6 +380,8 @@ test_claude_default_migration_and_pin() {
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
         "pinned Opus 5 survives later configure runs"
+    assert_contains "$(cat "$cfg/.env")" "# claude-opus-5 (or apply_model_tier standard for a single run)." \
+        "lower-cost Claude guidance survives configure rewrites"
 
     cfg="$TMP/claude-old-default-migration"
     mkdir -p "$cfg"

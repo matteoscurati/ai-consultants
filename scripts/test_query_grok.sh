@@ -940,6 +940,50 @@ test_hidden_memory_flag_uses_parser_contract() {
     assert_eq 0 "$rc" "unsupported optional update flag does not reject an otherwise compatible CLI"
     assert_eq 0 "$(grep -c -x -- '--no-auto-update' "$args" || true)" "unsupported optional flag is omitted"
 }
+test_metadata_temp_failure_preserves_result() {
+    local fake_bin="$TMP_ROOT/metadata-bin" mode expected rc source_home sandbox_exit
+    local output="$TMP_ROOT/metadata.json" stdout="$TMP_ROOT/metadata.stdout"
+    local marker="$TMP_ROOT/metadata-attempt" real_mktemp
+    real_mktemp=$(command -v mktemp)
+    mkdir -p "$fake_bin"
+    cat > "$fake_bin/mktemp" <<'EOF'
+#!/bin/bash
+if [[ "${1:-}" == *.metadata.XXXXXX ]]; then
+    : > "$METADATA_ATTEMPT_FILE"
+    exit 73
+fi
+exec "$REAL_MKTEMP" "$@"
+EOF
+    chmod +x "$fake_bin/mktemp"
+    for mode in success auth_after_launch sandbox; do
+        expected=0; sandbox_exit=''
+        if [[ "$mode" == auth_after_launch ]]; then expected=1; fi
+        if [[ "$mode" == sandbox ]]; then
+            expected=78; sandbox_exit=0
+            make_grok_stub "$fake_bin/grok" success
+        else
+            make_grok_stub "$fake_bin/grok" "$mode"
+        fi
+        source_home="$TMP_ROOT/metadata-home-$mode"
+        mkdir -p "$source_home"
+        write_oauth "$source_home/auth.json" test-access test-refresh
+        rm -f "$marker"
+        rc=0
+        PATH="$fake_bin:$PATH" REAL_MKTEMP="$real_mktemp" METADATA_ATTEMPT_FILE="$marker" \
+            AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/metadata-config" GROK_CMD="$fake_bin/grok" \
+            _AI_CONSULTANTS_XDG_DATA="$TMP_ROOT/metadata-data-$mode" \
+            GROK_HOME="$source_home" GROK_OAUTH_MODE=shared GROK_MODEL=grok-4.6 GROK_REASONING_EFFORT='' \
+            GROK_USE_API=false GROK_API_KEY='' XAI_API_KEY='' MAX_RETRIES=1 \
+            GROK_FAKE_SANDBOX_EXIT="$sandbox_exit" GROK_FAKE_MODEL_CALLS="$TMP_ROOT/metadata-model-calls" \
+            "$SCRIPT_DIR/query_grok.sh" test '' "$output" > "$stdout" 2>/dev/null || rc=$?
+        assert_eq true "$([[ -f "$marker" ]] && echo true || echo false)" "metadata failure was injected for $mode"
+        assert_eq "$expected" "$rc" "metadata failure preserves $mode exit status"
+        assert_eq true "$(cmp -s "$output" "$stdout" && echo true || echo false)" "metadata failure still emits $mode envelope"
+        assert_eq "$([[ "$mode" == success ]] && echo structured || echo error)" \
+            "$(jq -r '.metadata.response_quality' "$output")" "metadata failure preserves $mode quality"
+    done
+}
+run_test "Metadata temp failure preserves result" test_metadata_temp_failure_preserves_result
 run_test "Hidden Grok flags retain mandatory isolation" test_hidden_memory_flag_uses_parser_contract
 
 run_test "Bootstrap sandbox failure suppresses authentication fallback" test_bootstrap_sandbox_never_falls_back

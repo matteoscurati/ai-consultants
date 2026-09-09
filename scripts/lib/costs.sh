@@ -136,7 +136,7 @@ get_input_cost_per_1k() {
         gemini-2.5-pro)   echo "0.00125" ;;
         gemini-2.5-flash) echo "0.000075" ;;
         gemini-2.0-flash) echo "0.0001" ;;
-        gpt-6-astra)      echo "0.01" ;;
+        gpt-6-astra|claude-fable-5-1) echo "0.01" ;;
         gpt-4)            echo "0.03" ;;
         gpt-4-turbo)      echo "0.01" ;;
         gpt-4o)           echo "0.005" ;;
@@ -183,7 +183,7 @@ get_output_cost_per_1k() {
         gemini-2.5-pro)   echo "0.005" ;;
         gemini-2.5-flash) echo "0.0003" ;;
         gemini-2.0-flash) echo "0.0004" ;;
-        gpt-6-astra)      echo "0.05" ;;
+        gpt-6-astra|claude-fable-5-1) echo "0.05" ;;
         gpt-4)            echo "0.06" ;;
         gpt-4-turbo)      echo "0.03" ;;
         gpt-4o)           echo "0.015" ;;

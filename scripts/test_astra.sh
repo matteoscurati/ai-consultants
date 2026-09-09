@@ -40,6 +40,8 @@ build_openai_request hello grok-4.6 4096 high | jq -e '.max_tokens == 4096 and (
 [[ $(estimate_query_cost gpt-6-astra 273000 1000) == 5.535000 ]] || { printf "Astra assertion failed at line %s\n" "$LINENO" >&2; exit 1; }
 COST_RATES_FILE="$TMP/missing" \
     bash -c 'source "$1/lib/costs.sh"; [[ $(get_input_cost_per_1k gpt-6-astra) == 0.01 && $(get_output_cost_per_1k gpt-6-astra) == 0.05 ]]' _ "$SCRIPT_DIR"
+COST_RATES_FILE="$TMP/missing" \
+    bash -c 'source "$1/lib/costs.sh"; [[ $(estimate_query_cost claude-fable-5-1 1000 1000) == 0.060000 ]]' _ "$SCRIPT_DIR"
 # Failed Astra effort validation must produce an envelope and never call curl.
 mkdir -p "$TMP/bin"
 printf '#!/bin/bash\n: > "$DISPATCH_FILE"\nexit 99\n' > "$TMP/bin/curl"
