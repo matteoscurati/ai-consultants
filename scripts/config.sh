@@ -243,7 +243,7 @@ export GROK_USE_API GROK_OAUTH_MODE
 # DEEPSEEK CONFIGURATION - The Methodologist (API-based)
 # =============================================================================
 
-DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-v4-pro}"
+DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-flash}"
 if [[ -n "${DEEPSEEK_TIMEOUT+x}" ]]; then
     DEEPSEEK_TIMEOUT_SECONDS="$DEEPSEEK_TIMEOUT"
 elif [[ -z "${DEEPSEEK_TIMEOUT_SECONDS+x}" ]]; then
@@ -622,7 +622,7 @@ get_model_for_tier() {
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-6-astra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                deepseek) echo "deepseek-v4-pro" ;;
+                deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;
                 grok)     echo "grok-4.6" ;;
                 qwen3)    echo "qwen3.8-max" ;;
@@ -637,7 +637,7 @@ get_model_for_tier() {
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-6-astra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                deepseek) echo "deepseek-v4-pro" ;;
+                deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;
                 grok)     echo "grok-4.6" ;;
                 qwen3)    echo "qwen3.7-max" ;;
@@ -652,7 +652,7 @@ get_model_for_tier() {
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-5.6-terra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
-                deepseek) echo "deepseek-v4-flash" ;;
+                deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3.6-35b-a3b" ;;  # Open-weight MoE (35B total, 3B active)
@@ -667,7 +667,7 @@ get_model_for_tier() {
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (Low)" ;;
                 codex)    echo "gpt-5.6-luna" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "devstral-small-2" ;;
-                deepseek) echo "deepseek-v4-flash" ;;
+                deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-4-flash" ;;
                 grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3-32b" ;;

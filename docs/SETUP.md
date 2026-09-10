@@ -850,3 +850,24 @@ argument list. Hidden flags such as `--no-memory` are still required in the
 actual request even when omitted from public help. Unsupported mandatory flags
 block dispatch; the optional `--no-auto-update` guard is used when its parser
 probe succeeds, including on CLIs that hide it from help.
+
+### DeepSeek V4.1 Flash
+
+DeepSeek uses the HTTP API with `DEEPSEEK_MODEL=deepseek-flash` in every tier.
+This is the official API alias for DeepSeek-V4.1-Flash as of 2026-09-10, not a
+version identity inferred from the requested name. Provider-reported model
+metadata is retained unchanged. `max_quality` continues to request `max` effort;
+other tiers leave effort to the provider unless explicitly configured. The
+provider defaults to thinking mode at high effort. Existing text-only Chat
+Completions requests and the 16,384-token completion budget remain compatible.
+
+`configure` migrates exact unpinned `deepseek-v4-pro` and `deepseek-v4-flash`
+values; `# ai-consultants:pin`, environment overrides and `--set` preserve explicit
+choices. Old Flash aliases are still accepted but route to V4.1 Flash upstream.
+An explicit pin preserves the requested ID, not a guarantee against provider
+routing changes. Peak cache-miss costs are estimates, excluding cache/off-peak
+discounts. This change has offline coverage; live transport promotion requires
+a separately authorized DeepSeek API smoke. No CLI transport is introduced.
+
+Sources: [models/pricing](https://api-docs.deepseek.com/quick_start/pricing/) and
+[thinking mode](https://api-docs.deepseek.com/guides/thinking_mode/).

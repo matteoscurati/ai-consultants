@@ -542,6 +542,36 @@ test_backups_are_unique_within_one_second() {
     assert_eq "1" "$originals" "the pre-existing config survives in its own backup"
 }
 
+test_deepseek_flash_migration() {
+    local cfg old marker
+    for old in deepseek-v4-pro deepseek-v4-flash; do
+        for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin'; do
+            cfg="$TMP/deepseek-$old-${#marker}"
+            mkdir -p "$cfg"
+            printf 'DEEPSEEK_MODEL=%s%s\n' "$old" "$marker" > "$cfg/.env"
+            run_clean_configure "$cfg" --force >/dev/null 2>&1
+            if [[ "$marker" == *pin* ]]; then
+                assert_eq "$old" "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek explicit pin survives"
+            else
+                assert_eq deepseek-flash "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek historical default migrates"
+                assert_contains "$(grep '^DEEPSEEK_MODEL=' "$cfg/.env")" '# ai-consultants:default' "DeepSeek migration records managed provenance"
+                run_clean_configure "$cfg" --force >/dev/null 2>&1
+                assert_eq deepseek-flash "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek migration is idempotent"
+            fi
+        done
+    done
+    cfg="$TMP/deepseek-override"; mkdir -p "$cfg"
+    printf 'DEEPSEEK_MODEL=deepseek-v4-pro\n' > "$cfg/.env"
+    env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
+        DEEPSEEK_MODEL=deepseek-v4-pro "$BIN" configure --force >/dev/null 2>&1
+    assert_eq deepseek-v4-pro "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "environment overrides DeepSeek migration"
+    run_clean_configure "$cfg" --force --set DEEPSEEK_MODEL=deepseek-v4-flash >/dev/null 2>&1
+    assert_eq deepseek-v4-flash "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek --set wins"
+    printf 'DEEPSEEK_MODEL=custom-deepseek\n' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq custom-deepseek "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "unrelated DeepSeek model survives"
+}
+
 run_test "Test 1: public configure route and help" test_public_route_and_help
 run_test "Test 2: complete parameter contract" test_template_covers_config_contract
 run_test "Test 3: truthful full-roster auto-detection" test_auto_detects_complete_roster_truthfully
@@ -565,5 +595,7 @@ run_test "Test 20: Grok CLI-first with API fallback" test_grok_cli_first_with_ap
 run_test "Test 21: Claude managed-default migration and pin" test_claude_default_migration_and_pin
 run_test "Test 22: Codex managed-default migration and pin" test_codex_default_migration_and_pin
 run_test "Test 23: catalog managed-default migrations and pins" test_catalog_default_migrations_and_pins
+
+run_test "DeepSeek V4.1 Flash migration" test_deepseek_flash_migration
 
 test_summary "configure"

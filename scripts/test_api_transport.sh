@@ -238,6 +238,9 @@ case "${CURL_FAKE_MODE:-success}" in
   success)
     printf '%s\n' '{"model":"glm-5.3-flash","choices":[{"message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
     printf 200 ;;
+  deepseek_flash)
+    printf '%s\n' '{"model":"deepseek-flash","choices":[{"finish_reason":"stop","message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}","reasoning_content":"internal reasoning"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
+    printf 200 ;;
   invalid_model)
     printf '%s\n' '{"model":"glm*cheap","choices":[{"message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
     printf 200 ;;
@@ -264,16 +267,21 @@ EOF
     fi
 
     rm -f "$request_body"
-    PATH="$td:$PATH" DEEPSEEK_API_KEY=test DEEPSEEK_MODEL=deepseek-v4-pro DEEPSEEK_FORMAT=openai \
+    PATH="$td:$PATH" DEEPSEEK_API_KEY=test DEEPSEEK_MODEL=deepseek-flash DEEPSEEK_FORMAT=openai CURL_FAKE_MODE=deepseek_flash \
         DEEPSEEK_REASONING_EFFORT=max REQUEST_BODY_FILE="$request_body" \
         RATE_LIMIT_DIR="$td/rate-deepseek" MAX_RETRIES=1 \
         run_api_consultant DeepSeek test "" "$output" >/dev/null 2>&1
     assert_eq max "$(jq -r '.reasoning_effort' "$request_body")" \
         "DeepSeek max effort reaches the API request body"
-    assert_eq deepseek-v4-pro "$(jq -r '.model' "$request_body")" \
+    assert_eq deepseek-flash "$(jq -r '.model' "$request_body")" \
         "DeepSeek request-body assertion is non-vacuous"
     assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" \
         "DeepSeek receives enough budget for max-effort reasoning and visible output"
+
+    assert_eq deepseek-flash "$(jq -r '.model' "$output")" "DeepSeek provider model alias is retained, not rewritten as a version"
+    assert_eq provider-reported "$(jq -r '.metadata.model_identity_source' "$output")" "DeepSeek response model is provider-reported"
+    assert_eq 5 "$(jq -r '.metadata.tokens_used' "$output")" "DeepSeek measured tokens are retained"
+    assert_eq ok "$(jq -r '.response.summary' "$output")" "DeepSeek visible content is separate from reasoning"
 
     rm -f "$request_body"
     PATH="$td:$PATH" GROK_API_KEY=test GROK_MODEL=grok-4.6 GROK_FORMAT=openai \
