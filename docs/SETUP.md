@@ -866,8 +866,9 @@ values; `# ai-consultants:pin`, environment overrides and `--set` preserve expli
 choices. Old Flash aliases are still accepted but route to V4.1 Flash upstream.
 An explicit pin preserves the requested ID, not a guarantee against provider
 routing changes. Peak cache-miss costs are estimates, excluding cache/off-peak
-discounts. This change has offline coverage; live transport promotion requires
-a separately authorized DeepSeek API smoke. No CLI transport is introduced.
+discounts. An authorized one-attempt API smoke on 2026-09-10 passed with a structured
+response and provider-reported `deepseek-flash`; no version identity was invented
+from the alias. No CLI transport is introduced.
 
 Sources: [models/pricing](https://api-docs.deepseek.com/quick_start/pricing/) and
 [thinking mode](https://api-docs.deepseek.com/guides/thinking_mode/).

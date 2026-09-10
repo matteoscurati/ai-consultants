@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [5.1.1] - 2026-09-10
+
+### Changed
+- DeepSeek defaults to the official `deepseek-flash` API alias (V4.1 Flash) in every tier. Existing Chat Completions transport, output budget and `max_quality` reasoning effort remain unchanged.
+- `configure` migrates exact unpinned `deepseek-v4-pro` and `deepseek-v4-flash` values; pins, environment overrides, `--set` and unrelated models remain authoritative.
+- DeepSeek Flash estimates use peak cache-miss rates and disclose excluded cache/off-peak discounts. Retired Flash and Flash Vision Exp aliases use their new upstream Flash rates.
+
+### Verification
+- One authorized DeepSeek API smoke passed on the implementation commit, with a structured answer and provider-reported `deepseek-flash` identity. The alias is retained without inventing a version-specific attestation. The frozen P1.6 benchmark is unchanged.
+
 ## [5.1.0] - 2026-09-09
 
 ### Changed

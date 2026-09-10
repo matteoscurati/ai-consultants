@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 5.1.0
+**Version**: 5.1.1
 
 ## Distribution
 
@@ -759,6 +759,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v5.1.1 (2026-09-10)
+
+- **DeepSeek V4.1 Flash policy.** `scripts/config.sh` selects `deepseek-flash` for the default and every tier. `scripts/configure.sh` migrates only the two exact historical unpinned defaults; durable pins and explicit overrides remain intact. No credentials are imported or personal configuration rewritten by the upgrade.
+- **Conservative cost accounting.** `docs/cost_rates.json` and the catalog-independent fallbacks use $0.30/M input and $1.20/M output for Flash, including retired Flash aliases now served by the new model. `format_cost_caveats` discloses the peak/cache-miss assumption and excluded discounts; estimates are not provider invoices. Other legacy rates are retained as historical estimates.
+- **Verification and scope.** PR #27 passed all 32 CI suites, plus local API 101, configure 138 and core 451 checks. One authorized API request on `96816b5` returned HTTP 200 and a correct structured expiry-boundary answer, with `deepseek-flash` provider-reported, max effort, 119 input / 602 output measured tokens. The shared transport is unchanged; provider identity is not rewritten into a version label. No frozen P1.6 input or live benchmark claim changes.
+
 
 ### v5.1.0 (2026-09-09)
 
