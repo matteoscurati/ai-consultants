@@ -335,6 +335,17 @@ if [[ "$(read_value "$WORK_FILE" GROK_MODEL 2>/dev/null || true)" == "grok-4.5" 
     echo "Migrated managed Grok default: grok-4.5 -> grok-4.6" >&2
 fi
 
+# Refresh only exact unpinned historical DeepSeek defaults. Environment and
+# --set selections carry pin markers and remain user-owned.
+case "$(read_value "$WORK_FILE" DEEPSEEK_MODEL 2>/dev/null || true)" in
+    deepseek-v4-pro|deepseek-v4-flash)
+        if ! has_value_marker "$WORK_FILE" DEEPSEEK_MODEL "$PIN_MARKER"; then
+            set_value DEEPSEEK_MODEL "deepseek-flash $DEFAULT_MARKER"
+            echo "Migrated managed DeepSeek default to deepseek-flash (V4.1 Flash)" >&2
+        fi
+        ;;
+esac
+
 configure_cli_only() {
     local enable_key="$1" cmd_key="$2" cmd enabled=false
     cmd=$(effective_input_value "$cmd_key")

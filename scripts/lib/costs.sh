@@ -136,6 +136,7 @@ get_input_cost_per_1k() {
         gemini-2.5-pro)   echo "0.00125" ;;
         gemini-2.5-flash) echo "0.000075" ;;
         gemini-2.0-flash) echo "0.0001" ;;
+        deepseek-flash|deepseek-v4-flash|deepseek-v4-flash-vision-exp) echo "0.0003" ;;
         gpt-6-astra|claude-fable-5-1) echo "0.01" ;;
         gpt-4)            echo "0.03" ;;
         gpt-4-turbo)      echo "0.01" ;;
@@ -183,6 +184,7 @@ get_output_cost_per_1k() {
         gemini-2.5-pro)   echo "0.005" ;;
         gemini-2.5-flash) echo "0.0003" ;;
         gemini-2.0-flash) echo "0.0004" ;;
+        deepseek-flash|deepseek-v4-flash|deepseek-v4-flash-vision-exp) echo "0.0012" ;;
         gpt-6-astra|claude-fable-5-1) echo "0.05" ;;
         gpt-4)            echo "0.06" ;;
         gpt-4-turbo)      echo "0.03" ;;
@@ -401,7 +403,7 @@ format_cost_caveats() {
     local responses_dir="${1:-}"
     [[ -d "$responses_dir" ]] || return 0
 
-    local estimated=0 unknown=0 priced=0 f astra_estimate=0
+    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0
     local unpriced_models=()
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
@@ -423,6 +425,13 @@ format_cost_caveats() {
         if [[ "$model" == gpt-6-astra ]] && ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
             astra_estimate=1
         fi
+        case "$model" in
+            deepseek-flash|deepseek-v4-flash|deepseek-v4-flash-vision-exp)
+                if ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
+                    deepseek_flash_estimate=1
+                fi
+                ;;
+        esac
         is_unpriced_model "$model" || continue
         seen=false
         for item in "${unpriced_models[@]+"${unpriced_models[@]}"}"; do
@@ -440,6 +449,9 @@ format_cost_caveats() {
     fi
     if [[ $astra_estimate -eq 1 ]]; then
         parts="${parts:+$parts; }cost estimated using Astra Standard rates; cache/service adjustments excluded, not an invoice"
+    fi
+    if [[ $deepseek_flash_estimate -eq 1 ]]; then
+        parts="${parts:+$parts; }DeepSeek Flash cost estimated at peak cache-miss rates; off-peak/cache discounts excluded, not an invoice"
     fi
     local unpriced=""
     if (( ${#unpriced_models[@]} > 0 )); then

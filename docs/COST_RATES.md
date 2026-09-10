@@ -45,8 +45,9 @@ models programmatically.
 | composer-2.5 | Legacy | $0.0005 | Removed Cursor consultant |
 | composer-2 | Legacy | $0.0005 | Removed Cursor consultant |
 | gemini-3-flash | Legacy | $0.0005 | Removed Cursor consultant |
-| deepseek-v4-pro | Premium | $0.000435 | DeepSeek |
-| deepseek-v4-flash | Standard/Economy | $0.00014 | DeepSeek |
+| deepseek-v4-pro | Legacy explicit override | $0.000435 | DeepSeek |
+| deepseek-flash | All tiers | $0.0003 | DeepSeek (peak, cache miss) |
+| deepseek-v4-flash / deepseek-v4-flash-vision-exp | Retired aliases → V4.1 Flash | $0.0003 | DeepSeek (peak, cache miss) |
 | glm-5.3-flash | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
 | glm-5.3 | Legacy pins | Unpriced | GLM coding-plan endpoint |
 | glm-4-flash | Economy | $0.001 | GLM |
@@ -89,8 +90,9 @@ models programmatically.
 | composer-2.5 | Legacy | $0.0025 | Removed Cursor consultant |
 | composer-2 | Legacy | $0.0025 | Removed Cursor consultant |
 | gemini-3-flash | Legacy | $0.003 | Removed Cursor consultant |
-| deepseek-v4-pro | Premium | $0.00087 | DeepSeek |
-| deepseek-v4-flash | Standard/Economy | $0.00028 | DeepSeek |
+| deepseek-v4-pro | Legacy explicit override | $0.00087 | DeepSeek |
+| deepseek-flash | All tiers | $0.0012 | DeepSeek (peak) |
+| deepseek-v4-flash / deepseek-v4-flash-vision-exp | Retired aliases → V4.1 Flash | $0.0012 | DeepSeek (peak) |
 | glm-5.3-flash | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
 | glm-5.3 | Legacy pins | Unpriced | GLM coding-plan endpoint |
 | glm-4-flash | Economy | $0.003 | GLM |
@@ -191,3 +193,14 @@ presenting them as free.
 Cost tracking requires:
 - `bc` - For floating point calculations
 - `jq` - For JSON parsing
+
+## DeepSeek V4.1 Flash pricing
+
+As of 2026-09-10, the official API name `deepseek-flash` selects V4.1 Flash.
+The estimator uses peak cache-miss rates: $0.30/M input and $1.20/M output.
+Off-peak rates are $0.15/M input and $0.60/M output; cached input is $0.006/M
+peak or $0.003/M off-peak. Peak hours are weekdays 01:00–04:00 and 06:00–10:00
+UTC. The estimate deliberately excludes these discounts; it is not an invoice.
+Legacy Flash and Flash Vision Exp aliases are now served and billed as V4.1 Flash.
+Other legacy catalog entries remain historical estimates, not newly verified quotes.
+Source: [DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing/).

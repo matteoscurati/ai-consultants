@@ -392,7 +392,7 @@ All consultants now use premium models by default:
 | Gemini | Gemini 3.7 Flash (High) (via agy CLI); API: gemini-3.1-pro-preview |
 | Codex | gpt-6-astra |
 | Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
-| DeepSeek | deepseek-v4-pro |
+| DeepSeek | deepseek-flash (DeepSeek-V4.1-Flash) |
 | GLM | glm-5.3-flash |
 | Grok | grok-4.6 |
 | Qwen3 | qwen3.7-max |

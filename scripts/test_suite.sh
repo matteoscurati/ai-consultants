@@ -1436,7 +1436,7 @@ test_model_for_tier() {
     assert_equals "gpt-6-astra"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-6-astra"
     assert_equals "gpt-5.6-terra"         "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.6-terra"
     assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
-    assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-v4-flash"
+    assert_equals "deepseek-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-flash"
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3-flash"
     assert_equals "grok-4.6"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.6"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.5"
@@ -1447,7 +1447,7 @@ test_model_for_tier() {
     # explicitly so the contract is self-documenting rather than implied.
     assert_not_equals "qwen3.8-max" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in Token Plan model"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
-    assert_equals "deepseek-v4-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-v4-flash"
+    assert_equals "deepseek-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-flash"
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3-flash"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.5"
     assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "maximum")"    "Claude maximum is Fable 5.1"

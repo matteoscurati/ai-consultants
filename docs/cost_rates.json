@@ -2,6 +2,18 @@
   "version": "5.1.0",
   "updated": "2026-08-23",
   "models": {
+    "deepseek-flash": {
+      "input": 0.0003,
+      "output": 0.0012,
+      "provider": "DeepSeek",
+      "notes": "DeepSeek-V4.1-Flash, verified 2026-09-10. Peak cache-miss estimate; off-peak and cache-hit discounts excluded. See https://api-docs.deepseek.com/quick_start/pricing/"
+    },
+    "deepseek-v4-flash-vision-exp": {
+      "input": 0.0003,
+      "output": 0.0012,
+      "provider": "DeepSeek",
+      "notes": "Retired alias served by V4.1 Flash; peak cache-miss estimate."
+    },
     "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
     "_comment_premium": "Premium tier models - Sep 2026",
     "claude-fable-5-1": {
@@ -380,8 +392,8 @@
       "output": 0.003
     },
     "deepseek-v4-flash": {
-      "input": 0.00014,
-      "output": 0.00028
+      "input": 0.0003,
+      "output": 0.0012
     },
     "glm-5.2": {
       "input": 0.00098,
@@ -434,7 +446,7 @@
     "gemini": "Gemini 3.7 Flash (High)",
     "codex": "gpt-6-astra",
     "mistral": "mistral-large-3",
-    "deepseek": "deepseek-v4-pro",
+    "deepseek": "deepseek-flash",
     "glm": "glm-5.3-flash",
     "grok": "grok-4.6",
     "qwen3": "qwen3.7-max",
@@ -448,7 +460,7 @@
       "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-6-astra",
       "mistral": "mistral-medium-3.5",
-      "deepseek": "deepseek-v4-pro",
+      "deepseek": "deepseek-flash",
       "glm": "glm-5.3-flash",
       "grok": "grok-4.6",
       "qwen3": "qwen3.8-max",
@@ -460,7 +472,7 @@
       "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-6-astra",
       "mistral": "mistral-medium-3.5",
-      "deepseek": "deepseek-v4-pro",
+      "deepseek": "deepseek-flash",
       "glm": "glm-5.3-flash",
       "grok": "grok-4.6",
       "qwen3": "qwen3.7-max",
@@ -472,7 +484,7 @@
       "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-5.6-terra",
       "mistral": "mistral-medium-3.5",
-      "deepseek": "deepseek-v4-flash",
+      "deepseek": "deepseek-flash",
       "glm": "glm-5.3-flash",
       "grok": "grok-4.5",
       "qwen3": "qwen3.6-35b-a3b",
@@ -484,7 +496,7 @@
       "gemini": "Gemini 3.7 Flash (Low)",
       "codex": "gpt-5.6-luna",
       "mistral": "devstral-small-2",
-      "deepseek": "deepseek-v4-flash",
+      "deepseek": "deepseek-flash",
       "glm": "glm-4-flash",
       "grok": "grok-4.5",
       "qwen3": "qwen3-32b",
