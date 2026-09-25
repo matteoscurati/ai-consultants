@@ -1416,7 +1416,7 @@ test_model_for_tier() {
     suite "config.sh: get_model_for_tier"
 
     assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "premium")"  "claude premium is Fable 5.1"
-    assert_equals "claude-opus-5"         "$(get_model_for_tier "claude" "standard")" "claude standard is lower-cost Opus 5"
+    assert_equals "claude-opus-5-5"       "$(get_model_for_tier "claude" "standard")" "claude standard is Opus 5.5"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
     assert_equals "Gemini 3.7 Flash (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is promoted Gemini 3.7 Flash (High)"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium" api)" "gemini API premium uses the provider ID"
@@ -1438,7 +1438,7 @@ test_model_for_tier() {
     assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
     assert_equals "deepseek-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-flash"
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3-flash"
-    assert_equals "grok-4.6"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.6"
+    assert_equals "grok-4.7"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.7"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.5"
     assert_equals "qwen3.7-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.7-max"
     # qwen3.8-max is opt-in only: it needs a Qwen Cloud Token Plan

@@ -872,3 +872,29 @@ from the alias. No CLI transport is introduced.
 
 Sources: [models/pricing](https://api-docs.deepseek.com/quick_start/pricing/) and
 [thinking mode](https://api-docs.deepseek.com/guides/thinking_mode/).
+
+### Grok 4.7 and Claude Opus 5.5
+
+Grok defaults to `grok-4.7` for premium/maximum; standard/economy stay on
+`grok-4.5`. Configure migrates exact unpinned persisted `grok-4.5`/`grok-4.6`
+defaults. Pins, environment overrides, `--set` and unrelated IDs survive.
+The existing capability/model inventory probes, strict sandbox and OAuth
+isolation still apply; the Grok 4.7 Fast variant is not implicitly selected.
+
+Claude standard/medium selects `claude-opus-5-5`; default/premium/maximum
+remain Fable 5.1 and economy remains Haiku 4.5. Select Opus directly with
+`configure --set CLAUDE_MODEL=claude-opus-5-5`. The historical unpinned Claude
+default migration to Fable is unchanged; explicit old Opus pins stay pinned.
+
+Opus 5.5 has always-on adaptive thinking, including empty thinking display
+blocks. Our tool-free single-turn API request omits thinking overrides, sampling
+parameters and forced tool choice; parsing selects visible text by block type.
+The API therefore uses the provider's default effort (medium), with the existing
+16384 total-output budget. The CLI retains explicit `CLAUDE_REASONING_EFFORT`
+control. Content identity and terminal success remain separate checks.
+
+These additions have offline regression coverage. Exact installed CLI/API
+transport promotion requires separately authorized live smoke calls. Frozen
+P1.6 benchmark IDs/efforts/preregistration are not changed by this update.
+See the [Opus migration guide](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide)
+and [Grok 4.7](https://docs.x.ai/developers/grok-4-7).

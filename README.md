@@ -385,7 +385,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Grok** | `grok` | The Provocateur | Challenge conventions |
 | **MiniMax** | `mmx` | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
 
-Grok uses Grok Build with `grok-4.6` in an isolated, tool-free sandbox. Prompts
+Grok uses Grok Build with `grok-4.7` in an isolated, tool-free sandbox. Prompts
 are passed through a private file rather than process arguments. It falls back
 to the xAI API only when the CLI is missing, cannot launch, or has no usable
 authentication and `GROK_API_KEY` is configured; post-launch request failures
@@ -426,7 +426,7 @@ pip install mistral-vibe               # Mistral
 # Optional CLI-based consultants
 curl -L code.kimi.com/install.sh | bash            # Kimi K3
 npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
-curl -fsSL https://x.ai/cli/install.sh | bash # Grok Build (grok-4.6)
+curl -fsSL https://x.ai/cli/install.sh | bash # Grok Build (grok-4.7)
 npm install -g mmx-cli                       # MiniMax
 
 ```
@@ -483,7 +483,7 @@ and cannot support a comprehensive coverage claim.
 
 | Consultant | `max_quality` | Premium | Standard | Economy |
 |------------|---------------|---------|----------|---------|
-| Claude | claude-fable-5-1 | claude-fable-5-1 | claude-opus-5 | claude-haiku-4-5 |
+| Claude | claude-fable-5-1 | claude-fable-5-1 | claude-opus-5-5 | claude-haiku-4-5 |
 | Gemini CLI | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (Low) |
 | Gemini API | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview |
 | Codex | gpt-6-astra | gpt-6-astra | gpt-5.6-terra | gpt-5.6-luna |
@@ -491,7 +491,7 @@ and cannot support a comprehensive coverage claim.
 | Mistral API | mistral-large-3 | mistral-large-3 | mistral-large-3 | mistral-large-3 |
 | DeepSeek | deepseek-flash | deepseek-flash | deepseek-flash | deepseek-flash |
 | GLM | glm-5.3-flash | glm-5.3-flash | glm-5.3-flash | glm-4-flash |
-| Grok | grok-4.6 | grok-4.6 | grok-4.5 | grok-4.5 |
+| Grok | grok-4.7 | grok-4.7 | grok-4.5 | grok-4.5 |
 | Qwen3 | qwen3.8-max when Token Plan is configured; otherwise qwen3.7-max | qwen3.7-max | qwen3.6-35b-a3b | qwen3-32b |
 | Kimi | kimi-code/k3-256k | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
 | MiniMax | MiniMax-M3 | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
@@ -503,7 +503,7 @@ economy target. The Google API model remains `gemini-3.1-pro-preview`, while
 verified. The new Mistral API IDs (`mistral-medium-3-5`,
 `mistral-large-2512`, `mistral-small-2603`) remain catalogued opt-ins. Claude
 Fable 5.1 is the default/premium/maximum target; use
-`CLAUDE_MODEL=claude-opus-5` for the lower-cost standard override. Selecting a preset later intentionally reapplies that
+`CLAUDE_MODEL=claude-opus-5-5` for the lower-cost standard override. Selecting a preset later intentionally reapplies that
 preset's tier and can replace an explicit model override for the run.
 Qwen3.8-Max is likewise selected by `max_quality` only when API mode already
 points at an authenticated OpenAI-compatible Token Plan `/chat/completions`

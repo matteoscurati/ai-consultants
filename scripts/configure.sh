@@ -329,11 +329,14 @@ case "$(read_value "$WORK_FILE" GLM_MODEL 2>/dev/null || true)" in
         ;;
 esac
 
-if [[ "$(read_value "$WORK_FILE" GROK_MODEL 2>/dev/null || true)" == "grok-4.5" ]] \
-    && ! has_value_marker "$WORK_FILE" GROK_MODEL "$PIN_MARKER"; then
-    set_value GROK_MODEL "grok-4.6 $DEFAULT_MARKER"
-    echo "Migrated managed Grok default: grok-4.5 -> grok-4.6" >&2
-fi
+case "$(read_value "$WORK_FILE" GROK_MODEL 2>/dev/null || true)" in
+    grok-4.5|grok-4.6)
+        if ! has_value_marker "$WORK_FILE" GROK_MODEL "$PIN_MARKER"; then
+            set_value GROK_MODEL "grok-4.7 $DEFAULT_MARKER"
+            echo "Migrated managed Grok default to grok-4.7" >&2
+        fi
+        ;;
+esac
 
 # Refresh only exact unpinned historical DeepSeek defaults. Environment and
 # --set selections carry pin markers and remain user-owned.

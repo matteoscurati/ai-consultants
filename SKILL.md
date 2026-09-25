@@ -86,7 +86,7 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 
 **API-only consultants**: GLM (The Methodologist), DeepSeek (The Code Specialist)
 
-**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.6` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers.
+**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.7` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers.
 
 Grok CLI OAuth defaults to `GROK_OAUTH_MODE=shared`: concurrent invocations
 share one runner-owned persistent `GROK_HOME` so the vendor auth lock can

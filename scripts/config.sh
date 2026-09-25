@@ -213,7 +213,7 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 # =============================================================================
 
 GROK_CMD="${GROK_CMD:-grok}"
-GROK_MODEL="${GROK_MODEL:-grok-4.6}"
+GROK_MODEL="${GROK_MODEL:-grok-4.7}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_MAX_TOKENS="${GROK_API_MAX_TOKENS:-4096}"
 GROK_MAX_TURNS="${GROK_MAX_TURNS:-4}"
@@ -624,7 +624,7 @@ get_model_for_tier() {
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;
-                grok)     echo "grok-4.6" ;;
+                grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3-256k" ;;
                 minimax)  echo "MiniMax-M3" ;;
@@ -639,7 +639,7 @@ get_model_for_tier() {
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;
-                grok)     echo "grok-4.6" ;;
+                grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.7-max" ;;
                 kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
@@ -648,7 +648,7 @@ get_model_for_tier() {
             ;;
         standard|medium|balanced)
             case "$consultant" in
-                claude)   echo "claude-opus-5" ;;
+                claude)   echo "claude-opus-5-5" ;;
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
                 codex)    echo "gpt-5.6-terra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;

@@ -2,6 +2,16 @@
   "version": "5.1.1",
   "updated": "2026-08-23",
   "models": {
+    "claude-opus-5-5": {
+      "input": 0.004,
+      "output": 0.020,
+      "notes": "Standard API list-rate estimate; cache/service adjustments excluded. Verified 2026-09-26."
+    },
+    "grok-4.7": {
+      "input": 0.002,
+      "output": 0.006,
+      "notes": "Standard API estimate; above 200K input both rates double for the request. Cache, regional, priority and Fast rates excluded. Verified 2026-09-26."
+    },
     "deepseek-flash": {
       "input": 0.0003,
       "output": 0.0012,
@@ -448,7 +458,7 @@
     "mistral": "mistral-large-3",
     "deepseek": "deepseek-flash",
     "glm": "glm-5.3-flash",
-    "grok": "grok-4.6",
+    "grok": "grok-4.7",
     "qwen3": "qwen3.7-max",
     "kimi": "kimi-code/k3",
     "minimax": "minimax-m2.7"
@@ -462,7 +472,7 @@
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
       "glm": "glm-5.3-flash",
-      "grok": "grok-4.6",
+      "grok": "grok-4.7",
       "qwen3": "qwen3.8-max",
       "kimi": "kimi-code/k3-256k",
       "minimax": "MiniMax-M3"
@@ -474,13 +484,13 @@
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
       "glm": "glm-5.3-flash",
-      "grok": "grok-4.6",
+      "grok": "grok-4.7",
       "qwen3": "qwen3.7-max",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.7"
     },
     "standard": {
-      "claude": "claude-opus-5",
+      "claude": "claude-opus-5-5",
       "gemini": "Gemini 3.7 Flash (High)",
       "codex": "gpt-5.6-terra",
       "mistral": "mistral-medium-3.5",

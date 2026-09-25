@@ -394,7 +394,7 @@ All consultants now use premium models by default:
 | Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
 | DeepSeek | deepseek-flash (DeepSeek-V4.1-Flash) |
 | GLM | glm-5.3-flash |
-| Grok | grok-4.6 |
+| Grok | grok-4.7 |
 | Qwen3 | qwen3.7-max |
 | Kimi | kimi-code/k3 |
 | MiniMax | MiniMax-M2.7 |
@@ -402,7 +402,7 @@ All consultants now use premium models by default:
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
 
 Grok is CLI-first through the official Grok Build `grok` command, with
-`grok-4.6` passed explicitly in headless mode. The prompt is delivered with
+`grok-4.7` passed explicitly in headless mode. The prompt is delivered with
 `--prompt-file`; HOME and CWD are isolated, built-in/MCP tools are denied, and
 the strict sandbox prevents user or project extensions from joining the
 consultation. The xAI Chat Completions path is retained only when the CLI is

@@ -380,7 +380,7 @@ test_claude_default_migration_and_pin() {
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
         "pinned Opus 5 survives later configure runs"
-    assert_contains "$(cat "$cfg/.env")" "# claude-opus-5 (or apply_model_tier standard for a single run)." \
+    assert_contains "$(cat "$cfg/.env")" "# claude-opus-5-5 (or apply_model_tier standard for a single run)." \
         "lower-cost Claude guidance survives configure rewrites"
 
     cfg="$TMP/claude-old-default-migration"
@@ -475,7 +475,7 @@ test_catalog_default_migrations_and_pins() {
     assert_eq mistral-medium-3.5 "$(read_env "$cfg/.env" MISTRAL_CLI_MODEL)" "new Mistral CLI field is populated"
     assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed Cursor command is dropped"
     assert_eq glm-5.3-flash "$(read_env "$cfg/.env" GLM_MODEL)" "managed GLM default migrates"
-    assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "managed Grok default migrates"
+    assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "managed Grok default migrates"
     for key in GEMINI_MODEL GLM_MODEL GROK_MODEL; do
         assert_contains "$(grep "^${key}=" "$cfg/.env")" "# ai-consultants:default" "$key migration records managed provenance"
     done
@@ -572,6 +572,36 @@ test_deepseek_flash_migration() {
     assert_eq custom-deepseek "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "unrelated DeepSeek model survives"
 }
 
+test_grok47_migration_and_opus55_selection() {
+    local cfg marker
+    for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin'; do
+        cfg="$TMP/grok47-${#marker}"; mkdir -p "$cfg"
+        printf 'GROK_MODEL=grok-4.6%s\n' "$marker" > "$cfg/.env"
+        run_clean_configure "$cfg" --force >/dev/null 2>&1
+        if [[ "$marker" == *pin* ]]; then
+            assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "explicit Grok 4.6 pin survives"
+        else
+            assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "unpinned Grok 4.6 migrates"
+            assert_contains "$(grep '^GROK_MODEL=' "$cfg/.env")" '# ai-consultants:default' "Grok 4.7 records managed provenance"
+            run_clean_configure "$cfg" --force >/dev/null 2>&1
+            assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "Grok migration is idempotent"
+        fi
+    done
+    cfg="$TMP/grok47-overrides"; mkdir -p "$cfg"
+    printf 'GROK_MODEL=grok-4.6\n' > "$cfg/.env"
+    env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
+        GROK_MODEL=grok-4.6 "$BIN" configure --force >/dev/null 2>&1
+    assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "environment Grok model wins"
+    run_clean_configure "$cfg" --force --set GROK_MODEL=grok-4.6 --set CLAUDE_MODEL=claude-opus-5-5 >/dev/null 2>&1
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "Grok --set remains pinned"
+    assert_eq claude-opus-5-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "explicit Opus 5.5 survives configure"
+    printf 'GROK_MODEL=custom-grok\nCLAUDE_MODEL=claude-fable-5-1\n' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq custom-grok "$(read_env "$cfg/.env" GROK_MODEL)" "unrelated Grok target survives"
+    assert_eq claude-fable-5-1 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "Fable default remains unchanged"
+}
+
 run_test "Test 1: public configure route and help" test_public_route_and_help
 run_test "Test 2: complete parameter contract" test_template_covers_config_contract
 run_test "Test 3: truthful full-roster auto-detection" test_auto_detects_complete_roster_truthfully
@@ -597,5 +627,7 @@ run_test "Test 22: Codex managed-default migration and pin" test_codex_default_m
 run_test "Test 23: catalog managed-default migrations and pins" test_catalog_default_migrations_and_pins
 
 run_test "DeepSeek V4.1 Flash migration" test_deepseek_flash_migration
+
+run_test "Grok 4.7 migration and Opus 5.5 selection" test_grok47_migration_and_opus55_selection
 
 test_summary "configure"

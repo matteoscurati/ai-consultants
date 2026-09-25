@@ -137,6 +137,8 @@ get_input_cost_per_1k() {
         gemini-2.5-flash) echo "0.000075" ;;
         gemini-2.0-flash) echo "0.0001" ;;
         deepseek-flash|deepseek-v4-flash|deepseek-v4-flash-vision-exp) echo "0.0003" ;;
+        claude-opus-5-5) echo "0.004" ;;
+        grok-4.7) echo "0.002" ;;
         gpt-6-astra|claude-fable-5-1) echo "0.01" ;;
         gpt-4)            echo "0.03" ;;
         gpt-4-turbo)      echo "0.01" ;;
@@ -185,6 +187,8 @@ get_output_cost_per_1k() {
         gemini-2.5-flash) echo "0.0003" ;;
         gemini-2.0-flash) echo "0.0004" ;;
         deepseek-flash|deepseek-v4-flash|deepseek-v4-flash-vision-exp) echo "0.0012" ;;
+        claude-opus-5-5) echo "0.020" ;;
+        grok-4.7) echo "0.006" ;;
         gpt-6-astra|claude-fable-5-1) echo "0.05" ;;
         gpt-4)            echo "0.06" ;;
         gpt-4-turbo)      echo "0.03" ;;
@@ -237,6 +241,10 @@ estimate_query_cost() {
     if [[ "$model" == gpt-6-astra && "$input_tokens" -gt 272000 ]]; then
         input_rate=$(echo "scale=6; $input_rate * 2" | bc)
         output_rate=$(echo "scale=6; $output_rate * 1.5" | bc)
+    fi
+    if [[ "$model" == grok-4.7 && "$input_tokens" -gt 200000 ]]; then
+        input_rate=$(echo "scale=6; $input_rate * 2" | bc)
+        output_rate=$(echo "scale=6; $output_rate * 2" | bc)
     fi
     # Calculate cost
     local input_cost output_cost total_cost
@@ -403,7 +411,7 @@ format_cost_caveats() {
     local responses_dir="${1:-}"
     [[ -d "$responses_dir" ]] || return 0
 
-    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0
+    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0 grok_47_estimate=0 opus_55_estimate=0
     local unpriced_models=()
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
@@ -432,6 +440,10 @@ format_cost_caveats() {
                 fi
                 ;;
         esac
+        if ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
+            [[ "$model" != grok-4.7 ]] || grok_47_estimate=1
+            [[ "$model" != claude-opus-5-5 ]] || opus_55_estimate=1
+        fi
         is_unpriced_model "$model" || continue
         seen=false
         for item in "${unpriced_models[@]+"${unpriced_models[@]}"}"; do
@@ -452,6 +464,12 @@ format_cost_caveats() {
     fi
     if [[ $deepseek_flash_estimate -eq 1 ]]; then
         parts="${parts:+$parts; }DeepSeek Flash cost estimated at peak cache-miss rates; off-peak/cache discounts excluded, not an invoice"
+    fi
+    if [[ $grok_47_estimate -eq 1 ]]; then
+        parts="${parts:+$parts; }Grok 4.7 API list-rate estimate includes long-context pricing; cache/regional/priority/Fast adjustments excluded, not an invoice"
+    fi
+    if [[ $opus_55_estimate -eq 1 ]]; then
+        parts="${parts:+$parts; }Opus 5.5 Standard API estimate excludes cache/service adjustments, not an invoice"
     fi
     local unpriced=""
     if (( ${#unpriced_models[@]} > 0 )); then
