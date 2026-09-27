@@ -917,3 +917,9 @@ No inference was performed for inventory discovery. Installed-transport live
 qualification requires separate authorization. Prices are promotional estimates
 through 2026-12-31; see [Google's model guide](https://ai.google.dev/gemini-api/docs/latest-model).
 The frozen P1.6 inputs remain unchanged.
+
+For Google GenerateContent accounting, output tokens include both
+`candidatesTokenCount` and `thoughtsTokenCount`. Input uses `promptTokenCount`,
+which already includes cached content. This avoids dropping billed thinking
+or adding cache tokens twice; it applies to the existing Google API path too.
+See [UsageMetadata](https://ai.google.dev/api/generate-content).

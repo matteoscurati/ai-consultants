@@ -133,6 +133,8 @@ chmod 600 "$WORK_FILE"
 
 read_value() {
     local file="$1" wanted="$2" line key value found="" seen=false
+    local double_quoted='^"(([^"\\]|\\.)*)"[[:space:]]*(#.*)?$'
+    local single_quoted="^'([^']*)'[[:space:]]*(#.*)?$"
     [[ -r "$file" ]] || return 1
     while IFS= read -r line || [[ -n "$line" ]]; do
         line="${line%$'\r'}"
@@ -147,8 +149,8 @@ read_value() {
         key="${key//[[:space:]]/}"
         [[ "$key" == "$wanted" ]] || continue
         value="${line#*=}"
-        if [[ "$value" =~ ^\".*\"$ ]] || [[ "$value" =~ ^\'.*\'$ ]]; then
-            value="${value:1:${#value}-2}"
+        if [[ "$value" =~ $double_quoted ]] || [[ "$value" =~ $single_quoted ]]; then
+            value="${BASH_REMATCH[1]}"
         else
             value=$(printf '%s' "$value" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')
         fi

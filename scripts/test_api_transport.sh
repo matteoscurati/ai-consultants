@@ -176,7 +176,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 [[ -z "${REQUEST_BODY_FILE:-}" ]] || printf '%s' "$body" > "$REQUEST_BODY_FILE"
-printf '%s\n' '{"candidates":[{"content":{"parts":[{"text":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}]}}],"usageMetadata":{"promptTokenCount":1000,"candidatesTokenCount":1000}}' > "$out"
+printf '%s\n' '{"candidates":[{"content":{"parts":[{"text":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}]}}],"usageMetadata":{"promptTokenCount":1000,"candidatesTokenCount":1000,"thoughtsTokenCount":250}}' > "$out"
 : > "$headers"
 printf '200'
 EOF
@@ -202,6 +202,8 @@ EOF
         "Gemini API response records the API model used for billing"
     assert_eq "gemini-api-test-model" "$(jq -r '.metadata.requested_model' "$output_file")" \
         "Gemini API metadata records the requested model"
+    assert_eq 1250 "$(jq -r '.metadata.tokens_output' "$output_file")" "Gemini output includes billed thinking tokens"
+    assert_eq 2250 "$(jq -r '.metadata.tokens_used' "$output_file")" "Gemini total counts thinking exactly once"
     assert_eq "requested-only" "$(jq -r '.metadata.model_identity_source' "$output_file")" \
         "missing provider model is labeled requested-only"
     assert_eq false "$(jq -r '.generationConfig | has("thinkingConfig")' "$body_file")" \
