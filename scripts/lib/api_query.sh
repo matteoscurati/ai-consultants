@@ -88,24 +88,24 @@ run_api_mode_query() {
 
     case "$api_format" in
         google_ai)
-            # Gemini 3.7 exposes low|medium|high thinking levels on the native
+            # Gemini 3.7/3.8 Flash expose low|medium|high thinking levels on the native
             # Google AI wire. The shared syntax validator is intentionally
             # broader for OpenAI-compatible providers, so fail before spending
             # a request when Google receives an unsupported level.
             local google_thinking_level=""
             if [[ -n "$effort" ]]; then
                 case "$model" in
-                    gemini-3.7-flash*)
+                    gemini-3.7-flash*|gemini-3.8-flash)
                         case "$effort" in
                             low|medium|high) google_thinking_level="$effort" ;;
                             *)
-                                log_error "[$consultant_name] $effort_var=$effort is unsupported for Gemini 3.7 on the 'google_ai' wire format (expected low|medium|high)"
+                                log_error "[$consultant_name] $effort_var=$effort is unsupported for $model on the 'google_ai' wire format (expected low|medium|high)"
                                 return 1
                                 ;;
                         esac
                         ;;
                     *)
-                        log_warn "[$consultant_name] $effort_var is only transported to Gemini 3.7 on the 'google_ai' wire format and is ignored for $model."
+                        log_warn "[$consultant_name] $effort_var is only transported to Gemini 3.7/3.8 Flash on the 'google_ai' wire format and is ignored for $model."
                         ;;
                 esac
             fi

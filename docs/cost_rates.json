@@ -2,6 +2,26 @@
   "version": "5.1.1",
   "updated": "2026-08-23",
   "models": {
+    "gemini-3.8-flash": {
+      "input": 0.00075,
+      "output": 0.00375,
+      "notes": "Promotional API-equivalent estimate through 2026-12-31; standard from 2027-01-01: 0.0015/0.0075 per 1K. Cache/service adjustments excluded; not a CLI invoice."
+    },
+    "Gemini 3.8 Flash (High)": {
+      "input": 0.00075,
+      "output": 0.00375,
+      "notes": "Promotional API-equivalent estimate through 2026-12-31; standard from 2027-01-01: 0.0015/0.0075 per 1K. Cache/service adjustments excluded; not a CLI invoice."
+    },
+    "Gemini 3.8 Flash (Medium)": {
+      "input": 0.00075,
+      "output": 0.00375,
+      "notes": "Promotional API-equivalent estimate through 2026-12-31; standard from 2027-01-01: 0.0015/0.0075 per 1K. Cache/service adjustments excluded; not a CLI invoice."
+    },
+    "Gemini 3.8 Flash (Low)": {
+      "input": 0.00075,
+      "output": 0.00375,
+      "notes": "Promotional API-equivalent estimate through 2026-12-31; standard from 2027-01-01: 0.0015/0.0075 per 1K. Cache/service adjustments excluded; not a CLI invoice."
+    },
     "claude-opus-5-5": {
       "input": 0.004,
       "output": 0.020,
@@ -453,7 +473,7 @@
   "consultant_fallbacks": {
     "_comment": "Premium defaults - Updated Sep 2026",
     "claude": "claude-fable-5-1",
-    "gemini": "Gemini 3.7 Flash (High)",
+    "gemini": "Gemini 3.8 Flash (High)",
     "codex": "gpt-6-astra",
     "mistral": "mistral-large-3",
     "deepseek": "deepseek-flash",
@@ -467,7 +487,7 @@
     "_comment": "Model tiers for apply_model_tier() function",
     "maximum": {
       "claude": "claude-fable-5-1",
-      "gemini": "Gemini 3.7 Flash (High)",
+      "gemini": "Gemini 3.8 Flash (High)",
       "codex": "gpt-6-astra",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
@@ -479,7 +499,7 @@
     },
     "premium": {
       "claude": "claude-fable-5-1",
-      "gemini": "Gemini 3.7 Flash (High)",
+      "gemini": "Gemini 3.8 Flash (High)",
       "codex": "gpt-6-astra",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
@@ -491,7 +511,7 @@
     },
     "standard": {
       "claude": "claude-opus-5-5",
-      "gemini": "Gemini 3.7 Flash (High)",
+      "gemini": "Gemini 3.8 Flash (High)",
       "codex": "gpt-5.6-terra",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
@@ -503,7 +523,7 @@
     },
     "economy": {
       "claude": "claude-haiku-4-5",
-      "gemini": "Gemini 3.7 Flash (Low)",
+      "gemini": "Gemini 3.8 Flash (Low)",
       "codex": "gpt-5.6-luna",
       "mistral": "devstral-small-2",
       "deepseek": "deepseek-flash",
@@ -517,10 +537,10 @@
   "transport_model_tiers": {
     "_comment": "Transport-specific namespaces used by Gemini and Mistral; the legacy model_tiers table reflects their CLI values.",
     "gemini": {
-      "maximum": {"cli": "Gemini 3.7 Flash (High)", "api": "gemini-3.1-pro-preview"},
-      "premium": {"cli": "Gemini 3.7 Flash (High)", "api": "gemini-3.1-pro-preview"},
-      "standard": {"cli": "Gemini 3.7 Flash (High)", "api": "gemini-3.1-pro-preview"},
-      "economy": {"cli": "Gemini 3.7 Flash (Low)", "api": "gemini-3.1-pro-preview"}
+      "maximum": {"cli": "Gemini 3.8 Flash (High)", "api": "gemini-3.1-pro-preview"},
+      "premium": {"cli": "Gemini 3.8 Flash (High)", "api": "gemini-3.1-pro-preview"},
+      "standard": {"cli": "Gemini 3.8 Flash (High)", "api": "gemini-3.1-pro-preview"},
+      "economy": {"cli": "Gemini 3.8 Flash (Low)", "api": "gemini-3.1-pro-preview"}
     },
     "mistral": {
       "maximum": {"cli": "mistral-medium-3.5", "api": "mistral-large-3"},
@@ -530,8 +550,8 @@
     }
   },
   "opt_in_targets": {
-    "gemini_cli": ["Gemini 3.1 Pro (High)", "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Low)"],
-    "gemini_api": ["gemini-3.7-flash"],
+    "gemini_cli": ["Gemini 3.8 Flash (Medium)", "Gemini 3.7 Flash (High)", "Gemini 3.7 Flash (Low)", "Gemini 3.1 Pro (High)", "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Low)"],
+    "gemini_api": ["gemini-3.7-flash", "gemini-3.8-flash"],
     "mistral_api": ["mistral-medium-3-5", "mistral-large-2512", "mistral-small-2603"],
     "claude": []
   },

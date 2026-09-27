@@ -898,3 +898,22 @@ transport promotion requires separately authorized live smoke calls. Frozen
 P1.6 benchmark IDs/efforts/preregistration are not changed by this update.
 See the [Opus migration guide](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide)
 and [Grok 4.7](https://docs.x.ai/developers/grok-4-7).
+
+### Gemini 3.8 Flash
+
+The installed `agy models` inventory on 2026-09-27 lists Gemini 3.8 Flash
+(High), (Medium) and (Low). CLI default/maximum/premium/standard now select High;
+economy selects Low. Medium remains an explicit `GEMINI_MODEL` choice. Inventory
+evidence is capability-probed, not provider attestation of a generated answer.
+
+Configure migrates unpinned historical Pro 3.1 High and Flash 3.7 High/Low
+defaults, preserving the High/Low choice. Pins, environment/--set overrides and
+unrelated models are preserved. API mode remains on `gemini-3.1-pro-preview`.
+Select `GEMINI_API_MODEL=gemini-3.8-flash` explicitly to use Flash via API; its
+native thinking levels are low/medium/high. Other explicit efforts fail before
+dispatch. With no effort setting, the provider's API default is medium.
+
+No inference was performed for inventory discovery. Installed-transport live
+qualification requires separate authorization. Prices are promotional estimates
+through 2026-12-31; see [Google's model guide](https://ai.google.dev/gemini-api/docs/latest-model).
+The frozen P1.6 inputs remain unchanged.

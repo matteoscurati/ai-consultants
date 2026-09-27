@@ -213,6 +213,24 @@ EOF
         "$SCRIPT_DIR/query_gemini.sh" "test 3.7 thinking" "" "$output_file" >/dev/null 2>&1
     assert_eq high "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' "$body_file")" \
         "Gemini 3.7 API request transports the selected thinking level"
+    local level rc
+    for level in low medium high; do
+        PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+            GEMINI_API_MODEL=gemini-3.8-flash GEMINI_REASONING_EFFORT="$level" \
+            REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
+            "$SCRIPT_DIR/query_gemini.sh" "test 3.8 thinking" "" "$output_file" >/dev/null 2>&1
+        assert_eq "$level" "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' "$body_file")" "Gemini 3.8 API carries $level"
+        assert_eq gemini-3.8-flash "$(jq -r '.metadata.requested_model' "$output_file")" "Gemini 3.8 requested ID survives"
+    done
+    for level in minimal max xhigh; do
+        rm -f "$body_file"; rc=0
+        PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+            GEMINI_API_MODEL=gemini-3.8-flash GEMINI_REASONING_EFFORT="$level" \
+            REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
+            "$SCRIPT_DIR/query_gemini.sh" "invalid 3.8 thinking" "" "$output_file" >/dev/null 2>&1 || rc=$?
+        assert_ne 0 "$rc" "Gemini 3.8 rejects $level"
+        assert_eq false "$([[ -e "$body_file" ]] && echo true || echo false)" "invalid Gemini 3.8 effort never dispatches"
+    done
     rm -rf "$td"
 }
 

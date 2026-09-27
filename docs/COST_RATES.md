@@ -23,8 +23,8 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.7 Flash (High) | Maximum/Premium/Standard | $0.00075 | Gemini (verified agy CLI; promotional through 2026-12-31) |
-| Gemini 3.7 Flash (Low) | Economy | $0.00075 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (High) | Maximum/Premium/Standard | $0.00075 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (Low) | Economy | $0.00075 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
 | Gemini 3.1 Pro (High) | CLI opt-in | $0.002 | Gemini (agy CLI) |
 | gemini-3.1-pro-preview | API default | $0.00125 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0015 | Gemini |
@@ -70,8 +70,8 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.7 Flash (High) | Maximum/Premium/Standard | $0.00375 | Gemini (verified agy CLI; promotional through 2026-12-31) |
-| Gemini 3.7 Flash (Low) | Economy | $0.00375 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (High) | Maximum/Premium/Standard | $0.00375 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (Low) | Economy | $0.00375 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
 | Gemini 3.1 Pro (High) | CLI opt-in | $0.012 | Gemini (agy CLI) |
 | gemini-3.1-pro-preview | API default | $0.005 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0075 | Gemini |
@@ -220,3 +220,14 @@ when present. Otherwise cache/service adjustments are excluded from estimates.
 
 Sources checked 2026-09-26: [xAI release notes](https://docs.x.ai/developers/release-notes)
 and [Opus 5.5](https://platform.claude.com/docs/en/models/opus-5-5/overview).
+
+## Gemini 3.8 Flash
+
+CLI High/Medium/Low and API ID `gemini-3.8-flash` are priced at the promotional
+API-equivalent rate: $0.75/M input, $3.75/M output through 2026-12-31. Standard
+rates from 2027-01-01 are $1.50/M input and $7.50/M output; the static catalog
+must be refreshed at expiry. Cache, service-tier and subscription adjustments
+are excluded: a CLI estimate is not a subscription invoice. Legacy model rates
+remain in the catalog. API Pro 3.1 is still the default for API mode.
+Source: [Google latest-model guide](https://ai.google.dev/gemini-api/docs/latest-model),
+checked 2026-09-27.

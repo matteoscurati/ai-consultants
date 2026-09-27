@@ -349,10 +349,10 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-fable-5-1, Gemini 3.7 Flash (High), gpt-6-astra |
+| **premium** | Latest flagship models | claude-fable-5-1, Gemini 3.8 Flash (High), gpt-6-astra |
 | **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
-| **standard** | Good quality at reasonable cost | claude-opus-5, Gemini 3.7 Flash (High), gpt-5.6-terra |
-| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.7 Flash (Low), gpt-5.6-luna |
+| **standard** | Good quality at reasonable cost | claude-opus-5-5, Gemini 3.8 Flash (High), gpt-5.6-terra |
+| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.8 Flash (Low), gpt-5.6-luna |
 
 **Default models are now premium tier** for maximum quality.
 
@@ -365,7 +365,7 @@ apply_model_tier "standard"  # Set all consultants to standard models
 apply_model_tier "economy"   # Set all consultants to economy models
 
 # Get model for a specific consultant and tier (v2.8.1)
-get_model_for_tier "gemini" "premium"   # → Gemini 3.7 Flash (High) on agy
+get_model_for_tier "gemini" "premium"   # → Gemini 3.8 Flash (High) on agy
 get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 ```
 
@@ -389,7 +389,7 @@ All consultants now use premium models by default:
 | Consultant | Default Model |
 |------------|---------------|
 | Claude | claude-fable-5-1 |
-| Gemini | Gemini 3.7 Flash (High) (via agy CLI); API: gemini-3.1-pro-preview |
+| Gemini | Gemini 3.8 Flash (High) (via agy CLI); API: gemini-3.1-pro-preview |
 | Codex | gpt-6-astra |
 | Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
 | DeepSeek | deepseek-flash (DeepSeek-V4.1-Flash) |
@@ -588,7 +588,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `MAX_SESSION_COST` | 1.00 | Max budget ($) |
 | `CLAUDE_MODEL` | claude-fable-5-1 | Claude model (use claude-opus-5 for lower-cost standard) |
 | `CLAUDE_API_MAX_TOKENS` | 16384 | Claude API thinking + visible-output budget |
-| `GEMINI_MODEL` | Gemini 3.7 Flash (High) | Gemini agy CLI model |
+| `GEMINI_MODEL` | Gemini 3.8 Flash (High) | Gemini agy CLI model |
 | `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
 | `CODEX_MODEL` | gpt-6-astra | Codex model (v2.5) |
 | `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |

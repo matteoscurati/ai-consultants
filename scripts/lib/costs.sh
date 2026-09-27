@@ -133,6 +133,7 @@ get_input_cost_per_1k() {
 
     # Fallback to hardcoded rates for backwards compatibility
     case "$model" in
+        gemini-3.8-flash|"gemini 3.8 flash (high)"|"gemini 3.8 flash (medium)"|"gemini 3.8 flash (low)") echo "0.00075" ;;
         gemini-2.5-pro)   echo "0.00125" ;;
         gemini-2.5-flash) echo "0.000075" ;;
         gemini-2.0-flash) echo "0.0001" ;;
@@ -183,6 +184,7 @@ get_output_cost_per_1k() {
 
     # Fallback to hardcoded rates for backwards compatibility
     case "$model" in
+        gemini-3.8-flash|"gemini 3.8 flash (high)"|"gemini 3.8 flash (medium)"|"gemini 3.8 flash (low)") echo "0.00375" ;;
         gemini-2.5-pro)   echo "0.005" ;;
         gemini-2.5-flash) echo "0.0003" ;;
         gemini-2.0-flash) echo "0.0004" ;;
@@ -411,7 +413,7 @@ format_cost_caveats() {
     local responses_dir="${1:-}"
     [[ -d "$responses_dir" ]] || return 0
 
-    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0 grok_47_estimate=0 opus_55_estimate=0
+    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0 grok_47_estimate=0 opus_55_estimate=0 gemini_38_estimate=0
     local unpriced_models=()
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
@@ -444,6 +446,13 @@ format_cost_caveats() {
             [[ "$model" != grok-4.7 ]] || grok_47_estimate=1
             [[ "$model" != claude-opus-5-5 ]] || opus_55_estimate=1
         fi
+        case "$model" in
+            gemini-3.8-flash|'Gemini 3.8 Flash (High)'|'Gemini 3.8 Flash (Medium)'|'Gemini 3.8 Flash (Low)')
+                if ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
+                    gemini_38_estimate=1
+                fi
+                ;;
+        esac
         is_unpriced_model "$model" || continue
         seen=false
         for item in "${unpriced_models[@]+"${unpriced_models[@]}"}"; do
@@ -470,6 +479,9 @@ format_cost_caveats() {
     fi
     if [[ $opus_55_estimate -eq 1 ]]; then
         parts="${parts:+$parts; }Opus 5.5 Standard API estimate excludes cache/service adjustments, not an invoice"
+    fi
+    if [[ $gemini_38_estimate -eq 1 ]]; then
+        parts="${parts:+$parts; }Gemini 3.8 promotional API estimate through 2026-12-31; cache/service adjustments excluded, not a CLI invoice"
     fi
     local unpriced=""
     if (( ${#unpriced_models[@]} > 0 )); then

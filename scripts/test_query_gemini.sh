@@ -49,7 +49,7 @@ if [[ "${1:-}" == "models" ]]; then
     if [[ "${AGY_FAKE_MODE:-compatible}" == "missing_model" ]]; then
         printf '%s\n' 'Gemini 3.7 Flash (High)'
     else
-        printf '%s\n' 'Gemini 3.1 Pro (High)' 'Gemini 3.7 Flash (High)' 'Gemini 3.7 Flash (Low)'
+        printf '%s\n' 'Gemini 3.1 Pro (High)' 'Gemini 3.8 Flash (High)' 'Gemini 3.8 Flash (Low)'
     fi
     exit 0
 fi
@@ -88,7 +88,7 @@ test_cli_consultation_under_ssh_markers() {
     # Force CLI mode even if a GEMINI_API_KEY is present in the ambient env.
     if ! GEMINI_CMD="$fake_agy" \
         GEMINI_USE_API=false \
-        GEMINI_MODEL="Gemini 3.7 Flash (High)" \
+        GEMINI_MODEL="Gemini 3.8 Flash (High)" \
         AGY_ARGS_FILE="$args_file" \
         MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_gemini.sh" "Test SSH isolation" "" "$output_file" >/dev/null 2>&1; then
@@ -97,13 +97,13 @@ test_cli_consultation_under_ssh_markers() {
     fi
 
     assert_eq "Gemini" "$(jq -r '.consultant' "$output_file")" "response is from Gemini"
-    assert_eq "Gemini 3.7 Flash (High)" "$(jq -r '.model' "$output_file")" "response reports promoted model"
+    assert_eq "Gemini 3.8 Flash (High)" "$(jq -r '.model' "$output_file")" "response reports promoted model"
     assert_eq "Gemini answered" "$(jq -r '.response.summary' "$output_file")" "structured response is preserved"
-    assert_eq "Gemini 3.7 Flash (High)" "$(jq -r '.metadata.requested_model' "$output_file")" \
+    assert_eq "Gemini 3.8 Flash (High)" "$(jq -r '.metadata.requested_model' "$output_file")" \
         "metadata records requested CLI model"
     assert_eq "capability-probed" "$(jq -r '.metadata.model_identity_source' "$output_file")" \
         "Gemini CLI identity comes from the model inventory"
-    assert_match '(^|[[:space:]])--model[[:space:]]+Gemini 3\.7 Flash \(High\)($|[[:space:]])' \
+    assert_match '(^|[[:space:]])--model[[:space:]]+Gemini 3\.8 Flash \(High\)($|[[:space:]])' \
         "$(tr '\n' ' ' < "$args_file")" "agy receives --model flag"
 }
 
@@ -114,7 +114,7 @@ test_missing_model_is_rejected_before_dispatch() {
     make_agy_stub "$fake_agy"
 
     if GEMINI_CMD="$fake_agy" GEMINI_USE_API=false \
-        GEMINI_MODEL="Gemini 3.1 Pro (High)" AGY_FAKE_MODE=missing_model \
+        GEMINI_MODEL="Gemini 3.8 Flash (High)" AGY_FAKE_MODE=missing_model \
         AGY_REQUEST_FILE="$request_file" MAX_RETRIES=1 \
         "$SCRIPT_DIR/query_gemini.sh" "Test missing model" "" "$output_file" >/dev/null 2>&1; then
         assert_eq "failure" "success" "missing Gemini model is rejected"

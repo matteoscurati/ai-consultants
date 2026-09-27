@@ -240,7 +240,7 @@ ENABLE_DEEPSEEK=false
 ### Model Overrides
 
 ```bash
-GEMINI_MODEL=Gemini 3.7 Flash (High) # verified agy CLI default; API mode uses GEMINI_API_MODEL
+GEMINI_MODEL=Gemini 3.8 Flash (High) # agy CLI target; new live smoke pending; API uses GEMINI_API_MODEL
 CODEX_MODEL=gpt-6-astra
 CODEX_API_MAX_TOKENS=16384
 CLAUDE_MODEL=claude-fable-5-1

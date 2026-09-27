@@ -484,7 +484,7 @@ and cannot support a comprehensive coverage claim.
 | Consultant | `max_quality` | Premium | Standard | Economy |
 |------------|---------------|---------|----------|---------|
 | Claude | claude-fable-5-1 | claude-fable-5-1 | claude-opus-5-5 | claude-haiku-4-5 |
-| Gemini CLI | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (High) | Gemini 3.7 Flash (Low) |
+| Gemini CLI | Gemini 3.8 Flash (High) | Gemini 3.8 Flash (High) | Gemini 3.8 Flash (High) | Gemini 3.8 Flash (Low) |
 | Gemini API | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview |
 | Codex | gpt-6-astra | gpt-6-astra | gpt-5.6-terra | gpt-5.6-luna |
 | Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | devstral-small-2 |
@@ -496,11 +496,11 @@ and cannot support a comprehensive coverage claim.
 | Kimi | kimi-code/k3-256k | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
 | MiniMax | MiniMax-M3 | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
 
-Promotion is transport-specific. Gemini 3.7 Flash High completed an exact live
-smoke through the `agy` adapter and is now the CLI default; Low is the CLI
-economy target. The Google API model remains `gemini-3.1-pro-preview`, while
-`gemini-3.7-flash` stays an API-only opt-in until that separate transport is
-verified. The new Mistral API IDs (`mistral-medium-3-5`,
+Promotion is transport-specific. Gemini 3.8 Flash High is the new CLI target;
+Low serves economy. Both are available in the installed `agy models` inventory;
+new live smokes remain pending. Earlier Gemini 3.7 smoke evidence is historical.
+The Google API default remains `gemini-3.1-pro-preview`; `gemini-3.8-flash` is
+an explicit API opt-in whose live transport is not yet verified. The new Mistral API IDs (`mistral-medium-3-5`,
 `mistral-large-2512`, `mistral-small-2603`) remain catalogued opt-ins. Claude
 Fable 5.1 is the default/premium/maximum target; use
 `CLAUDE_MODEL=claude-opus-5-5` for the lower-cost standard override. Selecting a preset later intentionally reapplies that
@@ -634,7 +634,7 @@ MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=t
 KIMI_MODEL=kimi-code/k3      # Pin the Kimi consultant to K3
 CLAUDE_API_MAX_TOKENS=16384  # Shared thinking + visible-output budget in API mode
 MISTRAL_CLI_MODEL=mistral-medium-3.5 # Vibe alias; MISTRAL_MODEL remains API-only
-GEMINI_MODEL="Gemini 3.7 Flash (High)" # agy CLI; API uses GEMINI_API_MODEL
+GEMINI_MODEL="Gemini 3.8 Flash (High)" # agy CLI; API uses GEMINI_API_MODEL
 ```
 
 Full reference: [`references/configuration.md`](references/configuration.md). Copy-paste workflows: [`docs/RECIPES.md`](docs/RECIPES.md). For category-aware preset suggestions: `ai-consultants doctor --suggest-preset --question "..."`.

@@ -103,10 +103,10 @@ the observed version is recorded only as response provenance.
 
 The `max_quality` preset enables all 10 consultants. It uses the separately
 smoke-tested K3-256k and MiniMax M3 targets, plus Qwen3.8-Max when an authenticated Token Plan transport is
-already configured. Gemini 3.7 Flash High is the exact-transport-smoked `agy`
-default for maximum, premium, and standard CLI tiers; Low serves economy. The
-Gemini API target remains 3.1 Pro until `gemini-3.7-flash` completes a separate
-API smoke. Claude Fable 5.1 is the default/premium/maximum target; the new
+already configured. Gemini 3.8 Flash High is the new `agy` target for maximum,
+premium, and standard CLI tiers; Low serves economy. The installed model inventory
+lists both; new live smokes remain pending. Earlier 3.7 smoke evidence is historical.
+The Gemini API default remains 3.1 Pro; `gemini-3.8-flash` is an explicit API opt-in. Claude Fable 5.1 is the default/premium/maximum target; the new
 Mistral API IDs remain explicit opt-ins.
 Grok, GLM, and DeepSeek receive their
 highest accepted reasoning effort in this preset (`xhigh`, `max`, and `max`
