@@ -176,7 +176,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 [[ -z "${REQUEST_BODY_FILE:-}" ]] || printf '%s' "$body" > "$REQUEST_BODY_FILE"
-printf '%s\n' '{"candidates":[{"content":{"parts":[{"text":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}]}}],"usageMetadata":{"promptTokenCount":1000,"candidatesTokenCount":1000}}' > "$out"
+printf '%s\n' '{"candidates":[{"content":{"parts":[{"text":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}]}}],"usageMetadata":{"promptTokenCount":1000,"candidatesTokenCount":1000,"thoughtsTokenCount":250}}' > "$out"
 : > "$headers"
 printf '200'
 EOF
@@ -202,6 +202,8 @@ EOF
         "Gemini API response records the API model used for billing"
     assert_eq "gemini-api-test-model" "$(jq -r '.metadata.requested_model' "$output_file")" \
         "Gemini API metadata records the requested model"
+    assert_eq 1250 "$(jq -r '.metadata.tokens_output' "$output_file")" "Gemini output includes billed thinking tokens"
+    assert_eq 2250 "$(jq -r '.metadata.tokens_used' "$output_file")" "Gemini total counts thinking exactly once"
     assert_eq "requested-only" "$(jq -r '.metadata.model_identity_source' "$output_file")" \
         "missing provider model is labeled requested-only"
     assert_eq false "$(jq -r '.generationConfig | has("thinkingConfig")' "$body_file")" \
@@ -213,6 +215,24 @@ EOF
         "$SCRIPT_DIR/query_gemini.sh" "test 3.7 thinking" "" "$output_file" >/dev/null 2>&1
     assert_eq high "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' "$body_file")" \
         "Gemini 3.7 API request transports the selected thinking level"
+    local level rc
+    for level in low medium high; do
+        PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+            GEMINI_API_MODEL=gemini-3.8-flash GEMINI_REASONING_EFFORT="$level" \
+            REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
+            "$SCRIPT_DIR/query_gemini.sh" "test 3.8 thinking" "" "$output_file" >/dev/null 2>&1
+        assert_eq "$level" "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' "$body_file")" "Gemini 3.8 API carries $level"
+        assert_eq gemini-3.8-flash "$(jq -r '.metadata.requested_model' "$output_file")" "Gemini 3.8 requested ID survives"
+    done
+    for level in minimal max xhigh; do
+        rm -f "$body_file"; rc=0
+        PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+            GEMINI_API_MODEL=gemini-3.8-flash GEMINI_REASONING_EFFORT="$level" \
+            REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
+            "$SCRIPT_DIR/query_gemini.sh" "invalid 3.8 thinking" "" "$output_file" >/dev/null 2>&1 || rc=$?
+        assert_ne 0 "$rc" "Gemini 3.8 rejects $level"
+        assert_eq false "$([[ -e "$body_file" ]] && echo true || echo false)" "invalid Gemini 3.8 effort never dispatches"
+    done
     rm -rf "$td"
 }
 

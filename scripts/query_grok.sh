@@ -5,7 +5,7 @@
 #
 # Environment variables:
 #   GROK_CMD        - Grok Build command (default: grok)
-#   GROK_MODEL      - Model to use in both transports (default: grok-4.6)
+#   GROK_MODEL      - Model to use in both transports (default: grok-4.7)
 #   GROK_TIMEOUT    - Timeout in seconds (default: 180)
 #   GROK_MAX_TURNS  - Bounded advisory turns (default: 4)
 #   GROK_USE_API    - Force the API path when true (default: CLI-first auto)

@@ -380,7 +380,7 @@ test_claude_default_migration_and_pin() {
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
         "pinned Opus 5 survives later configure runs"
-    assert_contains "$(cat "$cfg/.env")" "# claude-opus-5 (or apply_model_tier standard for a single run)." \
+    assert_contains "$(cat "$cfg/.env")" "# claude-opus-5-5 (or apply_model_tier standard for a single run)." \
         "lower-cost Claude guidance survives configure rewrites"
 
     cfg="$TMP/claude-old-default-migration"
@@ -470,12 +470,12 @@ test_catalog_default_migrations_and_pins() {
         'GLM_MODEL=glm-5.2' \
         'GROK_MODEL=grok-4.5' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "Gemini 3.7 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "managed Gemini CLI default migrates"
+    assert_eq "Gemini 3.8 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "managed Gemini CLI default migrates"
     assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "unverified Mistral API default is not migrated"
     assert_eq mistral-medium-3.5 "$(read_env "$cfg/.env" MISTRAL_CLI_MODEL)" "new Mistral CLI field is populated"
     assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed Cursor command is dropped"
     assert_eq glm-5.3-flash "$(read_env "$cfg/.env" GLM_MODEL)" "managed GLM default migrates"
-    assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "managed Grok default migrates"
+    assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "managed Grok default migrates"
     for key in GEMINI_MODEL GLM_MODEL GROK_MODEL; do
         assert_contains "$(grep "^${key}=" "$cfg/.env")" "# ai-consultants:default" "$key migration records managed provenance"
     done
@@ -572,6 +572,61 @@ test_deepseek_flash_migration() {
     assert_eq custom-deepseek "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "unrelated DeepSeek model survives"
 }
 
+test_grok47_migration_and_opus55_selection() {
+    local cfg marker
+    for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin'; do
+        cfg="$TMP/grok47-${#marker}"; mkdir -p "$cfg"
+        printf 'GROK_MODEL=grok-4.6%s\n' "$marker" > "$cfg/.env"
+        run_clean_configure "$cfg" --force >/dev/null 2>&1
+        if [[ "$marker" == *pin* ]]; then
+            assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "explicit Grok 4.6 pin survives"
+        else
+            assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "unpinned Grok 4.6 migrates"
+            assert_contains "$(grep '^GROK_MODEL=' "$cfg/.env")" '# ai-consultants:default' "Grok 4.7 records managed provenance"
+            run_clean_configure "$cfg" --force >/dev/null 2>&1
+            assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "Grok migration is idempotent"
+        fi
+    done
+    cfg="$TMP/grok47-overrides"; mkdir -p "$cfg"
+    printf 'GROK_MODEL=grok-4.6\n' > "$cfg/.env"
+    env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
+        GROK_MODEL=grok-4.6 "$BIN" configure --force >/dev/null 2>&1
+    assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "environment Grok model wins"
+    run_clean_configure "$cfg" --force --set GROK_MODEL=grok-4.6 --set CLAUDE_MODEL=claude-opus-5-5 >/dev/null 2>&1
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "Grok --set remains pinned"
+    assert_eq claude-opus-5-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "explicit Opus 5.5 survives configure"
+    printf 'GROK_MODEL=custom-grok\nCLAUDE_MODEL=claude-fable-5-1\n' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq custom-grok "$(read_env "$cfg/.env" GROK_MODEL)" "unrelated Grok target survives"
+    assert_eq claude-fable-5-1 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "Fable default remains unchanged"
+}
+
+test_gemini38_migration() {
+    local cfg level marker expected
+    for level in High Low; do
+        for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin'; do
+            cfg="$TMP/gemini38-$level-${#marker}"; mkdir -p "$cfg"
+            printf 'GEMINI_MODEL="Gemini 3.7 Flash (%s)"%s\n' "$level" "$marker" > "$cfg/.env"
+            run_clean_configure "$cfg" --force >/dev/null 2>&1
+            expected="Gemini 3.8 Flash ($level)"
+            [[ "$marker" != *pin* ]] || expected="Gemini 3.7 Flash ($level)"
+            assert_eq "$expected" "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini $level migration respects pin state"
+            run_clean_configure "$cfg" --force >/dev/null 2>&1
+            assert_eq "$expected" "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini migration is idempotent"
+        done
+    done
+    cfg="$TMP/gemini38-override"; mkdir -p "$cfg"
+    printf 'GEMINI_MODEL="Gemini 3.7 Flash (High)"\n' > "$cfg/.env"
+    env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
+        GEMINI_MODEL='Gemini 3.7 Flash (High)' "$BIN" configure --force >/dev/null 2>&1
+    assert_eq 'Gemini 3.7 Flash (High)' "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini environment model wins"
+    run_clean_configure "$cfg" --force --set 'GEMINI_MODEL=Gemini 3.8 Flash (Medium)' >/dev/null 2>&1
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq 'Gemini 3.8 Flash (Medium)' "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini Medium remains an explicit choice"
+    assert_eq gemini-3.1-pro-preview "$(read_env "$cfg/.env" GEMINI_API_MODEL)" "Gemini API Pro default remains separate"
+}
+
 run_test "Test 1: public configure route and help" test_public_route_and_help
 run_test "Test 2: complete parameter contract" test_template_covers_config_contract
 run_test "Test 3: truthful full-roster auto-detection" test_auto_detects_complete_roster_truthfully
@@ -597,5 +652,9 @@ run_test "Test 22: Codex managed-default migration and pin" test_codex_default_m
 run_test "Test 23: catalog managed-default migrations and pins" test_catalog_default_migrations_and_pins
 
 run_test "DeepSeek V4.1 Flash migration" test_deepseek_flash_migration
+
+run_test "Grok 4.7 migration and Opus 5.5 selection" test_grok47_migration_and_opus55_selection
+
+run_test "Gemini 3.8 migration" test_gemini38_migration
 
 test_summary "configure"

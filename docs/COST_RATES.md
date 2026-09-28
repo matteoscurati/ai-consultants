@@ -23,8 +23,8 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.7 Flash (High) | Maximum/Premium/Standard | $0.00075 | Gemini (verified agy CLI; promotional through 2026-12-31) |
-| Gemini 3.7 Flash (Low) | Economy | $0.00075 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (High) | Maximum/Premium/Standard | $0.00075 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (Low) | Economy | $0.00075 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
 | Gemini 3.1 Pro (High) | CLI opt-in | $0.002 | Gemini (agy CLI) |
 | gemini-3.1-pro-preview | API default | $0.00125 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0015 | Gemini |
@@ -33,7 +33,8 @@ models programmatically.
 | gpt-5.6-terra | Standard | $0.002 | Codex |
 | gpt-5.6-luna | Economy | $0.0002 | Codex |
 | claude-fable-5-1 | Maximum/Premium | $0.010 | Claude |
-| claude-opus-5 | Standard | $0.005 | Claude |
+| claude-opus-5-5 | Standard | $0.004 | Claude |
+| claude-opus-5 | Legacy override | $0.005 | Claude |
 | claude-fable-5 | Legacy pins | $0.010 | Claude |
 | claude-sonnet-5 | Legacy pins | $0.003 | Claude |
 | claude-haiku-4-5 | Economy | $0.001 | Claude |
@@ -51,7 +52,8 @@ models programmatically.
 | glm-5.3-flash | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
 | glm-5.3 | Legacy pins | Unpriced | GLM coding-plan endpoint |
 | glm-4-flash | Economy | $0.001 | GLM |
-| grok-4.6 | Maximum/Premium | $0.002 | Grok |
+| grok-4.7 | Maximum/Premium | $0.002 | Grok |
+| grok-4.6 | Legacy override | $0.002 | Grok |
 | grok-4.5 | Standard/Economy | $0.002 | Grok |
 | qwen3.7-max | Premium | $0.0012 | Qwen3 |
 | qwen3.6-35b-a3b | Standard | $0.000163 | Qwen3 |
@@ -68,8 +70,8 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.7 Flash (High) | Maximum/Premium/Standard | $0.00375 | Gemini (verified agy CLI; promotional through 2026-12-31) |
-| Gemini 3.7 Flash (Low) | Economy | $0.00375 | Gemini (verified agy CLI; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (High) | Maximum/Premium/Standard | $0.00375 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (Low) | Economy | $0.00375 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
 | Gemini 3.1 Pro (High) | CLI opt-in | $0.012 | Gemini (agy CLI) |
 | gemini-3.1-pro-preview | API default | $0.005 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0075 | Gemini |
@@ -78,7 +80,8 @@ models programmatically.
 | gpt-5.6-terra | Standard | $0.012 | Codex |
 | gpt-5.6-luna | Economy | $0.0012 | Codex |
 | claude-fable-5-1 | Maximum/Premium | $0.050 | Claude |
-| claude-opus-5 | Standard | $0.025 | Claude |
+| claude-opus-5-5 | Standard | $0.020 | Claude |
+| claude-opus-5 | Legacy override | $0.025 | Claude |
 | claude-fable-5 | Legacy pins | $0.050 | Claude |
 | claude-sonnet-5 | Legacy pins | $0.015 | Claude |
 | claude-haiku-4-5 | Economy | $0.005 | Claude |
@@ -96,7 +99,8 @@ models programmatically.
 | glm-5.3-flash | Maximum/Premium/Standard | Unpriced | GLM coding-plan endpoint |
 | glm-5.3 | Legacy pins | Unpriced | GLM coding-plan endpoint |
 | glm-4-flash | Economy | $0.003 | GLM |
-| grok-4.6 | Maximum/Premium | $0.006 | Grok |
+| grok-4.7 | Maximum/Premium | $0.006 | Grok |
+| grok-4.6 | Legacy override | $0.006 | Grok |
 | grok-4.5 | Standard/Economy | $0.006 | Grok |
 | qwen3.7-max | Premium | $0.006 | Qwen3 |
 | qwen3.6-35b-a3b | Standard | $0.0009 | Qwen3 |
@@ -204,3 +208,26 @@ UTC. The estimate deliberately excludes these discounts; it is not an invoice.
 Legacy Flash and Flash Vision Exp aliases are now served and billed as V4.1 Flash.
 Other legacy catalog entries remain historical estimates, not newly verified quotes.
 Source: [DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing/).
+
+## Grok 4.7 and Opus 5.5
+
+Grok 4.7 uses $2/M input and $6/M output at standard API rates; above 200K
+input tokens the estimator applies $4/M and $12/M to the whole request. It
+excludes cached-input discounts and regional, priority and Grok Build Fast
+adjustments. CLI subscription usage is not an API invoice. Opus 5.5 uses
+$4/M input and $20/M output; measured Claude provider cost takes precedence
+when present. Otherwise cache/service adjustments are excluded from estimates.
+
+Sources checked 2026-09-26: [xAI release notes](https://docs.x.ai/developers/release-notes)
+and [Opus 5.5](https://platform.claude.com/docs/en/models/opus-5-5/overview).
+
+## Gemini 3.8 Flash
+
+CLI High/Medium/Low and API ID `gemini-3.8-flash` are priced at the promotional
+API-equivalent rate: $0.75/M input, $3.75/M output through 2026-12-31. Standard
+rates from 2027-01-01 are $1.50/M input and $7.50/M output; the static catalog
+must be refreshed at expiry. Cache, service-tier and subscription adjustments
+are excluded: a CLI estimate is not a subscription invoice. Legacy model rates
+remain in the catalog. API Pro 3.1 is still the default for API mode.
+Source: [Google latest-model guide](https://ai.google.dev/gemini-api/docs/latest-model),
+checked 2026-09-27.

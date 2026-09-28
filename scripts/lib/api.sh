@@ -345,7 +345,11 @@ extract_token_usage() {
             ;;
         google_ai)
             input_tokens=$(echo "$response" | jq -r '.usageMetadata.promptTokenCount // 0' 2>/dev/null)
-            output_tokens=$(echo "$response" | jq -r '.usageMetadata.candidatesTokenCount // 0' 2>/dev/null)
+            # Google bills candidates plus thoughts as output. Cached input is
+            # already included in promptTokenCount and must not be added again.
+            output_tokens=$(echo "$response" | jq -r '
+                def token: if type == "number" and . >= 0 and floor == . then . else 0 end;
+                .usageMetadata | ((.candidatesTokenCount | token) + (.thoughtsTokenCount | token))' 2>/dev/null)
             ;;
         *)  # openai format (default)
             input_tokens=$(echo "$response" | jq -r '.usage.prompt_tokens // 0' 2>/dev/null)
@@ -381,7 +385,11 @@ extract_token_split() {
             ;;
         google_ai)
             input_tokens=$(echo "$response" | jq -r '.usageMetadata.promptTokenCount // 0' 2>/dev/null)
-            output_tokens=$(echo "$response" | jq -r '.usageMetadata.candidatesTokenCount // 0' 2>/dev/null)
+            # Google bills candidates plus thoughts as output. Cached input is
+            # already included in promptTokenCount and must not be added again.
+            output_tokens=$(echo "$response" | jq -r '
+                def token: if type == "number" and . >= 0 and floor == . then . else 0 end;
+                .usageMetadata | ((.candidatesTokenCount | token) + (.thoughtsTokenCount | token))' 2>/dev/null)
             ;;
         *)  # openai format (default)
             input_tokens=$(echo "$response" | jq -r '.usage.prompt_tokens // 0' 2>/dev/null)

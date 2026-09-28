@@ -128,7 +128,7 @@ LAUNCH_STAGGER_MAX_SECONDS="${LAUNCH_STAGGER_MAX_SECONDS:-2}"
 
 # CLI mode uses the Antigravity CLI (`agy`), successor to the deprecated
 # Gemini CLI (transitioned 2026-06-18). Models are passed by display name.
-GEMINI_MODEL="${GEMINI_MODEL:-Gemini 3.7 Flash (High)}"
+GEMINI_MODEL="${GEMINI_MODEL:-Gemini 3.8 Flash (High)}"
 GEMINI_TIMEOUT_SECONDS="${GEMINI_TIMEOUT:-180}"
 GEMINI_CMD="${GEMINI_CMD:-agy}"
 # API mode (GEMINI_USE_API=true) talks to the Google AI generativelanguage
@@ -213,7 +213,7 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 # =============================================================================
 
 GROK_CMD="${GROK_CMD:-grok}"
-GROK_MODEL="${GROK_MODEL:-grok-4.6}"
+GROK_MODEL="${GROK_MODEL:-grok-4.7}"
 GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
 GROK_API_MAX_TOKENS="${GROK_API_MAX_TOKENS:-4096}"
 GROK_MAX_TURNS="${GROK_MAX_TURNS:-4}"
@@ -619,12 +619,12 @@ get_model_for_tier() {
         maximum|max_quality|max-quality)
             case "$consultant" in
                 claude)   echo "claude-fable-5-1" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (High)" ;;
                 codex)    echo "gpt-6-astra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;
-                grok)     echo "grok-4.6" ;;
+                grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3-256k" ;;
                 minimax)  echo "MiniMax-M3" ;;
@@ -634,12 +634,12 @@ get_model_for_tier() {
         premium|max|best)
             case "$consultant" in
                 claude)   echo "claude-fable-5-1" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (High)" ;;
                 codex)    echo "gpt-6-astra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;
-                grok)     echo "grok-4.6" ;;
+                grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.7-max" ;;
                 kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
@@ -648,8 +648,8 @@ get_model_for_tier() {
             ;;
         standard|medium|balanced)
             case "$consultant" in
-                claude)   echo "claude-opus-5" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (High)" ;;
+                claude)   echo "claude-opus-5-5" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (High)" ;;
                 codex)    echo "gpt-5.6-terra" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
@@ -664,7 +664,7 @@ get_model_for_tier() {
         economy|fast|quick)
             case "$consultant" in
                 claude)   echo "claude-haiku-4-5" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.7 Flash (Low)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (Low)" ;;
                 codex)    echo "gpt-5.6-luna" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "devstral-small-2" ;;
                 deepseek) echo "deepseek-flash" ;;
@@ -715,7 +715,7 @@ apply_model_tier() {
 
     # Gemini and Mistral intentionally carry both transport-specific IDs so a
     # later transport choice cannot send a CLI display name to an HTTP API (or
-    # an API slug to a CLI). Gemini 3.7 uses one API ID plus a thinking level.
+    # an API slug to a CLI). Gemini 3.7/3.8 Flash use one API ID plus a thinking level.
     export GEMINI_MODEL="$(get_model_for_tier gemini "$tier" cli)"
     export GEMINI_API_MODEL="$(get_model_for_tier gemini "$tier" api)"
     export MISTRAL_CLI_MODEL="$(get_model_for_tier mistral "$tier" cli)"
@@ -839,8 +839,8 @@ apply_model_tier() {
             ;;
     esac
 
-    # Gemini 3.7 is promoted only on the exact agy transport that completed a
-    # live adapter smoke. API tiers remain on the separately proven 3.1 Pro ID;
+    # Gemini 3.8 CLI availability is inventory-probed; new live smokes are
+    # required separately. API tiers remain on the proven 3.1 Pro ID;
     # neither transport silently substitutes the other's model namespace.
 
     case "$tier" in

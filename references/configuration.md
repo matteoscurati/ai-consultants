@@ -59,7 +59,7 @@ Model defaults carry an `# ai-consultants:default` marker. On rewrite,
 `CLAUDE_MODEL=claude-opus-4-8` and `claude-opus-5` generated defaults to
 Fable 5.1. An explicit model override supplied with `--set` is stored with
 `# ai-consultants:pin`, so `--set CLAUDE_MODEL=claude-opus-5` keeps the
-lower-cost standard model intentionally.
+legacy Opus 5 model intentionally. Standard/medium now select Opus 5.5.
 The exhaustive parameter contract is [`.env.example`](../.env.example); the
 configurator derives its accepted keys from that template, while
 [`scripts/config.sh`](../scripts/config.sh) remains the runtime source of truth.
@@ -240,11 +240,11 @@ ENABLE_DEEPSEEK=false
 ### Model Overrides
 
 ```bash
-GEMINI_MODEL=Gemini 3.7 Flash (High) # verified agy CLI default; API mode uses GEMINI_API_MODEL
+GEMINI_MODEL=Gemini 3.8 Flash (High) # agy CLI target; new live smoke pending; API uses GEMINI_API_MODEL
 CODEX_MODEL=gpt-6-astra
 CODEX_API_MAX_TOKENS=16384
 CLAUDE_MODEL=claude-fable-5-1
-# Lower-cost standard override: CLAUDE_MODEL=claude-opus-5
+# Lower-cost standard override: CLAUDE_MODEL=claude-opus-5-5
 CLAUDE_API_MAX_TOKENS=16384  # API only: adaptive thinking + visible output
 MISTRAL_MODEL=mistral-large-3
 MISTRAL_CLI_MODEL=mistral-medium-3.5
@@ -257,7 +257,7 @@ QWEN3_API_MAX_TOKENS=16384
 GLM_MODEL=glm-5.3-flash
 GLM_API_MAX_TOKENS=16384
 GLM_REASONING_EFFORT=       # max_quality sets max
-GROK_MODEL=grok-4.6
+GROK_MODEL=grok-4.7
 GROK_MAX_TURNS=4
 GROK_API_MAX_TOKENS=4096
 GROK_REASONING_EFFORT=      # max_quality sets xhigh (Grok Build maximum)
