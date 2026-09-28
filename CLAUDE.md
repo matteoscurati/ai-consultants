@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 5.1.1
+**Version**: 5.1.2
 
 ## Distribution
 
@@ -759,6 +759,14 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v5.1.2 (2026-09-28)
+
+- **Model selection remains transport-specific.** Grok 4.7 replaces the premium/maximum default, Opus 5.5 replaces standard Claude, and Gemini 3.8 High/Low replace the respective CLI targets. Fable and API Pro 3.1 remain separate defaults. Native Gemini 3.8 API thinking accepts low/medium/high and rejects incompatible explicit values before dispatch.
+- **Configuration preservation.** Exact historical defaults migrate while explicit choices survive. Quoted values plus inline default/pin markers now round-trip correctly; the previous parser retained quotes after removing the comment and missed the migration.
+- **Accounting.** Google GenerateContent output is candidates plus thoughts; prompt count already includes cached input. New rates remain estimates when no provider cost is available. Grok 4.7 rates double above 200K input; Gemini introductory rates expire on 2026-12-31 and require a catalog refresh.
+- **Validation scope.** Exact implementation-head CI passed 34/34 suites; Grok 4.7, Opus 5.5 and Gemini 3.8 High/Low CLI smokes passed on that code. Gemini named variants select effort through the model name and reject an additional --effort; initial rejected attempts and separately authorized corrected successes are recorded. Frozen P1.6 inputs and saved Grok work remain untouched. No model-quality gain is inferred from smoke checks.
+
 
 ### v5.1.1 (2026-09-10)
 

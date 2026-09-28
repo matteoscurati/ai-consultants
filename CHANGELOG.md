@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [5.1.2] - 2026-09-28
+
+### Changed
+- Grok defaults to 4.7 for premium/maximum, while standard/economy remain 4.5.
+- Claude standard/medium selects Opus 5.5; Fable 5.1 remains the default/premium/maximum model and Haiku remains economy.
+- Gemini CLI selects 3.8 Flash High for the main tiers and Low for economy; Medium is an explicit choice. Gemini API Pro 3.1 remains the default, with Flash 3.8 available as an explicit opt-in.
+- Managed Grok and Gemini defaults migrate without overriding pins, environment settings, `--set`, or unrelated model IDs.
+- Estimates include Grok 4.7 long-context pricing, Opus 5.5 rates and Gemini 3.8 promotional rates, with cache/service/subscription limitations disclosed.
+
+### Fixed
+- Google API output usage includes thinking tokens without adding cached input twice.
+- Quoted configuration values followed by provenance comments are parsed correctly during migration.
+
 ## [5.1.1] - 2026-09-10
 
 ### Changed

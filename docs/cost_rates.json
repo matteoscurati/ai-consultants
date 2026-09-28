@@ -1,6 +1,6 @@
 {
-  "version": "5.1.1",
-  "updated": "2026-08-23",
+  "version": "5.1.2",
+  "updated": "2026-09-28",
   "models": {
     "gemini-3.8-flash": {
       "input": 0.00075,

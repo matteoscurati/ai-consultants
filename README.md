@@ -1,8 +1,8 @@
-# AI Consultants v5.1.1
+# AI Consultants v5.1.2
 
 > **Coverage, not a single guess.** A panel of up to 10 frontier models from different vendors fans out on your question in parallel and hands you the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses.
 
-[![Version](https://img.shields.io/badge/version-5.1.1-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-5.1.2-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
 [![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
@@ -498,7 +498,7 @@ and cannot support a comprehensive coverage claim.
 
 Promotion is transport-specific. Gemini 3.8 Flash High is the new CLI target;
 Low serves economy. Both are available in the installed `agy models` inventory;
-new live smokes remain pending. Earlier Gemini 3.7 smoke evidence is historical.
+High/Low CLI smokes passed on 2026-09-28 with capability-probed identity. Earlier Gemini 3.7 evidence remains historical.
 The Google API default remains `gemini-3.1-pro-preview`; `gemini-3.8-flash` is
 an explicit API opt-in whose live transport is not yet verified. The new Mistral API IDs (`mistral-medium-3-5`,
 `mistral-large-2512`, `mistral-small-2603`) remain catalogued opt-ins. Claude

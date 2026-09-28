@@ -5,10 +5,10 @@ license: MIT
 compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
   author: matteoscurati
-  version: 5.1.1
+  version: 5.1.2
 ---
 
-# AI Consultants v5.1.1 - AI Expert Panel
+# AI Consultants v5.1.2 - AI Expert Panel
 
 **Coverage, not a single guess.** Convene a panel of AI "consultants" from different vendors for coding questions: they fan out in parallel and you get the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses. Each consultant has a **configurable persona** that decorrelates its analysis.
 
@@ -105,7 +105,7 @@ The `max_quality` preset enables all 10 consultants. It uses the separately
 smoke-tested K3-256k and MiniMax M3 targets, plus Qwen3.8-Max when an authenticated Token Plan transport is
 already configured. Gemini 3.8 Flash High is the new `agy` target for maximum,
 premium, and standard CLI tiers; Low serves economy. The installed model inventory
-lists both; new live smokes remain pending. Earlier 3.7 smoke evidence is historical.
+lists both; High/Low CLI smokes passed on 2026-09-28 with capability-probed identity.
 The Gemini API default remains 3.1 Pro; `gemini-3.8-flash` is an explicit API opt-in. Claude Fable 5.1 is the default/premium/maximum target; the new
 Mistral API IDs remain explicit opt-ins.
 Grok, GLM, and DeepSeek receive their

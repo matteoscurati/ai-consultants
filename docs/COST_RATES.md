@@ -1,4 +1,4 @@
-# Cost Rates - AI Consultants v5.1.1
+# Cost Rates - AI Consultants v5.1.2
 
 This page documents the per-token rates used by the cost tracking system.
 
@@ -23,8 +23,8 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.8 Flash (High) | Maximum/Premium/Standard | $0.00075 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
-| Gemini 3.8 Flash (Low) | Economy | $0.00075 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (High) | Maximum/Premium/Standard | $0.00075 | Gemini (CLI smoke passed; API-equivalent estimate; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (Low) | Economy | $0.00075 | Gemini (CLI smoke passed; API-equivalent estimate; promotional through 2026-12-31) |
 | Gemini 3.1 Pro (High) | CLI opt-in | $0.002 | Gemini (agy CLI) |
 | gemini-3.1-pro-preview | API default | $0.00125 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0015 | Gemini |
@@ -70,8 +70,8 @@ models programmatically.
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
-| Gemini 3.8 Flash (High) | Maximum/Premium/Standard | $0.00375 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
-| Gemini 3.8 Flash (Low) | Economy | $0.00375 | Gemini (agy inventory confirmed; live smoke pending; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (High) | Maximum/Premium/Standard | $0.00375 | Gemini (CLI smoke passed; API-equivalent estimate; promotional through 2026-12-31) |
+| Gemini 3.8 Flash (Low) | Economy | $0.00375 | Gemini (CLI smoke passed; API-equivalent estimate; promotional through 2026-12-31) |
 | Gemini 3.1 Pro (High) | CLI opt-in | $0.012 | Gemini (agy CLI) |
 | gemini-3.1-pro-preview | API default | $0.005 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0075 | Gemini |

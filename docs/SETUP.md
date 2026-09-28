@@ -893,8 +893,8 @@ The API therefore uses the provider's default effort (medium), with the existing
 16384 total-output budget. The CLI retains explicit `CLAUDE_REASONING_EFFORT`
 control. Content identity and terminal success remain separate checks.
 
-These additions have offline regression coverage. Exact installed CLI/API
-transport promotion requires separately authorized live smoke calls. Frozen
+These additions have offline regression coverage. Grok 4.7 and Opus 5.5 CLI
+smokes passed on 2026-09-28. New API transports remain separately unverified. Frozen
 P1.6 benchmark IDs/efforts/preregistration are not changed by this update.
 See the [Opus migration guide](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide)
 and [Grok 4.7](https://docs.x.ai/developers/grok-4-7).
@@ -913,8 +913,9 @@ Select `GEMINI_API_MODEL=gemini-3.8-flash` explicitly to use Flash via API; its
 native thinking levels are low/medium/high. Other explicit efforts fail before
 dispatch. With no effort setting, the provider's API default is medium.
 
-No inference was performed for inventory discovery. Installed-transport live
-qualification requires separate authorization. Prices are promotional estimates
+Inventory discovery performed no inference. Separately authorized High/Low CLI
+smokes passed on 2026-09-28, using the named variant without --effort. This is
+capability-probed provenance, not provider content-model attestation. Prices are promotional estimates
 through 2026-12-31; see [Google's model guide](https://ai.google.dev/gemini-api/docs/latest-model).
 The frozen P1.6 inputs remain unchanged.
 
@@ -923,3 +924,10 @@ For Google GenerateContent accounting, output tokens include both
 which already includes cached content. This avoids dropping billed thinking
 or adding cache tokens twice; it applies to the existing Google API path too.
 See [UsageMetadata](https://ai.google.dev/api/generate-content).
+
+For named Gemini 3.8 Flash High/Medium/Low CLI variants, leave
+`GEMINI_REASONING_EFFORT` unset: the level is selected by `GEMINI_MODEL`, and
+`agy` rejects an additional `--effort` for these variants. The CLI's general
+help lists effort values for other supported model selections; it does not
+establish support for every model. Native API thinking remains separately
+configured with low/medium/high.
