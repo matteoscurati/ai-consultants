@@ -29,6 +29,7 @@ models programmatically.
 | gemini-3.1-pro-preview | API default | $0.00125 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0015 | Gemini |
 | gpt-6-astra | Maximum/Premium | $0.010 | Codex |
+| gpt-6.1-sol | Explicit override | $0.002 | Codex |
 | gpt-5.6-sol | Explicit override | $0.004 | Codex |
 | gpt-5.6-terra | Standard | $0.002 | Codex |
 | gpt-5.6-luna | Economy | $0.0002 | Codex |
@@ -76,6 +77,7 @@ models programmatically.
 | gemini-3.1-pro-preview | API default | $0.005 | Gemini API |
 | Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0075 | Gemini |
 | gpt-6-astra | Maximum/Premium | $0.050 | Codex |
+| gpt-6.1-sol | Explicit override | $0.010 | Codex |
 | gpt-5.6-sol | Explicit override | $0.020 | Codex |
 | gpt-5.6-terra | Standard | $0.012 | Codex |
 | gpt-5.6-luna | Economy | $0.0012 | Codex |

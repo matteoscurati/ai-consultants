@@ -641,6 +641,8 @@ test_cost_per1k_contract() {
 
     assert_equals "0.01" "$(get_input_cost_per_1k claude-fable-5-1)"  "Fable 5.1 input is per-1K (0.01)"
     assert_equals "0.05" "$(get_output_cost_per_1k claude-fable-5-1)" "Fable 5.1 output is per-1K (0.05)"
+    assert_equals "0.002" "$(get_input_cost_per_1k gpt-6.1-sol)"  "GPT-6.1 Sol input is per-1K (0.002)"
+    assert_equals "0.010" "$(get_output_cost_per_1k gpt-6.1-sol)" "GPT-6.1 Sol output is per-1K (0.010)"
     assert_equals "0.004" "$(get_input_cost_per_1k gpt-5.6-sol)"  "Sol input is per-1K (0.004)"
     assert_equals "0.020" "$(get_output_cost_per_1k gpt-5.6-sol)" "Sol output is per-1K (0.020)"
     assert_equals "0.002" "$(get_input_cost_per_1k gpt-5.6-terra)" "Terra input stays per-1K (0.002)"

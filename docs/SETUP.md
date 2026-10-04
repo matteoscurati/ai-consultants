@@ -816,8 +816,9 @@ participants separately. A missing or conflicting content model remains
 completion is required even when partial response text or billing is available.
 
 Codex defaults to `gpt-6-astra`; premium and maximum select Astra, standard
-selects `gpt-5.6-terra`, economy selects `gpt-5.6-luna`. Sol remains an explicit
-`CODEX_MODEL=gpt-5.6-sol` override. Configure migrates exact unpinned persisted
+selects `gpt-5.6-terra`, economy selects `gpt-5.6-luna`. GPT-6.1 Sol and Sol 5.6
+are explicit `CODEX_MODEL=gpt-6.1-sol` / `CODEX_MODEL=gpt-5.6-sol` overrides; no
+tier selects them. Configure migrates exact unpinned persisted
 `gpt-5.5` and `gpt-5.6-sol` values to Astra and records `migrated-from` provenance.
 Use `# ai-consultants:pin`, an environment override or `--set` to keep a model.
 
@@ -829,6 +830,12 @@ request uses `max_completion_tokens` and `reasoning_effort`, without tools.
 See the [official migration guide](https://developers.openai.com/api/docs/guides/latest-model).
 CLI JSON events supply token telemetry; the final message file supplies content.
 A CLI `-m` selection remains `requested-only`, not provider attestation.
+
+[GPT-6.1 Sol pricing](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
+is $2/M input and $10/M output, with the same >272K long-context rule as Astra.
+It accepts `low` through `max` effort; `none`/`minimal` fail before dispatch,
+and with no configured effort the provider default (`medium`) applies. A CLI
+`-m` selection is `requested-only`.
 
 [Astra Standard pricing](https://developers.openai.com/api/docs/models/gpt-6-astra)
 is $10/M input and $50/M output. More than 272K input tokens doubles input

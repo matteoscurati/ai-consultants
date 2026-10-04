@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [Unreleased]
+
+### Added
+- GPT-6.1 Sol (`gpt-6.1-sol`) as an explicit Codex model: no tier or default changes. Estimates use OpenAI Standard rates ($2/M input, $10/M output) with the >272K long-context rule; `none`/`minimal` effort fails before dispatch and the provider default (`medium`) applies otherwise.
+
 ## [5.1.2] - 2026-09-28
 
 ### Changed

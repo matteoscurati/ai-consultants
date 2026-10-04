@@ -93,6 +93,12 @@
       "provider": "OpenAI",
       "notes": "Standard estimate; >272K input: 2x input, 1.5x output for full request. Cache/service adjustments excluded."
     },
+    "gpt-6.1-sol": {
+      "input": 0.002,
+      "output": 0.010,
+      "provider": "OpenAI",
+      "notes": "Explicit CODEX_MODEL override, no tier default. Standard estimate; >272K input: 2x input, 1.5x output for full request. Cache/service adjustments excluded."
+    },
     "gpt-5.6-sol": {
       "input": 0.004,
       "output": 0.020

@@ -703,6 +703,12 @@ resolve_codex_effort() {
         log_error "[Codex] Astra requires low|medium|high|xhigh|max reasoning effort"
         return 1
     fi
+    # GPT-6.1 Sol shares Astra's effort range but keeps its provider default
+    # (medium) when no effort is configured.
+    if [[ "$model" == gpt-6.1-sol && ( "$effort" == none || "$effort" == minimal ) ]]; then
+        log_error "[Codex] GPT-6.1 Sol requires low|medium|high|xhigh|max reasoning effort"
+        return 1
+    fi
     printf '%s' "$effort"
 }
 

@@ -242,6 +242,7 @@ ENABLE_DEEPSEEK=false
 ```bash
 GEMINI_MODEL="Gemini 3.8 Flash (High)" # CLI smoke passed; capability-probed identity; API uses GEMINI_API_MODEL
 CODEX_MODEL=gpt-6-astra
+# Explicit extra model, no tier default: CODEX_MODEL=gpt-6.1-sol
 CODEX_API_MAX_TOKENS=16384
 CLAUDE_MODEL=claude-fable-5-1
 # Lower-cost standard override: CLAUDE_MODEL=claude-opus-5-5

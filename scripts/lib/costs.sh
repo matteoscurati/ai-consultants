@@ -141,6 +141,7 @@ get_input_cost_per_1k() {
         claude-opus-5-5) echo "0.004" ;;
         grok-4.7) echo "0.002" ;;
         gpt-6-astra|claude-fable-5-1) echo "0.01" ;;
+        gpt-6.1-sol) echo "0.002" ;;
         gpt-4)            echo "0.03" ;;
         gpt-4-turbo)      echo "0.01" ;;
         gpt-4o)           echo "0.005" ;;
@@ -192,6 +193,7 @@ get_output_cost_per_1k() {
         claude-opus-5-5) echo "0.020" ;;
         grok-4.7) echo "0.006" ;;
         gpt-6-astra|claude-fable-5-1) echo "0.05" ;;
+        gpt-6.1-sol) echo "0.010" ;;
         gpt-4)            echo "0.06" ;;
         gpt-4-turbo)      echo "0.03" ;;
         gpt-4o)           echo "0.015" ;;
@@ -240,7 +242,7 @@ estimate_query_cost() {
     output_rate=$(get_output_cost_per_1k "$model")
 
     # Long-context multiplier applies to the entire request, not only excess.
-    if [[ "$model" == gpt-6-astra && "$input_tokens" -gt 272000 ]]; then
+    if [[ ( "$model" == gpt-6-astra || "$model" == gpt-6.1-sol ) && "$input_tokens" -gt 272000 ]]; then
         input_rate=$(echo "scale=6; $input_rate * 2" | bc)
         output_rate=$(echo "scale=6; $output_rate * 1.5" | bc)
     fi
@@ -413,7 +415,7 @@ format_cost_caveats() {
     local responses_dir="${1:-}"
     [[ -d "$responses_dir" ]] || return 0
 
-    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0 grok_47_estimate=0 opus_55_estimate=0 gemini_38_estimate=0
+    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0 grok_47_estimate=0 opus_55_estimate=0 gemini_38_estimate=0 sol_61_estimate=0
     local unpriced_models=()
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
@@ -445,6 +447,7 @@ format_cost_caveats() {
         if ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
             [[ "$model" != grok-4.7 ]] || grok_47_estimate=1
             [[ "$model" != claude-opus-5-5 ]] || opus_55_estimate=1
+            [[ "$model" != gpt-6.1-sol ]] || sol_61_estimate=1
         fi
         case "$model" in
             gemini-3.8-flash|'Gemini 3.8 Flash (High)'|'Gemini 3.8 Flash (Medium)'|'Gemini 3.8 Flash (Low)')
@@ -479,6 +482,9 @@ format_cost_caveats() {
     fi
     if [[ $opus_55_estimate -eq 1 ]]; then
         parts="${parts:+$parts; }Opus 5.5 Standard API estimate excludes cache/service adjustments, not an invoice"
+    fi
+    if [[ $sol_61_estimate -eq 1 ]]; then
+        parts="${parts:+$parts; }GPT-6.1 Sol Standard API estimate includes long-context pricing; cache/service adjustments excluded, not an invoice"
     fi
     if [[ $gemini_38_estimate -eq 1 ]]; then
         parts="${parts:+$parts; }Gemini 3.8 promotional API estimate through 2026-12-31; cache/service adjustments excluded, not a CLI invoice"
