@@ -25,15 +25,20 @@ only telling the user to type the slash command. Route through
 `scripts/consult_all.sh`; do not call provider adapters individually.
 
 1. Identify the invoking host and set `INVOKING_AGENT` explicitly:
-   `claude` for Claude Code, `codex` for Codex CLI, or `gemini` for Gemini CLI.
+   `claude` for Claude Code, `codex` for Codex CLI, or `gemini` for
+   Antigravity (`agy`) and the legacy Gemini CLI.
    This is the boundary that prevents the host from consulting or synthesizing
    with itself.
-2. Resolve the skill root from `AI_CONSULTANTS_DIR` when set. Otherwise use the
-   host installation (`~/.claude/skills/ai-consultants` for Claude Code,
-   `~/.codex/skills/ai-consultants` for Codex, or
-   `~/.gemini/skills/ai-consultants` for Gemini).
-3. Preserve consultation options such as `--preset` and `--strategy` as CLI
-   arguments before the question. Pass referenced files as paths, optionally
+2. Resolve the skill root from `AI_CONSULTANTS_DIR` when set. Otherwise the
+   skill root is the directory that contains this `SKILL.md` (for example
+   `~/.claude/skills/ai-consultants`, `~/.agents/skills/ai-consultants` or
+   `<project>/.agents/skills/ai-consultants`); run everything from there.
+   The consultation calls external CLIs and APIs over the network and writes
+   under `~/.cache`, `~/.config` and the CLIs' own directories, so a sandboxed
+   shell (for example Codex's default sandbox) must run it with network access
+   and those writes allowed, or ask the user for that permission.
+3. Preserve consultation options such as `--mode`, `--preset` and `--strategy`
+   as CLI arguments before the question. Pass referenced files as paths, optionally
    suffixed with `@PRIMARY` or `@CONTEXT`; do not paste their contents. Capture
    the caller's project directory before entering the skill root and pass it as
    `--context-root`, so the runtime can privately stage only regular in-project
@@ -43,15 +48,28 @@ only telling the user to type the slash command. Route through
    question. Use `--query-file`; never pass raw user text as a shell argument or
    through an unquoted heredoc. Shell-quote every context-file path as one
    argument, and install a shell trap that removes only that exact temporary
-   question file. Capture the last stdout line as the output directory, then
+   question file (some harnesses, such as Codex, reject `rm -f`; `unlink` works
+   there). Capture the last stdout line as the output directory, then
    read `report.md` and
    `synthesis.json` (or the individual consultant JSON files when synthesis is
    unavailable).
-5. Keep `INVOKING_AGENT` and the private `--query-file` handoff on follow-ups.
+5. There is no generation time limit by default, and you decide when to stop
+   waiting. Run the consultation in the background when your shell tool allows
+   it, and read its log: it prints `Output: <dir>` near the start and
+   `Still waiting after Ns for: <names>` every 30 seconds. `touch <dir>/.proceed`
+   continues with the answers received (consultants still running are stopped;
+   during synthesis it skips the synthesis); `touch <dir>/.abort` ends the run.
+   A stopped call may still be billed, so keep waiting unless the user wants
+   results now or a consultant looks stuck. Never stop the run with SIGKILL.
+   Your own harness may cap the wait (for example, `agy` in print mode waits at
+   most 30 minutes for background tasks); touch `.proceed` before such a cap
+   rather than letting the harness kill the run.
+6. Keep `INVOKING_AGENT` and the private `--query-file` handoff on follow-ups.
    A targeted follow-up to the invoking consultant must fail closed. For a
-   Claude invocation, `claude.json` must not be produced and Claude must not be
-   the synthesis provider. Treat either condition as a self-exclusion failure,
-   not a valid consultation.
+   Claude invocation, `claude.json` must not be produced and the
+   `synthesis_provider` field of `synthesis.json` must not be `claude` (the same
+   holds for `codex` and `gemini` hosts). Treat either condition as a
+   self-exclusion failure, not a valid consultation.
 
 Claude Code example:
 
@@ -102,20 +120,22 @@ model, and structured-output surface. Compatible version changes are accepted;
 the observed version is recorded only as response provenance.
 
 The `max_quality` preset enables all 10 consultants. It uses the separately
-smoke-tested K3-256k and MiniMax M3 targets, plus Qwen3.8-Max when an authenticated Token Plan transport is
-already configured. Gemini 3.8 Flash High is the new `agy` target for maximum,
-premium, and standard CLI tiers; Low serves economy. The installed model inventory
-lists both; High/Low CLI smokes passed on 2026-09-28 with capability-probed identity.
-The Gemini API default remains 3.1 Pro; `gemini-3.8-flash` is an explicit API opt-in. Claude Fable 5.1 is the default/premium/maximum target; the new
-Mistral API IDs remain explicit opt-ins.
+smoke-tested K3-256k and MiniMax M3 targets, GLM-5.3 (the flagship; Flash serves
+premium/standard) and Qwen3.8-Max (also the Qwen default; Flash serves
+standard/economy). Gemini 4 Argon (High) is the `agy` target for the default
+and maximum tiers (`gemini-4-argon` on the API); one authorized `agy` smoke passed on
+2026-10-16 with capability-probed identity, and the API transport is offline-tested only.
+Gemini 3.8 Flash High/Low keep the CLI standard/economy tiers, the API standard/economy
+tiers keep 3.1 Pro, and `gemini-3.8-flash` is an explicit API opt-in. Claude Fable 5.1 is the default/premium/maximum target. Mistral
+API mode uses Mistral Large 4 in every tier; the other new Mistral API IDs remain explicit opt-ins.
 Grok, GLM, and DeepSeek receive their
 highest accepted reasoning effort in this preset (`xhigh`, `max`, and `max`
 respectively); no failed target is silently replaced.
 
 Maximum-quality transports use smoke-tested runtime budgets: four advisory
-turns for Mistral/Grok, extended Qwen/DeepSeek timeouts, and larger response
-budgets for reasoning APIs and a compact native-system Markdown contract for
-MiniMax M3. Responses carry an explicit `structured`,
+turns for Mistral/Grok, no generation time limit, and larger response
+budgets for reasoning APIs; MiniMax M3 receives the shared JSON contract in
+its native system channel. Responses carry an explicit `structured`,
 `fallback`, or `error` quality. Truncated JSON fails closed. Coverage/union
 synthesis source-attributed claims use only locally normalized atomic fields;
 fallback prose remains visible as context-only manual-review material. Inspect
@@ -224,7 +244,7 @@ Use `ai-consultants configure --show-parameters` for the exact accepted keys,
 `--set KEY=VALUE` for repeatable automation, or `--advanced` to review all of
 them interactively.
 
-CLI/API switching: `GEMINI_USE_API`, `CODEX_USE_API`, `CLAUDE_USE_API`, `MISTRAL_USE_API`, `QWEN3_USE_API`.
+CLI/API switching: `GEMINI_USE_API`, `CODEX_USE_API`, `CLAUDE_USE_API`, `MISTRAL_USE_API`, `QWEN3_USE_API`, `GROK_USE_API`, `MINIMAX_USE_API`.
 
 See [Full Configuration Reference](references/configuration.md) for all variables, model overrides, tiers, timeouts, and optimization settings.
 

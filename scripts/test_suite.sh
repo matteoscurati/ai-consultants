@@ -287,6 +287,9 @@ test_self_exclusion() {
     INVOKING_AGENT="gemini_cli" result=$(get_self_consultant_name)
     assert_equals "GEMINI" "$result" "gemini_cli alias maps to GEMINI"
 
+    INVOKING_AGENT="agy" result=$(get_self_consultant_name)
+    assert_equals "GEMINI" "$result" "agy (Antigravity host) maps to GEMINI"
+
     INVOKING_AGENT="unknown" result=$(get_self_consultant_name)
     assert_equals "" "$result" "unknown agent maps to empty string"
 
@@ -665,11 +668,16 @@ test_cost_per1k_contract() {
     assert_equals "0.00075" "$(get_input_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional input rate is current"
     assert_equals "0.00375" "$(get_output_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional output rate is current"
     assert_equals "0.00075" "$(get_input_cost_per_1k 'Gemini 3.8 Flash (High)')" "promoted Gemini CLI default resolves its promotional rate"
-    assert_equals "Gemini 3.8 Flash (High)" "$(get_consultant_fallback_model gemini)" "legacy Gemini responses use the promoted CLI fallback"
+    assert_equals "Gemini 4 Argon (High)" "$(get_consultant_fallback_model gemini)" "legacy Gemini responses use the promoted CLI fallback"
+    assert_equals "0.004" "$(get_input_cost_per_1k 'Gemini 4 Argon (High)')" "Argon CLI estimate uses the list input rate"
+    assert_equals "0.02" "$(get_output_cost_per_1k gemini-4-argon)" "Argon API estimate uses the list output rate"
     assert_equals "0.0015" "$(get_input_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API input is priced"
     assert_equals "0.0075" "$(get_output_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API output is priced"
-    assert_equals "0.002" "$(get_input_cost_per_1k mistral-large-3)" "active Mistral API fallback input stays catalogued"
-    assert_equals "0.006" "$(get_output_cost_per_1k mistral-large-3)" "active Mistral API fallback output stays catalogued"
+    assert_equals "0.002" "$(get_input_cost_per_1k mistral-large-3)" "legacy Mistral Large 3 input stays catalogued for pins"
+    assert_equals "0.006" "$(get_output_cost_per_1k mistral-large-3)" "legacy Mistral Large 3 output stays catalogued for pins"
+    assert_equals "0.00136" "$(get_input_cost_per_1k mistral-large-4)" "Mistral Large 4 input uses the list rate, not the preview discount"
+    assert_equals "0.00418" "$(get_output_cost_per_1k mistral-large-4)" "Mistral Large 4 output uses the list rate, not the preview discount"
+    assert_equals "0.00418" "$(get_output_cost_per_1k mistral-large-4-0)" "dated Mistral Large 4 ID is priced like the alias"
     assert_equals "0.002" "$(get_input_cost_per_1k grok-4.6)" "Grok 4.6 input is 2 USD/MTok"
     assert_equals "0.006" "$(get_output_cost_per_1k grok-4.6)" "Grok 4.6 output is 6 USD/MTok"
     assert_equals "0.0005" "$(get_input_cost_per_1k composer-2.5)" "legacy Composer input remains catalogued"
@@ -800,7 +808,7 @@ test_response_tokens() {
     assert_equals "0.107500" "$(calculate_session_cost "$rd")" "unknown requested model uses default rate, not consultant premium fallback"
 
     printf '{"consultant":"Codex","model":"unknown-legacy-model","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
-    assert_equals "0.225000" "$(calculate_session_cost "$rd")" "legacy response without requested_model uses the current Astra fallback"
+    assert_equals "0.045000" "$(calculate_session_cost "$rd")" "legacy response without requested_model uses the current Codex fallback (gpt-6.1-sol)"
 
     # Claude CLI reports exact costUSD, including adaptive-thinking tokens and
     # cache pricing. It must win over reconstructing cost from visible output.
@@ -1197,6 +1205,25 @@ test_cache_store_retrieve() {
         _pass "different query correctly misses cache"
     fi
 
+    # A different model/tier for the same consultant must never be served
+    # the other model's cached answer (e.g. max_quality after fast).
+    local saved_gemini_model="${GEMINI_MODEL:-}"
+    GEMINI_MODEL="economy-model"
+    store_cache "tier query" "GENERAL" "gemini" "$test_response"
+    GEMINI_MODEL="maximum-model"
+    if check_cache "tier query" "GENERAL" "gemini" >/dev/null 2>&1; then
+        _fail "a different model must not hit another model's cache entry"
+    else
+        _pass "a different model misses the other model's cache entry"
+    fi
+    GEMINI_MODEL="economy-model"
+    if check_cache "tier query" "GENERAL" "gemini" >/dev/null 2>&1; then
+        _pass "the same model still hits its own cache entry"
+    else
+        _fail "the same model should hit its own cache entry"
+    fi
+    GEMINI_MODEL="$saved_gemini_model"
+
     # With cache disabled => miss
     ENABLE_SEMANTIC_CACHE="false"
     if check_cache "test query" "GENERAL" "Gemini" >/dev/null 2>&1; then
@@ -1418,34 +1445,40 @@ test_model_for_tier() {
     assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "premium")"  "claude premium is Fable 5.1"
     assert_equals "claude-opus-5-5"       "$(get_model_for_tier "claude" "standard")" "claude standard is Opus 5.5"
     assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
-    assert_equals "Gemini 3.8 Flash (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is promoted Gemini 3.8 Flash (High)"
-    assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "premium" api)" "gemini API premium uses the provider ID"
-    assert_equals "Gemini 3.8 Flash (High)" "$(get_model_for_tier "gemini" "maximum" cli)" "verified Gemini 3.7 is promoted in CLI maximum tier"
+    assert_equals "Gemini 4 Argon (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is Gemini 4 Argon (High)"
+    assert_equals "gemini-4-argon" "$(get_model_for_tier "gemini" "premium" api)" "gemini API premium uses the Argon provider ID"
+    assert_equals "Gemini 4 Argon (High)" "$(get_model_for_tier "gemini" "maximum" cli)" "Gemini 4 Argon serves the CLI maximum tier"
+    assert_equals "gemini-4-argon" "$(get_model_for_tier "gemini" "maximum" api)" "Gemini 4 Argon serves the API maximum tier"
+    assert_equals "Gemini 3.8 Flash (High)" "$(get_model_for_tier "gemini" "standard" cli)" "Gemini 3.8 Flash (High) keeps the CLI standard tier"
     assert_equals "Gemini 3.8 Flash (Low)" "$(get_model_for_tier "gemini" "economy" cli)" "verified Gemini 3.7 is promoted in CLI economy tier"
     assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "standard" api)" "unverified Gemini 3.7 stays out of API standard tier"
     assert_equals "mistral-medium-3.5" "$(get_model_for_tier "mistral" "premium" cli)" "Mistral CLI premium uses the Vibe alias"
-    assert_equals "mistral-large-3" "$(get_model_for_tier "mistral" "premium" api)" "unverified Mistral API targets stay out of premium"
-    assert_equals "mistral-large-3" "$(get_model_for_tier "mistral" "standard" api)" "unverified Mistral Large 3 ID stays opt-in"
-    assert_equals "mistral-large-3" "$(get_model_for_tier "mistral" "economy" api)" "unverified Mistral Small 4 ID stays opt-in"
+    assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "maximum" api)" "Mistral API maximum is Large 4"
+    assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "premium" api)" "Mistral API premium is Large 4"
+    assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "standard" api)" "Mistral API standard is Large 4"
+    assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "economy" api)" "Mistral API economy is Large 4"
     assert_equals "MiniMax-M2.7"           "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M2.7"
     assert_equals "MiniMax-M2.5"           "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M2.5"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "premium")"    "kimi premium is K3"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "standard")"   "kimi standard is K3"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "economy")"    "kimi economy is K3"
     # Codex / Gemini tier refresh (Aug 2026)
-    assert_equals "gpt-6-astra"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-6-astra"
+    assert_equals "gpt-6.1-sol"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-6.1-sol"
+    assert_equals "gpt-6-astra"           "$(get_model_for_tier "codex" "maximum")"    "codex maximum stays gpt-6-astra"
     assert_equals "gpt-5.6-terra"         "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.6-terra"
     assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
     assert_equals "deepseek-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-flash"
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3-flash"
     assert_equals "grok-4.7"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.7"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.5"
-    assert_equals "qwen3.7-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.7-max"
-    # qwen3.8-max is opt-in only: it needs a Qwen Cloud Token Plan
-    # subscription and a different endpoint, so promoting it to the default
-    # tier would break the consultant for every user without one. Asserted
-    # explicitly so the contract is self-documenting rather than implied.
-    assert_not_equals "qwen3.8-max" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is NOT the opt-in Token Plan model"
+    # qwen3.8-max is served on the qwen CLI, Token Plan and DashScope alike
+    # (verified live 2026-10-02), so it is the premium default; Flash serves
+    # standard and economy. The retired -preview ID is never selected.
+    assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "premium")"    "qwen3 premium is qwen3.8-max"
+    assert_equals "qwen3.8-flash"         "$(get_model_for_tier "qwen3" "standard")"   "qwen3 standard is qwen3.8-flash"
+    assert_equals "qwen3.8-flash"         "$(get_model_for_tier "qwen3" "economy")"    "qwen3 economy is qwen3.8-flash"
+    assert_not_equals "qwen3.8-max-preview" "$(get_model_for_tier "qwen3" "premium")"  "qwen3 premium is not the retired preview ID"
+    assert_equals "glm-5.3"               "$(get_model_for_tier "glm" "maximum")"      "glm maximum is the GLM-5.3 flagship"
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
     assert_equals "deepseek-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-flash"
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3-flash"
@@ -1466,7 +1499,7 @@ test_model_for_tier() {
         done
         printf '%s\n' "$enabled"
     )
-    assert_equals "xhigh|max|max|240|600|16384|10" "$max_quality_state" "max_quality enables all 10 consultants with highest efforts and reasoning budgets"
+    assert_equals "xhigh|max|max|0|0|16384|10" "$max_quality_state" "max_quality enables all 10 consultants with highest efforts and reasoning budgets"
 
     local maximum_effort_lifecycle
     maximum_effort_lifecycle=$(
@@ -1496,7 +1529,7 @@ test_model_for_tier() {
         apply_model_tier standard
         printf '%s|%s|%s|%s|%s|%s\n' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT" "$CLAUDE_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT_SECONDS" "$MINIMAX_MAX_TOKENS"
     )
-    assert_equals "xhigh|max|max|240|600|16384|low|medium|high|240|180|4096" "$maximum_effort_lifecycle" \
+    assert_equals "xhigh|max|max|240|0|16384|low|medium|high|240|180|4096" "$maximum_effort_lifecycle" \
         "maximum temporarily overrides and then restores provider efforts and timeouts"
 
     local maximum_unconfigured
@@ -1508,8 +1541,21 @@ test_model_for_tier() {
         apply_model_tier maximum
         printf '%s|%s|%s|%s\n' "$GEMINI_API_MODEL" "$MISTRAL_CLI_MODEL" "$MISTRAL_MODEL" "$QWEN3_MODEL"
     )
-    assert_equals "gemini-3.1-pro-preview|mistral-medium-3.5|mistral-large-3|qwen3.7-max" \
-        "$maximum_unconfigured" "maximum exports are hermetic without Token Plan"
+    assert_equals "gemini-4-argon|mistral-medium-3.5|mistral-large-4|qwen3.8-max" \
+        "$maximum_unconfigured" "maximum selects Qwen3.8-Max on every Qwen transport"
+
+    local maximum_cli_qwen
+    maximum_cli_qwen=$(
+        QWEN3_USE_API=false
+        QWEN3_TIMEOUT_SECONDS=180
+        QWEN3_MAX_QUALITY_TIMEOUT=600
+        unset QWEN3_REASONING_EFFORT _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED
+        unset _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR
+        apply_model_tier maximum
+        printf '%s|%s|%s\n' "$QWEN3_MODEL" "${QWEN3_REASONING_EFFORT:-}" "$QWEN3_TIMEOUT_SECONDS"
+    )
+    assert_equals "qwen3.8-max||600" "$maximum_cli_qwen" \
+        "maximum on the qwen CLI extends the timeout without an untransportable effort"
 
     local qwen_tier_output
     qwen_tier_output=$(
@@ -1530,7 +1576,7 @@ test_model_for_tier() {
         printf '%s|%s|%s\n' "$QWEN3_MODEL" "$QWEN3_REASONING_EFFORT" "$QWEN3_TIMEOUT_SECONDS"
     )
     assert_equals "qwen3.8-max|xhigh|600" "$(sed -n '1p' <<<"$qwen_tier_output")" "configured Token Plan promotes Qwen3.8-Max with managed xhigh and extended timeout"
-    assert_equals "qwen3-32b||180" "$(sed -n '2p' <<<"$qwen_tier_output")" "leaving maximum clears managed Qwen effort and restores timeout"
+    assert_equals "qwen3.8-flash||180" "$(sed -n '2p' <<<"$qwen_tier_output")" "leaving maximum clears managed Qwen effort and restores timeout"
     assert_equals "qwen3.8-max|low|600" "$(sed -n '3p' <<<"$qwen_tier_output")" "maximum preserves a user-pinned Qwen effort while extending timeout"
 
     local child_tier_state
@@ -1552,7 +1598,7 @@ test_model_for_tier() {
         apply_model_tier economy
         printf '%s|%s|%s|%s|%s|%s|%s|%s\n' "$QWEN3_TIMEOUT" "$QWEN3_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT" "$DEEPSEEK_TIMEOUT_SECONDS" "$CODEX_API_MAX_TOKENS" "$MISTRAL_API_MAX_TOKENS" "$GROK_API_MAX_TOKENS" "$MINIMAX_API_MAX_TOKENS"
     )
-    assert_equals "600|600|600|600|16384|16384|16384|16384" "$(sed -n '1p' <<<"$child_tier_state")" \
+    assert_equals "0|0|0|0|16384|16384|16384|16384" "$(sed -n '1p' <<<"$child_tier_state")" \
         "maximum timeout and API budgets survive child-process config re-source"
     assert_equals "180|180|180|180|4096|4096|4096|4096" "$(sed -n '2p' <<<"$child_tier_state")" \
         "leaving maximum restores public timeouts and API budgets"
@@ -1562,7 +1608,7 @@ test_model_for_tier() {
         apply_model_tier economy
         printf '%s|%s|%s|%s\n' "$GEMINI_MODEL" "$GEMINI_API_MODEL" "$MISTRAL_CLI_MODEL" "$MISTRAL_MODEL"
     )
-    assert_equals "Gemini 3.8 Flash (Low)|gemini-3.1-pro-preview|devstral-small-2|mistral-large-3" \
+    assert_equals "Gemini 3.8 Flash (Low)|gemini-3.1-pro-preview|mistral-medium-3.5|mistral-large-4" \
         "$economy_exports" "economy exports are transport-stable and hermetic"
 
     # Unknown tier returns empty

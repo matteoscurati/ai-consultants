@@ -58,9 +58,11 @@ cd ~/.claude/skills/ai-consultants
 ./scripts/consult_all.sh "Why does auth fail under load?" \
     src/auth.ts@PRIMARY src/cache.ts@CONTEXT
 
-# With query loaded from file (for long/awkwardly-quoted questions)
-echo "Long multi-paragraph question..." > /tmp/q.txt
-./scripts/consult_all.sh --query-file /tmp/q.txt src/big.py
+# With query loaded from a private file (for long/awkwardly-quoted questions)
+q=$(mktemp) && chmod 600 "$q"
+printf '%s\n' "Long multi-paragraph question..." > "$q"
+./scripts/consult_all.sh --query-file "$q" src/big.py
+rm -f "$q"
 ```
 
 See `references/configuration.md` § "Context Handoff (v2.14+)" for `QUESTION_CATEGORY` and `FORCE_PROJECT_TREE` env vars.
@@ -82,5 +84,8 @@ See `references/configuration.md` § "Context Handoff (v2.14+)" for `QUESTION_CA
 
 - Minimum 2 consultants required
 - Smart Routing off by default
-- Synthesis requires Claude CLI (fallback available)
-- Estimated costs (heuristic token counting)
+- Synthesis needs the `claude`, `codex` or `agy` CLI (never the invoking host);
+  without one, a local fallback report is written
+- No generation time limit by default: the host decides when to stop waiting
+  (`touch <dir>/.proceed` or `.abort`, see `references/configuration.md`)
+- Estimated costs (heuristic token counting when a provider reports no usage)

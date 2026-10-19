@@ -4,7 +4,7 @@
 # Usage: ./query_qwen3.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   QWEN3_MODEL     - Model to use (default: qwen3.7-max)
+#   QWEN3_MODEL     - Model to use (default: qwen3.8-max)
 #   QWEN3_TIMEOUT   - Timeout in seconds (default: 180)
 #   QWEN3_USE_API   - Use API mode instead of CLI (default: false)
 #   QWEN3_API_KEY   - API key for the endpoint in QWEN3_API_URL (required for API mode)
@@ -41,6 +41,12 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution (CLI or API mode) ---
 TEMP_OUTPUT=$(mktemp)
+QWEN_WORKSPACE=""
+cleanup() {
+    rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"
+    remove_cli_workspace qwen "$QWEN_WORKSPACE"
+}
+trap cleanup EXIT
 
 if is_api_mode "qwen3"; then
     # --- API Mode (DashScope, or any endpoint set via QWEN3_API_URL) ---
@@ -90,11 +96,14 @@ else
     fi
     QWEN_ARGS+=("-p" "-")
 
-    if echo "$FULL_QUERY" | run_query \
+    # qwen-code is agentic: run it from a private empty directory so it
+    # cannot load project instructions or read files beyond the built context.
+    QWEN_WORKSPACE=$(make_cli_workspace qwen)
+    if echo "$FULL_QUERY" | (cd "${QWEN_WORKSPACE:-.}" && run_query \
             "Qwen3" \
             "$TEMP_OUTPUT" \
             "$QWEN3_TIMEOUT_SECONDS" \
-            "${QWEN_ARGS[@]}"; then
+            "${QWEN_ARGS[@]}"); then
         exit_code=0
     else
         exit_code=$?

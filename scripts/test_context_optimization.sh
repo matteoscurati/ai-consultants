@@ -256,7 +256,7 @@ test_query_file_with_context_files() {
     local stderr context_file content
     stderr=$(AI_CONSULTANTS_CONFIG_DIR="$_TMPDIR/empty-config" \
         DEFAULT_OUTPUT_DIR_BASE="$output_base" DEFAULT_PRESET="" \
-        ENABLE_SYNTHESIS=false ENABLE_CLASSIFICATION=false \
+        ENABLE_SYNTHESIS=false ENABLE_CLASSIFICATION=false FORCE_PROJECT_TREE=true \
         ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false \
         ENABLE_KIMI=false ENABLE_CLAUDE=false ENABLE_QWEN3=false \
         ENABLE_GLM=false ENABLE_GROK=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
@@ -280,6 +280,12 @@ test_query_file_with_context_files() {
         "staged host path preserves original CONTEXT identity"
     assert_eq "0" "$(grep -c 'ai-consultants-host-context' <<< "$content" || true)" \
         "generated context never exposes deleted staging paths"
+    # Hosts cd into the skill root; the project tree must describe the
+    # caller's project (--context-root), not the skill installation.
+    assert_match "\./src/app\.py" "$content" \
+        "project tree lists the caller project"
+    assert_eq "0" "$(grep -c 'consult_all\.sh' <<< "$content" || true)" \
+        "project tree never lists the skill's own files"
 }
 
 test_context_root_rejects_outside_and_symlink_files() {
@@ -380,6 +386,21 @@ test_context_path_boundary() {
         "sensitive /etc path is still rejected"
 }
 
+# -----------------------------------------------------------------------------
+# Test 18: a home directory is never listed as the project tree
+# -----------------------------------------------------------------------------
+# Hosts build the context from the caller's directory, which can be $HOME: its
+# file names must not reach every consultant as "the project structure".
+test_home_directory_is_not_listed_as_project() {
+    local home="$_TMPDIR/fake-home" out="$_TMPDIR/ctx_home.md"
+    mkdir -p "$home/Documents"
+    printf '{}\n' > "$home/Documents/personal-taxes.json"
+    (cd "$home" && HOME="$home" QUESTION_CATEGORY=GENERAL \
+        "$SCRIPT_DIR/build_context.sh" "$out" "q" >/dev/null 2>&1)
+    assert_eq "0" "$(grep -c 'personal-taxes' "$out" 2>/dev/null || true)" \
+        "a home directory is never listed as the project tree"
+}
+
 run_test "Test 1: @TAG defaults to PRIMARY" test_tag_default_primary
 run_test "Test 2: @TAG honored when explicit" test_tag_explicit
 run_test "Test 3: @TAG unknown falls back to PRIMARY with warning" test_tag_unknown_fallback
@@ -397,5 +418,6 @@ run_test "Test 14: --query-file with missing file is rejected" test_query_file_m
 run_test "Test 15: --query-file rejects positional non-file text" test_query_file_conflict
 run_test "Test 16: Legacy no-FILES path still works" test_legacy_inlined_query
 run_test "Test 17: context-file path boundary (v2.17.2)" test_context_path_boundary
+run_test "Test 18: home directory is not listed as the project" test_home_directory_is_not_listed_as_project
 
 test_summary "test_context_optimization.sh"

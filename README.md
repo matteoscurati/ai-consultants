@@ -18,7 +18,8 @@
 - [Supported CLI Agents](#supported-cli-agents)
   - [Claude Code](#claude-code)
   - [OpenAI Codex CLI](#openai-codex-cli)
-  - [Gemini CLI](#gemini-cli)
+  - [Antigravity (agy)](#antigravity-agy)
+  - [Gemini CLI (legacy)](#gemini-cli-legacy)
   - [Cursor / Copilot / Windsurf](#cursor--copilot--windsurf-via-skillport)
   - [Standalone Bash](#standalone-bash)
 - [Consultants](#consultants)
@@ -100,7 +101,8 @@ Before installing AI Consultants, ensure you have the following dependencies ins
 |------------|---------|
 | **jq** | JSON processing |
 | **curl** | HTTP requests and connectivity |
-| **Bash 4.0+** | Script execution (macOS ships with 3.2) |
+| **Bash 3.2+** | Script execution (the stock macOS `/bin/bash` 3.2 is supported) |
+| **bc** | Cost arithmetic |
 
 ### Installation by Platform
 
@@ -110,21 +112,22 @@ Before installing AI Consultants, ensure you have the following dependencies ins
 # Install Homebrew if not already installed
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Install required dependencies
-brew install jq bash coreutils
+# Install required dependencies (coreutils is optional: it provides
+# `timeout`; a built-in fallback is used without it)
+brew install jq coreutils
 
 # Verify installation
 jq --version && bash --version | head -1
 ```
 
-> **Note:** macOS ships with Bash 3.2. The Homebrew version (4.x) is installed to `/opt/homebrew/bin/bash`.
+> **Note:** the scripts target the stock macOS Bash 3.2 (`#!/bin/bash`); installing a newer Bash is not required.
 
 #### Linux (Ubuntu/Debian)
 
 ```bash
 # Install required dependencies
 sudo apt-get update
-sudo apt-get install -y jq curl bash
+sudo apt-get install -y jq curl bash bc
 
 # Verify installation
 jq --version && bash --version | head -1
@@ -134,7 +137,7 @@ jq --version && bash --version | head -1
 
 ```bash
 # Install required dependencies
-sudo dnf install -y jq curl bash
+sudo dnf install -y jq curl bash bc
 
 # Verify installation
 jq --version && bash --version | head -1
@@ -144,7 +147,7 @@ jq --version && bash --version | head -1
 
 ```bash
 # Install required dependencies
-sudo pacman -S jq curl bash
+sudo pacman -S jq curl bash bc
 
 # Verify installation
 jq --version && bash --version | head -1
@@ -160,7 +163,7 @@ wsl --install
 
 # After restart, open WSL and follow Linux instructions
 sudo apt-get update
-sudo apt-get install -y jq curl bash
+sudo apt-get install -y jq curl bash bc
 ```
 
 Alternatively, use **Git Bash** or **MSYS2** with the required packages.
@@ -171,7 +174,7 @@ For CLI-based consultants, you'll also need:
 
 | Dependency | Required for |
 |------------|--------------|
-| **Node.js 18+** | Gemini CLI, Codex CLI, Qwen CLI, MiniMax CLI |
+| **Node.js 18+** | Codex CLI, Qwen CLI, MiniMax CLI |
 | **Python 3.8+** | Mistral Vibe CLI |
 
 ```bash
@@ -201,7 +204,7 @@ AI Consultants follows the open [Agent Skills standard](https://agentskills.io),
 
 ### Claude Code
 
-> **Status:** ✅ Native support
+> **Status:** ✅ Native support (headless run verified with Claude Code 2.1.303 on 2026-10-19)
 
 **Installation:**
 
@@ -234,18 +237,27 @@ slash command.
 
 ### OpenAI Codex CLI
 
-> **Status:** ✅ Compatible
+> **Status:** ✅ Compatible (headless run verified with Codex CLI 0.163 on 2026-10-19)
 
 **Installation:**
 
 ```bash
 git clone https://github.com/matteoscurati/ai-consultants.git ~/.codex/skills/ai-consultants
 ~/.codex/skills/ai-consultants/scripts/doctor.sh --fix
+# Or share an existing installation through the cross-agent skills directory:
+# ln -s ~/.claude/skills/ai-consultants ~/.agents/skills/ai-consultants
 ```
 
-**Commands:**
+**Usage:**
 
-Use the same slash commands as Claude Code. Codex CLI loads skills from `~/.codex/skills/`.
+Codex has no custom slash commands: it loads the skill from `~/.codex/skills/`
+or `~/.agents/skills/` and runs it when asked, for example *"use the
+ai-consultants skill to review src/auth.ts"*. The consultation calls other CLIs
+and APIs over the network and writes under `~/.cache` and `~/.config`, so
+Codex's default sandbox cannot run it: approve the escalation when Codex asks,
+or start Codex with `--sandbox danger-full-access`. Codex's automatic approval
+review (`--approve-for-me`) rejects that escalation because it sends your files
+to external providers, so the approval has to come from you.
 
 **Self-Exclusion:** Codex consultant is automatically excluded when invoked from Codex CLI.
 
@@ -257,28 +269,40 @@ Use the same slash commands as Claude Code. Codex CLI loads skills from `~/.code
 
 ---
 
-### Gemini CLI
+### Antigravity (agy)
 
-> **Status:** ✅ Compatible
+> **Status:** ✅ Compatible (headless run verified with agy 1.4.2 on 2026-10-19)
+
+Antigravity (`agy`) replaced the Gemini CLI for individual Google accounts.
 
 **Installation:**
 
 ```bash
-git clone https://github.com/matteoscurati/ai-consultants.git ~/.gemini/skills/ai-consultants
-~/.gemini/skills/ai-consultants/scripts/doctor.sh --fix
+# Per project (agy reads <project>/.agents/skills/)
+mkdir -p .agents/skills
+git clone https://github.com/matteoscurati/ai-consultants.git .agents/skills/ai-consultants
+# Or for every project: agy's user skill directory is ~/.gemini/config/skills/
 ```
 
-**Commands:**
+**Usage:** ask in natural language, for example *"use the ai-consultants skill
+to compare these two designs"*. agy runs the consultation as a background task
+and follows its progress; in print mode (`agy -p`) it waits at most 30 minutes
+for background tasks.
 
-Use the same slash commands as Claude Code. Gemini CLI loads skills from `~/.gemini/skills/`.
+**Self-Exclusion:** the Gemini consultant is excluded when invoked from agy
+(`INVOKING_AGENT=gemini`).
 
-**Self-Exclusion:** Gemini consultant is automatically excluded when invoked from Gemini CLI.
+---
 
-**Verify:**
+### Gemini CLI (legacy)
 
-```bash
-~/.gemini/skills/ai-consultants/scripts/doctor.sh
-```
+> **Status:** ⚠️ Legacy. Google stopped serving the Gemini CLI to individual
+> accounts on 2026-06-18; use [Antigravity (agy)](#antigravity-agy) instead.
+
+Accounts that can still use it get the skill from `~/.gemini/skills/` or
+`~/.agents/skills/`, through natural language: the Gemini CLI loads only
+`.toml` custom commands, so the `/ai-consultants:*` slash commands are not
+available there. The Gemini consultant is excluded as for agy.
 
 ---
 
@@ -416,7 +440,8 @@ the observed version is response provenance only.
 
 ### Installing Consultant CLIs
 
-At least 2 consultant CLIs are required:
+At least 2 consultants are required (a CLI, or an API key for API mode). The
+first three below make up the `balanced` preset:
 
 ```bash
 curl -fsSL https://antigravity.google/cli/install.sh | bash  # Gemini (Antigravity CLI: agy)
@@ -462,11 +487,12 @@ accepted reasoning effort: Grok Build uses `xhigh`, while GLM and DeepSeek use
 effort silently.
 
 The maximum preset also applies the transport budgets proven by the live panel
-smoke: four bounded advisory turns for Mistral/Grok, a 600-second Token Plan
-window for Qwen3.8-Max, a 600-second DeepSeek reasoning window, and larger
-OpenAI-compatible output budgets for Qwen, GLM, and DeepSeek. MiniMax M3
-likewise receives a 16,384-token completion budget in the maximum tier and a
-provider-specific compact Markdown contract through mmx's native system channel.
+smoke: four bounded advisory turns for Mistral/Grok, the maximum-tier Qwen3.8-Max
+and DeepSeek timeouts (`QWEN3_MAX_QUALITY_TIMEOUT`/`DEEPSEEK_MAX_QUALITY_TIMEOUT`,
+default 0: no limit), and larger OpenAI-compatible output budgets for Qwen, GLM,
+and DeepSeek. MiniMax M3 likewise receives a 16,384-token completion budget in
+the maximum tier and the shared JSON response contract through mmx's native
+system channel.
 Provider output is tagged `structured`, `fallback`, or `error`;
 malformed/truncated JSON fails
 closed. In coverage/union mode, only locally atomized `summary`, `pros`,
@@ -484,30 +510,40 @@ and cannot support a comprehensive coverage claim.
 | Consultant | `max_quality` | Premium | Standard | Economy |
 |------------|---------------|---------|----------|---------|
 | Claude | claude-fable-5-1 | claude-fable-5-1 | claude-opus-5-5 | claude-haiku-4-5 |
-| Gemini CLI | Gemini 3.8 Flash (High) | Gemini 3.8 Flash (High) | Gemini 3.8 Flash (High) | Gemini 3.8 Flash (Low) |
-| Gemini API | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview | gemini-3.1-pro-preview |
-| Codex | gpt-6-astra | gpt-6-astra | gpt-5.6-terra | gpt-5.6-luna |
-| Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | devstral-small-2 |
-| Mistral API | mistral-large-3 | mistral-large-3 | mistral-large-3 | mistral-large-3 |
+| Gemini CLI | Gemini 4 Argon (High) | Gemini 4 Argon (High) | Gemini 3.8 Flash (High) | Gemini 3.8 Flash (Low) |
+| Gemini API | gemini-4-argon | gemini-4-argon | gemini-3.1-pro-preview | gemini-3.1-pro-preview |
+| Codex | gpt-6-astra | gpt-6.1-sol | gpt-5.6-terra | gpt-5.6-luna |
+| Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 |
+| Mistral API | mistral-large-4 | mistral-large-4 | mistral-large-4 | mistral-large-4 |
 | DeepSeek | deepseek-flash | deepseek-flash | deepseek-flash | deepseek-flash |
-| GLM | glm-5.3-flash | glm-5.3-flash | glm-5.3-flash | glm-4-flash |
+| GLM | glm-5.3 | glm-5.3-flash | glm-5.3-flash | glm-4-flash |
 | Grok | grok-4.7 | grok-4.7 | grok-4.5 | grok-4.5 |
-| Qwen3 | qwen3.8-max when Token Plan is configured; otherwise qwen3.7-max | qwen3.7-max | qwen3.6-35b-a3b | qwen3-32b |
+| Qwen3 | qwen3.8-max | qwen3.8-max | qwen3.8-flash | qwen3.8-flash |
 | Kimi | kimi-code/k3-256k | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
 | MiniMax | MiniMax-M3 | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
 
-Promotion is transport-specific. Gemini 3.8 Flash High is the new CLI target;
-Low serves economy. Both are available in the installed `agy models` inventory;
-High/Low CLI smokes passed on 2026-09-28 with capability-probed identity. Earlier Gemini 3.7 evidence remains historical.
-The Google API default remains `gemini-3.1-pro-preview`; `gemini-3.8-flash` is
-an explicit API opt-in whose live transport is not yet verified. The new Mistral API IDs (`mistral-medium-3-5`,
-`mistral-large-2512`, `mistral-small-2603`) remain catalogued opt-ins. Claude
+Promotion is transport-specific. Gemini 4 Argon (GA 2026-10-13) is the Gemini
+default and maximum target: `Gemini 4 Argon (High)` on `agy` and `gemini-4-argon`
+on the API. An authorized `agy` consultation smoke returned a structured answer
+with capability-probed identity on 2026-10-16; the API transport is covered by
+offline tests only. Google excludes Argon from the Free tier and the AI Pro
+plan, so the `agy` listing alone is not an access check. Gemini 3.8 Flash keeps
+the CLI standard (High) and economy (Low) tiers; the API standard and economy
+tiers keep `gemini-3.1-pro-preview`, and `gemini-3.8-flash` remains an explicit
+API opt-in whose live transport is not yet verified. Mistral Large 4 (`mistral-large-4`, public preview) is the
+Mistral API target for every tier. An authorized consultation smoke returned a
+structured answer with provider-reported identity on 2026-10-15; the preview is absent from
+`GET /v1/models`, so that listing is not an access check. Vibe keeps
+`mistral-medium-3.5`. The other Mistral
+API IDs (`mistral-medium-3-5`, `mistral-large-2512`, `mistral-small-2603`)
+remain catalogued opt-ins. Claude
 Fable 5.1 is the default/premium/maximum target; use
 `CLAUDE_MODEL=claude-opus-5-5` for the lower-cost standard override. Selecting a preset later intentionally reapplies that
 preset's tier and can replace an explicit model override for the run.
-Qwen3.8-Max is likewise selected by `max_quality` only when API mode already
-points at an authenticated OpenAI-compatible Token Plan `/chat/completions`
-endpoint; the preset never repoints a DashScope key or CLI installation.
+Qwen3.8-Max serves the default, premium and maximum tiers on every Qwen
+transport (the `qwen` CLI, the Token Plan and DashScope); `max_quality` adds
+`xhigh` effort only on the OpenAI-compatible wire and never repoints a key or
+endpoint.
 
 ### Usage
 
@@ -611,11 +647,13 @@ later run to adapt when a CLI or credential changes. Environment variables,
 `--set`, and unmarked values remain explicit user choices, except for the exact
 historical generated Claude default described below.
 Managed model defaults use `# ai-consultants:default`; `configure` upgrades
-un-pinned historical `CLAUDE_MODEL=claude-opus-4-8` and `claude-opus-5` defaults
-to Fable 5.1, along with the exact managed Gemini CLI, GLM, and Grok defaults.
-To keep the lower-cost Opus 5 choice, run
-`ai-consultants configure --set CLAUDE_MODEL=claude-opus-5`; explicit model
-overrides are stored with `# ai-consultants:pin`.
+the exact historical defaults it generated when they are not pinned (for
+example `CLAUDE_MODEL=claude-opus-4-8`/`claude-opus-5` to Fable 5.1, and the
+previous Gemini, Codex, Mistral API, Qwen, GLM, Grok and DeepSeek defaults),
+and turns the fixed timeouts it generated through 5.1.2 into 0 (no limit).
+To keep a model, run for example
+`ai-consultants configure --set CLAUDE_MODEL=claude-opus-5-5`; explicit model
+overrides are stored with `# ai-consultants:pin` and never migrated.
 
 Enter credentials through `--interactive`/`--advanced` or export them before the
 run; avoid passing API keys through `--set`, where the shell may retain them in
@@ -634,7 +672,7 @@ MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=t
 KIMI_MODEL=kimi-code/k3      # Pin the Kimi consultant to K3
 CLAUDE_API_MAX_TOKENS=16384  # Shared thinking + visible-output budget in API mode
 MISTRAL_CLI_MODEL=mistral-medium-3.5 # Vibe alias; MISTRAL_MODEL remains API-only
-GEMINI_MODEL="Gemini 3.8 Flash (High)" # agy CLI; API uses GEMINI_API_MODEL
+GEMINI_MODEL="Gemini 4 Argon (High)" # agy CLI; API uses GEMINI_API_MODEL
 ```
 
 Full reference: [`references/configuration.md`](references/configuration.md). Copy-paste workflows: [`docs/RECIPES.md`](docs/RECIPES.md). For category-aware preset suggestions: `ai-consultants doctor --suggest-preset --question "..."`.
@@ -712,6 +750,25 @@ Classify -> Route -> Fan out (parallel) -> Coverage synthesis
    atomic source ID is represented once; `DEGRADED` and `FAILED` are explicitly
    non-comprehensive. Override with `--strategy compare_only` (side-by-side) or
    `majority` (a single blended recommendation).
+
+### Waiting and stopping
+
+Consultants and synthesis have **no time limit by default**: reasoning models
+can take minutes, and a call cut off by a client timeout is usually still
+billed while its answer is lost. Whoever started the run decides when to stop
+waiting. The run logs `Output: <dir>` near the start and
+`Still waiting after Ns for: <names>` every 30 seconds, and accepts:
+
+- `touch <dir>/.proceed` (or `kill -USR1 <pid>`, or a first Ctrl-C): continue
+  with the answers already received. Consultants still running are stopped and
+  reported as `stopped`; sent during synthesis, it skips the synthesis.
+- `touch <dir>/.abort` (or SIGTERM, or a second Ctrl-C): end the run and keep
+  the partial output.
+
+A stopped call may still be billed for what it generated. Never stop a run with
+SIGKILL: the shell cannot clean up, so consultant CLIs would keep running. A
+positive `<NAME>_TIMEOUT` restores a hard limit for that consultant; see
+[`references/configuration.md`](references/configuration.md#timeouts-waiting-and-retries).
 
 ### Output
 

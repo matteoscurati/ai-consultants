@@ -11,6 +11,26 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Hermetic gate. A maintainer's real ~/.config/ai-consultants/.env, or a
+# caller that already sourced config.sh (scripts/release.sh does), used to leak
+# into every suite: tests then passed or failed depending on the machine
+# (see the v2.23.0, v2.25.1 and v3.0.0 changelog entries). Isolate the user
+# config directory and drop every documented configuration key plus the
+# internal _AI_CONSULTANTS_* markers before any suite runs.
+# Set AI_CONSULTANTS_TEST_REAL_CONFIG=1 to run against the ambient config.
+if [[ "${AI_CONSULTANTS_TEST_REAL_CONFIG:-0}" != "1" ]]; then
+    _hermetic_config_dir=$(mktemp -d "${TMPDIR:-/tmp}/ai-consultants-test-config.XXXXXX")
+    trap 'rm -rf "$_hermetic_config_dir"' EXIT
+    while IFS= read -r _key; do
+        [[ "$_key" =~ ^[A-Z][A-Z0-9_]*$ ]] && unset "$_key"
+    done < <(bash "$SCRIPT_DIR/configure.sh" --show-parameters 2>/dev/null)
+    while IFS='=' read -r _key _; do
+        [[ "$_key" == _AI_CONSULTANTS_* ]] && unset "$_key"
+    done < <(env)
+    unset _key
+    export AI_CONSULTANTS_CONFIG_DIR="$_hermetic_config_dir"
+fi
+
 C_RESET="\033[0m"
 C_GREEN="\033[32m"
 C_RED="\033[31m"

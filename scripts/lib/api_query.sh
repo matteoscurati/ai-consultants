@@ -17,6 +17,7 @@ _API_QUERY_SH_SOURCED=1
 SCRIPT_DIR_API_QUERY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR_API_QUERY/common.sh"
 source "$SCRIPT_DIR_API_QUERY/api.sh"
+source "$SCRIPT_DIR_API_QUERY/personas.sh"
 
 # =============================================================================
 # API QUERY EXECUTION
@@ -44,7 +45,7 @@ run_api_mode_query() {
     local model="$2"
     local query="$3"
     local output_file="$4"
-    local timeout_seconds="${5:-180}"
+    local timeout_seconds="${5:-0}"
 
     # Published for the caller in this shell after a successful response.
     # Never infer provider identity from the requested value when the response
@@ -88,14 +89,14 @@ run_api_mode_query() {
 
     case "$api_format" in
         google_ai)
-            # Gemini 3.7/3.8 Flash expose low|medium|high thinking levels on the native
-            # Google AI wire. The shared syntax validator is intentionally
-            # broader for OpenAI-compatible providers, so fail before spending
-            # a request when Google receives an unsupported level.
+            # Gemini 3.7/3.8 Flash and 4 Argon expose low|medium|high thinking
+            # levels on the native Google AI wire. The shared syntax validator
+            # is intentionally broader for OpenAI-compatible providers, so fail
+            # before spending a request when Google receives an unsupported level.
             local google_thinking_level=""
-            if [[ -n "$effort" ]]; then
-                case "$model" in
-                    gemini-3.7-flash*|gemini-3.8-flash)
+            case "$model" in
+                gemini-3.7-flash*|gemini-3.8-flash|gemini-4-argon)
+                    if [[ -n "$effort" ]]; then
                         case "$effort" in
                             low|medium|high) google_thinking_level="$effort" ;;
                             *)
@@ -103,13 +104,27 @@ run_api_mode_query() {
                                 return 1
                                 ;;
                         esac
-                        ;;
-                    *)
-                        log_warn "[$consultant_name] $effort_var is only transported to Gemini 3.7/3.8 Flash on the 'google_ai' wire format and is ignored for $model."
-                        ;;
-                esac
+                    elif [[ "$model" == gemini-4-argon ]]; then
+                        # The provider default is medium; the matching CLI
+                        # target is "Gemini 4 Argon (High)".
+                        google_thinking_level=high
+                    fi
+                    ;;
+                *)
+                    if [[ -n "$effort" ]]; then
+                        log_warn "[$consultant_name] $effort_var is only transported to Gemini 3.7/3.8 Flash and 4 Argon on the 'google_ai' wire format and is ignored for $model."
+                    fi
+                    ;;
+            esac
+            # Thinking tokens count toward maxOutputTokens.
+            local max_tokens_var api_max_tokens
+            max_tokens_var="$(to_upper "$consultant_name")_API_MAX_TOKENS"
+            api_max_tokens="${!max_tokens_var:-32768}"
+            if ! [[ "$api_max_tokens" =~ ^[1-9][0-9]*$ ]]; then
+                log_error "[$consultant_name] $max_tokens_var must be a positive integer (got: $api_max_tokens)"
+                return 1
             fi
-            request_body=$(build_google_ai_request "$query" "$google_thinking_level")
+            request_body=$(build_google_ai_request "$query" "$google_thinking_level" "$api_max_tokens")
             # Google AI appends model to URL; use x-goog-api-key header for security
             final_api_url="${api_url}/${model}:generateContent"
             auth_style="google_ai"
@@ -292,11 +307,13 @@ run_api_consultant() {
     local timeout_var="${consultant_upper}_TIMEOUT_SECONDS"
 
     local model="${!model_var:-}"
-    local timeout_seconds="${!timeout_var:-180}"
+    local timeout_seconds="${!timeout_var:-0}"
+    local persona_name
+    persona_name=$(get_persona_name "$consultant_name")
 
     if [[ -z "$model" ]]; then
         log_error "[$consultant_name] API model is not configured: $model_var"
-        build_error_response "$consultant_name" "unknown" "API Consultant" \
+        build_error_response "$consultant_name" "unknown" "$persona_name" \
             "API model is not configured: $model_var" 0 "" "requested-only" > "$output_file"
         return 1
     fi
@@ -308,6 +325,14 @@ run_api_consultant() {
     if [[ -z "$full_query" ]]; then
         log_error "[$consultant_name] No query to send"
         return 1
+    fi
+
+    # Same contract as the dedicated adapters: persona plus the JSON response
+    # format. Without it GLM, DeepSeek, MiniMax (API) and custom agents answer
+    # in prose, land in the fallback envelope, and can never contribute
+    # attributable findings to the coverage union.
+    if [[ "${ENABLE_PERSONA:-true}" == "true" ]]; then
+        full_query=$(build_query_with_persona "$consultant_name" "$full_query")
     fi
 
     local start_time
@@ -335,7 +360,7 @@ run_api_consultant() {
             read -r _err_tok _err_src _err_in _err_out <<< "$(resolve_response_tokens "$full_query" "")"
             clear_api_token_split
         fi
-        build_error_response "$consultant_name" "${model:-unknown}" "API Consultant" \
+        build_error_response "$consultant_name" "${model:-unknown}" "$persona_name" \
             "API query failed (exit code: $exit_code)" "$latency" \
             "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" \
             "$_err_tok" "$_err_src" "$_err_in" "$_err_out" > "$output_file"
@@ -352,7 +377,7 @@ run_api_consultant() {
     rm -f "$temp_response"
 
     if [[ -z "$parsed_content" ]]; then
-        build_error_response "$consultant_name" "${model:-unknown}" "API Consultant" \
+        build_error_response "$consultant_name" "${model:-unknown}" "$persona_name" \
             "Empty response from API" "$latency" > "$output_file"
         return 1
     fi
@@ -365,17 +390,18 @@ run_api_consultant() {
     fi
 
     if [[ $normalization_rc -eq 0 ]]; then
-        build_structured_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
+        build_structured_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "$persona_name" \
             "$normalized_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" > "$output_file"
     elif [[ $normalization_rc -eq 1 ]]; then
-        build_fallback_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
+        build_fallback_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "$persona_name" \
             "$normalized_content" "$latency" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" "" "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" > "$output_file"
     else
         log_error "[$consultant_name] Provider returned malformed, truncated, or schema-invalid JSON"
-        build_error_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "API Consultant" \
+        build_error_response "$consultant_name" "${_API_RESPONSE_MODEL:-${model:-unknown}}" "$persona_name" \
             "Provider returned malformed, truncated, or schema-invalid JSON" "$latency" \
             "${model:-unknown}" "${_API_MODEL_IDENTITY_SOURCE:-requested-only}" \
             "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
+        attach_raw_excerpt "$output_file" "$parsed_content"
         return 1
     fi
 

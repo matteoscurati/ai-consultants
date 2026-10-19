@@ -117,9 +117,97 @@ test_targeted_followup_respects_disabled_consultant() {
         "disabled targeted follow-up is diagnosed"
 }
 
+# M2a: --session restores the full original question, not a null preview.
+test_session_restore_keeps_original_query() {
+    local qfile="$TMP_ROOT/restore.txt" rc restored
+    printf '%s\n' 'one more caveat' > "$qfile"
+    jq -n --arg dir "$RESPONSES_DIR_TEST" '{sessions: [
+        {id: "hist_full", query: "FULL ORIGINAL QUESTION well beyond any preview", query_preview: "FULL ORIGINAL", responses_dir: $dir, category: "GENERAL", timestamp: "t"},
+        {id: "hist_legacy", query_preview: "LEGACY PREVIEW", responses_dir: $dir, category: "GENERAL", timestamp: "t"}
+    ]}' > "$SESSION_DIR_TEST/history.json"
+
+    TMPDIR="$TMP_ROOT/runtime" SESSION_DIR="$SESSION_DIR_TEST" AI_CONSULTANTS_CONFIG_DIR="$CONFIG_DIR_TEST" \
+        INVOKING_AGENT=claude MISTRAL_CMD="$STUB_CLI" MAX_RETRIES=1 \
+        ENABLE_PERSONA=false ENABLE_SEMANTIC_CACHE=false \
+        "$SCRIPT_DIR/followup.sh" --session hist_full -c Mistral --query-file "$qfile" \
+        >/dev/null 2>"$TMP_ROOT/restore.err"
+    rc=$?
+    restored=$(jq -r '.query' "$SESSION_DIR_TEST/current_session.json")
+    assert_eq 0 "$rc" "follow-up on a restored session succeeds"
+    assert_eq "FULL ORIGINAL QUESTION well beyond any preview" "$restored" \
+        "restored session keeps the full original question"
+    assert_eq "one more caveat" "$(jq -r '.follow_ups[0].query' "$SESSION_DIR_TEST/current_session.json")" \
+        "restored session records the follow-up"
+
+    TMPDIR="$TMP_ROOT/runtime" SESSION_DIR="$SESSION_DIR_TEST" AI_CONSULTANTS_CONFIG_DIR="$CONFIG_DIR_TEST" \
+        INVOKING_AGENT=claude MISTRAL_CMD="$STUB_CLI" MAX_RETRIES=1 \
+        ENABLE_PERSONA=false ENABLE_SEMANTIC_CACHE=false \
+        "$SCRIPT_DIR/followup.sh" --session hist_legacy -c Mistral --query-file "$qfile" \
+        >/dev/null 2>>"$TMP_ROOT/restore.err"
+    assert_eq "LEGACY PREVIEW" "$(jq -r '.query' "$SESSION_DIR_TEST/current_session.json")" \
+        "a legacy history record falls back to its preview, never null"
+
+    local long_query saved
+    long_query="$(printf 'Q%.0s' {1..150}) end"
+    saved=$(SESSION_DIR="$TMP_ROOT/history-roundtrip" AI_CONSULTANTS_CONFIG_DIR="$CONFIG_DIR_TEST" bash -c '
+        source "$1/lib/common.sh"; source "$1/lib/session.sh"
+        save_session sess_roundtrip "$2" /tmp/x GENERAL >/dev/null
+        get_session_by_id sess_roundtrip | jq -r .query' _ "$SCRIPT_DIR" "$long_query")
+    assert_eq "$long_query" "$saved" "history stores the full query for later --session restores"
+
+    # A --query-file question can exceed one argv element (128 KiB on Linux),
+    # so the session records must take it through stdin, not jq --arg.
+    local huge_file="$TMP_ROOT/huge-question.txt" huge_lengths
+    head -c 200000 /dev/zero | tr '\0' 'Q' > "$huge_file"
+    huge_lengths=$(SESSION_DIR="$TMP_ROOT/history-huge" AI_CONSULTANTS_CONFIG_DIR="$CONFIG_DIR_TEST" bash -c '
+        source "$1/lib/common.sh"; source "$1/lib/session.sh"
+        q=$(cat "$2")
+        save_session sess_huge "$q" /tmp/x GENERAL >/dev/null
+        add_follow_up "$q" /tmp/y
+        printf "%s|%s|%s" "$(jq -r ".query | length" "$SESSION_FILE")" \
+            "$(get_session_by_id sess_huge | jq -r ".query | length")" \
+            "$(jq -r ".follow_ups[0].query | length" "$SESSION_FILE")"' _ "$SCRIPT_DIR" "$huge_file")
+    assert_eq "200000|200000|200000" "$huge_lengths" \
+        "session records keep a question larger than one argv element"
+}
+
+# M2b/c: a whole-panel follow-up is recorded on the ORIGINAL session and
+# points at the directory that actually holds the new responses.
+test_panel_followup_records_on_original_session() {
+    local qfile="$TMP_ROOT/panel.txt" run_out rc recorded_dir
+    printf '%s\n' 'Reconsider the caching trade-off' > "$qfile"
+    printf '%s\n' '{"synthesis_version":"3.0","coverage":[]}' > "$RESPONSES_DIR_TEST/synthesis.json"
+
+    run_out=$(TMPDIR="$TMP_ROOT/runtime" SESSION_DIR="$SESSION_DIR_TEST" AI_CONSULTANTS_CONFIG_DIR="$CONFIG_DIR_TEST" \
+        HOME="$TMP_ROOT/home" XDG_CACHE_HOME="$TMP_ROOT/xdg-cache" XDG_DATA_HOME="$TMP_ROOT/xdg-data" \
+        INVOKING_AGENT=claude DEFAULT_PRESET="" \
+        ENABLE_GEMINI=true ENABLE_CODEX=true ENABLE_MISTRAL=true ENABLE_KIMI=false ENABLE_CLAUDE=false \
+        ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
+        GEMINI_USE_API=false CODEX_USE_API=false MISTRAL_USE_API=false \
+        GEMINI_CMD="$STUB_CLI" CODEX_CMD="$STUB_CLI" MISTRAL_CMD="$STUB_CLI" \
+        MAX_RETRIES=1 LAUNCH_STAGGER_MAX_SECONDS=0 ENABLE_SYNTHESIS=false ENABLE_SEMANTIC_CACHE=false \
+        "$SCRIPT_DIR/followup.sh" --query-file "$qfile" 2>"$TMP_ROOT/panel.err")
+    rc=$?
+    recorded_dir=$(jq -r '.follow_ups[0].responses_dir // empty' "$SESSION_DIR_TEST/current_session.json")
+
+    assert_eq 0 "$rc" "whole-panel follow-up succeeds"
+    assert_eq session_test "$(jq -r '.id' "$SESSION_DIR_TEST/current_session.json")" \
+        "whole-panel follow-up keeps the original session current"
+    assert_eq "Reconsider the caching trade-off" "$(jq -r '.follow_ups[0].query' "$SESSION_DIR_TEST/current_session.json")" \
+        "whole-panel follow-up is recorded on the original session"
+    assert_eq 1 "$([[ -s "$recorded_dir/codex.json" ]] && echo 1 || echo 0)" \
+        "recorded follow-up directory holds the new responses"
+    assert_eq "$recorded_dir" "$(printf '%s\n' "$run_out" | tail -n 1)" \
+        "follow-up prints the directory holding the responses"
+    assert_eq 0 "$(grep -c 'Unknown' "$recorded_dir/context.md" || true)" \
+        "follow-up context excludes non-consultant artifacts"
+}
+
 run_test "Follow-up query-file rejects positional text" test_query_file_conflicts_with_positional_followup
 run_test "Targeted follow-up rejects invoking consultant" test_targeted_followup_rejects_invoking_consultant
 run_test "Query-file follow-up to another consultant succeeds" test_query_file_followup_to_other_consultant_succeeds
 run_test "Targeted follow-up supports a full-roster adapter" test_targeted_followup_supports_full_roster_adapter
 run_test "Targeted follow-up respects disabled consultants" test_targeted_followup_respects_disabled_consultant
+run_test "Session restore keeps the original query" test_session_restore_keeps_original_query
+run_test "Whole-panel follow-up records on the original session" test_panel_followup_records_on_original_session
 test_summary "followup"

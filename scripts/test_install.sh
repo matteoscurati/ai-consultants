@@ -200,6 +200,25 @@ test_package_excludes_release_archive() {
     assert_eq "1" "$setup_count" "npm package keeps active setup documentation"
 }
 
+TMP_TEST_UNINSTALL="$(mktemp -d "${TMPDIR:-/tmp}/uninstall_guard.XXXXXX")"
+
+# ---------------------------------------------------------------------------
+# Uninstall must refuse a directory that is not an ai-consultants checkout.
+test_uninstall_refuses_foreign_directory() {
+    local sandbox="$TMP_TEST_UNINSTALL" rc=0
+    rm -rf "$sandbox"; mkdir -p "$sandbox/home" "$sandbox/precious"
+    printf 'keep me\n' > "$sandbox/precious/data.txt"
+    HOME="$sandbox/home" AI_CONSULTANTS_DIR="$sandbox/precious" \
+        bash "$SCRIPT_DIR/install.sh" --uninstall >/dev/null 2>&1 || rc=$?
+    assert_eq "1" "$([[ $rc -ne 0 ]] && echo 1 || echo 0)" "uninstall of a foreign directory fails"
+    assert_eq "1" "$([[ -f "$sandbox/precious/data.txt" ]] && echo 1 || echo 0)" \
+        "uninstall never deletes a directory that is not an ai-consultants checkout"
+    rc=0
+    HOME="$sandbox/home" bash "$SCRIPT_DIR/install.sh" --branch >/dev/null 2>&1 || rc=$?
+    assert_eq "1" "$rc" "--branch without a value fails cleanly"
+    rm -rf "$sandbox"
+}
+
 run_test "Test 1: prunes commands removed upstream" test_prunes_commands_removed_upstream
 run_test "Test 2: leaves other tools' commands alone" test_leaves_other_tools_commands_alone
 run_test "Test 3: fresh install is a clean no-op" test_no_installed_commands_is_a_clean_no_op
@@ -208,5 +227,6 @@ run_test "Test 5: define-only hook exposes helpers without installing" test_defi
 run_test "Test 6: installer banner is version-neutral" test_installer_banner_is_version_neutral
 run_test "Test 7: shipped surfaces exclude removed Cursor consultant" test_shipped_surfaces_exclude_removed_cursor_consultant
 run_test "Test 8: npm package excludes release-note archive" test_package_excludes_release_archive
+run_test "Test 9: uninstall refuses a foreign directory" test_uninstall_refuses_foreign_directory
 
 test_summary "install"

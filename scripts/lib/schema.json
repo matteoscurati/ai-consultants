@@ -1,23 +1,22 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "AI Consultant Response Schema v2.0",
-  "description": "Unified output schema for all AI consultants in ai-consultants skill",
+  "title": "AI Consultant Response Envelope v3",
+  "description": "Envelope written for every consultant (<consultant>.json), whether the answer was structured, usable prose (fallback) or a failure (error). Built by the response builders in scripts/lib/common.sh; the provider answer is canonicalized by scripts/lib/response_canonicalize.jq first. The synthesis artifact (synthesis.json) is definitions.synthesis_artifact. Checked in tests with scripts/lib/json_schema_check.jq.",
   "type": "object",
-  "required": ["consultant", "response", "confidence", "metadata"],
+  "required": ["consultant", "model", "persona", "response", "confidence", "metadata"],
   "properties": {
     "consultant": {
       "type": "string",
-      "description": "Name of the consultant (Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax)",
-      "enum": ["Gemini", "Codex", "Mistral", "Kimi", "Claude", "Qwen3", "GLM", "Grok", "DeepSeek", "MiniMax"]
+      "minLength": 1,
+      "description": "Consultant name: Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, or a custom API agent (title-cased from ENABLE_<NAME>)."
     },
     "model": {
       "type": "string",
-      "description": "Specific model version used"
+      "description": "Best effective model identifier (see metadata.model_identity_source for the strength of that evidence)."
     },
     "persona": {
       "type": "string",
-      "description": "Assigned persona role",
-      "enum": ["The Architect", "The Pragmatist", "The Devil's Advocate", "The Innovator", "The Integrator", "The Pair Programmer", "The Systems Thinker", "The Eastern Sage", "The Synthesizer", "The Analyst", "The Methodologist", "The Provocateur", "The Code Specialist", "The Pragmatic Optimizer", "The Local Expert"]
+      "description": "Persona display name: a catalog name (scripts/lib/personas.sh), {AGENT}_PERSONA_NAME, 'Custom Persona', or 'External Consultant'."
     },
     "response": {
       "type": "object",
@@ -25,20 +24,24 @@
       "properties": {
         "summary": {
           "type": "string",
-          "description": "TL;DR in 2-3 sentences (max 500 chars)",
-          "maxLength": 500
+          "description": "TL;DR in 2-3 sentences (the contract asks for at most 500 characters; not truncated locally). May be blank, which yields no summary finding."
         },
-        "detailed": {
-          "type": "string",
-          "description": "Full detailed response"
-        },
+        "detailed": { "type": "string", "description": "Full response. Never atomized into coverage findings." },
         "approach": {
           "type": "string",
-          "description": "High-level approach name/category"
+          "description": "Approach name. 'unspecified' when the consultant gave none, 'unstructured-provider-response' for fallback prose, 'error' for failures."
+        },
+        "pros": { "type": "array", "items": { "type": "string" } },
+        "cons": { "type": "array", "items": { "type": "string" } },
+        "caveats": { "type": "array", "items": { "type": "string" } },
+        "references": { "type": "array", "items": { "type": "string" } },
+        "alternatives": {
+          "type": "array",
+          "description": "Strings, or objects with name and reason_not_chosen.",
+          "items": { "type": ["string", "object"] }
         },
         "code_snippets": {
           "type": "array",
-          "description": "Code examples if applicable",
           "items": {
             "type": "object",
             "properties": {
@@ -48,40 +51,9 @@
             }
           }
         },
-        "pros": {
-          "type": "array",
-          "description": "Advantages of the proposed solution",
-          "items": { "type": "string" }
-        },
-        "cons": {
-          "type": "array",
-          "description": "Disadvantages or trade-offs",
-          "items": { "type": "string" }
-        },
-        "alternatives": {
-          "type": "array",
-          "description": "Alternative approaches considered",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "reason_not_chosen": { "type": "string" }
-            }
-          }
-        },
-        "caveats": {
-          "type": "array",
-          "description": "Important assumptions or limitations",
-          "items": { "type": "string" }
-        },
-        "references": {
-          "type": "array",
-          "description": "Links or references if applicable",
-          "items": { "type": "string" }
-        },
         "findings": {
           "type": "array",
-          "description": "Locally normalized, atomically attributable findings generated during synthesis. Provider-supplied IDs are never trusted.",
+          "description": "Added locally during synthesis to successful responses. Provider-supplied findings/IDs are never trusted.",
           "items": { "$ref": "#/definitions/normalized_finding" }
         }
       }
@@ -92,90 +64,60 @@
       "properties": {
         "score": {
           "type": "integer",
-          "description": "Confidence score from 1-10",
-          "minimum": 1,
-          "maximum": 10
+          "minimum": 0,
+          "maximum": 10,
+          "description": "1-10 for answers (fallback prose carries a synthetic 5); 0 only in error envelopes."
         },
-        "reasoning": {
-          "type": "string",
-          "description": "Why this confidence level was assigned"
-        },
-        "uncertainty_factors": {
-          "type": "array",
-          "description": "Factors that reduce confidence",
-          "items": { "type": "string" }
-        }
+        "reasoning": { "type": "string" },
+        "uncertainty_factors": { "type": "array", "items": { "type": "string" } }
       }
     },
     "metadata": {
       "type": "object",
+      "required": ["tokens_used", "tokens_source", "latency_ms", "model_version", "requested_model", "model_identity_source", "response_quality", "timestamp"],
       "properties": {
+        "tokens_used": { "type": "integer", "minimum": 0, "description": "Tokens consumed; read tokens_source before treating it as exact." },
+        "tokens_input": { "type": "integer", "minimum": 0, "description": "Prompt tokens (measured or estimated, see tokens_source). Preferred over re-splitting tokens_used." },
+        "tokens_output": { "type": "integer", "minimum": 0, "description": "Completion tokens (measured or estimated, see tokens_source)." },
+        "tokens_source": {
+          "type": "string",
+          "enum": ["measured", "estimated", "unknown"],
+          "description": "measured = provider usage (API, Claude CLI, Codex CLI telemetry); estimated = local 4-chars-per-token approximation; unknown = not recorded."
+        },
+        "tokens_cached_input": { "type": "integer", "minimum": 0, "description": "Cached subset of tokens_input (Codex CLI); not added again." },
+        "provider_cost_usd": { "type": "number", "minimum": 0, "description": "Provider-reported cost (Claude CLI); preferred over any estimate." },
+        "billing_models": { "type": "array", "items": { "type": "string" }, "description": "Billing participants (Claude CLI); not content-model attestation." },
         "cost_source": {
           "type": "string",
           "enum": ["unavailable", "estimated-standard-rates", "estimated-long-context-standard-rates"],
           "description": "Codex estimate provenance; not a provider invoice."
         },
-        "cost_note": {"type": "string", "description": "Limitations of the local cost estimate."},
-        "tokens_cached_input": {"type": "integer", "minimum": 0, "description": "Cached subset of CLI total input tokens; not added again."},
-
-        "billing_models": {
-          "type": "array",
-          "items": {"type": "string"},
-          "description": "Billing participants; not content-model attestation."
-        },
-        "tokens_used": {
-          "type": "integer",
-          "description": "Tokens consumed. CLI/API usage can be measured, estimated or unknown; read tokens_source before treating it as exact."
-        },
-        "tokens_input": {
-          "type": "integer",
-          "description": "Prompt tokens from CLI/API usage or local estimation; interpret together with tokens_source. Prefer a recorded split over re-splitting tokens_used."
-        },
-        "tokens_output": {
-          "type": "integer",
-          "description": "Completion tokens from CLI/API usage or local estimation; interpret together with tokens_source."
-        },
-        "tokens_source": {
-          "type": "string",
-          "enum": ["measured", "estimated", "unknown"],
-          "description": "Where tokens_used came from: measured = CLI/API usage, estimated = local prompt/reply approximation, unknown = not recorded. Key presence alone does not identify transport or measurement."
-        },
-        "latency_ms": {
-          "type": "integer",
-          "description": "Response time in milliseconds"
-        },
-        "model_version": {
-          "type": "string",
-          "description": "Best effective model identifier available from the provider, a capability probe, or the request"
-        },
-        "requested_model": {
-          "type": "string",
-          "description": "Model identifier requested by ai-consultants before provider resolution"
-        },
-        "model_identity_source": {
-          "type": "string",
-          "enum": ["provider-reported", "capability-probed", "requested-only"],
-          "description": "Strength of the evidence behind model/model_version"
-        },
+        "cost_note": { "type": "string" },
+        "latency_ms": { "type": "integer", "minimum": 0 },
+        "model_version": { "type": "string" },
+        "requested_model": { "type": "string" },
+        "model_identity_source": { "type": "string", "enum": ["provider-reported", "capability-probed", "requested-only"] },
         "response_quality": {
           "type": "string",
           "enum": ["structured", "fallback", "error", "unknown"],
-          "description": "Whether the provider satisfied the JSON contract, returned usable prose, failed, or predates quality tagging."
+          "description": "structured = the answer satisfied the JSON contract (after canonicalization); fallback = usable prose kept as context only; error = failed or malformed; unknown = legacy."
         },
-        "cli_version": {
-          "type": "string",
-          "description": "Observed consultant CLI version for provenance only; compatibility is not decided from this string."
-        },
-        "cli_compatibility": {
-          "type": "string",
-          "enum": ["capability-probed", "incompatible"],
-          "description": "Result of checking the CLI's required command, model, and structured-output capabilities before dispatch."
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 timestamp of response"
-        }
+        "error": { "type": "string", "description": "Failure reason (error envelopes)." },
+        "raw_excerpt": { "type": "string", "description": "First 2000 characters of a rejected (malformed or schema-invalid) provider answer, for diagnosis." },
+        "transport": { "type": "string", "enum": ["cli", "api", "api_fallback"], "description": "Route that answered (Grok)." },
+        "cli_version": { "type": "string", "description": "Observed CLI version, provenance only." },
+        "cli_compatibility": { "type": "string", "enum": ["capability-probed", "incompatible"] },
+        "timestamp": { "type": "string", "minLength": 1, "description": "ISO 8601 timestamp." }
+      }
+    },
+    "cache_metadata": {
+      "type": "object",
+      "description": "Present on responses written to or replayed from the semantic cache.",
+      "required": ["cached_at", "fingerprint", "from_cache"],
+      "properties": {
+        "cached_at": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "from_cache": { "type": "boolean" }
       }
     }
   },
@@ -204,9 +146,99 @@
           "type": "array",
           "minItems": 1,
           "items": { "type": "string", "pattern": "^[a-z0-9_]+:[1-9][0-9]*$" },
-          "description": "Required local normalized source IDs. Local integrity checking rejects IDs outside the expected response findings."
+          "description": "Required local normalized source IDs. The local integrity check removes IDs outside the expected response findings."
         },
         "kind": { "type": "string" }
+      }
+    },
+    "coverage_integrity": {
+      "type": "object",
+      "required": ["status", "expected_count", "represented_count", "missing_ids", "unknown_ids", "duplicate_ids", "non_normalizable_consultants", "structural_errors", "audited_fields", "normalization_version", "disclosure"],
+      "properties": {
+        "status": { "type": "string", "enum": ["MET", "DEGRADED", "FAILED", "NOT_APPLICABLE"] },
+        "expected_count": { "type": "integer", "minimum": 0 },
+        "represented_count": { "type": "integer", "minimum": 0 },
+        "missing_ids": { "type": "array", "items": { "type": "string" } },
+        "unknown_ids": { "type": "array", "items": { "type": "string" } },
+        "duplicate_ids": { "type": "array", "items": { "type": "string" } },
+        "non_normalizable_consultants": { "type": "array", "items": { "type": "string" } },
+        "structural_errors": { "type": "array", "items": { "type": "string" } },
+        "audited_fields": { "type": "array", "items": { "type": "string" } },
+        "normalization_version": { "type": "string" },
+        "disclosure": { "type": "string" }
+      }
+    },
+    "synthesis_artifact": {
+      "type": "object",
+      "description": "synthesis.json. Presentation fields are canonicalized by scripts/lib/synthesis_canonicalize.jq; strategy, timestamp, consultants_analyzed, coverage_integrity, coverage_input_truncated, truncated_consultants, synthesis_provider and synthesis_metadata are always local, never model-supplied.",
+      "required": ["synthesis_version", "timestamp", "strategy", "consultants_analyzed", "coverage", "weighted_recommendation", "risk_assessment", "action_items", "follow_up_questions", "coverage_integrity", "coverage_input_truncated", "truncated_consultants", "synthesis_provider"],
+      "properties": {
+        "synthesis_version": { "type": "string" },
+        "timestamp": { "type": "string", "minLength": 1 },
+        "strategy": { "type": "string" },
+        "consultants_analyzed": { "type": "integer", "minimum": 0 },
+        "coverage": { "type": "array", "items": { "$ref": "#/definitions/synthesis_coverage_item" } },
+        "weighted_recommendation": {
+          "type": "object",
+          "required": ["approach", "summary", "detailed"],
+          "properties": {
+            "approach": { "type": "string" },
+            "summary": { "type": "string" },
+            "detailed": { "type": "string" },
+            "supporting_consultants": { "type": "array", "items": { "type": "string" } },
+            "incorporated_insights": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "risk_assessment": {
+          "type": "object",
+          "required": ["overall_risk", "risks"],
+          "properties": {
+            "overall_risk": { "type": "string", "enum": ["low", "medium", "high", "unknown"] },
+            "risks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["description", "severity", "mitigation"],
+                "properties": {
+                  "description": { "type": "string", "minLength": 1 },
+                  "severity": { "type": "string", "enum": ["low", "medium", "high", "unknown"] },
+                  "mitigation": { "type": "string" },
+                  "identified_by": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "action_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["priority", "action", "rationale"],
+            "properties": {
+              "priority": { "type": "integer", "minimum": 1 },
+              "action": { "type": "string", "minLength": 1 },
+              "rationale": { "type": "string" }
+            }
+          }
+        },
+        "follow_up_questions": { "type": "array", "items": { "type": "string" } },
+        "coverage_integrity": { "$ref": "#/definitions/coverage_integrity" },
+        "coverage_input_truncated": { "type": "boolean" },
+        "truncated_consultants": { "type": "array", "items": { "type": "string" } },
+        "synthesis_provider": { "type": "string", "description": "claude, gemini, codex, or local-fallback." },
+        "synthesis_metadata": {
+          "type": "object",
+          "required": ["provider", "model", "tokens_input", "tokens_output", "tokens_source", "estimated_cost_usd"],
+          "properties": {
+            "provider": { "type": "string" },
+            "model": { "type": "string" },
+            "tokens_input": { "type": "integer", "minimum": 0 },
+            "tokens_output": { "type": "integer", "minimum": 0 },
+            "tokens_source": { "type": "string", "enum": ["estimated"] },
+            "estimated_cost_usd": { "type": "number", "minimum": 0 }
+          }
+        },
+        "fallback": { "type": "boolean" }
       }
     }
   }

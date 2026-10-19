@@ -50,12 +50,13 @@ validate_query "$FULL_QUERY" "MiniMax" || exit 1
 # --- Add persona if enabled ---
 MINIMAX_SYSTEM_PROMPT=""
 if [[ "$ENABLE_PERSONA" == "true" ]]; then
-    # mmx exposes a native system channel. Using it materially improves schema
-    # adherence for M3; embedding these instructions in the user message was
-    # observed to produce a complete-looking but unclosed/nested JSON object.
-    MINIMAX_SYSTEM_PROMPT="$(get_persona "$CONSULTANT_NAME")
-
-Respond in concise Markdown under 4000 characters. Do not emit JSON. Do not use tools or inspect files; answer solely from the supplied question and context."
+    # mmx exposes a native system channel. Persona and the shared JSON response
+    # contract go there, not into the user message: embedding the instructions
+    # in the user message was observed to produce a complete-looking but
+    # unclosed/nested JSON object from M3. A Markdown-only contract (the
+    # previous workaround) always produced a fallback envelope, so MiniMax
+    # could never contribute attributable findings to the coverage union.
+    MINIMAX_SYSTEM_PROMPT="$(build_system_prompt "$CONSULTANT_NAME")"
 fi
 
 # --- Timestamp for metadata ---
@@ -64,7 +65,7 @@ TEMP_OUTPUT=$(mktemp)
 
 # Feed the user/context message through --messages-file - so code and secrets do
 # not appear in argv and large contexts avoid ARG_MAX. The native system prompt
-# contains only the persona and compact prose contract.
+# contains only the persona and the shared JSON response contract.
 MMX_ARGS=("$MINIMAX_CMD" "text" "chat" "--non-interactive" "--quiet" "--no-color" "--output" "text")
 if ! [[ "$MINIMAX_MAX_TOKENS" =~ ^[1-9][0-9]*$ ]]; then
     log_error "[$CONSULTANT_NAME] MINIMAX_MAX_TOKENS must be a positive integer (got: $MINIMAX_MAX_TOKENS)"
@@ -81,10 +82,11 @@ if [[ -n "$MINIMAX_SYSTEM_PROMPT" ]]; then
     MMX_ARGS+=("--system" "$MINIMAX_SYSTEM_PROMPT")
 fi
 MMX_ARGS+=("--messages-file" -)
-MINIMAX_MESSAGES=$(jq -n --arg content "$FULL_QUERY" '[{role: "user", content: $content}]')
+# Build it from stdin too: a jq --arg would put the prompt back in argv.
+MINIMAX_MESSAGES=$(printf '%s' "$FULL_QUERY" | jq -n --rawfile content /dev/stdin '[{role: "user", content: $content}]')
 
-# run_query reads stdin via `cat`; mmx ignores stdin here (prompt is in --message),
-# so redirect from /dev/null to give `cat` an immediate EOF instead of blocking.
+# run_query buffers stdin and replays it on each retry; mmx reads the messages
+# array from stdin through --messages-file -.
 if printf '%s' "$MINIMAX_MESSAGES" | run_query "$CONSULTANT_NAME" "$TEMP_OUTPUT" "$MINIMAX_TIMEOUT_SECONDS" "${MMX_ARGS[@]}"; then
     exit_code=0
 else
@@ -100,8 +102,10 @@ MODEL_USED="${MINIMAX_MODEL:-MiniMax-M2.7}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---
+# The token estimate covers everything sent: the system channel (persona and
+# response contract) plus the user message.
 if process_consultant_response "$CONSULTANT_NAME" "$MODEL_USED" "$PERSONA_NAME" \
-        "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "$FULL_QUERY"; then
+        "$TEMP_OUTPUT" "$OUTPUT_FILE" "$exit_code" "$LATENCY_MS" "" "${MINIMAX_SYSTEM_PROMPT}${FULL_QUERY}"; then
     :
 else
     response_rc=$?

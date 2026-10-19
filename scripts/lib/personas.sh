@@ -264,25 +264,34 @@ get_persona() {
     local consultant="$1"
     local upper
     upper=$(_normalize_name "$consultant")
+    local persona_var="${upper}_PERSONA" id_var="${upper}_PERSONA_ID"
+    local custom_persona="${!persona_var:-}" content persona_id
 
-    # Check for explicit persona ID first
-    local persona_id
-    persona_id=$(_resolve_persona_id "$upper")
-    if [[ -n "$persona_id" ]]; then
-        local content
-        content=$(get_persona_content_by_id "$persona_id")
+    # 1) Explicit persona ID
+    if [[ -n "${!id_var:-}" ]]; then
+        content=$(get_persona_content_by_id "${!id_var}")
         if [[ -n "$content" ]]; then
             echo "$content"
             return
         fi
     fi
 
-    # Check for custom persona text
-    local persona_var="${upper}_PERSONA"
-    local custom_persona="${!persona_var:-}"
+    # 2) Custom persona text. It must be checked before the catalog default:
+    # every known consultant has a default ID, so checking the default first
+    # made this documented override unreachable.
     if [[ -n "$custom_persona" ]]; then
         echo "$custom_persona"
         return
+    fi
+
+    # 3) Default persona from the catalog
+    persona_id=$(_resolve_persona_id "$upper")
+    if [[ -n "$persona_id" ]]; then
+        content=$(get_persona_content_by_id "$persona_id")
+        if [[ -n "$content" ]]; then
+            echo "$content"
+            return
+        fi
     fi
 
     # Fallback: generic persona
@@ -297,25 +306,37 @@ get_persona_name() {
     local consultant="$1"
     local upper
     upper=$(_normalize_name "$consultant")
+    local id_var="${upper}_PERSONA_ID" name_var="${upper}_PERSONA_NAME" persona_var="${upper}_PERSONA"
+    local custom_name="${!name_var:-}" name persona_id
 
-    # Check for explicit persona ID
-    local persona_id
-    persona_id=$(_resolve_persona_id "$upper")
-    if [[ -n "$persona_id" ]]; then
-        local name
-        name=$(get_persona_by_id "$persona_id" "name")
+    # 1) Explicit persona ID
+    if [[ -n "${!id_var:-}" ]]; then
+        name=$(get_persona_by_id "${!id_var}" "name")
         if [[ -n "$name" ]]; then
             echo "$name"
             return
         fi
     fi
 
-    # Check for custom persona name
-    local name_var="${upper}_PERSONA_NAME"
-    local custom_name="${!name_var:-}"
+    # 2) Custom display name, or a neutral label for custom persona text
+    # (reporting the catalog default's name for custom text would mislabel it).
     if [[ -n "$custom_name" ]]; then
         echo "$custom_name"
         return
+    fi
+    if [[ -n "${!persona_var:-}" ]]; then
+        echo "Custom Persona"
+        return
+    fi
+
+    # 3) Default persona from the catalog
+    persona_id=$(_resolve_persona_id "$upper")
+    if [[ -n "$persona_id" ]]; then
+        name=$(get_persona_by_id "$persona_id" "name")
+        if [[ -n "$name" ]]; then
+            echo "$name"
+            return
+        fi
     fi
 
     echo "External Consultant"

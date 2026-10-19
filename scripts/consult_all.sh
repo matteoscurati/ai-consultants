@@ -96,6 +96,9 @@ list_modes() { registry_list_modes; }
 
 # --- Argument Parsing ---
 PRESET=""
+# SYNTHESIS_STRATEGY in the environment is a documented per-run default; keep
+# it below --strategy and a --mode default, above DEFAULT_STRATEGY.
+ENV_SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-}"
 SYNTHESIS_STRATEGY=""
 MODE=""
 MODE_DEFAULT_STRATEGY=""
@@ -209,6 +212,10 @@ if [[ -n "$SYNTHESIS_STRATEGY" ]] && ! registry_strategy_metadata "$SYNTHESIS_ST
     echo "Error: unknown strategy '$SYNTHESIS_STRATEGY'. Run --list-strategies to see supported strategies." >&2
     exit 1
 fi
+if [[ -n "$ENV_SYNTHESIS_STRATEGY" ]] && ! registry_strategy_metadata "$ENV_SYNTHESIS_STRATEGY" >/dev/null; then
+    echo "Error: unknown SYNTHESIS_STRATEGY '$ENV_SYNTHESIS_STRATEGY'. Run --list-strategies to see supported strategies." >&2
+    exit 1
+fi
 
 # Runtime libraries source config.sh. Deferring them keeps registry listings and
 # invalid mode diagnostics side-effect-free with respect to user config.
@@ -289,7 +296,7 @@ fi
 if [[ "$STRATEGY_EXPLICIT" != "true" && -n "$MODE_DEFAULT_STRATEGY" ]]; then
     SYNTHESIS_STRATEGY="$MODE_DEFAULT_STRATEGY"
 else
-    SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-${DEFAULT_STRATEGY:-$(registry_default_strategy)}}"
+    SYNTHESIS_STRATEGY="${SYNTHESIS_STRATEGY:-${ENV_SYNTHESIS_STRATEGY:-${DEFAULT_STRATEGY:-$(registry_default_strategy)}}}"
 fi
 log_info "Synthesis strategy: $SYNTHESIS_STRATEGY${MODE:+ (mode: $MODE)}"
 
@@ -335,7 +342,7 @@ fi
 QUESTION_CATEGORY="GENERAL"
 if [[ "$ENABLE_CLASSIFICATION" == "true" ]]; then
     log_info "Classifying question..."
-    QUESTION_CATEGORY=$("$SCRIPT_DIR/classify_question.sh" "$QUERY" 2>/dev/null || echo "GENERAL")
+    QUESTION_CATEGORY=$(printf '%s' "$QUERY" | "$SCRIPT_DIR/classify_question.sh" - 2>/dev/null || echo "GENERAL")
     log_info "Category: $QUESTION_CATEGORY"
 fi
 
@@ -354,6 +361,9 @@ chmod 700 "$DEFAULT_OUTPUT_DIR_BASE"
 # Create session-specific directory
 mkdir -p "$OUTPUT_DIR"
 chmod 700 "$OUTPUT_DIR"
+# Absolute from here on: build_context.sh runs from --context-root below, where
+# a relative DEFAULT_OUTPUT_DIR_BASE would resolve to the wrong directory.
+OUTPUT_DIR=$(cd "$OUTPUT_DIR" && pwd)
 
 HOST_CONTEXT_STAGE=""
 _cleanup_host_context_stage() {
@@ -415,11 +425,21 @@ echo "" >&2
 # --- Automatic Context Creation ---
 log_info "Building automatic context..."
 CONTEXT_FILE="$OUTPUT_DIR/context.md"
+# Agent hosts cd into the skill root before running this script, so the
+# caller's project is only known through --context-root. build_context.sh
+# describes its working directory (pwd + project tree), so run it from that
+# root; otherwise consultants receive the skill's own file tree as "the
+# project". Staged files are absolute temp paths and remain valid there.
+# QUESTION_CATEGORY is not exported, so pass it explicitly: build_context.sh
+# omits the project tree for pointed categories (SECURITY, QUICK_SYNTAX, ...)
+# and otherwise always sees GENERAL and lists the caller's files.
+CONTEXT_BUILD_DIR="${CONTEXT_ROOT:-$PWD}"
 if [[ ${#FILES[@]} -gt 0 ]]; then
-    CONTEXT_STAGE_ROOT="$HOST_CONTEXT_STAGE" \
-        "$SCRIPT_DIR/build_context.sh" "$CONTEXT_FILE" "$QUERY" "${FILES[@]}" > /dev/null
+    (cd "$CONTEXT_BUILD_DIR" && QUESTION_CATEGORY="$QUESTION_CATEGORY" CONTEXT_STAGE_ROOT="$HOST_CONTEXT_STAGE" \
+        "$SCRIPT_DIR/build_context.sh" "$CONTEXT_FILE" - "${FILES[@]}") <<<"$QUERY" > /dev/null
 else
-    "$SCRIPT_DIR/build_context.sh" "$CONTEXT_FILE" "$QUERY" > /dev/null
+    (cd "$CONTEXT_BUILD_DIR" && QUESTION_CATEGORY="$QUESTION_CATEGORY" \
+        "$SCRIPT_DIR/build_context.sh" "$CONTEXT_FILE" -) <<<"$QUERY" > /dev/null
 fi
 log_success "Context created: $CONTEXT_FILE ($(wc -l < "$CONTEXT_FILE" | tr -d ' ') lines)"
 if [[ -n "$HOST_CONTEXT_STAGE" ]]; then
@@ -432,8 +452,10 @@ CONTEXT_SIZE=0
 ESTIMATED_COST=0
 if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
     CONTEXT_SIZE=$(wc -c < "$CONTEXT_FILE" | tr -d ' ')
+    # Generic default-rate estimate for the early budget check; the panel is
+    # not selected yet, so the user-facing figure is the refined one below.
     ESTIMATED_COST=$(estimate_consultation_cost 4 "$CONTEXT_SIZE")
-    log_info "Estimated cost: $(format_cost "$ESTIMATED_COST")"
+    log_debug "Preliminary estimate (4 consultants at the default rate): $(format_cost "$ESTIMATED_COST")"
 fi
 
 # --- Budget Check: Before Round 1 ---
@@ -455,7 +477,7 @@ if [[ "$ENABLE_SMART_ROUTING" == "true" ]]; then
     log_info "Smart routing for category $QUESTION_CATEGORY..."
     while IFS= read -r c; do
         [[ -n "$c" ]] && SELECTED_CONSULTANTS+=("$c")
-    done < <(select_consultants "$QUESTION_CATEGORY" "$MIN_AFFINITY")
+    done < <(select_consultants_cost_aware "$QUESTION_CATEGORY" "$QUERY_COMPLEXITY" "$MIN_AFFINITY")
     log_info "Selected consultants: ${SELECTED_CONSULTANTS[*]}"
 else
     # Log self-exclusion status for debugging
@@ -569,7 +591,7 @@ fi
 if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
     CONSULTANT_LIST=$(IFS=','; echo "${SELECTED_CONSULTANTS[*]}")
     ESTIMATED_COST=$(estimate_consultation_cost "${#SELECTED_CONSULTANTS[@]}" "$CONTEXT_SIZE" "$CONSULTANT_LIST")
-    log_debug "Refined estimate with ${#SELECTED_CONSULTANTS[@]} consultants: $(format_cost "$ESTIMATED_COST")"
+    log_info "Estimated cost: $(format_cost "$ESTIMATED_COST") for ${#SELECTED_CONSULTANTS[@]} consultant(s), before synthesis and thinking tokens"
 
     # Re-check budget with refined estimate
     if is_budget_enabled; then
@@ -628,7 +650,7 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
         if [[ "${ENABLE_COST_AWARE_ROUTING:-false}" == "true" ]] && type get_cost_aware_model &>/dev/null; then
             local_model=$(get_cost_aware_model "$consultant_lower" "${QUERY_COMPLEXITY:-5}" 2>/dev/null || echo "")
             if [[ -n "$local_model" ]]; then
-                model_var="$(to_upper "${consultant_lower}")_MODEL"
+                model_var=$(model_env_var_for "$consultant_lower")
                 if [[ ! "$model_var" =~ ^[A-Z0-9_]+_MODEL$ ]]; then
                     log_warn "Invalid model variable name: $model_var, skipping cost-aware override"
                     continue
@@ -664,6 +686,153 @@ if [[ ${#CACHE_HITS[@]} -gt 0 ]]; then
     log_info "Cache hits: ${CACHE_HITS[*]}"
 fi
 
+# --- Host control while waiting ---
+# Generation runs with no wall-clock limit unless a *_TIMEOUT is set, so the
+# invoking host (an agent or a person) decides when to stop waiting:
+#   proceed - stop the current phase (consultants, escalation or synthesis)
+#             and continue with the answers already received:
+#             touch "$OUTPUT_DIR/.proceed", kill -USR1 <pid>, or a first Ctrl-C
+#   abort   - end the run, keeping the partial output directory:
+#             touch "$OUTPUT_DIR/.abort", SIGTERM/SIGHUP, or a second Ctrl-C
+# Stopped work is ended with its whole process tree so no CLI keeps running
+# unobserved. A provider may still bill tokens it generated before the stop.
+HOST_PROCEED_FILE="$OUTPUT_DIR/.proceed"
+HOST_ABORT_FILE="$OUTPUT_DIR/.abort"
+_HOST_PROCEED=false
+_HOST_INTERRUPTS=0
+_ACTIVE_CHILD_PIDS=""
+WAIT_HEARTBEAT_SECONDS="${WAIT_HEARTBEAT_SECONDS:-30}"
+[[ "$WAIT_HEARTBEAT_SECONDS" =~ ^[0-9]+$ ]] || WAIT_HEARTBEAT_SECONDS=30
+STOPPED_COUNT=0
+SYNTHESIS_STOPPED=false
+
+_track_child() { _ACTIVE_CHILD_PIDS="$_ACTIVE_CHILD_PIDS $1"; }
+_untrack_child() {
+    local p kept=""
+    for p in $_ACTIVE_CHILD_PIDS; do
+        [[ "$p" == "$1" ]] || kept="$kept $p"
+    done
+    _ACTIVE_CHILD_PIDS="$kept"
+}
+
+_abort_run() {
+    local reason="$1" code="${2:-130}" p
+    trap - INT TERM HUP USR1
+    log_error "Consultation aborted ($reason); stopping the work still running..."
+    for p in $_ACTIVE_CHILD_PIDS; do
+        kill_process_tree "$p"
+        wait "$p" 2>/dev/null || true
+    done
+    _ACTIVE_CHILD_PIDS=""
+    log_info "Partial output kept in: $OUTPUT_DIR"
+    exit "$code"
+}
+
+# A terminal Ctrl-C reaches the whole process group. If it ends a foreground
+# command (jq, date) outside the wait loops, `set -e` exits before the trap
+# can continue the run; even then no consultant CLI may keep running.
+_stop_tracked_children() {
+    local p
+    for p in $_ACTIVE_CHILD_PIDS; do
+        kill_process_tree "$p"
+    done
+    _ACTIVE_CHILD_PIDS=""
+}
+
+# One poll interval. A foreground `sleep` would die with a terminal Ctrl-C and
+# `set -e` would end the run; an asynchronous one ignores SIGINT, and `wait`
+# returns as soon as a trapped signal arrives.
+_host_poll_pause() {
+    sleep 1 &
+    wait $! 2>/dev/null || true
+}
+
+_on_host_interrupt() {
+    _HOST_INTERRUPTS=$((_HOST_INTERRUPTS + 1))
+    if (( _HOST_INTERRUPTS > 1 )); then
+        _abort_run "second interrupt"
+    fi
+    _HOST_PROCEED=true
+    log_warn "Interrupt: continuing with the answers received so far (interrupt again to abort)"
+}
+
+trap _on_host_interrupt INT
+trap '_HOST_PROCEED=true' USR1
+trap '_abort_run SIGTERM 143' TERM
+trap '_abort_run SIGHUP 129' HUP
+trap _stop_tracked_children EXIT
+
+_host_proceed_requested() {
+    if [[ -e "$HOST_PROCEED_FILE" ]]; then
+        rm -f "$HOST_PROCEED_FILE"
+        _HOST_PROCEED=true
+    fi
+    [[ "$_HOST_PROCEED" == "true" ]]
+}
+
+_check_host_abort() {
+    if [[ -e "$HOST_ABORT_FILE" ]]; then
+        rm -f "$HOST_ABORT_FILE"
+        _abort_run "abort requested by the host"
+    fi
+}
+
+_host_control_hint() {
+    log_info "  To continue with the answers received: touch \"$HOST_PROCEED_FILE\" (or kill -USR1 $$). To abort: touch \"$HOST_ABORT_FILE\"."
+}
+
+# A proceed request stops the phase that is running. One that arrives after
+# that phase already finished (the last consultant answered in the same poll
+# interval) must not stop the next phase, e.g. skip the synthesis.
+# Usage: _discard_late_proceed <phase>
+_discard_late_proceed() {
+    if _host_proceed_requested; then
+        _HOST_PROCEED=false
+        log_info "Proceed request arrived after $1 had finished; it does not stop the next phase"
+    fi
+}
+
+# Wait for one child under host control, with heartbeats.
+# Usage: _wait_child_under_host_control <pid> <label>
+# Returns the child's exit status, or 254 when the host asked to proceed and
+# the child was stopped before it finished.
+_wait_child_under_host_control() {
+    local pid="$1" label="$2" started now last rc
+    started=$(date +%s)
+    last=$started
+    _track_child "$pid"
+    while kill -0 "$pid" 2>/dev/null; do
+        _check_host_abort
+        if _host_proceed_requested; then
+            _HOST_PROCEED=false
+            log_warn "Host requested to proceed: stopping $label after $(( $(date +%s) - started ))s"
+            kill_process_tree "$pid"
+            _untrack_child "$pid"
+            # It may have finished in the instant before the stop.
+            wait "$pid" 2>/dev/null && return 0
+            return 254
+        fi
+        now=$(date +%s)
+        if (( WAIT_HEARTBEAT_SECONDS > 0 && now - last >= WAIT_HEARTBEAT_SECONDS )); then
+            last=$now
+            log_info "Still waiting after $(( now - started ))s for: $label"
+            _host_control_hint
+        fi
+        _host_poll_pause
+    done
+    _untrack_child "$pid"
+    wait "$pid" 2>/dev/null && return 0
+    rc=$?
+    # A terminal Ctrl-C also reaches the child's CLI, which can exit before
+    # the loop sees the request: that is a stop, not a failure.
+    if _host_proceed_requested; then
+        _HOST_PROCEED=false
+        log_warn "Host requested to proceed: $label ended after $(( $(date +%s) - started ))s"
+        return 254
+    fi
+    return "$rc"
+}
+
 # Surface the captured stderr reason for a consultant that produced no usable
 # output, so the user sees WHY (auth error, CLI missing, transient) instead of a
 # bare "Failed". Derives the .err path from the .json output path.
@@ -678,42 +847,17 @@ _surface_consultant_error() {
     DIAGNOSED_FAILURES+=("${cname}|${detail}")
 }
 
-# --- Wait and Collect Results ---
-log_info "Waiting for responses from ${#PIDS[@]} consultants..."
-
-declare -a RESULTS=()
-declare -a DIAGNOSED_FAILURES=()
-SUCCESS_COUNT=0
-
-for i in "${!PIDS[@]}"; do
-    pid="${PIDS[$i]}"
+# Record the outcome of Round 1 consultant <index> whose process exited <rc>.
+_collect_round1_result() {
+    local i="$1" rc="$2" name output_file name_lower response_content
     name="${NAMES[$i]}"
     output_file="${OUTPUT_FILES[$i]}"
     name_lower=$(to_lower "$name")
 
-    # Handle cache hits (pid is "cache" marker)
-    if [[ "$pid" == "cache" ]]; then
-        if [[ -s "$output_file" ]]; then
-            log_success "  $name: OK (cached)"
-            RESULTS+=("$name:OK")
-            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-            if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
-                record_consultant_outcome "$name" success 2>/dev/null || true
-            fi
-        else
-            log_warn "  $name: Cache miss"
-            RESULTS+=("$name:EMPTY")
-            if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
-                record_consultant_outcome "$name" fail 2>/dev/null || true
-            fi
-        fi
-        continue
-    fi
-
-    if wait "$pid" 2>/dev/null; then
+    if [[ "$rc" -eq 0 ]]; then
         if [[ -s "$output_file" ]]; then
             log_success "  $name: OK ($(wc -c < "$output_file" | tr -d ' ') bytes)"
-            RESULTS+=("$name:OK")
+            RESULTS[$i]="$name:OK"
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             update_progress "$name" 100 "success"
             if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
@@ -728,7 +872,7 @@ for i in "${!PIDS[@]}"; do
         else
             log_warn "  $name: Empty response"
             _surface_consultant_error "$name" "$output_file"
-            RESULTS+=("$name:EMPTY")
+            RESULTS[$i]="$name:EMPTY"
             update_progress "$name" 100 "failed"
             if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
                 record_consultant_outcome "$name" fail 2>/dev/null || true
@@ -737,13 +881,127 @@ for i in "${!PIDS[@]}"; do
     else
         log_error "  $name: Failed"
         _surface_consultant_error "$name" "$output_file"
-        RESULTS+=("$name:FAILED")
+        RESULTS[$i]="$name:FAILED"
         update_progress "$name" 100 "failed"
         if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
             record_consultant_outcome "$name" fail 2>/dev/null || true
         fi
     fi
+}
+
+# Stop Round 1 consultant <index> because the host asked to proceed. Not a
+# reliability failure: the consultant was still working.
+_stop_round1_consultant() {
+    local i="$1" elapsed="$2" name output_file pid
+    name="${NAMES[$i]}"
+    output_file="${OUTPUT_FILES[$i]}"
+    pid="${PIDS[$i]}"
+    kill_process_tree "$pid"
+    _untrack_child "$pid"
+    # It may have finished in the instant before the stop.
+    if wait "$pid" 2>/dev/null && jq -e . "$output_file" >/dev/null 2>&1; then
+        _collect_round1_result "$i" 0
+        return
+    fi
+    # Never let a partial envelope reach synthesis, voting or cost.
+    rm -f "$output_file"
+    log_warn "  $name: Stopped by the host after ${elapsed}s"
+    RESULTS[$i]="$name:STOPPED"
+    STOPPED_COUNT=$((STOPPED_COUNT + 1))
+    DIAGNOSED_FAILURES+=("${name}|stopped by the host after ${elapsed}s, before it answered (the provider may still bill what it generated)")
+    update_progress "$name" 100 "stopped"
+}
+
+# --- Wait and Collect Results ---
+log_info "Waiting for responses from ${#PIDS[@]} consultants (no timeout unless *_TIMEOUT is set)..."
+_host_control_hint
+
+declare -a RESULTS=()
+declare -a DIAGNOSED_FAILURES=()
+NETWORK_FAILURE_HINT=""
+declare -a PENDING=()
+SUCCESS_COUNT=0
+WAIT_STARTED_AT=$(date +%s)
+
+for i in "${!PIDS[@]}"; do
+    pid="${PIDS[$i]}"
+    name="${NAMES[$i]}"
+    output_file="${OUTPUT_FILES[$i]}"
+
+    # Handle cache hits (pid is "cache" marker)
+    if [[ "$pid" == "cache" ]]; then
+        if [[ -s "$output_file" ]]; then
+            log_success "  $name: OK (cached)"
+            RESULTS[$i]="$name:OK"
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
+                record_consultant_outcome "$name" success 2>/dev/null || true
+            fi
+        else
+            log_warn "  $name: Cache miss"
+            RESULTS[$i]="$name:EMPTY"
+            if [[ "${ENABLE_RELIABILITY_TRACKING:-true}" == "true" ]]; then
+                record_consultant_outcome "$name" fail 2>/dev/null || true
+            fi
+        fi
+        continue
+    fi
+    PENDING+=("$i")
+    _track_child "$pid"
 done
+
+# Poll instead of `wait`: Bash 3.2 has no `wait -n`, and a blocking wait on one
+# consultant would delay the others' results and the host's requests.
+# A terminal Ctrl-C also kills whatever short command (date, jq) the loop is
+# running; under `set -e` that failure would end the run instead of letting
+# the trap continue it, so the loop runs without errexit. (The single-child
+# waits run in a `||` context, where errexit is already off.)
+_last_heartbeat=$WAIT_STARTED_AT
+set +e
+while [[ ${#PENDING[@]} -gt 0 ]]; do
+    # Handle host requests before collecting: a terminal Ctrl-C also reaches
+    # the consultant CLIs, and one it ended was stopped, not failed.
+    _check_host_abort
+    if _host_proceed_requested; then
+        _HOST_PROCEED=false
+        _elapsed=$(( $(date +%s) - WAIT_STARTED_AT ))
+        log_warn "Host requested to proceed: stopping ${#PENDING[@]} consultant(s) still running"
+        for i in "${PENDING[@]}"; do
+            _stop_round1_consultant "$i" "$_elapsed"
+        done
+        PENDING=()
+        break
+    fi
+
+    _still_running=()
+    for i in "${PENDING[@]}"; do
+        pid="${PIDS[$i]}"
+        if kill -0 "$pid" 2>/dev/null; then
+            _still_running+=("$i")
+            continue
+        fi
+        if wait "$pid" 2>/dev/null; then _rc=0; else _rc=$?; fi
+        _untrack_child "$pid"
+        _collect_round1_result "$i" "$_rc"
+    done
+    PENDING=("${_still_running[@]+"${_still_running[@]}"}")
+    [[ ${#PENDING[@]} -gt 0 ]] || break
+
+    _now=$(date +%s)
+    if (( WAIT_HEARTBEAT_SECONDS > 0 && _now - _last_heartbeat >= WAIT_HEARTBEAT_SECONDS )); then
+        _last_heartbeat=$_now
+        _waiting_for=""
+        for i in "${PENDING[@]}"; do
+            _waiting_for="${_waiting_for:+$_waiting_for, }${NAMES[$i]}"
+        done
+        log_info "Still waiting after $(( _now - WAIT_STARTED_AT ))s for: $_waiting_for"
+        _host_control_hint
+    fi
+    _host_poll_pause
+done
+set -e
+unset _still_running _rc _elapsed _now _waiting_for _last_heartbeat
+_discard_late_proceed "the consultants"
 
 echo "" >&2
 
@@ -753,6 +1011,8 @@ echo "" >&2
 QUORUM_ATTEMPTED=${#PIDS[@]}
 QUORUM_MIN_EFF="${QUORUM_MIN:-2}"
 QUORUM_OUTCOME=$(grade_quorum "$SUCCESS_COUNT" "$QUORUM_ATTEMPTED" "$QUORUM_MIN_EFF")
+NETWORK_FAILURE_HINT=$(diagnosed_failures_network_hint "${DIAGNOSED_FAILURES[@]+"${DIAGNOSED_FAILURES[@]}"}")
+[[ -z "$NETWORK_FAILURE_HINT" ]] || log_warn "$NETWORK_FAILURE_HINT"
 
 if [[ "$QUORUM_OUTCOME" == "DEGRADED" ]]; then
     log_warn "Quorum: DEGRADED — ${SUCCESS_COUNT}/${QUORUM_ATTEMPTED} consultants responded"
@@ -791,25 +1051,61 @@ if is_escalation_enabled && [[ $SUCCESS_COUNT -gt 0 ]]; then
         consultant_lower=$(to_lower "$consultant")
         response_file="$OUTPUT_DIR/${consultant_lower}.json"
 
+        # Only a real low-confidence answer is worth a premium re-query: an
+        # error envelope failed for a transport reason, and a fallback
+        # envelope carries a synthetic confidence of 5.
+        response_quality=$(jq -r '.metadata.response_quality // "unknown"' "$response_file" 2>/dev/null || echo unknown)
+        [[ "$response_quality" == "structured" ]] || continue
+
         if needs_escalation "$response_file"; then
             premium_model=$(get_premium_model "$consultant_lower")
-            if [[ -n "$premium_model" ]]; then
+            model_var=$(model_env_var_for "$consultant_lower")
+            if [[ ! "$model_var" =~ ^[A-Z0-9_]+_MODEL$ ]]; then
+                log_warn "Invalid model variable name: $model_var, skipping escalation for $consultant"
+                continue
+            fi
+            # Compare with the model that actually answered. A cost-aware
+            # economy override exists only in the Round 1 launch subshell, so
+            # the configured variable still names the premium model here.
+            current_model=$(jq -r '.metadata.requested_model // .model // empty' "$response_file" 2>/dev/null || true)
+            [[ -n "$current_model" ]] || current_model="${!model_var:-}"
+            # Never re-ask the same model, and never "escalate" away from a
+            # maximum-tier target (premium can be a smaller model).
+            if [[ -n "$premium_model" && "$premium_model" != "$current_model" \
+                && "$current_model" != "$(get_model_for_tier "$consultant_lower" maximum)" ]]; then
                 original_confidence=$(jq -r '.confidence.score // 5' "$response_file" 2>/dev/null)
                 [[ "$original_confidence" =~ ^[0-9]+$ ]] || original_confidence=5
                 log_info "Escalating $consultant (confidence: $original_confidence) → premium model: $premium_model"
 
                 query_script="$SCRIPT_DIR/query_${consultant_lower}.sh"
-                if [[ -x "$query_script" ]]; then
-                    escalation_file="$OUTPUT_DIR/${consultant_lower}_escalated.json"
-                    model_var="$(to_upper "${consultant_lower}")_MODEL"
-                    if [[ ! "$model_var" =~ ^[A-Z0-9_]+_MODEL$ ]]; then
-                        log_warn "Invalid model variable name: $model_var, skipping escalation for $consultant"
+                if [[ -x "$query_script" ]] && is_budget_enabled; then
+                    # Price the premium re-query (not the model that already
+                    # answered), and count it before the next escalation is
+                    # checked so several escalations cannot each pass alone.
+                    ESCALATION_ESTIMATE=$(export "$model_var=$premium_model"; estimate_consultation_cost 1 "$CONTEXT_SIZE" "$consultant")
+                    [[ -n "$ESCALATION_ESTIMATE" ]] || ESCALATION_ESTIMATE=0
+                    if ! enforce_budget "$CURRENT_COST" "$ESCALATION_ESTIMATE" "escalation of $consultant"; then
+                        log_warn "Skipping escalation of $consultant due to budget constraints"
                         continue
                     fi
+                    CURRENT_COST=$(echo "scale=6; ${CURRENT_COST:-0} + $ESCALATION_ESTIMATE" | bc)
+                fi
+                if [[ -x "$query_script" ]]; then
+                    escalation_file="$OUTPUT_DIR/${consultant_lower}_escalated.json"
                     (
                         export "$model_var=$premium_model"
                         "$query_script" "" "$CONTEXT_FILE" "$escalation_file"
-                    ) > /dev/null 2>&1
+                    ) > /dev/null 2>&1 &
+                    escalation_rc=0
+                    _wait_child_under_host_control $! "escalation of $consultant" || escalation_rc=$?
+                    if [[ $escalation_rc -eq 254 ]]; then
+                        # A proceed request ends the whole escalation phase:
+                        # keep the original answers, drop any partial
+                        # re-query and start no further (billed) re-queries.
+                        rm -f "$escalation_file"
+                        log_warn "  $consultant escalation stopped by the host; keeping the original answers and skipping the remaining escalations"
+                        break
+                    fi
 
                     # Replace original if escalated response has higher confidence
                     if [[ -f "$escalation_file" && -s "$escalation_file" ]]; then
@@ -835,6 +1131,7 @@ if is_escalation_enabled && [[ $SUCCESS_COUNT -gt 0 ]]; then
     if [[ $ESCALATED_COUNT -gt 0 ]]; then
         log_info "Escalated $ESCALATED_COUNT consultant(s) to premium models"
     fi
+    _discard_late_proceed "the escalation"
 fi
 
 # --- Quality Monitoring (v2.3) ---
@@ -847,13 +1144,16 @@ if [[ "${LOG_LEVEL:-INFO}" == "DEBUG" ]]; then
     log_debug "  Cost-aware routing: ${ENABLE_COST_AWARE_ROUTING:-false}"
 fi
 
-# Save optimization metrics to output directory
+# Save optimization metrics to output directory. Flags are normalized to JSON
+# booleans first: a hand-typed value such as TRUE or yes must not make
+# `jq --argjson` abort the run after every consultant has been billed.
+_json_bool() { [[ "$1" == "true" ]] && echo true || echo false; }
 jq -n \
-    --argjson cache_enabled "${ENABLE_SEMANTIC_CACHE:-true}" \
+    --argjson cache_enabled "$(_json_bool "${ENABLE_SEMANTIC_CACHE:-true}")" \
     --argjson cache_hits "${#CACHE_HITS[@]}" \
-    --argjson response_limits "${ENABLE_RESPONSE_LIMITS:-false}" \
-    --argjson cost_aware "${ENABLE_COST_AWARE_ROUTING:-false}" \
-    --argjson compact "${ENABLE_COMPACT_REPORT:-true}" \
+    --argjson response_limits "$(_json_bool "${ENABLE_RESPONSE_LIMITS:-false}")" \
+    --argjson cost_aware "$(_json_bool "${ENABLE_COST_AWARE_ROUTING:-false}")" \
+    --argjson compact "$(_json_bool "${ENABLE_COMPACT_REPORT:-true}")" \
     --argjson success_count "$SUCCESS_COUNT" \
     --argjson total "${#PIDS[@]}" \
     --arg category "$QUESTION_CATEGORY" \
@@ -882,7 +1182,7 @@ if [[ "$ENABLE_SYNTHESIS" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
         if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
             CURRENT_COST=$(calculate_session_cost "$OUTPUT_DIR")
         fi
-        SYNTHESIS_ESTIMATE=$(estimate_phase_cost "synthesis" 1 "$CONTEXT_SIZE")
+        SYNTHESIS_ESTIMATE=$(estimate_phase_cost "synthesis" "$SUCCESS_COUNT" "$CONTEXT_SIZE")
         if ! enforce_budget "$CURRENT_COST" "$SYNTHESIS_ESTIMATE" "synthesis"; then
             log_warn "Skipping synthesis due to budget constraints"
             ENABLE_SYNTHESIS=false
@@ -894,14 +1194,27 @@ if [[ "$ENABLE_SYNTHESIS" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
         log_info "Generating automatic synthesis..."
         SYNTHESIS_FILE="$OUTPUT_DIR/synthesis.json"
 
-        if "$SCRIPT_DIR/synthesize.sh" "$OUTPUT_DIR" "$SYNTHESIS_FILE" "$QUERY" > /dev/null; then
+        printf '%s' "$QUERY" | "$SCRIPT_DIR/synthesize.sh" "$OUTPUT_DIR" "$SYNTHESIS_FILE" - > /dev/null &
+        synthesis_rc=0
+        _wait_child_under_host_control $! "synthesis" || synthesis_rc=$?
+        if [[ $synthesis_rc -eq 0 ]]; then
             log_success "Synthesis generated: $SYNTHESIS_FILE"
+        elif [[ $synthesis_rc -eq 254 ]]; then
+            # A partial synthesis must not be presented as the panel's answer.
+            rm -f "$SYNTHESIS_FILE"
+            SYNTHESIS_FILE=""
+            SYNTHESIS_STOPPED=true
+            log_warn "Synthesis stopped by the host; the report lists the answers without a synthesis (the provider may still bill the call)"
         else
             log_warn "Synthesis failed, using fallback"
         fi
         echo "" >&2
     fi
 fi
+
+# Nothing below waits on a child: restore default signal handling.
+trap - INT TERM HUP USR1 EXIT
+rm -f "$HOST_PROCEED_FILE"
 
 
 # --- Generate Combined Report ---
@@ -910,10 +1223,10 @@ log_info "Generating combined report..."
 REPORT_FILE="$OUTPUT_DIR/report.md"
 
 {
-    echo "# AI Consultation Report v2.0"
+    echo "# AI Consultation Report"
     echo ""
     echo "**Date**: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "**Directory**: $(pwd)"
+    echo "**Directory**: $CONTEXT_BUILD_DIR"
     echo "**Version**: AI Consultants v${AI_CONSULTANTS_VERSION}"
     echo "**Category**: $QUESTION_CATEGORY"
     echo "**Outcome**: ${QUORUM_OUTCOME:-MET} (${SUCCESS_COUNT}/${QUORUM_ATTEMPTED:-${#PIDS[@]}} responded, quorum=${QUORUM_MIN_EFF:-2})"
@@ -936,6 +1249,10 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
             echo "$(render_diagnosed_failure "$_df" table)"
         done
         echo ""
+        if [[ -n "$NETWORK_FAILURE_HINT" ]]; then
+            echo "> $NETWORK_FAILURE_HINT"
+            echo ""
+        fi
     fi
 
     echo "---"
@@ -971,6 +1288,8 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
             quality=$(jq -r '.metadata.response_quality // "unknown"' "$output_file" 2>/dev/null)
             appr=$(jq -r '.response.approach // "N/A"' "$output_file" 2>/dev/null | head -c 30)
             echo "| $name | $quality | $conf/10 | $appr |"
+        elif [[ "$result" == *":STOPPED" ]]; then
+            echo "| $name | stopped | - | (stopped by the host) |"
         else
             echo "| $name | error | - | (no response) |"
         fi
@@ -979,6 +1298,13 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
 
     echo "---"
     echo ""
+
+    if [[ "$SYNTHESIS_STOPPED" == "true" ]]; then
+        echo "## Automatic Synthesis"
+        echo ""
+        echo "*Stopped by the host before it finished. Review the individual answers below.*"
+        echo ""
+    fi
 
     # Synthesis (if available)
     if [[ -n "$SYNTHESIS_FILE" && -f "$SYNTHESIS_FILE" ]]; then
@@ -1082,6 +1408,8 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
             fi
         elif [[ "$result" == *":EMPTY" ]]; then
             echo "*Empty response*"
+        elif [[ "$result" == *":STOPPED" ]]; then
+            echo "*Stopped by the host before it answered*"
         else
             echo "*Consultant did not respond*"
         fi
@@ -1104,14 +1432,25 @@ log_success "Report generated: $REPORT_FILE"
 echo "" >&2
 
 # --- Session Management ---
-SESSION_ID=$(save_session "$(generate_session_id)" "$QUERY" "$OUTPUT_DIR" "$QUESTION_CATEGORY")
-log_info "Session saved: $SESSION_ID"
+# followup.sh runs a whole-panel follow-up through this script and records it
+# on the ORIGINAL session; it sets AI_CONSULTANTS_SKIP_SESSION_SAVE so this run
+# does not replace the current session.
+if [[ "${AI_CONSULTANTS_SKIP_SESSION_SAVE:-false}" == "true" ]]; then
+    SESSION_ID=$(generate_session_id)
+    log_debug "Session save skipped (follow-up run): $SESSION_ID"
+else
+    SESSION_ID=$(save_session "$(generate_session_id)" "$QUERY" "$OUTPUT_DIR" "$QUESTION_CATEGORY")
+    log_info "Session saved: $SESSION_ID"
+fi
 
 # --- Cost Tracking ---
 if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then
     ACTUAL_COST=$(calculate_session_cost "$OUTPUT_DIR")
     track_session_cost "$SESSION_ID" "$ACTUAL_COST"
     log_info "Session cost: $(format_cost "$ACTUAL_COST")$(format_cost_caveats "$OUTPUT_DIR")"
+    if [[ $STOPPED_COUNT -gt 0 || "$SYNTHESIS_STOPPED" == "true" ]]; then
+        log_warn "Session cost excludes work stopped by the host; providers may still bill the tokens it generated"
+    fi
 fi
 
 # --- Final Summary ---
@@ -1127,6 +1466,7 @@ for result in "${RESULTS[@]}"; do
         OK) log_success "  - $name: Success" ;;
         EMPTY) log_warn "  - $name: Empty response" ;;
         FAILED) log_error "  - $name: Failed" ;;
+        STOPPED) log_warn "  - $name: Stopped by the host" ;;
     esac
 done
 echo "" >&2

@@ -171,7 +171,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -o) shift; out="$1" ;;
         -D) shift; headers="$1" ;;
-        -d) shift; body="$1" ;;
+        --data-binary) shift; body=$(cat "${1#@}") ;;
     esac
     shift
 done
@@ -236,6 +236,85 @@ EOF
     rm -rf "$td"
 }
 
+# Gemini 4 Argon: thinking counts toward maxOutputTokens, the API default
+# thinking level mirrors the "(High)" CLI target, and multi-part answers join.
+test_gemini_argon_api_request() {
+    local td fake_curl output_file body_file rc setting
+    td=$(mktemp -d "${TMPDIR:-/tmp}/gemini_argon.XXXXXX")
+    fake_curl="$td/curl"
+    output_file="$td/response.json"
+    body_file="$td/body.json"
+
+    cat > "$fake_curl" <<'EOF'
+#!/bin/bash
+out=""
+headers=""
+body=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -o) shift; out="$1" ;;
+        -D) shift; headers="$1" ;;
+        --data-binary) shift; body=$(cat "${1#@}") ;;
+    esac
+    shift
+done
+[[ -z "${REQUEST_BODY_FILE:-}" ]] || printf '%s' "$body" > "$REQUEST_BODY_FILE"
+printf '%s\n' '{"candidates":[{"content":{"parts":[{"text":"{\"response\":{\"summary\":\"ok\",","thoughtSignature":"c2ln"},{"text":"\"approach\":\"API\"},\"confidence\":{\"score\":8}}"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":20,"thoughtsTokenCount":30}}' > "$out"
+: > "$headers"
+printf '200'
+EOF
+    chmod +x "$fake_curl"
+
+    PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+        GEMINI_API_MODEL=gemini-4-argon REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_gemini.sh" "argon default" "" "$output_file" >/dev/null 2>&1 || true
+    assert_eq high "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' "$body_file")" \
+        "Argon API defaults to the high thinking level of its CLI target"
+    assert_eq 32768 "$(jq -r '.generationConfig.maxOutputTokens' "$body_file")" \
+        "Argon API output budget leaves room for thinking"
+    assert_eq false "$(jq -r '.generationConfig | has("temperature")' "$body_file")" \
+        "no sampling parameters are sent"
+    assert_eq 8 "$(jq -r '.confidence.score' "$output_file")" "an answer split across parts is joined"
+    assert_eq structured "$(jq -r '.metadata.response_quality' "$output_file")" "the joined answer is structured"
+
+    PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+        GEMINI_API_MODEL=gemini-4-argon GEMINI_REASONING_EFFORT=medium GEMINI_API_MAX_TOKENS=40000 \
+        REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_gemini.sh" "argon medium" "" "$output_file" >/dev/null 2>&1 || true
+    assert_eq medium "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' "$body_file")" "an explicit Argon level wins"
+    assert_eq 40000 "$(jq -r '.generationConfig.maxOutputTokens' "$body_file")" "GEMINI_API_MAX_TOKENS is honored"
+
+    # No wall-clock limit unless one is configured: curl gets -m only then.
+    local args_file="$td/curl.args"
+    printf '%s\n' '#!/bin/bash' 'printf "%s\n" "$@" > "$CURL_ARGS_FILE"' "exec \"$fake_curl\" \"\$@\"" > "$td/curl_args_wrapper"
+    chmod +x "$td/curl_args_wrapper"
+    mkdir -p "$td/wrapped"; ln -sf "$td/curl_args_wrapper" "$td/wrapped/curl"
+    PATH="$td/wrapped:$PATH" CURL_ARGS_FILE="$args_file" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+        GEMINI_API_MODEL=gemini-4-argon MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_gemini.sh" "argon no limit" "" "$output_file" >/dev/null 2>&1 || true
+    assert_eq 0 "$(grep -cx -- '-m' "$args_file" || true)" "the default sends no curl time limit"
+    PATH="$td/wrapped:$PATH" CURL_ARGS_FILE="$args_file" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+        GEMINI_API_MODEL=gemini-4-argon GEMINI_TIMEOUT=7 MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_gemini.sh" "argon limit" "" "$output_file" >/dev/null 2>&1 || true
+    assert_eq 7 "$(grep -x -A1 -- '-m' "$args_file" | tail -n 1)" "a configured timeout still reaches curl"
+
+    for setting in GEMINI_REASONING_EFFORT=xhigh GEMINI_API_MAX_TOKENS=lots; do
+        rm -f "$body_file"; rc=0
+        env PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
+            GEMINI_API_MODEL=gemini-4-argon "$setting" REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
+            "$SCRIPT_DIR/query_gemini.sh" "argon invalid" "" "$output_file" >/dev/null 2>&1 || rc=$?
+        assert_ne 0 "$rc" "Argon rejects $setting"
+        assert_eq false "$([[ -e "$body_file" ]] && echo true || echo false)" "$setting never dispatches"
+    done
+
+    assert_eq "visible" "$(parse_google_ai_response '{"candidates":[{"content":{"parts":[{"text":"hidden","thought":true},{"text":"visible"}]}}]}')" \
+        "thought parts are excluded from the answer"
+    rc=0
+    parse_google_ai_response '{"candidates":[{"content":{"parts":[{"text":"hidden","thought":true}]}}]}' >/dev/null || rc=$?
+    assert_eq 1 "$rc" "a thought-only response has no answer"
+    rm -rf "$td"
+}
+
 test_api_provider_model_identity_and_glm_failures() {
     local td fake_curl output request request_body rc=0
     td=$(mktemp -d "${TMPDIR:-/tmp}/api_identity.XXXXXX")
@@ -248,7 +327,7 @@ test_api_provider_model_identity_and_glm_failures() {
 #!/bin/bash
 out=""; headers=""; body=""
 while [[ $# -gt 0 ]]; do
-    case "$1" in -o) shift; out="$1" ;; -D) shift; headers="$1" ;; -d) shift; body="$1" ;; esac
+    case "$1" in -o) shift; out="$1" ;; -D) shift; headers="$1" ;; --data-binary) shift; body=$(cat "${1#@}") ;; esac
     shift
 done
 [[ -z "${CURL_CALLED_FILE:-}" ]] || printf 'call\n' >> "$CURL_CALLED_FILE"
@@ -410,6 +489,19 @@ EOF
     rm -rf "$td"
 }
 
+test_openai_reasoning_content_chunks() {
+    local response
+    # Shape returned by Mistral Large 4: a thinking chunk, then text chunks.
+    response='{"choices":[{"message":{"role":"assistant","content":[{"type":"thinking","thinking":[{"type":"text","text":"private"}]},{"type":"text","text":"{\"a\":"},{"type":"text","text":"1}"}]}}]}'
+    assert_eq '{"a":1}' "$(parse_openai_response "$response")" \
+        "OpenAI-compatible parser skips thinking chunks and joins text chunks"
+    assert_eq "plain" "$(parse_openai_response '{"choices":[{"message":{"content":"plain"}}]}')" \
+        "string content is unchanged"
+    local rc=0
+    parse_openai_response '{"choices":[{"message":{"content":[{"type":"thinking","thinking":[]}]}}]}' >/dev/null || rc=$?
+    assert_eq 1 "$rc" "thinking-only content is an empty answer"
+}
+
 test_anthropic_thinking_blocks_and_budget() {
     local response body
     response='{"content":[{"type":"thinking","thinking":"private"},{"type":"text","text":"first"},{"type":"text","text":"second"}]}'
@@ -464,12 +556,137 @@ test_anthropic_max_tokens_is_failure() {
 run_test "get_api_format: default mapping (back-compat gate)" test_format_defaults
 run_test "build_openai_request: default body (back-compat gate)" test_openai_body_unchanged
 run_test "get_api_format: \${AGENT}_FORMAT override" test_format_override
+# A2 + M7: API-only consultants receive the same persona/JSON contract as the
+# dedicated adapters, and neither the key nor the prompt rides in curl argv.
+test_api_consultant_contract_and_private_transport() {
+    local td fake_curl output argv_file header_copy body_copy
+    td=$(mktemp -d "${TMPDIR:-/tmp}/api_contract.XXXXXX")
+    fake_curl="$td/curl"; output="$td/output.json"
+    argv_file="$td/argv"; header_copy="$td/headers"; body_copy="$td/body.json"
+
+    cat > "$fake_curl" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$@" > "$ARGV_FILE"
+out=""; headers=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -o) shift; out="$1" ;;
+        -D) shift; headers="$1" ;;
+        -H) shift
+            if [[ "$1" == @* ]]; then
+                if [[ -f "${1#@}" ]]; then echo "headers" >> "$ON_DISK_FILE"; fi
+                cp "${1#@}" "$HEADER_COPY"
+            fi ;;
+        --data-binary) shift
+            if [[ -f "${1#@}" ]]; then echo "body" >> "$ON_DISK_FILE"; fi
+            cp "${1#@}" "$BODY_COPY" ;;
+    esac
+    shift
+done
+: > "$headers"
+printf '%s\n' '{"model":"glm-5.3-flash","choices":[{"finish_reason":"stop","message":{"content":"{\"response\":{\"summary\":\"ok\",\"approach\":\"API\",\"pros\":[\"p\"],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":8,\"reasoning\":\"r\"}}"}}],"usage":{"prompt_tokens":3,"completion_tokens":2}}' > "$out"
+printf 200
+EOF
+    chmod +x "$fake_curl"
+
+    if ! PATH="$td:$PATH" GLM_API_KEY=secret-glm-key-123 GLM_MODEL=glm-5.3-flash \
+        ARGV_FILE="$argv_file" HEADER_COPY="$header_copy" BODY_COPY="$body_copy" ON_DISK_FILE="$td/on-disk" \
+        RATE_LIMIT_DIR="$td/rate" MAX_RETRIES=1 ENABLE_PERSONA=true \
+        run_api_consultant GLM "UNIQUE_PROMPT_MARKER question" "" "$output" >/dev/null 2>&1; then
+        assert_eq success failure "GLM contract query completes"
+        rm -rf "$td"; return
+    fi
+
+    assert_match 'The Methodologist' "$(jq -r '.messages[0].content' "$body_copy")" \
+        "GLM request carries its persona"
+    assert_match 'Respond ONLY in valid JSON' "$(jq -r '.messages[0].content' "$body_copy")" \
+        "GLM request carries the JSON response contract"
+    assert_eq "The Methodologist" "$(jq -r '.persona' "$output")" "GLM envelope records its persona"
+    assert_eq structured "$(jq -r '.metadata.response_quality' "$output")" "GLM JSON answer is structured"
+    assert_eq 0 "$(grep -c 'secret-glm-key-123' "$argv_file" || true)" "API key never appears in curl argv"
+    assert_eq 0 "$(grep -c 'UNIQUE_PROMPT_MARKER' "$argv_file" || true)" "prompt never appears in curl argv"
+    assert_match 'Authorization: Bearer secret-glm-key-123' "$(cat "$header_copy")" \
+        "API key reaches curl through the private header stream"
+    # A query the host stops (or kills) must not leave the key or the prompt
+    # behind in a temporary file: curl reads both from pipes.
+    assert_eq "" "$(cat "$td/on-disk" 2>/dev/null)" "request headers and body never go through files on disk"
+    rm -rf "$td"
+}
+
+# The prompt (question plus context) reaches jq through stdin: a prompt larger
+# than one argv element (128 KiB on Linux, ARG_MAX on macOS) still builds a
+# complete request body instead of an empty one.
+test_request_builders_accept_prompts_beyond_argv_limits() {
+    local big builder body
+    big=$(head -c 1200000 /dev/zero | tr '\0' 'p')
+    for builder in openai anthropic google_ai qwen; do
+        case "$builder" in
+            openai)    body=$(build_openai_request "$big" m 100 2>/dev/null) ;;
+            anthropic) body=$(build_anthropic_request "$big" m 100 2>/dev/null) ;;
+            google_ai) body=$(build_google_ai_request "$big" "" 100 2>/dev/null) ;;
+            qwen)      body=$(build_qwen_request "$big" m 2>/dev/null) ;;
+        esac
+        assert_eq 1200000 "$(printf '%s' "$body" | jq -r '[.. | strings | select(length > 1000)][0] | length' 2>/dev/null)" \
+            "$builder request keeps a prompt larger than one argument"
+    done
+}
+
+# A 401/403/400 states the provider's reason (sanitized), not only the status.
+test_auth_failure_reports_provider_reason() {
+    local td fake_curl err
+    td=$(mktemp -d "${TMPDIR:-/tmp}/auth_reason.XXXXXX")
+    fake_curl="$td/curl"
+    cat > "$fake_curl" <<'EOF'
+#!/bin/bash
+out=""; headers=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in -o) shift; out="$1" ;; -D) shift; headers="$1" ;; esac
+    shift
+done
+: > "$headers"
+printf '%s\n' "$FAKE_ERROR_BODY" > "$out"
+printf '%s' "$FAKE_STATUS"
+EOF
+    chmod +x "$fake_curl"
+    err=$(PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3-flash RATE_LIMIT_DIR="$td/rate" MAX_RETRIES=1 \
+        FAKE_STATUS=403 FAKE_ERROR_BODY='{"code":"AccessDenied.Unpurchased","message":"Access to model denied. Key sk-abcdefghijklmnopqrstuvwxyz0123 rejected.","type":"AccessDenied.Unpurchased"}' \
+        run_api_consultant GLM test "" "$td/out.json" 2>&1 >/dev/null || true)
+    assert_match "AccessDenied.Unpurchased: Access to model denied" "$err" "403 states the provider's reason"
+    assert_eq 0 "$(grep -c 'sk-abcdefghijklmnopqrstuvwxyz0123' <<< "$err" || true)" "provider reason is sanitized"
+
+    # xAI returns "error" as a string next to a top-level "code".
+    err=$(PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3-flash RATE_LIMIT_DIR="$td/rate" MAX_RETRIES=1 \
+        FAKE_STATUS=401 FAKE_ERROR_BODY='{"code":"The caller does not have permission","error":"Incorrect API key provided: xa***yz."}' \
+        run_api_consultant GLM test "" "$td/out.json" 2>&1 >/dev/null || true)
+    assert_match "Incorrect API key provided" "$err" "401 with a string error field states the provider's reason"
+    rm -rf "$td"
+}
+
+test_network_failure_reports_the_cause() {
+    local td err
+    td=$(mktemp -d "${TMPDIR:-/tmp}/network_reason.XXXXXX")
+    printf '%s\n' '#!/bin/bash' 'printf "000"' 'exit 6' > "$td/curl"
+    chmod +x "$td/curl"
+    err=$(PATH="$td:$PATH" GLM_API_KEY=test GLM_MODEL=glm-5.3-flash RATE_LIMIT_DIR="$td/rate" MAX_RETRIES=1 \
+        run_api_consultant GLM test "" "$td/out.json" 2>&1 >/dev/null || true)
+    assert_match 'All 1 attempts failed: network error: could not resolve the host \(DNS\) \(curl exit 6\)' "$err" \
+        "a DNS failure is named instead of HTTP 000"
+    assert_eq 0 "$(grep -c 'last HTTP' <<< "$err" || true)" "no bare HTTP status is reported"
+    rm -rf "$td"
+}
+
 run_test "validate_reasoning_effort" test_effort_validation
 run_test "build_openai_request: with reasoning_effort" test_openai_body_with_effort
 run_test "build_google_ai_request: with thinking level" test_google_ai_body_with_thinking_level
 run_test "Gemini API mode records API model" test_gemini_api_model_metadata
+run_test "Gemini 4 Argon API request and multi-part answers" test_gemini_argon_api_request
 run_test "API provider model identity and GLM failure modes" test_api_provider_model_identity_and_glm_failures
+run_test "OpenAI-compatible reasoning content chunks" test_openai_reasoning_content_chunks
 run_test "Anthropic thinking blocks and request budget" test_anthropic_thinking_blocks_and_budget
 run_test "Anthropic truncation fails closed" test_anthropic_max_tokens_is_failure
+run_test "API consultants get the persona contract over a private transport" test_api_consultant_contract_and_private_transport
+run_test "Request builders accept prompts beyond argv limits" test_request_builders_accept_prompts_beyond_argv_limits
+run_test "Auth failures report the provider reason" test_auth_failure_reports_provider_reason
+run_test "Network failures report the cause" test_network_failure_reports_the_cause
 
 test_summary "api_transport"

@@ -4,7 +4,7 @@
 # Usage: ./query_mistral.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   MISTRAL_MODEL - API model ID (default: mistral-large-3)
+#   MISTRAL_MODEL - API model ID (default: mistral-large-4)
 #   MISTRAL_CLI_MODEL - Vibe model alias (default: mistral-medium-3.5)
 #   MISTRAL_TIMEOUT - Timeout in seconds (default: 180)
 #   MISTRAL_MAX_TURNS - Bounded advisory turns (default: 4)
@@ -47,7 +47,7 @@ EFFECTIVE_MODEL=""
 
 mistral_cli_supports_required_interface() {
     local help flag
-    if ! help=$(run_with_timeout 8 "$MISTRAL_CMD" --help 2>&1); then
+    if ! help=$(run_with_timeout 8 "$MISTRAL_CMD" --help 2>&1 </dev/null); then
         return 1
     fi
     for flag in --prompt --output --agent --workdir --max-turns; do
@@ -110,7 +110,9 @@ else
     mkdir -p "$isolated_workspace"
     chmod 700 "$isolated_workspace"
 
-    if run_query \
+    if ! guard_argv_prompt_size "$CONSULTANT_NAME" "$FULL_QUERY"; then
+        exit_code=1
+    elif run_query \
             "Mistral Vibe" \
             "$TEMP_OUTPUT" \
             "$MISTRAL_TIMEOUT_SECONDS" \
@@ -163,6 +165,7 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" \
             "Provider returned malformed, truncated, or schema-invalid JSON" "$LATENCY_MS" \
             "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" > "$OUTPUT_FILE"
+        attach_raw_excerpt "$OUTPUT_FILE" "$RAW_RESPONSE"
         exit_code=1
     fi
 else

@@ -10,9 +10,10 @@ AI Consultants follows the open [Agent Skills standard](https://agentskills.io),
 
 | Agent | Skills Directory | Status |
 |-------|-----------------|--------|
-| **Claude Code** | `~/.claude/skills/` | ✅ Native |
-| **OpenAI Codex CLI** | `~/.codex/skills/` | ✅ Compatible |
-| **Gemini CLI** | `~/.gemini/skills/` | ✅ Compatible |
+| **Claude Code** | `~/.claude/skills/` | ✅ Native (slash commands) |
+| **OpenAI Codex CLI** | `~/.codex/skills/` or `~/.agents/skills/` | ✅ Compatible (skill, no slash commands) |
+| **Antigravity (agy)** | `<project>/.agents/skills/` or `~/.gemini/config/skills/` | ✅ Compatible (skill) |
+| **Gemini CLI** | `~/.gemini/skills/` or `~/.agents/skills/` | ⚠️ Legacy (no longer served to individual accounts) |
 | **GitHub Copilot** | Via SkillPort | ✅ Via AGENTS.md |
 | **Cursor** | Via SkillPort | ✅ Via SkillPort |
 | **Windsurf** | Via SkillPort | ✅ Via SkillPort |
@@ -101,29 +102,45 @@ ln -s /path/to/ai-consultants ~/.codex/skills/ai-consultants
 
 ### Step 3: Use in Codex
 
-Once installed, Codex CLI will discover the skill and make slash commands available.
+Codex discovers the skill in `~/.codex/skills/` or `~/.agents/skills/`; it has
+no custom slash commands, so ask for it in natural language ("use the
+ai-consultants skill to …"). The consultation needs network access and writes
+under `~/.cache` and `~/.config`, which Codex's default sandbox blocks: approve
+the escalation when Codex asks, or start it with `--sandbox danger-full-access`.
+Approve it yourself: Codex's automatic approval review (`--approve-for-me`)
+rejects it because it sends your files to external providers. Without network
+access every consultant fails with a network error, and the run reports 0
+answers. Codex also rejects `rm -f`; the skill's private question file is
+removed with `unlink` instead.
 
 ---
 
-## Gemini CLI Setup
+## Antigravity (agy) Setup
 
-Gemini CLI also supports the Agent Skills standard.
-
-### Installation
-
-```bash
-# Option A: Clone directly
-git clone https://github.com/matteoscurati/ai-consultants.git ~/.gemini/skills/ai-consultants
-
-# Option B: Symlink
-ln -s ~/.claude/skills/ai-consultants ~/.gemini/skills/ai-consultants
-```
-
-### Verify
+Antigravity (`agy`) replaced the Gemini CLI for individual Google accounts. It
+reads skills from `<project>/.agents/skills/<name>/` and from its user skill
+directory `~/.gemini/config/skills/<name>/`.
 
 ```bash
-~/.gemini/skills/ai-consultants/scripts/doctor.sh
+# Per project
+mkdir -p .agents/skills
+ln -s ~/.claude/skills/ai-consultants .agents/skills/ai-consultants
+
+# Or for every project
+mkdir -p ~/.gemini/config/skills
+ln -s ~/.claude/skills/ai-consultants ~/.gemini/config/skills/ai-consultants
 ```
+
+Ask in natural language ("use the ai-consultants skill to …"). agy runs the
+consultation as a background task and follows its log; in print mode
+(`agy -p`) it waits at most 30 minutes for background tasks.
+
+## Gemini CLI (legacy)
+
+Google stopped serving the Gemini CLI to individual accounts on 2026-06-18.
+Where it still works, it discovers the skill in `~/.gemini/skills/` or
+`~/.agents/skills/` (natural language only: it loads `.toml` custom commands,
+not the Markdown slash commands shipped here).
 
 ---
 
@@ -198,21 +215,16 @@ Before installing consultant CLIs, ensure you have:
 - **jq** for JSON processing
 - **curl** for API connectivity checks
 
-### Recommended
-- **Bash 4.0+** (macOS ships with 3.2 - install newer version)
-- **timeout/gtimeout** for command timeouts (has POSIX fallback)
-- **Node.js 18+** for npm-based CLIs
-- **Python 3.8+** for pip-based CLIs
-
-### Optional
+- **Bash 3.2+** (the stock macOS `/bin/bash` 3.2 is supported; no newer Bash needed)
 - **bc** for cost calculations (usually pre-installed)
 
-### Install Bash 4+ (macOS)
+### Recommended
+- **Node.js 18+** for npm-based CLIs (Codex, Qwen, MiniMax)
+- **Python 3.8+** for pip-based CLIs (Mistral Vibe)
 
-```bash
-brew install bash
-sudo bash -c 'echo /opt/homebrew/bin/bash >> /etc/shells'
-```
+### Optional
+- **timeout/gtimeout**, used only when you set a positive `*_TIMEOUT` (a
+  built-in fallback is used without it)
 
 ### Install jq
 
@@ -227,9 +239,10 @@ sudo apt-get install jq
 jq --version
 ```
 
-### Install timeout (macOS)
+### Install timeout (macOS, optional)
 
-macOS doesn't include `timeout` by default. Install coreutils for `gtimeout`:
+Consultants have no time limit by default. If you set a positive `*_TIMEOUT`,
+coreutils provides `gtimeout` (macOS does not include `timeout`):
 
 ```bash
 brew install coreutils
@@ -264,7 +277,7 @@ agy models
 > API mode (`GEMINI_USE_API=true`) is an alternative that talks to the Google AI
 > endpoint with `GEMINI_API_KEY` and `GEMINI_API_MODEL` instead of the agy CLI.
 
-Get API key: [Google AI Studio](https://makersuite.google.com/app/apikey)
+Get API key: [Google AI Studio](https://aistudio.google.com/apikey)
 
 ### Codex CLI (The Pragmatist)
 
@@ -359,7 +372,7 @@ When AI Consultants is invoked from a specific AI agent, that agent is automatic
 |----------------|---------------------|-------------------|
 | Claude Code | Claude | Gemini, Codex, Mistral, Qwen, etc. |
 | Codex CLI | Codex | Claude, Gemini, Mistral, Qwen, etc. |
-| Gemini CLI | Gemini | Claude, Codex, Mistral, Qwen, etc. |
+| Antigravity (agy) / Gemini CLI | Gemini | Claude, Codex, Mistral, Qwen, etc. |
 | Cursor | None | All enabled consultants; Cursor is a host, not a panel member |
 | Qwen CLI | Qwen3 | Claude, Gemini, Codex, Mistral, etc. |
 | Kimi CLI | Kimi | All except Kimi |
@@ -367,10 +380,10 @@ When AI Consultants is invoked from a specific AI agent, that agent is automatic
 
 ### Automatic Detection
 
-When using slash commands, `INVOKING_AGENT` is set automatically:
+The host sets `INVOKING_AGENT` itself:
 - Claude Code: `/ai-consultants:consult` sets `INVOKING_AGENT=claude`
-- Codex CLI: `/ai-consultants:consult` sets `INVOKING_AGENT=codex`
-- Gemini CLI: `/ai-consultants:consult` sets `INVOKING_AGENT=gemini`
+- Codex CLI: the skill's execution contract (`SKILL.md`) sets `INVOKING_AGENT=codex`
+- Antigravity (agy) and the legacy Gemini CLI: the contract sets `INVOKING_AGENT=gemini`
 
 The same identity excludes the host from synthesis. A Claude-hosted run must
 not create `claude.json` or report `synthesis_provider=claude`; equivalent
@@ -443,8 +456,12 @@ GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models
 CODEX_API_URL=https://api.openai.com/v1/chat/completions
 CLAUDE_API_URL=https://api.anthropic.com/v1/messages
 MISTRAL_API_URL=https://api.mistral.ai/v1/chat/completions
-QWEN3_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+QWEN3_API_URL=https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation
 ```
+
+The Qwen default is the native DashScope endpoint (`QWEN3_FORMAT=qwen`). For an
+OpenAI-compatible endpoint such as the Token Plan, set `QWEN3_FORMAT=openai` and
+the full `/chat/completions` URL; see [`RECIPES.md`](RECIPES.md).
 
 ### Mode Detection
 
@@ -737,13 +754,22 @@ echo $OPENAI_API_KEY  # Verify set
 
 ### Timeout errors
 
-Increase timeout in `.env`:
+Consultants have no time limit by default. A `Timeout after Ns` message means a
+`*_TIMEOUT` is set to a positive value in `.env` or the environment; set it to
+`0` to remove the limit:
 ```bash
-GEMINI_TIMEOUT=300
-CODEX_TIMEOUT=300
+GEMINI_TIMEOUT=0
+CODEX_TIMEOUT=0
 ```
 
-### "Less than 2 consultants" error
+### A consultant is taking too long
+
+The run logs `Still waiting after Ns for: <names>` while it waits. To continue
+with the answers already received, run `touch <output dir>/.proceed` (the
+directory is logged as `Output: <dir>` at the start) or press Ctrl-C once;
+press Ctrl-C again, or `touch <output dir>/.abort`, to end the run.
+
+### "At least 2 consultants are required" error
 
 Either:
 1. Install another CLI
@@ -757,7 +783,7 @@ Either:
 | "Unknown skill" | Run install script again |
 | Commands not showing | Restart Claude Code |
 | "Exit code 1" | Run `./scripts/doctor.sh` |
-| Configuration not saving | Check file permissions on `~/.claude/skills/` |
+| Configuration not saving | Check permissions on `~/.config/ai-consultants/` (or `$AI_CONSULTANTS_CONFIG_DIR`) |
 
 ---
 
@@ -765,9 +791,10 @@ Either:
 
 ### macOS
 
-Install coreutils for better timeout handling:
+The stock `/bin/bash` 3.2 works. Install coreutils only if you set a positive
+`*_TIMEOUT`:
 ```bash
-brew install coreutils bash
+brew install coreutils
 ```
 
 ### Windows
@@ -780,7 +807,8 @@ wsl --install
 
 ### Linux
 
-No special requirements. Ensure `timeout` is available.
+No special requirements (`timeout` from coreutils is used when a positive
+`*_TIMEOUT` is set).
 
 ---
 
@@ -815,13 +843,17 @@ participants separately. A missing or conflicting content model remains
 `requested-only` and cannot pass a model-promotion gate. Successful terminal
 completion is required even when partial response text or billing is available.
 
-Codex defaults to `gpt-6-astra`; premium and maximum select Astra, standard
-selects `gpt-5.6-terra`, economy selects `gpt-5.6-luna`. Sol remains an explicit
-`CODEX_MODEL=gpt-5.6-sol` override. Configure migrates exact unpinned persisted
-`gpt-5.5` and `gpt-5.6-sol` values to Astra and records `migrated-from` provenance.
-Use `# ai-consultants:pin`, an environment override or `--set` to keep a model.
+Codex defaults to `gpt-6.1-sol` (default and premium); `max_quality` selects
+`gpt-6-astra`, standard selects `gpt-5.6-terra`, economy selects `gpt-5.6-luna`.
+GPT-6.1 Sol is close to Astra on agentic coding at one fifth of its token price.
+Configure migrates exact unpinned persisted `gpt-5.5`, `gpt-5.6-sol` and
+`gpt-6-astra` values to `gpt-6.1-sol` and records `migrated-from` provenance
+(the earliest origin is kept across chained migrations). Use
+`# ai-consultants:pin`, an environment override or `--set` to keep a model,
+for example `--set CODEX_MODEL=gpt-6-astra` to keep Astra as the default.
 
-Astra uses `high` effort when no effort is configured. Explicit `low`, `medium`,
+GPT-6 Astra and GPT-6.1 Sol use `high` effort when no effort is configured
+(their provider default is `medium`). Explicit `low`, `medium`,
 `high`, `xhigh`, and `max` prevail; `none`/`minimal` fail before dispatch.
 The default completion budget is 16384 tokens, including reasoning; override
 `CODEX_API_MAX_TOKENS` explicitly as needed. The text-only Chat Completions
@@ -830,9 +862,11 @@ See the [official migration guide](https://developers.openai.com/api/docs/guides
 CLI JSON events supply token telemetry; the final message file supplies content.
 A CLI `-m` selection remains `requested-only`, not provider attestation.
 
+[GPT-6.1 Sol Standard pricing](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
+is $2/M input and $10/M output;
 [Astra Standard pricing](https://developers.openai.com/api/docs/models/gpt-6-astra)
-is $10/M input and $50/M output. More than 272K input tokens doubles input
-and multiplies output by 1.5 for the whole request. Reported cost is an estimate
+is $10/M input and $50/M output. For both, more than 272K input tokens doubles
+input and multiplies output by 1.5 for the whole request. Reported cost is an estimate
 unless a provider cost is supplied: cache writes, cached-input discounts and
 service processing rates can change the invoice.
 
@@ -899,16 +933,32 @@ P1.6 benchmark IDs/efforts/preregistration are not changed by this update.
 See the [Opus migration guide](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide)
 and [Grok 4.7](https://docs.x.ai/developers/grok-4-7).
 
+### Gemini 4 Argon
+
+Gemini 4 Argon (GA 2026-10-13) serves the default (premium) and maximum tiers:
+`Gemini 4 Argon (High)` on `agy` (listed by `agy models` 1.3.6 with Medium and
+Low variants) and `gemini-4-argon` on the API. One authorized `agy` consultation
+smoke passed on 2026-10-16: structured answer, capability-probed identity, about
+49 s for a short question. The API transport has offline tests only; it needs a
+paid-tier key, because Google excludes Argon from the Free tier and the AI Pro
+plan. On the API, Argon defaults to the `high` thinking level, takes no sampling
+parameters, and spends thinking from `GEMINI_API_MAX_TOKENS` (default 32768).
+
+Configure migrates an unpinned `Gemini 3.8 Flash (High)`, `Gemini 3.7 Flash (High)`
+or `Gemini 3.1 Pro (High)` CLI value to `Gemini 4 Argon (High)`, and an unpinned
+`gemini-3.1-pro-preview` API value to `gemini-4-argon`. Pin a value with
+`# ai-consultants:pin` to keep it.
+
 ### Gemini 3.8 Flash
 
 The installed `agy models` inventory on 2026-09-27 lists Gemini 3.8 Flash
-(High), (Medium) and (Low). CLI default/maximum/premium/standard now select High;
-economy selects Low. Medium remains an explicit `GEMINI_MODEL` choice. Inventory
+(High), (Medium) and (Low). CLI standard selects High and economy selects Low.
+Medium remains an explicit `GEMINI_MODEL` choice. Inventory
 evidence is capability-probed, not provider attestation of a generated answer.
 
-Configure migrates unpinned historical Pro 3.1 High and Flash 3.7 High/Low
-defaults, preserving the High/Low choice. Pins, environment/--set overrides and
-unrelated models are preserved. API mode remains on `gemini-3.1-pro-preview`.
+Configure migrates unpinned Flash 3.7 Low to 3.8 Flash Low. Pins,
+environment/--set overrides and unrelated models are preserved. API standard and
+economy remain on `gemini-3.1-pro-preview`.
 Select `GEMINI_API_MODEL=gemini-3.8-flash` explicitly to use Flash via API; its
 native thinking levels are low/medium/high. Other explicit efforts fail before
 dispatch. With no effort setting, the provider's API default is medium.

@@ -191,6 +191,32 @@ EOF
   install)
     COMMANDS_SRC="$PROJECT_ROOT/.claude/commands"
     COMMANDS_DST="$HOME/.claude/commands"
+
+    # The commands cd into ${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}.
+    # A curl | bash install lives there and outlasts any npx cache, so when a
+    # complete one exists, install its own commands: they stay matched to the
+    # scripts they run. Only without one do the commands point at this package.
+    DEFAULT_SKILL_ROOT='${AI_CONSULTANTS_DIR:-$HOME/.claude/skills/ai-consultants}'
+    default_root="$HOME/.claude/skills/ai-consultants"
+    default_root_resolved=$(cd -P "$default_root" 2>/dev/null && pwd || true)
+    use_default_root=false
+    if [ -n "$default_root_resolved" ] && [ "$PROJECT_ROOT" != "$default_root_resolved" ] \
+      && [ -x "$default_root/scripts/consult_all.sh" ] \
+      && [ -x "$default_root/scripts/doctor.sh" ] \
+      && [ -x "$default_root/scripts/followup.sh" ] \
+      && [ -d "$default_root/.claude/commands" ] \
+      && grep -q '^name: ai-consultants$' "$default_root/SKILL.md" 2>/dev/null; then
+      use_default_root=true
+      COMMANDS_SRC="$default_root/.claude/commands"
+      default_version=$(grep -E '^AI_CONSULTANTS_VERSION=' "$default_root/scripts/config.sh" 2>/dev/null \
+        | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
+      echo "Using the existing installation at $default_root (v${default_version:-unknown})"
+      if [ "$default_version" != "$VERSION" ]; then
+        echo "Note: this package is v$VERSION. To upgrade that installation run:" >&2
+        echo "      bash \"$default_root/scripts/install.sh\" --update" >&2
+      fi
+    fi
+
     if [ ! -d "$COMMANDS_SRC" ]; then
       echo "Error: slash commands directory not found at $COMMANDS_SRC" >&2
       exit 1
@@ -215,10 +241,45 @@ EOF
       echo "Pruned $pruned slash command(s) removed in a previous release"
     fi
 
+    # Without a usable default install, point the default at this package
+    # root so the installed commands can run.
+    rewrite_root=""
+    if [ "$use_default_root" = false ] && [ "$PROJECT_ROOT" != "$default_root_resolved" ]; then
+      # The root lands inside "${AI_CONSULTANTS_DIR:-<root>}", where Bash also
+      # treats a single quote as quoting: an unmatched one is a syntax error.
+      case "$PROJECT_ROOT" in
+        *'"'*|*"'"*|*'$'*|*'`'*|*'\'*)
+          echo "Warning: package path contains shell metacharacters; set AI_CONSULTANTS_DIR=$PROJECT_ROOT before using the slash commands" >&2
+          ;;
+        *)
+          rewrite_root="$PROJECT_ROOT"
+          ;;
+      esac
+      case "$PROJECT_ROOT" in
+        */_npx/*)
+          echo "Warning: this package runs from the npx cache ($PROJECT_ROOT), which npm may delete." >&2
+          echo "         For stable slash commands run: npm install -g ai-consultants && ai-consultants install" >&2
+          ;;
+      esac
+    fi
+
     copied=0
     for f in "$COMMANDS_SRC"/ai-consultants:*.md; do
       [ -f "$f" ] || continue
-      cp "$f" "$COMMANDS_DST/"
+      dest="$COMMANDS_DST/$(basename "$f")"
+      if [ -n "$rewrite_root" ]; then
+        # awk index/substr: a literal replacement, independent of Bash
+        # version quirks in ${var//pattern/replacement} (e.g. "&" in 5.2).
+        awk -v old="$DEFAULT_SKILL_ROOT" -v new="\${AI_CONSULTANTS_DIR:-$rewrite_root}" '
+          { out = ""; line = $0
+            while ((i = index(line, old)) > 0) {
+              out = out substr(line, 1, i - 1) new
+              line = substr(line, i + length(old))
+            }
+            print out line }' "$f" > "$dest"
+      else
+        cp "$f" "$dest"
+      fi
       copied=$((copied + 1))
     done
     if [ "$copied" -eq 0 ]; then

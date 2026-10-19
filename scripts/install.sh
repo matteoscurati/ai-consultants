@@ -190,6 +190,10 @@ fi
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --branch)
+            if [[ $# -lt 2 || -z "$2" ]]; then
+                log_error "--branch requires a branch name"
+                exit 1
+            fi
             BRANCH="$2"
             shift 2
             ;;
@@ -226,6 +230,14 @@ if [[ "$UNINSTALL_MODE" == "true" ]]; then
     log_info "Uninstalling AI Consultants..."
 
     if [[ -d "$INSTALL_DIR" ]]; then
+        # INSTALL_DIR can come from AI_CONSULTANTS_DIR. Refuse to delete a
+        # directory that is not an ai-consultants checkout (a typo such as
+        # AI_CONSULTANTS_DIR=$HOME must never become rm -rf "$HOME").
+        if [[ ! -f "$INSTALL_DIR/scripts/consult_all.sh" ]] \
+            || ! grep -q '^name: ai-consultants$' "$INSTALL_DIR/SKILL.md" 2>/dev/null; then
+            log_error "Refusing to remove $INSTALL_DIR: it does not look like an ai-consultants installation"
+            exit 1
+        fi
         rm -rf "$INSTALL_DIR"
         log_success "Removed: $INSTALL_DIR"
     else

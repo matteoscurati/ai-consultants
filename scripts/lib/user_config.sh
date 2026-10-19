@@ -79,6 +79,24 @@ find_user_config_file() {
     return 1
 }
 
+# Normalize the raw right-hand side of a KEY=value line. Shared by the runtime
+# loader below and by configure.sh so both read a file identically:
+#   "value"  # comment   -> value   (quotes removed, trailing comment dropped)
+#   'value'  # comment   -> value
+#   value # comment      -> value   (only a comment preceded by whitespace)
+#   http://x/#frag       -> http://x/#frag
+# Usage: value=$(parse_env_value "$raw")
+parse_env_value() {
+    local value="$1"
+    local double_quoted='^"(([^"\\]|\\.)*)"[[:space:]]*(#.*)?$'
+    local single_quoted="^'([^']*)'[[:space:]]*(#.*)?$"
+    if [[ "$value" =~ $double_quoted ]] || [[ "$value" =~ $single_quoted ]]; then
+        printf '%s' "${BASH_REMATCH[1]}"
+    else
+        printf '%s' "$value" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//'
+    fi
+}
+
 # Parse a .env-style file: KEY=value, KEY="value", # comments, blank lines.
 # A leading `export` is permitted (and ignored). Variables already set in
 # the calling environment are preserved (user export wins over .env file).
@@ -124,14 +142,11 @@ _apply_env_file() {
             continue
         fi
 
-        # Strip optional surrounding quotes. For unquoted values, remove an
-        # inline comment only when it is preceded by whitespace; this keeps
+        # Strip optional surrounding quotes (also when followed by an inline
+        # comment such as "# ai-consultants:pin"). For unquoted values, remove
+        # an inline comment only when it is preceded by whitespace; this keeps
         # URL fragments and literal # characters intact.
-        if [[ "$value" =~ ^\".*\"$ ]] || [[ "$value" =~ ^\'.*\'$ ]]; then
-            value="${value:1:${#value}-2}"
-        else
-            value=$(printf '%s' "$value" | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//')
-        fi
+        value=$(parse_env_value "$value")
 
         # We intentionally do NOT do shell expansion here for safety.
         export "$key=$value"
