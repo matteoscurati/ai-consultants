@@ -428,7 +428,7 @@ test_env_example_is_sourceable_and_loader_compatible() {
     # template instead of the template's own value. Unset in both subshells.
     out=$(bash -c 'set -e; unset GEMINI_MODEL
         source .env.example; printf "%s" "$GEMINI_MODEL"')
-    assert_eq "Gemini 3.8 Flash (High)" \
+    assert_eq "Gemini 4 Argon (High)" \
         "$out" ".env.example is safely sourceable"
     mkdir -p "$cfg"
     cp .env.example "$cfg/.env"
@@ -438,7 +438,7 @@ test_env_example_is_sourceable_and_loader_compatible() {
         load_user_config
         printf "%s" "$GEMINI_MODEL"
     ')
-    assert_eq "Gemini 3.8 Flash (High)" \
+    assert_eq "Gemini 4 Argon (High)" \
         "$out" "custom loader preserves quoted template semantics"
 }
 
@@ -456,7 +456,27 @@ run_test "Test 23: MiniMax auto-API with key (v2.21)"    test_minimax_auto_api_w
 run_test "Test 24: MiniMax auto-CLI without key (v2.21)" test_minimax_auto_cli_without_key
 run_test "Test 25: MiniMax explicit false wins (v2.21)"  test_minimax_explicit_false_wins_over_key
 run_test "Test 26: MiniMax explicit true honored (v2.21)" test_minimax_explicit_true_without_key
+# M4: a quoted value followed by an inline marker (the documented pin syntax)
+# must load without its quotes, exactly as configure.sh reads it.
+test_env_quoted_value_with_inline_marker() {
+    local cfg="$TMP/quoted_marker" out
+    mkdir -p "$cfg"
+    printf '%s\n' \
+        'CODEX_MODEL="gpt-6-astra" # ai-consultants:pin' \
+        "GEMINI_MODEL='Gemini 3.8 Flash (High)' # ai-consultants:default" \
+        > "$cfg/.env"
+    out=$(AI_CONSULTANTS_CONFIG_DIR="$cfg" bash -c '
+        unset CODEX_MODEL GEMINI_MODEL
+        source scripts/lib/user_config.sh
+        load_user_config
+        printf "%s|%s" "$CODEX_MODEL" "$GEMINI_MODEL"
+    ')
+    assert_eq "gpt-6-astra|Gemini 3.8 Flash (High)" "$out" \
+        "quoted values with inline markers load without quotes"
+}
+
 run_test "Test 27: .env inline comment parsing"            test_env_inline_comments
 run_test "Test 28: sourceable canonical .env template"      test_env_example_is_sourceable_and_loader_compatible
+run_test "Test 29: quoted value with inline marker"         test_env_quoted_value_with_inline_marker
 
 test_summary "user_config"

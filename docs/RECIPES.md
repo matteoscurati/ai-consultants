@@ -17,8 +17,8 @@ must be enabled.
 
 ## 1. Everyday balanced panel
 
-Use four complementary CLI consultants and synthesize their answers with the
-default coverage strategy.
+Use three complementary CLI consultants (Gemini, Codex and Mistral) and
+synthesize their answers with the default coverage strategy.
 
 ```dotenv
 DEFAULT_PRESET=balanced
@@ -94,8 +94,11 @@ ai-consultants "Make a release recommendation from the attached evidence" \
 
 ## 6. Hard budget ceiling
 
-Track estimated spend and stop with partial results rather than crossing the
-session limit.
+Track estimated spend and stop rather than crossing the session limit. The
+check runs before Round 1 (on an estimate), before any escalation, and before
+synthesis (whose estimated cost is included in the session total). A stop
+before Round 1 aborts the run; a stop before synthesis keeps the consultant
+responses and skips synthesis.
 
 ```dotenv
 ENABLE_COST_TRACKING=true
@@ -104,8 +107,12 @@ MAX_SESSION_COST=0.50
 WARN_AT_COST=0.25
 BUDGET_ACTION=stop
 ENABLE_COST_AWARE_ROUTING=true
-ENABLE_RESPONSE_LIMITS=true
 ```
+
+`cost-capped` lowers only the stock `$1.00` cap to `$0.10`; the explicit
+`MAX_SESSION_COST=0.50` above is kept. `ENABLE_COST_AWARE_ROUTING` uses
+economy models for simple questions and may re-ask a low-confidence
+structured answer on the premium model (budget permitting).
 
 ```bash
 ai-consultants --preset cost-capped --strategy cost_capped \
@@ -136,7 +143,8 @@ ai-consultants doctor --live
 ```
 
 `KIMI_MODEL` is passed to the Kimi CLI with `--model`, so this recipe uses K3
-even when `~/.kimi/config.toml` still names an older default model.
+even when the Kimi CLI's own configuration (`~/.kimi-code/config.toml`) still
+names an older default model.
 
 ## 8. Hybrid CLI and API panel
 
@@ -155,7 +163,7 @@ QWEN3_API_KEY=your-dashscope-key
 ENABLE_GROK=true
 GROK_USE_API=false
 GROK_API_KEY=your-xai-key
-GROK_MODEL=grok-4.6
+GROK_MODEL=grok-4.7
 
 ENABLE_GLM=false
 ENABLE_DEEPSEEK=false
@@ -169,11 +177,30 @@ Use `--query-file` to avoid shell quoting and argument-size problems. Mark the
 main files with `@PRIMARY` and supporting files with `@CONTEXT`.
 
 ```bash
-ai-consultants --query-file /tmp/review-question.md \
+q=$(mktemp) && chmod 600 "$q"
+$EDITOR "$q"    # write the question
+ai-consultants --query-file "$q" \
   src/auth.ts@PRIMARY \
   src/cache.ts@CONTEXT \
   docs/architecture.md@CONTEXT
+rm -f "$q"
 ```
+
+## 10. Long-running consultations
+
+Nothing times out by default, so a slow reasoning model is waited for. Run the
+consultation in the background and decide when to stop waiting from its log:
+
+```bash
+ai-consultants --preset max_quality "..." 2> run.log &
+grep 'Output:' run.log                  # the output directory
+tail -f run.log                         # "Still waiting after Ns for: ..." every 30 s
+touch "<output dir>/.proceed"           # continue with the answers received
+touch "<output dir>/.abort"             # or end the run
+```
+
+For an unattended hard limit instead, set a positive timeout per consultant,
+for example `GEMINI_TIMEOUT=600`.
 
 ## Useful diagnostics
 
@@ -190,31 +217,31 @@ For every available variable and its default, see
 [`references/configuration.md`](../references/configuration.md). The executable
 source of truth is [`scripts/config.sh`](../scripts/config.sh).
 
-## Qwen via Qwen Cloud Token Plan (opt-in)
+## Qwen via Qwen Cloud Token Plan
 
-`qwen3.8-max` is **not** served by DashScope/ModelStudio. It is reachable
-only through a Qwen Cloud **Token Plan** subscription, which has its own base URL
-and its own API key. This is opt-in: nothing below is a default, and the panel's
-premium Qwen model remains `qwen3.7-max`; `max_quality` selects the separately
-smoke-tested `qwen3.8-max` Token Plan target.
+`qwen3.8-max` is the default and premium Qwen model, and `qwen3.8-flash`
+serves standard and economy. Both are served by the `qwen` CLI, the Token Plan
+endpoint and DashScope/Model Studio; on 2026-10-02 `qwen3.8-max` passed live
+checks through the CLI and the Token Plan API, and `qwen3.8-flash` through the
+CLI. A Token Plan subscription has its own base URL and its own
+plan-specific API key (shown in the Model Studio console under Token Plan).
 
-Understand the tradeoffs before enabling it:
+Understand the tradeoffs:
 
-- **Token Plan only.** No open weights, no published benchmarks, no stable
-  per-token price.
-- **Billed in prepaid credits**, not per token — and credit consumption varies
-  with reasoning depth. Cost reports therefore exclude it and say so explicitly
-  rather than estimating a figure.
+- **Billed in prepaid plan quota** on the Token Plan, not per token — cost
+  reports exclude `qwen3.8-max`/`qwen3.8-flash` and say so explicitly rather
+  than estimating a figure. Pay-as-you-go DashScope usage is billed per token
+  by the provider but is not priced by the local estimator either.
+- **The key belongs to the current plan.** Renewing or repurchasing a plan can
+  issue a new plan-specific key; an old key then fails with HTTP 401
+  ("Invalid API-key provided"). A DashScope key without model access fails with
+  403 `AccessDenied.Unpurchased`. Both reasons are shown in the consultant's
+  failure line.
 
-Both `qwen3.8-max` and `qwen3.8-max-preview` are served by Token Plan and are
-**separate deployments**, not an alias or rename: each completion reports its
-own requested id back in `.model`. Verified against the live endpoint on
-2026-08-05. Prefer `qwen3.8-max`; `qwen3.8-max-preview` is the older
-deployment and the natural candidate for eventual retirement. An existing
-`qwen3.8-max-preview` pin keeps working and stays correctly catalogued — both
-ids are listed in `unpriced_models`, so the session report continues to
-disclose them as credit-billed and excluded from the total rather than falling
-through to `default_rate`.
+`qwen3.8-max-preview` was a separate, older Token Plan deployment; as of
+2026-10-02 the Token Plan model list no longer includes it. `configure`
+migrates an unpinned `qwen3.8-max-preview` (or the previous default
+`qwen3.7-max`) to `qwen3.8-max`; a pinned value is left alone.
 
 ### API mode (the effort knob works here)
 

@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 5.1.2
+**Version**: 5.2.0
 
 ## Distribution
 
@@ -33,7 +33,6 @@ ai-consultants/
 ├── bin/
 │   └── ai-consultants          # npm/npx entry point (bash wrapper)
 ├── package.json                # npm distribution metadata (zero dependencies)
-├── .npmignore                  # Excludes dev artifacts from npm package
 ├── scripts/
 │   ├── consult_all.sh          # Main orchestrator - entry point
 │   ├── config.sh               # Centralized configuration
@@ -52,9 +51,13 @@ ai-consultants/
 │       ├── schema.json         # JSON output schema
 │       ├── routing.sh          # Smart routing (category affinity) + cost-aware routing
 │       ├── session.sh          # Session management
-│       ├── costs.sh            # Cost tracking + response limits
+│       ├── costs.sh            # Cost tracking + budget enforcement
 │       ├── cache.sh            # Semantic caching (v2.3)
 │       ├── api_query.sh        # API mode query execution (v2.6)
+│       ├── response_canonicalize.jq   # Consultant answer repairs before validation
+│       ├── synthesis_canonicalize.jq  # synthesis.json contract
+│       ├── json_schema_check.jq       # jq-only schema validator used by tests
+│       ├── agy_exit_guard.sh   # Keeps a complete agy answer when agy never exits
 │       └── progress.sh         # Progress bars
 ├── references/
 │   ├── configuration.md      # Full configuration reference
@@ -67,7 +70,7 @@ ai-consultants/
 │   ├── SMART_ROUTING.md      # Affinity matrix
 │   └── JSON_SCHEMA.md        # Output schema
 └── templates/
-    └── synthesis_prompt.md     # Synthesis prompt
+    └── synthesis_prompt.md     # Reference copy only; the runtime prompt is inline in synthesize.sh
 ```
 
 ## Claude Skills Compliance
@@ -235,9 +238,9 @@ curl -L code.kimi.com/install.sh | bash
 ```
 
 **Environment Variables:**
-- `ENABLE_KIMI` - Enable Kimi consultant (default: false)
+- `ENABLE_KIMI` - Enable Kimi consultant (default: true)
 - `KIMI_CMD` - CLI command (default: kimi)
-- `KIMI_TIMEOUT` - Timeout in seconds (default: 180)
+- `KIMI_TIMEOUT` - Timeout in seconds (default: 0, no limit)
 - `KIMI_MODEL` - Kimi CLI model alias (default: kimi-code/k3; passed explicitly with `--model`)
 
 **Persona:** The Eastern Sage - Focuses on holistic understanding, balance of perspectives, and wisdom from diverse viewpoints.
@@ -349,8 +352,8 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 
 | Tier | Description | Example Models |
 |------|-------------|----------------|
-| **premium** | Latest flagship models | claude-fable-5-1, Gemini 3.8 Flash (High), gpt-6-astra |
-| **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
+| **premium** | Latest flagship models | claude-fable-5-1, Gemini 4 Argon (High), gpt-6.1-sol |
+| **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, Gemini 4 Argon (High), K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
 | **standard** | Good quality at reasonable cost | claude-opus-5-5, Gemini 3.8 Flash (High), gpt-5.6-terra |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.8 Flash (Low), gpt-5.6-luna |
 
@@ -365,7 +368,7 @@ apply_model_tier "standard"  # Set all consultants to standard models
 apply_model_tier "economy"   # Set all consultants to economy models
 
 # Get model for a specific consultant and tier (v2.8.1)
-get_model_for_tier "gemini" "premium"   # → Gemini 3.8 Flash (High) on agy
+get_model_for_tier "gemini" "premium"   # → Gemini 4 Argon (High) on agy
 get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
 ```
 
@@ -389,13 +392,13 @@ All consultants now use premium models by default:
 | Consultant | Default Model |
 |------------|---------------|
 | Claude | claude-fable-5-1 |
-| Gemini | Gemini 3.8 Flash (High) (via agy CLI); API: gemini-3.1-pro-preview |
-| Codex | gpt-6-astra |
-| Mistral | CLI: mistral-medium-3.5; API: mistral-large-3 |
+| Gemini | Gemini 4 Argon (High) (via agy CLI); API: gemini-4-argon |
+| Codex | gpt-6.1-sol (max_quality: gpt-6-astra) |
+| Mistral | CLI: mistral-medium-3.5; API: mistral-large-4 (preview) |
 | DeepSeek | deepseek-flash (DeepSeek-V4.1-Flash) |
 | GLM | glm-5.3-flash |
 | Grok | grok-4.7 |
-| Qwen3 | qwen3.7-max |
+| Qwen3 | qwen3.8-max (standard/economy: qwen3.8-flash) |
 | Kimi | kimi-code/k3 |
 | MiniMax | MiniMax-M2.7 |
 
@@ -412,10 +415,10 @@ is surfaced and never silently rerouted to the API.
 
 The live full-panel smoke defines the `max_quality` runtime envelope, not just
 the model names. Mistral and Grok receive four bounded advisory turns plus an
-explicit no-tools/workspace instruction. Qwen3.8-Max gets a 600-second Token
-Plan timeout; DeepSeek V4 Pro/max gets 600 seconds and 16,384 completion tokens;
-GLM gets 16,384; MiniMax M3 gets 16,384 plus a compact Markdown contract in
-mmx's native system channel. OpenAI-compatible
+explicit no-tools/workspace instruction. Qwen3.8-Max and DeepSeek get
+`QWEN3_MAX_QUALITY_TIMEOUT`/`DEEPSEEK_MAX_QUALITY_TIMEOUT` (default 0, no limit);
+DeepSeek gets 16,384 completion tokens; GLM gets 16,384; MiniMax M3 gets 16,384
+plus the shared JSON response contract in mmx's native system channel. OpenAI-compatible
 `finish_reason=length` is an error. Every
 response records `metadata.response_quality=structured|fallback|error`:
 malformed JSON-looking output fails closed, while real markdown/prose is kept
@@ -463,18 +466,20 @@ Reduces redundant API calls by caching responses based on query + context finger
 # Configuration in config.sh
 ENABLE_SEMANTIC_CACHE=true      # Enable caching (default: true)
 CACHE_TTL_HOURS=24              # Cache expiration
-CACHE_DIR=/tmp/ai_consultants_cache
+CACHE_DIR=~/.cache/ai-consultants/cache   # XDG default
 ```
 
 Functions in `lib/cache.sh`:
-- `generate_fingerprint()` - Creates hash from query + category + context
+- `generate_fingerprint()` - Creates hash from query + category + context + consultant identity (`cache_identity()`: model, transport, effort, persona)
 - `check_cache()` - Returns cached response if valid
 - `store_cache()` - Stores response with metadata
 - `cleanup_cache()` - Removes expired entries
 - `get_cache_stats()` - Returns cache statistics as JSON
 
-### Response Length Limits (Opt-in)
-Limits output tokens by question category to reduce costs.
+### Response Length Limits (deprecated no-op)
+**Never applied by any adapter** (most consultant CLIs expose no output cap);
+the settings are accepted for configuration compatibility only. Use the
+`*_API_MAX_TOKENS` settings to bound API responses.
 
 ```bash
 ENABLE_RESPONSE_LIMITS=false    # Default: false (opt-in per quality review)
@@ -496,7 +501,7 @@ COMPLEXITY_THRESHOLD_MEDIUM=6   # Score 4-6 = medium, 7-10 = complex
 ```
 
 Functions in `lib/routing.sh`:
-- `select_consultants_cost_aware()` - Selects consultants based on complexity
+- `select_consultants_cost_aware()` - Selects consultants based on complexity (used by the smart-routing path)
 - `get_cost_aware_model()` - Returns economic model for simple queries
 - `calculate_query_complexity()` - Scores query 1-10
 
@@ -505,7 +510,12 @@ Functions in `lib/costs.sh`:
 - `get_model_tier()` - Returns economy/standard/premium
 
 ### Fallback Escalation
-Automatically re-queries with premium models if confidence is too low.
+Active only with `ENABLE_COST_AWARE_ROUTING=true`. Re-queries a **structured**
+response whose confidence is below the threshold on the consultant's premium
+model for its active transport (`model_env_var_for`). Error and fallback
+envelopes are never escalated, the same model is never re-asked, a
+maximum-tier target is never "escalated" to premium, and each re-query passes
+`enforce_budget` first.
 
 ```bash
 FALLBACK_CONFIDENCE_THRESHOLD=7  # Escalate if confidence < 7
@@ -586,17 +596,18 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `ENABLE_SMART_ROUTING` | false | Intelligent routing by category |
 | `ENABLE_COST_TRACKING` | true | Track costs |
 | `MAX_SESSION_COST` | 1.00 | Max budget ($) |
-| `CLAUDE_MODEL` | claude-fable-5-1 | Claude model (use claude-opus-5 for lower-cost standard) |
+| `CLAUDE_MODEL` | claude-fable-5-1 | Claude model (use claude-opus-5-5 for lower-cost standard) |
 | `CLAUDE_API_MAX_TOKENS` | 16384 | Claude API thinking + visible-output budget |
-| `GEMINI_MODEL` | Gemini 3.8 Flash (High) | Gemini agy CLI model |
-| `GEMINI_API_MODEL` | gemini-3.1-pro-preview | Gemini API-mode model ID (v2.15) |
-| `CODEX_MODEL` | gpt-6-astra | Codex model (v2.5) |
-| `MISTRAL_MODEL` | mistral-large-3 | Mistral model (v2.5) |
+| `GEMINI_MODEL` | Gemini 4 Argon (High) | Gemini agy CLI model |
+| `GEMINI_API_MODEL` | gemini-4-argon | Gemini API-mode model ID (v2.15) |
+| `GEMINI_API_MAX_TOKENS` | 32768 | Gemini API thinking + visible-output budget |
+| `CODEX_MODEL` | gpt-6.1-sol | Codex model (max_quality: gpt-6-astra) |
+| `MISTRAL_MODEL` | mistral-large-4 | Mistral API model (Vibe uses `MISTRAL_CLI_MODEL`) |
 | `MISTRAL_CLI_MODEL` | mistral-medium-3.5 | Vibe CLI model alias |
 | `SYNTHESIS_STRATEGY` | coverage | Synthesis strategy (coverage=union of distinct points) |
 | `ENABLE_SEMANTIC_CACHE` | true | Semantic response caching (v2.3) |
 | `CACHE_TTL_HOURS` | 24 | Cache expiration in hours (v2.3) |
-| `ENABLE_RESPONSE_LIMITS` | false | Response token limits (v2.3, opt-in) |
+| `ENABLE_RESPONSE_LIMITS` | false | Deprecated no-op (never applied) |
 | `ENABLE_COST_AWARE_ROUTING` | false | Cost-based model routing (v2.3) |
 | `ENABLE_COMPACT_REPORT` | true | Compact report format (v2.3) |
 | `ENABLE_BUDGET_LIMIT` | false | Budget enforcement (v2.4, opt-in) |
@@ -629,17 +640,18 @@ The system handles errors with:
 
 - **Automatic retry**: `MAX_RETRIES` attempts (default: 2)
 - **Delay between retries**: `RETRY_DELAY_SECONDS` (default: 5s)
-- **Cross-platform timeout**: Supports Linux (`timeout`), macOS (`gtimeout`), and POSIX fallback
-- **Exit codes**: 0 = success, 1 = error, 124 = timeout
+- **Cross-platform timeout** (only when a positive `*_TIMEOUT` is set): Linux (`timeout`), macOS (`gtimeout`), and POSIX fallback
+- **Exit codes**: 0 = success, 1 = error, 124 = timeout; a host abort exits 130 (`.abort`, second Ctrl-C), 143 (SIGTERM) or 129 (SIGHUP)
 
 ```bash
 # Retry configuration
 MAX_RETRIES=3
 RETRY_DELAY_SECONDS=10
 
-# Per-consultant timeout
-GEMINI_TIMEOUT=240
-CODEX_TIMEOUT=180
+# Per-consultant timeout: 0 (default) = no limit; the invoking host decides
+# when to stop waiting (touch <output dir>/.proceed or .abort)
+GEMINI_TIMEOUT=0
+CODEX_TIMEOUT=0
 ```
 
 ## Extended Documentation
@@ -759,6 +771,27 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v5.2.0 (2026-10-19)
+
+- **Host context described the wrong project.** Hosts `cd` into the skill root, and `build_context.sh` reported `pwd`/`find .` from there. `consult_all.sh` now runs it from `--context-root` (staged files are absolute temp paths, still admitted by `_is_temp_path`).
+- **API-only consultants never received the response contract.** `run_api_consultant` (GLM, DeepSeek, MiniMax API, custom agents) skipped `build_query_with_persona`, so every answer was prose -> fallback -> never attributable coverage, and `max_quality` could not reach `coverage_integrity=MET`. MiniMax CLI now gets the contract through `--system`. The live GLM smoke then exposed a nested/one-brace-short `confidence`; `normalize_consultant_response_text` lifts/repairs only that exact shape. Rejected payloads keep `metadata.raw_excerpt` so the next failure is diagnosable without a billed re-run.
+- **Cache key ignored the model.** `cache_identity()` (model/API/CLI model, transport, effort, format, URL, budgets, persona) is part of every fingerprint; `CACHE_KEY_VERSION` invalidates old entries once.
+- **Synthesis extraction** used a sed line range that ends at the first `}` line; now `strip_json_fence` then first-`{`..last-`}`. The synthesis call is estimated into `synthesis.json.synthesis_metadata` and billed by `calculate_session_cost` (`_synthesis_estimated_cost`).
+- **Follow-up** history stores the full query, `get_session_by_id` returns the current-session shape, whole-panel follow-ups run with `AI_CONSULTANTS_SKIP_SESSION_SAVE=true` inside the follow-up directory and are recorded on the original session.
+- **Transport privacy/limits.** Questions reach classify/build_context/synthesize via stdin (`-`); the request builders (`lib/api.sh`, `query_minimax.sh`) read the prompt with `jq --rawfile prompt /dev/stdin`, and curl gets headers and body through process substitution (`-H @<(...)`, `--data-binary @<(...)`), so neither the key nor the prompt is in argv or in a temp file a stopped query would leave behind. Process substitution does not survive the POSIX `run_with_timeout` fallback (the background job loses `/dev/fd/63`), so `doctor` bounds its probe with curl's own `-m`. `guard_argv_prompt_size` fails fast for argv-only CLIs (agy/vibe/kimi) and synthesis skips agy above the limit; agy/qwen/kimi run from `make_cli_workspace` directories. The POSIX timeout fallback never reads a TTY.
+- **Test gate hermeticity** now lives in `test_all.sh` (empty `AI_CONSULTANTS_CONFIG_DIR`, documented keys and `_AI_CONSULTANTS_*` markers unset), fixing the root cause of the release-gate leaks recorded in v2.23.0/v2.25.1/v3.0.0. `npm run lint` is the single lint invocation for CI and publish.
+- **JSON contracts.** `lib/response_canonicalize.jq` (consultant answers) and `lib/synthesis_canonicalize.jq` (synthesis.json) apply only deterministic, content-preserving repairs; `summary` is never derived from `detailed` (detailed text is deliberately not atomized) and a string `response` stays fallback prose. `lib/schema.json` v3 describes the real envelopes plus `synthesis_artifact`; `lib/json_schema_check.jq` + `assert_schema_valid` make it executable in tests. Estimates use `model_env_var_for` (tier + transport).
+- **Codex model policy.** `gpt-6.1-sol` is the default/premium Codex target and `gpt-6-astra` stays the maximum target (`get_model_for_tier`, `docs/cost_rates.json` premium tier and fallback). `_codex_frontier_model` in `lib/api.sh` gives both the implicit `high` effort and the none/minimal rejection (provider docs: low|medium|high|xhigh|max, default medium). `configure` migrates unpinned `gpt-6-astra` too and keeps the earliest `migrated-from`. One authorized CLI smoke passed (structured, measured usage, requested-only identity).
+- **Qwen/GLM policy.** `qwen3.8-max` is default/premium/maximum on all Qwen transports (the Token Plan-only gate in `apply_model_tier` is gone; `xhigh` is set only on the OpenAI-compatible wire, `QWEN3_MAX_QUALITY_TIMEOUT` everywhere, default 0); `qwen3.8-flash` serves standard/economy. GLM maximum is `glm-5.3`. Live checks passed for all four. 401/403 failures now carry the provider reason (`provider_error_summary`): a renewed Token Plan issues a new plan key, and DashScope without purchase returns `AccessDenied.Unpurchased`.
+- **Mistral API policy.** `mistral-large-4` (public preview, 2026-10-06) is `MISTRAL_MODEL` and every API tier; `configure` migrates unpinned `mistral-large-3`. Rates use the list price ($1.36/$4.18 per 1M), not the 50% preview price, so budgets fail safe. Evidence: one authorized 1-token chat call (2026-10-15) returned HTTP 200, provider-reported model `mistral-large-4`, `service_tier: standard`. `GET /v1/models` omits the preview (and every Large model) for that key, so listing is not an access check. A first `query_mistral.sh` smoke (same day, HTTP 200, 244 in / 3833 out tokens, ~44 s) failed closed because `message.content` was a chunk array (`thinking` + `text`); `parse_openai_response` now joins only `text` chunks (test in `test_api_transport.sh`). `MISTRAL_API_MAX_TOKENS` default 4096 -> 16384: that smoke spent 3833 of 4096 tokens, mostly thinking. A second authorized smoke after both fixes passed: `response_quality=structured`, provider-reported `mistral-large-4`, Devil's Advocate persona, confidence 9, 244 in / 3296 out measured tokens, ~44 s, schema-valid envelope. Vibe economy moved from the retired `devstral-small-2` to `mistral-medium-3.5`. Vibe stays on `mistral-medium-3.5`.
+- **Gemini policy.** Gemini 4 Argon (GA 2026-10-13; API ID `gemini-4-argon`, generateContent supported) serves maximum and premium/default: `Gemini 4 Argon (High)` on `agy`, `gemini-4-argon` on the API. Standard/economy keep `Gemini 3.8 Flash (High/Low)` on the CLI and `gemini-3.1-pro-preview` on the API (no shutdown announced; `gemini-3.8-flash` API stays opt-in until its own smoke). `configure` migrates unpinned `Gemini 3.8 Flash (High)` (plus the older Pro 3.1 / Flash 3.7 High values) and unpinned `gemini-3.1-pro-preview`. Rates use the list price ($4/$20 per 1M), not the introductory $2/$10 through 2026-11-30. API wire: `GEMINI_API_MAX_TOKENS` (default 32768, Google's minimum advice and per-request non-streaming cap) replaces the fixed 4096 because thinking counts toward `maxOutputTokens`; Argon accepts low|medium|high and defaults to `high` like its CLI target; no sampling parameters are sent (Argon ignores them); `parse_google_ai_response` joins visible text parts and skips `thought` parts. Evidence: `agy models` 1.3.6 lists Argon Low/Medium/High; one authorized `query_gemini.sh` CLI smoke on 2026-10-16 returned `response_quality=structured`, confidence 9, capability-probed identity, ~49 s, schema-valid (agy reports no usage, so tokens are estimated). No authenticated Gemini API smoke was run, so the API transport is offline-tested only. Google excludes Argon from the Free tier and the AI Pro plan. `GEMINI_TIMEOUT` defaults to 0 (no limit, see the timeout policy below), in line with Google's advice to use long client timeouts for hard prompts.
+- **Timeout policy.** Generation has no wall-clock limit by default: every consultant `*_TIMEOUT`, `QWEN3/DEEPSEEK_MAX_QUALITY_TIMEOUT` and `SYNTHESIS_TIMEOUT`/`SYNTHESIS_TOTAL_TIMEOUT` default to 0 (`run_with_timeout 0` runs the command directly; `run_api_query` omits curl `-m`; `format_timeout_label` logs "none"). Reason: a client timeout usually still bills the provider call and loses the answer, and Argon/Large 4 approach the old 180 s limit. The user explicitly rejected a safety ceiling. Instead the host decides: `consult_all.sh` polls children once per second (Bash 3.2 has no `wait -n`), logs a heartbeat every `WAIT_HEARTBEAT_SECONDS` (30), and honors *proceed* (`<dir>/.proceed`, SIGUSR1, first Ctrl-C: stop the current phase, continue with received answers; during synthesis, skip it) and *abort* (`<dir>/.abort`, SIGTERM 143, SIGHUP 129, second Ctrl-C 130). Stopped consultants become `NAME:STOPPED`: partial JSON deleted, counted against quorum, not recorded as a reliability failure, excluded from cost with a billing caveat. `lib/common.sh::kill_process_tree` freezes, terminates and finally kills the whole descendant tree (walked with portable `ps -A -o pid= -o ppid=`), with stderr silenced so Bash job-termination notices stay out of logs. Escalation and synthesis run in the background under `_wait_child_under_host_control`; traps are restored after synthesis. SIGKILL on `consult_all.sh` cannot clean up and would orphan CLIs (documented). Probe limits stay: agy inventory 10-12 s, auth 8-12 s, health gate 30 s, doctor live 45 s, LLM classifier 30 s (falls back to pattern). `configure` migrates unpinned generated 180/240/480/600 values to `0 # ai-consultants:default`; pins and custom values stay limits. Tests: `test_common.sh` Test 15, `test_api_transport.sh` (curl args), `test_configure.sh` (migration), `test_e2e.sh` Tests 6-8 (proceed via file, abort via file, SIGUSR1 during synthesis; all assert no surviving stub process).
+- **Review fixes (`/code-review max` on this branch).** `normalize_consultant_response_text` took its JSON-like probe from `sed`/`cut -c1`, which work line by line, so a pretty-printed truncated answer became a successful fallback instead of failing closed; it now reads the first non-blank character of the whole text, and a canonical result with several JSON values fails closed (it used to reach `build_structured_response --argjson` and leave an empty envelope). `run_api_query` wrote the key-bearing headers to a mktemp file that a stopped or killed query left on disk (reproduced with `kill_process_tree`); headers and body now go through process substitution, and the builders read the prompt from stdin (a 1.2 MB prompt previously produced an empty body via E2BIG). A host proceed during escalation ends the phase (`break`, it used to start the next billed re-query), and `_discard_late_proceed` keeps a request that lands after a phase finished from skipping the next one. The pattern classifier strips dependency/constructor/field/fault injection before the SECURITY check; `build_context.sh` never lists `$HOME` or `/` as the project tree; `provider_error_summary` reads string `error` fields (xAI); `json_schema_check.jq` reports an unknown definition or `$ref`; `kill_process_tree` re-lists the frozen tree until it is stable, from one `ps` snapshot per listing. Regression tests: `test_common.sh` Tests 8, 12, 13, 16; `test_api_transport.sh` (on-disk check, large prompts, xAI reason); `test_context_optimization.sh` Test 18; each failed on the pre-fix tree.
+- **Live verification after the review (2026-10-19).** Default models, `MAX_RETRIES=1`, cache off. `balanced` (Gemini Argon High agy, Sol CLI, Large 4 API): 3/3 structured, 181 s, reported $0.22 incl. synthesis. Every consultant enabled (`DEFAULT_PRESET=` override): 9/10 structured in 172 s, reported $0.59; synthesis represented 83/83 IDs, schema-valid. Kimi failed on an expired Kimi Code OAuth grant (`OAuthUnauthorizedError` in the CLI's session wire; nothing reached the model) and passed a separate single call after `kimi login`. The adapter surfaced only the first stderr line, a `max_retries_per_step` config deprecation warning, as the reason: `run_query` reports the first line, not the first error line (open). No host stop was needed, so `.proceed`/`.abort` remain offline-tested only. The pre-run INFO estimate used to be the generic 4-consultant default-rate figure ($0.063 for both runs); it now logs the refined per-panel estimate.
+- **Host harness check (2026-10-19).** Static: Codex 0.163 has no custom prompts/commands (skills only, from `~/.codex/skills` and `~/.agents/skills`); the Gemini CLI 0.64 `FileCommandLoader` globs `**/*.toml`, so `.gemini/commands/*.md` never registers (and the CLI is Homebrew-deprecated and no longer serves personal OAuth accounts); agy 1.4.2 reads `<workspace>/.agents/skills/<name>/` and `~/.gemini/config/skills/<name>/` (from its built-in instructions); the Gemini CLI shell tool kills a command after 300 s without output (the 30 s heartbeat covers it). `.codex/commands`/`.gemini/commands` stay as host-specific reference text (`test_install.sh` checks them) but are not slash commands. Live, one headless run each against this branch (temporary `~/.agents/skills` symlink and `~/.claude/commands` copies, restored afterwards): Claude Code ran the command in the foreground with a 600 s Bash timeout (it auto-backgrounds past that) and read `.synthesis_provider` as a file name, hence the clearer wording; Codex's first launch was rejected by Codex itself ("rm -f style commands are not permitted"), hence the `unlink` hint, and its memories led it to disable synthesis; agy followed the contract exactly, ran the command async (`WaitMsBeforeAsync` 10 s) and waits at most 30 min for background tasks in print mode. Claude Code host cost $0.59 (Opus 5.5).
+- **Live host control and harnesses (2026-10-19, second pass).** Every stop path ran live (`.proceed`, USR1, `.abort`, SIGTERM, SIGHUP) with no process left. A real terminal Ctrl-C (SIGINT to the whole group) exposed a bug: under `set -e` the interrupted poll `sleep` ended the run with 130 and orphaned the consultant CLIs (they ignore SIGINT as background jobs); fixed with an async poll pause, a Round 1 poll loop without errexit (an interrupted `date`/`jq` would end the run too), `trap '' INT` in every consultant/escalation/synthesis job (Bash 5.2 in CI did not ignore SIGINT in them, so the adapter died and orphaned its CLI; Bash 3.2 does), host-request checks before collecting (a CLI that Ctrl-C ended is `stopped`) and an EXIT safety net; `test_e2e.sh` Tests 9-10 send SIGINT to the process group. agy 1.4.2 printed a complete synthesis and never exited (its log stops after "Stream goroutine exited", without "Language server shutting down"), so the no-timeout run hung for 16 min: `scripts/lib/agy_exit_guard.sh` (`AGY_EXIT_GRACE_SECONDS`). Hosts: Claude Code proceeds on request; agy finds `~/.gemini/config/skills` and aborts on request; Codex `workspace-write` without approvals gets 0/3 (network), and its auto-reviewer refuses the escalation (code to external providers), so the approval must come from the user; the Gemini CLI is rejected for individual accounts (`UNSUPPORTED_CLIENT`). Failure reasons were then fixed against network-denied reproductions (`sandbox-exec` with `(deny network*)`, nothing billed): `pick_error_line` (shared by `run_query` and `get_consultant_error_reason`) skips warnings and stack frames, `describe_curl_exit` names API network failures, agy inventory failures carry agy's message, and `diagnosed_failures_network_hint` flags an all-network failure (sandbox). The user's `~/.kimi-code/config.toml` `max_retries_per_step` was renamed to `max_attempts_per_step` (same value; `kimi doctor` valid).
+- Release 5.2.0 bumps the version surfaces and adds `docs/releases/v5.2.0.md`; the showcase site syncs after npm serves 5.2.0. Frozen benchmark inputs are unchanged. Residual: a non-improving escalation re-query is still not billed (its file is deleted). `history.json` now stores every full question and is never pruned.
 
 ### v5.1.2 (2026-09-28)
 

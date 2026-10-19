@@ -4,7 +4,7 @@
 # Usage: ./query_codex.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   CODEX_MODEL - Model to use (default: gpt-6-astra)
+#   CODEX_MODEL - Model to use (default: gpt-6.1-sol; max_quality: gpt-6-astra)
 #   CODEX_TIMEOUT - Timeout in seconds (default: 180)
 #   CODEX_USE_API - Use API mode instead of CLI (default: false)
 #   OPENAI_API_KEY - API key for API mode
@@ -205,7 +205,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${CODEX_MODEL:-gpt-6-astra}"
+MODEL_USED="${CODEX_MODEL:-gpt-6.1-sol}"
 MODEL_IDENTITY_SOURCE="requested-only"
 EFFECTIVE_MODEL="$MODEL_USED"
 if is_api_mode "codex"; then
@@ -230,7 +230,7 @@ fi
 if response_tmp=$(mktemp "${OUTPUT_FILE}.metadata.XXXXXX"); then
     if jq --arg model "$MODEL_USED" --argjson cached "$cli_cached_input" '
         .metadata.cost_source = (if (.metadata.tokens_used // 0) == 0 then "unavailable"
-            elif $model == "gpt-6-astra" and (.metadata.tokens_input // 0) > 272000 then "estimated-long-context-standard-rates"
+            elif ($model == "gpt-6-astra" or $model == "gpt-6.1-sol") and (.metadata.tokens_input // 0) > 272000 then "estimated-long-context-standard-rates"
             else "estimated-standard-rates" end) |
         .metadata.cost_note = "Estimate includes applicable long-context pricing; excludes cache writes, cache discounts and service-tier adjustments; not a provider invoice" |
         if $cached != null then .metadata.tokens_cached_input = $cached else . end' \

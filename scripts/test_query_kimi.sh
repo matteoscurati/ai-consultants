@@ -38,6 +38,7 @@ fi
 
 [[ -z "${KIMI_REQUEST_FILE:-}" ]] || : > "$KIMI_REQUEST_FILE"
 printf '%s\n' "$@" > "$KIMI_ARGS_FILE"
+[[ -z "${KIMI_CWD_FILE:-}" ]] || pwd -P > "$KIMI_CWD_FILE"
 printf '%s\n' '{"role":"assistant","content":"{\"response\":{\"summary\":\"K3 selected\",\"detailed\":\"ok\",\"approach\":\"Test\",\"pros\":[],\"cons\":[],\"caveats\":[]},\"confidence\":{\"score\":9,\"reasoning\":\"stub\"}}"}'
 EOF
     chmod +x "$path"
@@ -131,7 +132,34 @@ test_missing_requested_model_is_rejected() {
 }
 
 run_test "Test 1: compatible CLI pins model and structured output" test_compatible_cli_pins_model
+# M8 + M3: Kimi runs from a private empty workspace (never the caller's or the
+# skill's directory), and a prompt too large for one argv element fails
+# before dispatch instead of exec failing with E2BIG.
+test_kimi_workspace_isolation_and_argv_guard() {
+    local fake_kimi="$TMP_ROOT/kimi-isolated" cwd_file="$TMP_ROOT/kimi-cwd"
+    local output_file="$TMP_ROOT/isolated.json" request="$TMP_ROOT/kimi-dispatched" rc=0 ran_in
+    make_kimi_stub "$fake_kimi"
+    mkdir -p "$TMP_ROOT/runtime" "$TMP_ROOT/caller"
+    (cd "$TMP_ROOT/caller" && TMPDIR="$TMP_ROOT/runtime" KIMI_CMD="$fake_kimi" KIMI_MODEL="kimi-code/k3" \
+        KIMI_ARGS_FILE="$TMP_ROOT/isolated-args" KIMI_CWD_FILE="$cwd_file" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_kimi.sh" "isolation" "" "$output_file" >/dev/null 2>&1) || rc=$?
+    ran_in=$(cat "$cwd_file" 2>/dev/null)
+    assert_eq 0 "$rc" "isolated Kimi query completes"
+    assert_match "/ai-consultants-kimi\\." "$ran_in" "Kimi runs from a private workspace"
+    assert_eq 0 "$(find "$TMP_ROOT/runtime" -maxdepth 1 -name 'ai-consultants-kimi.*' | wc -l | tr -d ' ')" \
+        "Kimi workspace is removed afterwards"
+
+    rc=0
+    ARGV_PROMPT_MAX_BYTES=64 KIMI_CMD="$fake_kimi" KIMI_MODEL="kimi-code/k3" \
+        KIMI_ARGS_FILE="$TMP_ROOT/guard-args" KIMI_REQUEST_FILE="$request" MAX_RETRIES=1 \
+        "$SCRIPT_DIR/query_kimi.sh" "$(printf 'x%.0s' {1..200})" "" "$TMP_ROOT/guard.json" >/dev/null 2>&1 || rc=$?
+    assert_eq 1 "$([[ $rc -ne 0 ]] && echo 1 || echo 0)" "oversized argv prompt fails"
+    assert_eq false "$([[ -e "$request" ]] && echo true || echo false)" "oversized argv prompt never dispatches"
+    assert_eq error "$(jq -r '.response.approach' "$TMP_ROOT/guard.json")" "oversized prompt writes an error envelope"
+}
+
 run_test "Test 2: alternate compatible version is accepted" test_alternate_compatible_version_is_accepted
 run_test "Test 3: incompatible CLI is rejected before dispatch" test_incompatible_cli_is_rejected_before_dispatch
 run_test "Test 4: missing requested model is rejected" test_missing_requested_model_is_rejected
+run_test "Test 5: workspace isolation and argv guard" test_kimi_workspace_isolation_and_argv_guard
 test_summary "query_kimi"

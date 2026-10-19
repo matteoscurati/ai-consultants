@@ -208,26 +208,44 @@ case "$MODE" in
         fi
 
         log_info "Follow-up to $TARGET_CONSULTANT..."
-        "$_target_script" "" "$FOLLOWUP_CONTEXT_FILE" "$FOLLOW_UP_DIR/${_target_lower}.json"
-        unset _target_lower _target_script _target_enable_var
+        # No time limit by default, so whoever invoked the follow-up decides
+        # when to stop it. Wait in the background so INT/TERM/HUP are handled
+        # at once, and stop the consultant's whole process tree with it.
+        "$_target_script" "" "$FOLLOWUP_CONTEXT_FILE" "$FOLLOW_UP_DIR/${_target_lower}.json" &
+        _followup_pid=$!
+        trap 'kill_process_tree "$_followup_pid"; wait "$_followup_pid" 2>/dev/null; _cleanup_followup_context_file; exit 130' INT
+        trap 'kill_process_tree "$_followup_pid"; wait "$_followup_pid" 2>/dev/null; _cleanup_followup_context_file; exit 143' TERM
+        trap 'kill_process_tree "$_followup_pid"; wait "$_followup_pid" 2>/dev/null; _cleanup_followup_context_file; exit 129' HUP
+        _followup_rc=0
+        wait "$_followup_pid" || _followup_rc=$?
+        trap - INT TERM HUP
+        [[ $_followup_rc -eq 0 ]] || exit "$_followup_rc"
+        unset _target_lower _target_script _target_enable_var _followup_pid _followup_rc
         ;;
 
-    clarify)
-        # Request clarification - focus on disagreement points
-        CLARIFY_PROMPT="$FOLLOW_UP_CONTEXT
+    clarify|all|default)
+        if [[ "$MODE" == "clarify" ]]; then
+            # Request clarification - focus on disagreement points
+            CLARIFY_PROMPT="$FOLLOW_UP_CONTEXT
 
 NOTE: This is a CLARIFICATION request on a point of disagreement between consultants.
 Explain your reasoning in detail and why your position differs from others."
-        printf '%s' "$CLARIFY_PROMPT" > "$FOLLOWUP_CONTEXT_FILE"
+            printf '%s' "$CLARIFY_PROMPT" > "$FOLLOWUP_CONTEXT_FILE"
+            log_info "Requesting clarification from all consultants..."
+        else
+            log_info "Follow-up to all consultants..."
+        fi
 
-        log_info "Requesting clarification from all consultants..."
-        "$SCRIPT_DIR/consult_all.sh" --query-file "$FOLLOWUP_CONTEXT_FILE"
-        ;;
-
-    all|default)
-        # Follow-up to all consultants
-        log_info "Follow-up to all consultants..."
-        "$SCRIPT_DIR/consult_all.sh" --query-file "$FOLLOWUP_CONTEXT_FILE"
+        # Run the panel inside this follow-up's directory and keep the
+        # original session current: the follow-up is recorded on it below.
+        panel_stdout=$(AI_CONSULTANTS_SKIP_SESSION_SAVE=true \
+            DEFAULT_OUTPUT_DIR_BASE="$FOLLOW_UP_DIR" \
+            "$SCRIPT_DIR/consult_all.sh" --query-file "$FOLLOWUP_CONTEXT_FILE")
+        panel_dir=$(printf '%s\n' "$panel_stdout" | tail -n 1)
+        if [[ -n "$panel_dir" && -d "$panel_dir" ]]; then
+            FOLLOW_UP_DIR="$panel_dir"
+        fi
+        unset panel_stdout panel_dir
         ;;
 esac
 

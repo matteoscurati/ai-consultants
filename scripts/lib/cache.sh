@@ -56,19 +56,48 @@ _file_checksum() {
     fi
 }
 
-# Generate semantic fingerprint for a query + context
-# Usage: generate_fingerprint <query> <category> [context_file]
+# Cache key schema. Bump when the fingerprint inputs change so entries written
+# under an older, less specific key can never be served.
+CACHE_KEY_VERSION="2"
+
+# Everything that changes WHAT a consultant is asked or WHICH model answers.
+# Without it a `--preset max_quality` run could be served an answer that a
+# `--preset fast` (economy model) run cached for the same question.
+# Usage: cache_identity <consultant>
+cache_identity() {
+    local upper var lower
+    upper=$(printf '%s' "${1:-all}" | tr '[:lower:]' '[:upper:]' | tr -d ' -')
+    local out="v${CACHE_KEY_VERSION}|persona=${ENABLE_PERSONA:-true}"
+    for var in MODEL API_MODEL CLI_MODEL USE_API REASONING_EFFORT FORMAT API_URL \
+        MAX_TURNS MAX_TOKENS API_MAX_TOKENS PERSONA_ID PERSONA PERSONA_NAME; do
+        var="${upper}_${var}"
+        out+="|${var}=${!var:-}"
+    done
+    # Cost-aware routing swaps in an economy model only inside the launch
+    # subshell, so the variables above still name the configured model. Key
+    # the override too, or a later run that asks the configured model would
+    # be served the economy answer for the same question.
+    if declare -f get_cost_aware_model >/dev/null 2>&1; then
+        lower=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+        out+="|cost_aware_model=$(get_cost_aware_model "$lower" "${QUERY_COMPLEXITY:-5}" 2>/dev/null || true)"
+    fi
+    printf '%s' "$out"
+}
+
+# Generate semantic fingerprint for a query + context + consultant identity
+# Usage: generate_fingerprint <query> <category> [context_file] [identity]
 generate_fingerprint() {
     local query="$1"
     local category="${2:-GENERAL}"
     local context_file="${3:-}"
+    local identity="${4:-}"
 
     # Normalize query
     local normalized_query
     normalized_query=$(_normalize_query "$query")
 
     # Build fingerprint components
-    local fingerprint_input="${normalized_query}|${category}"
+    local fingerprint_input="${normalized_query}|${category}|${identity}"
 
     # Add context checksum if provided
     if [[ -n "$context_file" && -f "$context_file" ]]; then
@@ -162,7 +191,7 @@ check_cache() {
     init_cache
 
     local fingerprint
-    fingerprint=$(generate_fingerprint "$query" "$category" "$context_file")
+    fingerprint=$(generate_fingerprint "$query" "$category" "$context_file" "$(cache_identity "$consultant")")
 
     local cache_file
     cache_file=$(_get_cache_path "$fingerprint" "$consultant")
@@ -205,7 +234,7 @@ store_cache() {
     init_cache
 
     local fingerprint
-    fingerprint=$(generate_fingerprint "$query" "$category" "$context_file")
+    fingerprint=$(generate_fingerprint "$query" "$category" "$context_file" "$(cache_identity "$consultant")")
 
     local cache_file
     cache_file=$(_get_cache_path "$fingerprint" "$consultant")

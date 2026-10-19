@@ -4,7 +4,7 @@
 # Analyzes responses from all consultants and generates the coverage union of
 # their distinct recommendations, risks, edge cases, and evidence.
 #
-# Usage: ./synthesize.sh <responses_dir> <output_file>
+# Usage: ./synthesize.sh <responses_dir> <output_file> [original_question|-]
 #
 # Requires: claude CLI for synthesis
 
@@ -13,6 +13,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/coverage_integrity.sh"
+source "$SCRIPT_DIR/lib/costs.sh"
 
 # =============================================================================
 # FALLBACK FUNCTION (defined before use)
@@ -74,6 +75,11 @@ generate_fallback_synthesis() {
 RESPONSES_DIR="${1:-}"
 OUTPUT_FILE="${2:-/tmp/synthesis.json}"
 ORIGINAL_QUESTION="${3:-}"
+# "-" reads the original question from stdin, keeping large questions out of
+# argv (see build_context.sh).
+if [[ "$ORIGINAL_QUESTION" == "-" ]]; then
+    ORIGINAL_QUESTION=$(cat)
+fi
 
 # --- Validation ---
 if [[ -z "$RESPONSES_DIR" || ! -d "$RESPONSES_DIR" ]]; then
@@ -281,7 +287,6 @@ Analyze carefully and produce ONLY valid JSON (no text before or after):
 
 {
   \"synthesis_version\": \"3.0\",
-  \"timestamp\": \"$(date -Iseconds)\",
   \"strategy\": \"$SYNTHESIS_STRATEGY\",
   \"consultants_analyzed\": $NUM_CONSULTANTS,
   \"coverage\": [
@@ -337,6 +342,24 @@ cleanup_synthesis_temps() {
 }
 trap cleanup_synthesis_temps EXIT
 
+# Final contract pass, run after the integrity audit: canonicalize the
+# presentation fields again (the auditor may have replaced a non-object
+# payload) and record which provider produced the artifact.
+finalize_synthesis_artifact() {
+    local finalized provider="$SYNTH_CLI"
+    [[ -n "$provider" ]] || provider="local-fallback"
+    finalized=$(mktemp)
+    if jq --arg strategy "$SYNTHESIS_STRATEGY" --argjson count "$NUM_CONSULTANTS" \
+            --arg timestamp "$(date -Iseconds)" -f "$SCRIPT_DIR/lib/synthesis_canonicalize.jq" \
+            "$OUTPUT_FILE" 2>/dev/null \
+        | jq --arg provider "$provider" '.synthesis_provider //= $provider' > "$finalized" 2>/dev/null \
+        && [[ -s "$finalized" ]]; then
+        mv "$finalized" "$OUTPUT_FILE"
+    else
+        rm -f "$finalized"
+    fi
+}
+
 write_integrity_fallback() {
     generate_fallback_synthesis "$RESPONSES_DIR" > "$OUTPUT_FILE"
     SYNTH_CLI="local-fallback"
@@ -350,7 +373,8 @@ write_integrity_fallback() {
     fi
     annotate_coverage_integrity "$OUTPUT_FILE" "$EXPECTED_SOURCE_IDS_JSON" \
         "$NON_NORMALIZABLE_CONSULTANTS_JSON" "$SYNTHESIS_STRATEGY" \
-        "$COVERAGE_INPUT_TRUNCATED" "$TRUNCATED_CONSULTANTS_JSON"
+        "$COVERAGE_INPUT_TRUNCATED" "$TRUNCATED_CONSULTANTS_JSON" || return 1
+    finalize_synthesis_artifact
 }
 
 # Try the configured/selected synthesizer first, then the remaining ready
@@ -374,14 +398,23 @@ done
 SYNTH_CLI=""
 exit_code=1
 avoid_synth=$(_consultant_to_cli "$(get_self_consultant_name)")
-if ! [[ "${SYNTHESIS_TIMEOUT:-240}" =~ ^[1-9][0-9]*$ \
-    && "${SYNTHESIS_TOTAL_TIMEOUT:-480}" =~ ^[1-9][0-9]*$ ]]; then
-    log_error "SYNTHESIS_TIMEOUT and SYNTHESIS_TOTAL_TIMEOUT must be positive integers"
+# 0 (the default) means no limit for that budget.
+SYNTHESIS_TIMEOUT="${SYNTHESIS_TIMEOUT:-0}"
+SYNTHESIS_TOTAL_TIMEOUT="${SYNTHESIS_TOTAL_TIMEOUT:-0}"
+if ! [[ "$SYNTHESIS_TIMEOUT" =~ ^[0-9]+$ && "$SYNTHESIS_TOTAL_TIMEOUT" =~ ^[0-9]+$ ]]; then
+    log_error "SYNTHESIS_TIMEOUT and SYNTHESIS_TOTAL_TIMEOUT must be non-negative integers (0 = no limit)"
     exit 1
 fi
 for candidate in "${SYNTH_CANDIDATES[@]}"; do
     [[ "$candidate" == "$avoid_synth" ]] && continue
     if [[ "$candidate" != "$SELECTED_SYNTH_CLI" ]] && ! _synthesis_cli_ready "$candidate"; then
+        continue
+    fi
+    # agy takes the prompt only as one argv value (see build_synthesis_args):
+    # skip it above that limit instead of letting exec fail with E2BIG.
+    if [[ "$candidate" == gemini ]] \
+        && (( $(printf '%s' "$SYNTHESIS_PROMPT" | wc -c) > $(argv_prompt_max_bytes) )); then
+        log_warn "Synthesis prompt exceeds the single-argument limit of agy; trying the next provider"
         continue
     fi
 
@@ -392,11 +425,15 @@ for candidate in "${SYNTH_CANDIDATES[@]}"; do
         log_warn "Could not build synthesis invocation for $candidate"
         continue
     fi
-    elapsed=$(( $(date +%s) - synthesis_started_at ))
-    remaining=$(( SYNTHESIS_TOTAL_TIMEOUT - elapsed ))
-    (( remaining > 0 )) || break
     provider_timeout="$SYNTHESIS_TIMEOUT"
-    (( provider_timeout <= remaining )) || provider_timeout="$remaining"
+    if (( SYNTHESIS_TOTAL_TIMEOUT > 0 )); then
+        elapsed=$(( $(date +%s) - synthesis_started_at ))
+        remaining=$(( SYNTHESIS_TOTAL_TIMEOUT - elapsed ))
+        (( remaining > 0 )) || break
+        if (( provider_timeout == 0 || provider_timeout > remaining )); then
+            provider_timeout="$remaining"
+        fi
+    fi
     if printf '%s' "$SYNTHESIS_PROMPT" | run_with_timeout "$provider_timeout" \
             "${SYNTHESIS_ARGS[@]}" > "$TEMP_OUTPUT" 2>/dev/null; then
         exit_code=0
@@ -416,6 +453,12 @@ for candidate in "${SYNTH_CANDIDATES[@]}"; do
     fi
     log_warn "Synthesis with $candidate failed (exit $exit_code); trying the next ready provider"
 done
+
+# The provider call that returned output is billed even if its payload later
+# turns out to be unusable, so remember it before any local fallback.
+SYNTH_BILLED_CLI="$SYNTH_CLI"
+SYNTH_RAW_FOR_COST=""
+[[ -z "$SYNTH_BILLED_CLI" ]] || SYNTH_RAW_FOR_COST=$(cat "$TEMP_OUTPUT")
 
 if [[ -z "$SYNTH_CLI" ]]; then
     log_warn "No synthesis CLI completed successfully, using local fallback"
@@ -437,16 +480,36 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         # It's already valid JSON
         cat "$TEMP_OUTPUT" > "$OUTPUT_FILE"
     else
-        # Try to extract JSON from text using sed (portable across macOS/Linux)
-        # This extracts from the first { to the last }
-        JSON_EXTRACTED=$(echo "$RAW_OUTPUT" | sed -n '/{/,/}/p' | tr '\n' ' ' || echo "")
-        if [[ -n "$JSON_EXTRACTED" ]] && echo "$JSON_EXTRACTED" | jq -e '.' > /dev/null 2>&1; then
-            echo "$JSON_EXTRACTED" | jq '.' > "$OUTPUT_FILE"
+        # Models often wrap the object in a ```json fence or add a sentence
+        # before/after it. Try the fence-stripped text, then the span from the
+        # first "{" to the last "}". (A sed line range cannot do this: it ends
+        # at the first line containing "}" and drops nested members.)
+        JSON_EXTRACTED=$(strip_json_fence "$RAW_OUTPUT")
+        if ! printf '%s' "$JSON_EXTRACTED" | jq -e 'type == "object"' > /dev/null 2>&1; then
+            JSON_EXTRACTED=""
+            if [[ "$RAW_OUTPUT" == *"{"*"}"* ]]; then
+                JSON_EXTRACTED="{${RAW_OUTPUT#*\{}"
+                JSON_EXTRACTED="${JSON_EXTRACTED%\}*}}"
+            fi
+        fi
+        if [[ -n "$JSON_EXTRACTED" ]] && printf '%s' "$JSON_EXTRACTED" | jq -e 'type == "object"' > /dev/null 2>&1; then
+            printf '%s' "$JSON_EXTRACTED" | jq '.' > "$OUTPUT_FILE"
         else
             # Fallback: create minimal structure
             generate_fallback_synthesis "$RESPONSES_DIR" > "$OUTPUT_FILE"
             SYNTH_CLI="local-fallback"
         fi
+    fi
+
+    # Canonicalize presentation fields (types, local timestamp/count) before
+    # the local integrity audit; coverage attribution is left to the auditor.
+    canonical_output=$(mktemp)
+    if jq --arg strategy "$SYNTHESIS_STRATEGY" --argjson count "$NUM_CONSULTANTS" \
+            --arg timestamp "$(date -Iseconds)" -f "$SCRIPT_DIR/lib/synthesis_canonicalize.jq" \
+            "$OUTPUT_FILE" > "$canonical_output" 2>/dev/null && [[ -s "$canonical_output" ]]; then
+        mv "$canonical_output" "$OUTPUT_FILE"
+    else
+        rm -f "$canonical_output"
     fi
 
     annotated_output=$(mktemp)
@@ -464,6 +527,29 @@ if [[ $exit_code -eq 0 && -f "$TEMP_OUTPUT" && -s "$TEMP_OUTPUT" ]]; then
         if ! write_integrity_fallback; then
             log_error "Could not write a failed-closed synthesis artifact"
             exit 1
+        fi
+    fi
+    finalize_synthesis_artifact
+
+    # Record an estimate of the synthesis call itself so the session cost and
+    # budget include it (CLI synthesis reports no usage; the 4-chars-per-token
+    # estimate is labeled as such).
+    if [[ -n "$SYNTH_BILLED_CLI" ]]; then
+        synth_model=$(synthesis_model_for_cli "$SYNTH_BILLED_CLI")
+        synth_in=$(estimate_tokens "$SYNTHESIS_PROMPT")
+        synth_out=$(estimate_tokens "$SYNTH_RAW_FOR_COST")
+        synth_cost=$(estimate_query_cost "${synth_model:-default}" "$synth_in" "$synth_out")
+        annotated_output=$(mktemp)
+        if jq --arg provider "$SYNTH_BILLED_CLI" --arg model "${synth_model:-default}" \
+                --argjson tin "$synth_in" --argjson tout "$synth_out" --arg cost "$synth_cost" '
+                .synthesis_metadata = {
+                    provider: $provider, model: $model,
+                    tokens_input: $tin, tokens_output: $tout, tokens_source: "estimated",
+                    estimated_cost_usd: ($cost | tonumber)
+                }' "$OUTPUT_FILE" > "$annotated_output"; then
+            mv "$annotated_output" "$OUTPUT_FILE"
+        else
+            rm -f "$annotated_output"
         fi
     fi
 

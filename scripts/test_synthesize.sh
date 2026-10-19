@@ -619,9 +619,113 @@ EOF
         "Gemini synthesis CLI is never invoked by a Gemini host"
 }
 
+# A4: a valid synthesis wrapped in a markdown fence, or surrounded by prose,
+# must be accepted instead of being replaced by the manual-review fallback.
+test_fenced_and_prose_wrapped_synthesis_is_accepted() {
+    local body output fenced prose
+    body='{
+  "coverage": [
+    {"point": "summary", "source_ids": ["structured:1"]},
+    {"point": "pro", "source_ids": ["structured:2"]}
+  ],
+  "weighted_recommendation": {"summary": "ok", "detailed": "ok"}
+}'
+    fenced=$(printf '```json\n%s\n```' "$body")
+    output=$(run_integrity_fixture fenced "$fenced" coverage false)
+    assert_eq claude "$(jq -r '.synthesis_provider' "$output")" "fenced synthesis keeps the provider result"
+    assert_eq MET "$(jq -r '.coverage_integrity.status' "$output")" "fenced synthesis is audited, not discarded"
+
+    prose=$(printf 'Here is the synthesis:\n%s\nLet me know if you need more.' "$body")
+    output=$(run_integrity_fixture prose "$prose" coverage false)
+    assert_eq claude "$(jq -r '.synthesis_provider' "$output")" "prose-wrapped synthesis keeps the provider result"
+    assert_eq 2 "$(jq -r '.coverage | length' "$output")" "prose-wrapped synthesis keeps nested coverage items"
+}
+
+# M1: the synthesis call is billed, so it must reach the session cost.
+test_synthesis_cost_is_recorded_and_billed() {
+    local output responses total
+    output=$(run_integrity_fixture cost '{"coverage":[{"point":"summary","source_ids":["structured:1"]},{"point":"pro","source_ids":["structured:2"]}],"weighted_recommendation":{"summary":"ok","detailed":"ok"}}' coverage false)
+    assert_eq claude "$(jq -r '.synthesis_metadata.provider' "$output")" "synthesis records its billed provider"
+    assert_eq estimated "$(jq -r '.synthesis_metadata.tokens_source' "$output")" "synthesis tokens are labeled as estimates"
+    assert_eq true "$(jq -r '.synthesis_metadata.tokens_input > 0' "$output")" "synthesis prompt tokens are counted"
+    responses="$TMP_ROOT/integrity-cost-responses"
+    cp "$output" "$responses/synthesis.json"
+    total=$(AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/empty-config" bash -c '
+        source "$1/lib/common.sh"; source "$1/lib/costs.sh"
+        without=$(calculate_session_cost "$2")
+        rm -f "$2/synthesis.json"
+        bare=$(calculate_session_cost "$2")
+        echo "$(echo "$without > $bare" | bc)"' _ "$SCRIPT_DIR" "$responses")
+    assert_eq 1 "$total" "session cost includes the synthesis estimate"
+}
+
+# The synthesis estimate must not depend on LC_NUMERIC: under a comma-decimal
+# locale a printf-based conversion turned "0.03" into an invalid number and the
+# whole session total came back empty. jq may also print tiny costs in
+# exponent notation, which bc cannot parse directly.
+test_synthesis_cost_is_locale_independent() {
+    local responses="$TMP_ROOT/locale-cost-responses" comma_locale="" candidate total
+    mkdir -p "$responses"
+    printf '%s\n' '{"consultant":"Codex","model":"gpt-6.1-sol","response":{"summary":"s","approach":"a"},"confidence":{"score":8},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1500,"tokens_output":500,"requested_model":"gpt-6.1-sol"}}' \
+        > "$responses/codex.json"
+    printf '%s\n' '{"synthesis_version":"3.0","synthesis_metadata":{"estimated_cost_usd":0.0312}}' > "$responses/synthesis.json"
+    total=$(AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/empty-config" bash -c '
+        source "$1/lib/common.sh" >/dev/null 2>&1; source "$1/lib/costs.sh"
+        calculate_session_cost "$2"' _ "$SCRIPT_DIR" "$responses")
+    assert_eq "0.039200" "$total" "session cost adds the synthesis estimate"
+
+    printf '%s\n' '{"synthesis_version":"3.0","synthesis_metadata":{"estimated_cost_usd":5e-06}}' > "$responses/synthesis.json"
+    total=$(AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/empty-config" bash -c '
+        source "$1/lib/common.sh" >/dev/null 2>&1; source "$1/lib/costs.sh"
+        calculate_session_cost "$2"' _ "$SCRIPT_DIR" "$responses")
+    assert_eq "0.008005" "$total" "an exponent-notation synthesis estimate is still added"
+
+    # Capture the list first: `locale -a | grep -q` can fail with SIGPIPE
+    # under pipefail when grep exits before locale finishes writing.
+    local installed_locales
+    installed_locales=$(locale -a 2>/dev/null || true)
+    for candidate in it_IT.UTF-8 de_DE.UTF-8 fr_FR.UTF-8 it_IT.utf8 de_DE.utf8 fr_FR.utf8; do
+        if grep -qix "$candidate" <<<"$installed_locales"; then comma_locale="$candidate"; break; fi
+    done
+    if [[ -z "$comma_locale" ]]; then
+        test_skip "no comma-decimal locale installed; locale-independence not exercised"
+        return
+    fi
+    printf '%s\n' '{"synthesis_version":"3.0","synthesis_metadata":{"estimated_cost_usd":0.0312}}' > "$responses/synthesis.json"
+    total=$(LC_ALL="$comma_locale" AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/empty-config" bash -c '
+        source "$1/lib/common.sh" >/dev/null 2>&1; source "$1/lib/costs.sh"
+        calculate_session_cost "$2" 2>/dev/null' _ "$SCRIPT_DIR" "$responses")
+    assert_eq "0.039200" "$total" "session cost is unchanged under $comma_locale"
+}
+
+# Every synthesis.json shape (model output with wrong types, local fallback,
+# failed-closed replacement) conforms to definitions.synthesis_artifact.
+test_synthesis_artifacts_conform_to_schema() {
+    local output
+    output=$(run_integrity_fixture schema-messy '{"coverage":[{"point":"summary","source_ids":["structured:1"],"raised_by":"Structured"},{"point":"pro","source_ids":["structured:2"]}],"weighted_recommendation":"just a string","risk_assessment":{"overall_risk":"Moderate","risks":["plain risk",{"risk":"object risk","severity":"critical"}]},"action_items":["do this",{"title":"then that","priority":"2"}],"follow_up_questions":"why?","timestamp":"model-invented","consultants_analyzed":99}' coverage false)
+    assert_schema_valid "$output" synthesis_artifact "messy model synthesis is canonicalized to the contract"
+    assert_eq "medium|high|2|1|why?" \
+        "$(jq -r '"\(.risk_assessment.overall_risk)|\(.risk_assessment.risks[1].severity)|\(.action_items[1].priority)|\(.consultants_analyzed)|\(.follow_up_questions[0])"' "$output")" \
+        "levels, priorities, local count and string lists are canonical"
+    assert_eq false "$(jq -r '.timestamp == "model-invented"' "$output")" "timestamp is local, not model-supplied"
+    assert_eq MET "$(jq -r '.coverage_integrity.status' "$output")" "canonicalization does not disturb the integrity audit"
+
+    output=$(run_integrity_fixture schema-array '[]' coverage false)
+    assert_schema_valid "$output" synthesis_artifact "failed-closed replacement conforms to the contract"
+
+    output=$(run_integrity_fixture schema-compare '{"weighted_recommendation":{"summary":"side by side"}}' compare_only false)
+    assert_schema_valid "$output" synthesis_artifact "non-coverage strategy without coverage conforms"
+    assert_eq NOT_APPLICABLE "$(jq -r '.coverage_integrity.status' "$output")" \
+        "a missing coverage list is not a structural failure for compare_only"
+}
+
 run_test "Synthesis filters errors and preserves usable detail" test_synthesis_excludes_errors_and_keeps_fallback_detail
 run_test "Synthesis makes fallback truncation explicit without clipping atomic findings" test_synthesis_truncation_is_explicit_and_atomic_findings_are_complete
 run_test "Whitespace synthesis payload fails closed" test_whitespace_synthesis_payload_fails_closed
+run_test "Fenced or prose-wrapped synthesis is accepted" test_fenced_and_prose_wrapped_synthesis_is_accepted
+run_test "Synthesis cost is recorded and billed" test_synthesis_cost_is_recorded_and_billed
+run_test "Synthesis cost is locale-independent" test_synthesis_cost_is_locale_independent
+run_test "Synthesis artifacts conform to the schema" test_synthesis_artifacts_conform_to_schema
 run_test "Coverage integrity normalizes and audits local source IDs" test_coverage_integrity_normalizes_and_enforces_source_ids
 run_test "Coverage integrity closes edge contracts" test_coverage_integrity_edge_contracts
 run_test "Report renders coverage integrity status" test_report_renders_coverage_integrity_status

@@ -176,6 +176,21 @@ assert_json() {
     fi
 }
 
+# Assert a JSON file conforms to scripts/lib/schema.json (or one of its
+# definitions), using the jq-based checker in scripts/lib/json_schema_check.jq.
+# Usage: assert_schema_valid <json_file> <definition|""> <message>
+assert_schema_valid() {
+    local file="$1" definition="$2" message="$3" lib errors
+    lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    errors=$(jq -n --slurpfile schema "$lib/schema.json" --slurpfile doc "$file" \
+        --arg definition "$definition" -f "$lib/json_schema_check.jq" 2>&1 | jq -r 'if type == "array" then .[] else . end' 2>&1)
+    if [[ -z "$errors" ]]; then
+        test_pass "$message"
+    else
+        test_fail "$message" "$(printf '%s' "$errors" | head -5 | tr '\n' ';')"
+    fi
+}
+
 # Run a named test. Calls _reset_state if defined by the suite.
 # Usage: run_test "Test 1: description" test_function_name
 run_test() {

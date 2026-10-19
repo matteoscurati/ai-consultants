@@ -14,17 +14,20 @@ Thank you for your interest in contributing to AI Consultants! This document pro
 
 ### Prerequisites
 
-1. **Bash 4.0+** (for associative arrays)
+1. **Bash 3.2+** — the runtime must stay compatible with the stock macOS
+   `/bin/bash` 3.2 (no associative arrays; see the `map_*` helpers in
+   `scripts/lib/common.sh`). Check syntax with `/bin/bash -n`.
 2. **jq** - JSON processor (required)
 3. **bc** - Calculator (for cost tracking)
 
 ### Consultant CLIs
 
-Install at least one of the consultant CLIs:
+The automated tests use stubs and need no consultant CLI. For live runs,
+install at least two consultants:
 
 ```bash
-# Gemini CLI (Google)
-# Follow: https://ai.google.dev/gemini-api/docs/quickstart
+# Gemini (Antigravity CLI: agy)
+curl -fsSL https://antigravity.google/cli/install.sh | bash
 
 # Codex CLI (OpenAI)
 npm install -g @openai/codex
@@ -47,9 +50,12 @@ cd ai-consultants
 # Install the git pre-commit hook (recommended)
 npm run install-hooks      # or: bash scripts/install-hooks.sh
 
-# Copy environment configuration (optional)
-cp .env.example .env
+# Create your private configuration (optional; never inside the repository)
+./bin/ai-consultants configure      # or: ./bin/ai-consultants init
 ```
+
+Configuration lives in `~/.config/ai-consultants/.env`; a project `.env` is not
+read. To use another private directory, set `AI_CONSULTANTS_CONFIG_DIR`.
 
 ### Pre-commit hook
 
@@ -110,7 +116,11 @@ fi
 
 ### JSON Output
 
-Every JSON output must follow `lib/schema.json`:
+Every consultant envelope must follow `scripts/lib/schema.json` and every
+`synthesis.json` its `definitions.synthesis_artifact` (see
+`docs/JSON_SCHEMA.md`). Build envelopes only through the response builders in
+`scripts/lib/common.sh`; tests check them with `assert_schema_valid`.
+Minimum shape:
 
 ```json
 {
@@ -143,13 +153,27 @@ Every JSON output must follow `lib/schema.json`:
 
 ## Testing
 
+### Automated Tests (required before a PR)
+
+```bash
+npm test         # every scripts/test_*.sh suite, offline, with stub CLIs
+npm run lint     # ShellCheck, the same invocation as CI
+for f in bin/ai-consultants scripts/*.sh scripts/lib/*.sh; do /bin/bash -n "$f"; done
+scripts/generate_public_docs.sh --check   # generated tables in README/SKILL/references
+```
+
+`npm test` ignores your personal configuration by itself and makes no billed
+calls. The full suite takes several minutes.
+
 ### Manual Testing
+
+These commands call real providers and may be billed.
 
 ```bash
 # Health check
 ./scripts/doctor.sh
 
-# Basic test (requires at least 1 CLI)
+# Basic test (requires at least 2 consultants)
 ./scripts/consult_all.sh "How to optimize a SQL query?"
 
 # Test coverage-union synthesis
@@ -170,8 +194,11 @@ ENABLE_SMART_ROUTING=true \
 output_dir=$(./scripts/consult_all.sh --preset minimal "Schema smoke")
 jq . "$output_dir/gemini.json"
 
-# Verify schema (if you have jsonschema)
-jsonschema -i "$output_dir/gemini.json" scripts/lib/schema.json
+# Verify the envelope and the synthesis artifact against the schema (jq only)
+jq -n --slurpfile schema scripts/lib/schema.json --slurpfile doc "$output_dir/gemini.json" \
+  -f scripts/lib/json_schema_check.jq
+jq -n --slurpfile schema scripts/lib/schema.json --slurpfile doc "$output_dir/synthesis.json" \
+  --arg definition synthesis_artifact -f scripts/lib/json_schema_check.jq
 ```
 
 ## Pull Request
@@ -190,10 +217,12 @@ Examples:
 
 ### Commit Messages
 
-Use clear and concise messages:
+Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`,
+`fix:`, `docs:`, `refactor:`, `test:`, `chore:`, `perf:`, `ci:`; scope
+optional):
 
 ```
-Add support for a new consultant
+feat(routing): add support for a new consultant
 
 - New query adapter
 - Updated config.sh with the consultant toggle
@@ -201,7 +230,7 @@ Add support for a new consultant
 ```
 
 **Format:**
-- First line: max 50 characters, imperative mood
+- First line: short, imperative mood
 - Blank line
 - Body: details if needed
 

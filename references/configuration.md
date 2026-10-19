@@ -55,11 +55,14 @@ Use the hidden interactive credential prompts (or exported environment variables
 for API keys; command-line arguments may be visible in shell history and process
 inspection.
 Model defaults carry an `# ai-consultants:default` marker. On rewrite,
-`configure` upgrades the historical unmarked
-`CLAUDE_MODEL=claude-opus-4-8` and `claude-opus-5` generated defaults to
-Fable 5.1. An explicit model override supplied with `--set` is stored with
-`# ai-consultants:pin`, so `--set CLAUDE_MODEL=claude-opus-5` keeps the
-legacy Opus 5 model intentionally. Standard/medium now select Opus 5.5.
+`configure` upgrades the exact historical defaults it generated, marked or
+unmarked, unless they are pinned: `CLAUDE_MODEL=claude-opus-4-8`/`claude-opus-5`
+to Fable 5.1, plus the previous Gemini (CLI and API), Codex, Mistral API, Qwen,
+GLM, Grok and DeepSeek defaults, and the fixed timeouts described under
+[Timeouts, Waiting and Retries](#timeouts-waiting-and-retries). An explicit
+model override supplied with `--set` is stored with `# ai-consultants:pin`, so
+`--set CLAUDE_MODEL=claude-opus-5-5` keeps Opus 5.5 (the standard/medium
+target) as the default.
 The exhaustive parameter contract is [`.env.example`](../.env.example); the
 configurator derives its accepted keys from that template, while
 [`scripts/config.sh`](../scripts/config.sh) remains the runtime source of truth.
@@ -97,9 +100,13 @@ Files loaded from that dir (in order, both optional):
 ## Defaults
 
 ```bash
-DEFAULT_PRESET=balanced      # Preset when --preset not given
-DEFAULT_STRATEGY=coverage    # Strategy when --strategy not given
+DEFAULT_PRESET=              # Preset when --preset is not given; empty = every enabled consultant
+DEFAULT_STRATEGY=coverage    # Strategy when --strategy is not given
 ```
+
+`.env.example` leaves `DEFAULT_PRESET=balanced` commented out; set it (for
+example with `configure --set DEFAULT_PRESET=balanced`) to run three
+consultants by default instead of every enabled one.
 
 ## Context Handoff (v2.14+)
 
@@ -123,11 +130,13 @@ Unknown tags fall back to `PRIMARY` with a `log_warn` message. The tag appears i
 
 ### `--query-file <path>` flag
 
-Escape hatch when the question would exceed shell `ARG_MAX` (~256KB on macOS) or contains awkward quoting (JSON, Python dicts with mixed quotes). Conflicts with a positional question argument.
+Use it when the question would exceed the shell's argument limits (128 KiB per argument on Linux, about 1 MiB in total on macOS), contains awkward quoting (JSON, Python dicts with mixed quotes), or should stay out of the process list. Conflicts with a positional question argument.
 
 ```bash
-echo "Long multi-paragraph question..." > /tmp/q.txt
-./scripts/consult_all.sh --query-file /tmp/q.txt src/big.py@PRIMARY
+q=$(mktemp) && chmod 600 "$q"
+printf '%s\n' "Long multi-paragraph question..." > "$q"
+./scripts/consult_all.sh --query-file "$q" src/big.py@PRIMARY
+rm -f "$q"
 ```
 
 ### Category-aware project tree
@@ -139,6 +148,9 @@ echo "Long multi-paragraph question..." > /tmp/q.txt
 | `ARCHITECTURE`, `CODE_REVIEW`, `API_DESIGN`, `GENERAL` | Yes |
 | `SECURITY`, `QUICK_SYNTAX`, `ALGORITHM`, `BUG_DEBUG`, `DATABASE`, `TESTING` | No |
 | Unknown category | Yes (conservative default) |
+
+The tree is never listed when the context root is a home directory or `/`:
+walking it is slow and would send personal file names to every consultant.
 
 Override:
 
@@ -165,8 +177,8 @@ ENABLE_PERSONA=true          # Give each consultant its configured role
 ENABLE_SYNTHESIS=true        # Automatic synthesis
 SYNTHESIS_CMD=claude         # CLI used to synthesize the panel
 SYNTH_DETAIL_MAX_CHARS=4000  # Per-response detail included in synthesis
-SYNTHESIS_TIMEOUT=240        # Bound the selected synthesis CLI
-SYNTHESIS_TOTAL_TIMEOUT=480  # Bound all provider attempts together
+SYNTHESIS_TIMEOUT=0          # Per synthesis CLI; 0 = no limit (default)
+SYNTHESIS_TOTAL_TIMEOUT=0    # All provider attempts together; 0 = no limit
 ENABLE_SMART_ROUTING=false   # Category-based consultant selection
 ENABLE_COST_TRACKING=true    # Track API usage costs
 ```
@@ -240,19 +252,21 @@ ENABLE_DEEPSEEK=false
 ### Model Overrides
 
 ```bash
-GEMINI_MODEL="Gemini 3.8 Flash (High)" # CLI smoke passed; capability-probed identity; API uses GEMINI_API_MODEL
-CODEX_MODEL=gpt-6-astra
+GEMINI_MODEL="Gemini 4 Argon (High)" # CLI smoke passed; capability-probed identity; API uses GEMINI_API_MODEL
+GEMINI_API_MODEL=gemini-4-argon       # API only; needs a paid-tier key
+GEMINI_API_MAX_TOKENS=32768           # API only: Argon thinking + visible output
+CODEX_MODEL=gpt-6.1-sol    # max_quality uses gpt-6-astra
 CODEX_API_MAX_TOKENS=16384
 CLAUDE_MODEL=claude-fable-5-1
 # Lower-cost standard override: CLAUDE_MODEL=claude-opus-5-5
 CLAUDE_API_MAX_TOKENS=16384  # API only: adaptive thinking + visible output
-MISTRAL_MODEL=mistral-large-3
+MISTRAL_MODEL=mistral-large-4
 MISTRAL_CLI_MODEL=mistral-medium-3.5
 MISTRAL_MAX_TURNS=4
-MISTRAL_API_MAX_TOKENS=4096
+MISTRAL_API_MAX_TOKENS=16384  # API only: Large 4 thinking + visible output
 KIMI_MODEL=kimi-code/k3
-QWEN3_MODEL=qwen3.7-max
-QWEN3_MAX_QUALITY_TIMEOUT=600
+QWEN3_MODEL=qwen3.8-max     # standard/economy tiers use qwen3.8-flash
+QWEN3_MAX_QUALITY_TIMEOUT=0  # 0 = no limit
 QWEN3_API_MAX_TOKENS=16384
 GLM_MODEL=glm-5.3-flash
 GLM_API_MAX_TOKENS=16384
@@ -264,7 +278,7 @@ GROK_REASONING_EFFORT=      # max_quality sets xhigh (Grok Build maximum)
 GROK_OAUTH_MODE=shared      # shared (parallel default) | serialized (diagnostic)
 DEEPSEEK_MODEL=deepseek-flash  # DeepSeek-V4.1-Flash API alias
 DEEPSEEK_API_MAX_TOKENS=16384
-DEEPSEEK_MAX_QUALITY_TIMEOUT=600
+DEEPSEEK_MAX_QUALITY_TIMEOUT=0  # 0 = no limit
 DEEPSEEK_REASONING_EFFORT=  # max_quality sets max
 MINIMAX_MODEL=MiniMax-M2.7
 MINIMAX_API_MAX_TOKENS=4096
@@ -323,8 +337,9 @@ an ambient lower pin and restores it when another tier is applied. Qwen is the
 intentional exception because Token Plan access is separately configured: an
 explicit `QWEN3_REASONING_EFFORT` pin is preserved in the maximum tier.
 
-The preset gives Mistral and Grok four bounded advisory turns, extends the
-Qwen3.8-Max and DeepSeek timeouts to 600 seconds, and uses the configured
+The preset gives Mistral and Grok four bounded advisory turns, applies
+`QWEN3_MAX_QUALITY_TIMEOUT` and `DEEPSEEK_MAX_QUALITY_TIMEOUT` (default 0, no
+limit) to Qwen3.8-Max and DeepSeek, and uses the configured
 per-consultant `*_API_MAX_TOKENS` budget. Maximum temporarily raises Codex,
 Mistral, Grok, and MiniMax API budgets to `MAX_QUALITY_API_MAX_TOKENS` and
 restores them when leaving the tier; Qwen, GLM, and DeepSeek already default to
@@ -342,14 +357,37 @@ used as a gate.
 `MISTRAL_MODEL` is used only by the HTTP API. Vibe receives
 `MISTRAL_CLI_MODEL` through `VIBE_ACTIVE_MODEL` and runs its read-only `plan`
 agent in a temporary workspace. The current Vibe default is
-`mistral-medium-3.5`. The official API IDs `mistral-medium-3-5`,
-`mistral-large-2512`, and `mistral-small-2603` are catalogued opt-ins until an
-authenticated API smoke passes in this project.
+`mistral-medium-3.5`. The API default for every tier is `mistral-large-4`
+(public preview since 2026-10-06). An authorized consultation smoke returned a
+structured answer with the provider-reported model `mistral-large-4` on
+2026-10-15. The
+preview is absent from `GET /v1/models` even for keys that can call it, so that
+listing is not an access check. Use
+`MISTRAL_MODEL=mistral-large-3 # ai-consultants:pin` to keep the previous
+target. The official API IDs `mistral-medium-3-5`, `mistral-large-2512`, and
+`mistral-small-2603` remain catalogued opt-ins until an authenticated API smoke
+passes in this project.
+
+Gemini 4 Argon (GA 2026-10-13) is the Gemini default and maximum target:
+`GEMINI_MODEL="Gemini 4 Argon (High)"` on `agy` and `GEMINI_API_MODEL=gemini-4-argon`
+on the API. An authorized `agy` consultation smoke returned a structured answer
+on 2026-10-16 (capability-probed identity, about 49 s for a short question). The
+API transport has offline tests only. On the API, Argon defaults to the `high`
+thinking level of its CLI target (`GEMINI_REASONING_EFFORT` accepts
+low|medium|high), sends no sampling parameters, and spends thinking tokens from
+`GEMINI_API_MAX_TOKENS` (default 32768). Google excludes Argon from the Free tier
+and the AI Pro plan, so an `agy models` listing is not an access check. Pin
+`GEMINI_MODEL="Gemini 3.8 Flash (High)" # ai-consultants:pin` or
+`GEMINI_API_MODEL=gemini-3.1-pro-preview # ai-consultants:pin` to keep the previous
+targets.
 
 The current Vibe CLI exposes only `--prompt TEXT`, not stdin or a prompt-file
-surface. The adapter therefore keeps HOME-independent read-only execution and
-an isolated workspace, but the prompt remains visible in the Vibe process argv;
-avoid secrets in consultation context until Vibe ships a non-argv input mode.
+surface, and the same holds for `agy` and `kimi`. Their adapters keep an
+isolated workspace, but the prompt remains visible in the CLI process argv, and
+a prompt above the single-argument limit (`ARGV_PROMPT_MAX_BYTES`, computed by
+default) fails before dispatch. Avoid secrets in consultation context until
+those CLIs ship a non-argv input mode. Agentic CLIs (`agy`, `qwen`, `kimi`) run
+from a private empty directory unless `CLI_WORKSPACE_ISOLATION=false`.
 
 `metadata.requested_model` records what ai-consultants asked for, while
 `metadata.model_identity_source` is `provider-reported`, `capability-probed`,
@@ -378,9 +416,9 @@ BUDGET_ACTION=warn           # warn or stop
 ## Caching and Optimization (v2.3)
 
 ```bash
-ENABLE_SEMANTIC_CACHE=true   # Cache responses by query fingerprint
+ENABLE_SEMANTIC_CACHE=true   # Cache responses by query, context and consultant model/transport/persona
 CACHE_TTL_HOURS=24           # Cache expiration
-ENABLE_RESPONSE_LIMITS=false # Limit output tokens by category
+ENABLE_RESPONSE_LIMITS=false # Deprecated no-op (never applied); use *_API_MAX_TOKENS
 ENABLE_COST_AWARE_ROUTING=false  # Route simple queries to cheaper models
 ENABLE_COMPACT_REPORT=true   # Summaries only in reports
 ```
@@ -400,23 +438,57 @@ The health gate adds one small call per selected consultant. It drops dead or
 unauthenticated consultants before the full query; `QUORUM_ACTION=stop` aborts
 when the remaining panel is smaller than `QUORUM_MIN`.
 
-## Timeouts and Retries
+## Timeouts, Waiting and Retries
+
+Consultants and synthesis have **no time limit by default** (every `*_TIMEOUT`
+is 0). Reasoning models can legitimately take minutes, and a call cut off by a
+client timeout is usually still billed while its answer is lost. The invoking
+host decides when to stop waiting instead. While `consult_all.sh` waits it logs
+`Output: <dir>` at the start and `Still waiting after Ns for: <names>` every
+`WAIT_HEARTBEAT_SECONDS` (0 = silent), and it accepts:
+
+| Request | How | Effect |
+|---|---|---|
+| Proceed | `touch <dir>/.proceed`, `kill -USR1 <pid>`, or a first Ctrl-C | Stop the current phase and continue with the answers received. During Round 1 the consultants still running are stopped and reported as `stopped`; during synthesis the synthesis is skipped. |
+| Abort | `touch <dir>/.abort`, SIGTERM/SIGHUP, or a second Ctrl-C | End the run (exit 130, 143 or 129) and keep the partial output directory. |
+
+Stopped work ends with its whole process tree, so no consultant CLI keeps
+running. Its partial output is discarded and excluded from synthesis and cost;
+the provider may still bill what it generated. Do not stop a run with SIGKILL:
+the shell cannot clean up, so consultant CLIs would keep running. Probes keep
+short limits because they detect a dead service rather than cut paid
+generation: model inventory, auth status, `HEALTH_GATE_TIMEOUT`,
+`DOCTOR_LIVE_TIMEOUT` and the LLM classifier's `CLASSIFICATION_TIMEOUT` (which
+falls back to pattern classification).
+
+agy can print its whole answer and then never exit (seen with agy 1.4.2, as
+a synthesizer). When agy's output is one complete JSON object that has not
+changed for `AGY_EXIT_GRACE_SECONDS` (default 60), the run ends agy and keeps
+the answer; prose or a partial answer still waits for agy to exit. 0 disables
+this and always waits for the exit.
 
 ```bash
 MAX_RETRIES=2
 RETRY_DELAY_SECONDS=5
-GEMINI_TIMEOUT=240
-CODEX_TIMEOUT=180
-MISTRAL_TIMEOUT=180
+WAIT_HEARTBEAT_SECONDS=30
+AGY_EXIT_GRACE_SECONDS=60  # keep a complete agy answer when agy never exits
+GEMINI_TIMEOUT=0       # 0 = no limit; a positive value restores a hard limit
+CODEX_TIMEOUT=0
+MISTRAL_TIMEOUT=0
 MISTRAL_MAX_TURNS=4
-KIMI_TIMEOUT=180
-CLAUDE_TIMEOUT=240
-QWEN3_TIMEOUT=180
-QWEN3_MAX_QUALITY_TIMEOUT=600
-MINIMAX_TIMEOUT=180
-GLM_TIMEOUT=180
-GROK_TIMEOUT=180
+KIMI_TIMEOUT=0
+CLAUDE_TIMEOUT=0
+QWEN3_TIMEOUT=0
+QWEN3_MAX_QUALITY_TIMEOUT=0
+MINIMAX_TIMEOUT=0
+GLM_TIMEOUT=0
+GROK_TIMEOUT=0
 GROK_MAX_TURNS=4
-DEEPSEEK_TIMEOUT=180
-DEEPSEEK_MAX_QUALITY_TIMEOUT=600
+DEEPSEEK_TIMEOUT=0
+DEEPSEEK_MAX_QUALITY_TIMEOUT=0
 ```
+
+`configure` migrates the fixed limits it generated through 5.1.2 (180 s per
+consultant, 240 s for Claude and synthesis, 480 s synthesis total, 600 s for
+maximum-tier Qwen/DeepSeek) to 0. A value marked `# ai-consultants:pin`, or any
+other custom value, stays a hard limit.

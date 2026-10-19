@@ -73,10 +73,16 @@ apply_launch_stagger() {
 
 # Timeout function compatible with macOS and Linux
 # Usage: run_with_timeout <seconds> <command> [args...]
+# A timeout of 0 runs the command with no time limit.
 run_with_timeout() {
     local timeout_seconds=$1
     shift
     local cmd=("$@")
+
+    if [[ "$timeout_seconds" == "0" ]]; then
+        "${cmd[@]}"
+        return $?
+    fi
 
     # Try first with timeout (Linux/GNU coreutils)
     if command -v timeout &> /dev/null; then
@@ -92,10 +98,16 @@ run_with_timeout() {
 
     # Fallback: implementation with background job and kill
     # Works on any POSIX system
-    # Note: stdin must be captured before backgrounding
-    local stdin_data
-    stdin_data=$(cat)
-    echo "$stdin_data" | "${cmd[@]}" &
+    # Note: stdin must be captured before backgrounding. Never read an
+    # interactive terminal: probes such as `<cli> --help` pass no input, and
+    # `cat` on a TTY would block until the user typed EOF. Callers that pass
+    # no input should also redirect stdin from /dev/null so an open pipe
+    # cannot block here either.
+    local stdin_data=""
+    if [[ ! -t 0 ]]; then
+        stdin_data=$(cat)
+    fi
+    printf '%s\n' "$stdin_data" | "${cmd[@]}" &
     local pid=$!
 
     # Monitor in background
@@ -120,6 +132,68 @@ run_with_timeout() {
 
     return $exit_code
 }
+
+# Human-readable timeout for log lines: "180s", or "none" for 0.
+# Usage: format_timeout_label <seconds>
+format_timeout_label() {
+    if [[ "${1:-0}" == "0" ]]; then
+        printf 'none'
+    else
+        printf '%ss' "$1"
+    fi
+}
+
+# Print a PID and all of its descendants, one per line, parents first.
+# One process-table snapshot per call, walked breadth-first.
+# Usage: list_process_tree <pid>
+list_process_tree() {
+    ps -A -o pid= -o ppid= 2>/dev/null | awk -v root="$1" '
+        { pid[NR] = $1; ppid[NR] = $2 }
+        END {
+            print root
+            n = 1; queue[1] = root
+            for (q = 1; q <= n; q++)
+                for (i = 1; i <= NR; i++)
+                    if (ppid[i] == queue[q] && pid[i] != root) { queue[++n] = pid[i]; print pid[i] }
+        }'
+}
+
+# Stop a process and every descendant (CLI, curl, timeout wrapper), so a
+# consultant the host stopped waiting for cannot keep running unobserved.
+# Members are frozen first so none of them reacts to a sibling's death, then
+# terminated; survivors after a short grace period are killed.
+# Bash reports a killed background job ("Terminated: 15") when it reaps it;
+# stderr is silenced for the whole function so that notice stays out of logs.
+# Usage: kill_process_tree <pid>
+kill_process_tree() {
+    local pids="" listed p alive waited=0 round=0
+    # Freeze, then list again until the tree stops changing: a process forked
+    # between a listing and its STOP would otherwise survive as an orphan.
+    # Frozen processes cannot fork, so this settles within a round or two.
+    while (( round < 5 )); do
+        listed=$(list_process_tree "$1" | tr '\n' ' ')
+        # shellcheck disable=SC2086  # word splitting over the PID list is intended
+        kill -STOP $listed 2>/dev/null || true
+        [[ "$listed" != "$pids" ]] || break
+        pids="$listed"
+        round=$((round + 1))
+    done
+    # shellcheck disable=SC2086
+    kill -TERM $pids 2>/dev/null || true
+    # shellcheck disable=SC2086
+    kill -CONT $pids 2>/dev/null || true
+    while (( waited < 20 )); do
+        alive=""
+        for p in $pids; do
+            kill -0 "$p" 2>/dev/null && alive="$alive $p"
+        done
+        [[ -n "$alive" ]] || return 0
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+    # shellcheck disable=SC2086
+    kill -KILL $alive 2>/dev/null || true
+} 2>/dev/null
 
 # =============================================================================
 # COMMAND VERIFICATION
@@ -163,6 +237,74 @@ check_command() {
 AGY_ENV_PREFIX=(env -u SSH_CLIENT -u SSH_CONNECTION -u SSH_TTY)
 agy_env() { "${AGY_ENV_PREFIX[@]}" "$@"; }
 
+# Prefix for agy calls that generate an answer (consultant and synthesis):
+# AGY_ENV_PREFIX plus agy_exit_guard.sh, which keeps a complete JSON answer
+# when agy prints it but never exits (AGY_EXIT_GRACE_SECONDS, 0 = off).
+AGY_RUN_PREFIX=("$SCRIPT_DIR_COMMON/agy_exit_guard.sh" "${AGY_EXIT_GRACE_SECONDS:-60}" "${AGY_ENV_PREFIX[@]}")
+
+# Largest prompt (bytes) that can safely travel as ONE argv element.
+# Some CLIs (agy, vibe, kimi) accept the prompt only as an argument value.
+# Linux caps a single argument at MAX_ARG_STRLEN (128 KiB); other systems cap
+# the whole argv+environment at ARG_MAX. Override with ARGV_PROMPT_MAX_BYTES.
+argv_prompt_max_bytes() {
+    if [[ "${ARGV_PROMPT_MAX_BYTES:-}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "$ARGV_PROMPT_MAX_BYTES"
+        return 0
+    fi
+    if [[ "$(uname -s 2>/dev/null)" == "Linux" ]]; then
+        echo 126976
+        return 0
+    fi
+    local arg_max
+    arg_max=$(getconf ARG_MAX 2>/dev/null || echo 262144)
+    [[ "$arg_max" =~ ^[0-9]+$ ]] || arg_max=262144
+    # Leave room for the environment and the remaining arguments.
+    echo $(( arg_max > 131072 ? arg_max - 131072 : arg_max / 2 ))
+}
+
+# Create a private, empty working directory for an agentic CLI so it cannot
+# pick up project instructions (AGENTS.md, GEMINI.md, QWEN.md, ...) or read
+# files from the caller's directory or the skill root. build_context.sh has
+# already inlined every file the consultants should see.
+# Set CLI_WORKSPACE_ISOLATION=false to run in the current directory instead.
+# Usage: dir=$(make_cli_workspace <name>)   (prints nothing when disabled)
+make_cli_workspace() {
+    local name="$1" runtime_base dir
+    [[ "${CLI_WORKSPACE_ISOLATION:-true}" == "true" ]] || return 0
+    runtime_base="${TMPDIR:-/tmp}"
+    runtime_base="${runtime_base%/}"
+    dir=$(mktemp -d "$runtime_base/ai-consultants-${name}.XXXXXX") || return 1
+    chmod 700 "$dir"
+    printf '%s' "$dir"
+}
+
+# Remove a directory created by make_cli_workspace. The prefix is validated
+# so an empty or unexpected value can never widen the deletion target.
+# Usage: remove_cli_workspace <name> <dir>
+remove_cli_workspace() {
+    local name="$1" dir="$2" prefix
+    prefix="${TMPDIR:-/tmp}"
+    prefix="${prefix%/}/ai-consultants-${name}."
+    if [[ -n "$dir" && "$dir" == "$prefix"* && -d "$dir" ]]; then
+        rm -rf -- "$dir"
+    fi
+}
+
+# Fail before dispatch when a prompt cannot be passed as a single argument,
+# instead of letting exec fail with a cryptic "Argument list too long" (and
+# retrying it). Note that an argv prompt is also visible in the process list.
+# Usage: guard_argv_prompt_size <consultant> <prompt>
+guard_argv_prompt_size() {
+    local consultant="$1" prompt="$2" size limit
+    size=$(printf '%s' "$prompt" | wc -c | tr -d ' ')
+    limit=$(argv_prompt_max_bytes)
+    if (( size > limit )); then
+        log_error "[$consultant] Prompt is ${size} bytes; this CLI takes the prompt as a single argument (limit ${limit} bytes). Reduce the attached context or switch this consultant to API mode where available."
+        return 1
+    fi
+    return 0
+}
+
 # =============================================================================
 # MAIN QUERY EXECUTION FUNCTION
 # =============================================================================
@@ -190,7 +332,7 @@ run_query() {
     local stdin_content
     stdin_content=$(cat)
 
-    log_info "Consulting $consultant_name (timeout: ${timeout_seconds}s, max retry: $MAX_RETRIES)..."
+    log_info "Consulting $consultant_name (timeout: $(format_timeout_label "$timeout_seconds"), max retry: $MAX_RETRIES)..."
 
     local attempt=1
     while (( attempt <= MAX_RETRIES )); do
@@ -229,18 +371,16 @@ run_query() {
             fi
         fi
 
-        # Error handling
-        local error_msg=""
-        if [[ "${RUN_QUERY_REDACT_ERRORS:-false}" != "true" && -f "$error_file" ]]; then
-            error_msg=$(head -5 "$error_file" 2>/dev/null)
-        fi
-
-        # First line of the CLI's own stderr — the actual reason (auth error,
-        # command not found, etc.). Kept for the final failure message so it
-        # reaches the orchestrator's captured stderr (the per-CLI error_file is a
-        # mktemp path the caller can't locate).
+        # The line of the CLI's own stderr that explains the failure (auth
+        # error, DNS, command not found, ...), not a warning printed before it.
+        # Kept for the final failure message so it reaches the orchestrator's
+        # captured stderr (the per-CLI error_file is a mktemp path the caller
+        # can't locate).
         local error_first=""
-        [[ -n "$error_msg" ]] && error_first=$(printf '%s\n' "$error_msg" | grep -v '^[[:space:]]*$' | head -1 | cut -c1-200)
+        if [[ "${RUN_QUERY_REDACT_ERRORS:-false}" != "true" && -s "$error_file" ]]; then
+            error_first=$(pick_error_line < "$error_file")
+            [[ -n "$error_first" ]] || error_first="no error message (stderr only said: $(grep -v '^[[:space:]]*$' "$error_file" | head -1 | cut -c1-150))"
+        fi
 
         if [[ $exit_code -eq 124 ]]; then
             log_warn "[$consultant_name] Timeout after ${timeout_seconds}s"
@@ -551,7 +691,7 @@ get_self_consultant_name() {
     case "$invoking" in
         claude|claude_code|claudecode)  echo "CLAUDE" ;;
         codex|codex_cli|codexcli)       echo "CODEX" ;;
-        gemini|gemini_cli|geminicli)    echo "GEMINI" ;;
+        gemini|gemini_cli|geminicli|agy|antigravity) echo "GEMINI" ;;
         mistral|vibe|mistral_vibe)      echo "MISTRAL" ;;
         kimi|kimi_code|kimicode)        echo "KIMI" ;;
         qwen|qwen3|qwen_code|qwencode)  echo "QWEN3" ;;
@@ -1186,6 +1326,60 @@ _is_successful_consultant_response_file() {
     ' "$f" >/dev/null 2>&1
 }
 
+# Lines that name a failure, and lines that never explain one: CLI warnings
+# and notices (a deprecation warning printed before the real error used to be
+# reported as the reason) and stack frames (JavaScript, Python, Go).
+_ERROR_REASON_PATTERN='error|fail|not found|no such|denied|unauthori|forbidden|not permitted|refused|unreachable|invalid|expired|timed? ?out|missing|cannot|could not|unable|enotfound|eai_again|econn|quota|rate.?limit|exceeded|exit code'
+_ERROR_REASON_NOISE='^[[:space:]]*(warning|warn|notice|hint|deprecated|deprecationwarning)([^a-z]|$)|[a-z]warning: |^[[:space:]]+at |^[[:space:]]*file "|^[[:space:]]*traceback|\.go:[0-9]+[[:space:]]*$|^[[:space:]]*[|]|^(goroutine |wraps: |error types: )'
+
+# Pick the line of CLI output that best explains a failure: the last line
+# naming an error, else the last other line, ignoring warnings and stack
+# frames. Prints nothing when the text has only warnings or frames.
+# Usage: printf '%s' "$stderr" | pick_error_line
+pick_error_line() {
+    local esc text line
+    esc=$(printf '\033')
+    text=$(sed "s/${esc}\[[0-9;]*m//g" | grep -v '^[[:space:]]*$' | grep -ivE "$_ERROR_REASON_NOISE")
+    [[ -n "$text" ]] || return 0
+    line=$(printf '%s\n' "$text" | grep -iE "$_ERROR_REASON_PATTERN" | tail -1)
+    [[ -n "$line" ]] || line=$(printf '%s\n' "$text" | tail -1)
+    printf '%s' "$line" | sed 's/^[[:space:]]*//' | cut -c1-200
+}
+
+# Plain-language meaning of a curl exit status, for failure reasons.
+# Usage: describe_curl_exit <status>
+describe_curl_exit() {
+    case "$1" in
+        5) echo "could not resolve the proxy" ;;
+        6) echo "could not resolve the host (DNS)" ;;
+        7) echo "could not connect to the host" ;;
+        28) echo "timed out" ;;
+        35) echo "TLS handshake failed" ;;
+        52) echo "the server closed the connection without a reply" ;;
+        55) echo "could not send the request" ;;
+        56) echo "the connection was reset" ;;
+        60) echo "TLS certificate problem" ;;
+        *) echo "curl exit $1" ;;
+    esac
+}
+
+# When every consultant failure is a network error (DNS, connect, a socket
+# the OS refused), say so: inside a sandbox such as Codex workspace-write the
+# consultation cannot reach any provider. Stopped consultants are ignored.
+# Usage: diagnosed_failures_network_hint "name|reason"...
+diagnosed_failures_network_hint() {
+    local entry reason failures=0
+    for entry in "$@"; do
+        reason="${entry#*|}"
+        [[ "$reason" == "stopped by the host"* ]] && continue
+        failures=$((failures + 1))
+        printf '%s' "$reason" | grep -qiE 'enotfound|eai_again|getaddrinfo|resolve the host|could not resolve|could not connect|connection refused|econnrefused|network is unreachable|no route to host|operation not permitted' \
+            || return 0
+    done
+    (( failures > 0 )) || return 0
+    echo "Every failure is a network error: check the connection, or allow network access if this runs in a sandbox (for example Codex workspace-write)."
+}
+
 # Extract a concise, ANSI-stripped failure reason from a consultant's captured
 # stderr (.err) file, for surfacing WHY a consultant produced no output (auth
 # error, CLI not installed, transient init failure, ...) instead of a bare
@@ -1203,8 +1397,10 @@ get_consultant_error_reason() {
     cleaned=$(sed "s/${esc}\[[0-9;]*m//g" "$ef" 2>/dev/null \
         | grep -v '^[[:space:]]*$' \
         | grep -ivE '\[INFO\].*(Consulting|Response received|Waiting .* before|Attempt [0-9]|Querying)')
-    # Prefer a line that names an actual error; else the last remaining line.
-    line=$(printf '%s\n' "$cleaned" | grep -iE 'error|fail|not found|no such|denied|unauthor|invalid|timed? ?out|missing|command not found|exit code' | tail -1)
+    # Prefer a line that names an actual error, never a CLI warning or a stack
+    # frame; else the last remaining line.
+    cleaned=$(printf '%s\n' "$cleaned" | grep -ivE "$_ERROR_REASON_NOISE")
+    line=$(printf '%s\n' "$cleaned" | grep -iE "$_ERROR_REASON_PATTERN" | tail -1)
     [[ -z "$line" ]] && line=$(printf '%s\n' "$cleaned" | tail -1)
     # Strip our own log_error() wrapper boilerplate ("[HH:MM:SS] [LEVEL] [Consultant]
     # All N attempts failed:") so only the underlying CLI error remains -- the
@@ -1219,10 +1415,11 @@ get_consultant_error_reason() {
     if [[ -z "$line" ]]; then
         line=$(printf '%s\n' "$cleaned" \
             | grep -ivE '\] \[[^]]+\] All [0-9]+ attempts failed' \
-            | grep -iE 'error|fail|not found|no such|denied|unauthor|invalid|timed? ?out|missing|command not found|exit code' \
+            | grep -iE "$_ERROR_REASON_PATTERN" \
             | tail -1)
     fi
-    printf '%s' "$line" | cut -c1-200
+    # The report already names the consultant: drop our own log prefix.
+    printf '%s' "$line" | sed -E 's/^\[[0-9]{2}:[0-9]{2}:[0-9]{2}\] \[(DEBUG|INFO|WARN|ERROR)\] \[[^]]+\] //' | cut -c1-200
 }
 
 # Render one DIAGNOSED_FAILURES entry ("name|reason") for a given surface.
@@ -1284,13 +1481,37 @@ strip_json_fence() {
     printf '%s\n' "$text" | sed '/^[[:space:]]*```[[:alnum:]]*[[:space:]]*$/d'
 }
 
+# Attach a bounded excerpt of a rejected provider payload to an error envelope
+# so a malformed/schema-invalid answer can be diagnosed without re-running a
+# billed request. The excerpt is the consultant's own answer text.
+# Usage: attach_raw_excerpt <envelope_file> <raw_text>
+attach_raw_excerpt() {
+    local file="$1" raw="$2" tmp
+    [[ -s "$file" ]] || return 0
+    # Cut before jq: --arg is one argv element, and a rejected payload can be
+    # larger than a single argument may be (128 KiB on Linux).
+    raw="${raw:0:2000}"
+    tmp=$(mktemp "${file}.excerpt.XXXXXX") || return 0
+    if jq --arg raw "$raw" '.metadata.raw_excerpt = ($raw[0:2000])' "$file" > "$tmp" 2>/dev/null; then
+        mv "$tmp" "$file"
+    else
+        rm -f "$tmp"
+    fi
+}
+
 # Normalize a provider's textual payload into the required response envelope.
 # Returns 0 for structured JSON, 1 for valid non-JSON text, and 2 for a JSON-like
 # payload that is malformed/truncated or uses the wrong schema. Valid JSON string
 # wrappers are unwrapped twice (observed with CLI envelopes that double-encode
 # the model response).
+#
+# Parsed answers go through lib/response_canonicalize.jq, which applies only
+# deterministic, content-preserving repairs of shapes observed from providers
+# (wrapper keys, flat answers, nested or bare confidence, string lists, ...).
+# Truncated or genuinely malformed JSON still fails closed.
+_RESPONSE_CANONICALIZER="$SCRIPT_DIR_COMMON/response_canonicalize.jq"
 normalize_consultant_response_text() {
-    local text="$1" decoded depth=0 first_char
+    local text="$1" decoded depth=0 first_char parsed="" canonical candidate trimmed body rest
     text=$(strip_json_fence "$text")
 
     while (( depth < 2 )) && printf '%s' "$text" | jq -e 'type == "string"' >/dev/null 2>&1; do
@@ -1299,18 +1520,71 @@ normalize_consultant_response_text() {
         depth=$((depth + 1))
     done
 
-    printf '%s' "$text"
-    if printf '%s' "$text" | jq -e \
-            'type == "object" and (.response | type == "object") and
-             (.response.summary | type == "string") and
-             (.confidence | type == "object")' >/dev/null 2>&1; then
-        return 0
+    if printf '%s' "$text" | jq -e '.' >/dev/null 2>&1; then
+        parsed="$text"
+    else
+        # Observed live (GLM 5.3 Flash): "confidence" opened inside "response"
+        # and the outer object left one brace short. Repair only that exact
+        # shape: the text ends with "}", one appended "}" parses, and the
+        # result has a nested response.confidence object and no top-level one.
+        trimmed=$(printf '%s' "$text" | sed -E 's/[[:space:]]+$//')
+        if [[ "$trimmed" == *"}" ]] && candidate=$(printf '%s}' "$trimmed" | jq -ce '
+                select(type == "object" and (.response | type == "object")
+                    and (has("confidence") | not) and (.response.confidence | type == "object"))' 2>/dev/null); then
+            parsed="$candidate"
+        fi
     fi
 
-    first_char=$(printf '%s' "$text" | sed -E 's/^[[:space:]]*//' | cut -c1)
-    if printf '%s' "$text" | jq -e '.' >/dev/null 2>&1 \
-        || [[ "$first_char" == "{" || "$first_char" == "[" ]]; then
+    # jq -c prints one line per value: a canonical result with a newline came
+    # from several JSON values, which is not one answer, so it fails closed
+    # (passing it on made the envelope builder write an empty file).
+    if [[ -n "$parsed" ]]; then
+        if canonical=$(printf '%s' "$parsed" | jq -ce -f "$_RESPONSE_CANONICALIZER" 2>/dev/null) \
+            && [[ -n "$canonical" && "$canonical" != *$'\n'* ]]; then
+            printf '%s' "$canonical"
+            return 0
+        fi
+        # {"response": "<prose>"}: a complete answer outside the structured
+        # contract. Keep it as fallback prose (context only), not an error.
+        if candidate=$(printf '%s' "$parsed" | jq -re '
+                select(type == "object" and (.response | type) == "string" and (.response | test("\\S")))
+                | .response' 2>/dev/null); then
+            printf '%s' "$candidate"
+            return 1
+        fi
+        printf '%s' "$text"
         return 2
+    fi
+
+    # The answer object embedded in prose ("Here is my analysis: {...}"), or
+    # inside a fence that is not on its own line. Accepted only when the span
+    # from the first "{" to the last "}" parses AND canonicalizes; an
+    # incidental JSON example inside a prose answer keeps the prose fallback.
+    if [[ "$text" == *"{"*"}"* ]]; then
+        candidate="{${text#*\{}"
+        candidate="${candidate%\}*}}"
+        if canonical=$(printf '%s' "$candidate" | jq -ce -f "$_RESPONSE_CANONICALIZER" 2>/dev/null) \
+            && [[ -n "$canonical" && "$canonical" != *$'\n'* ]]; then
+            printf '%s' "$canonical"
+            return 0
+        fi
+    fi
+
+    printf '%s' "$text"
+    # JSON-like means the first non-blank character of the WHOLE text opens an
+    # object (or an array of values). sed/cut work line by line, which made a
+    # pretty-printed truncated answer look like prose and pass as fallback.
+    body="${text#"${text%%[![:space:]]*}"}"
+    first_char="${body:0:1}"
+    if [[ "$first_char" == "{" ]]; then
+        return 2
+    fi
+    if [[ "$first_char" == "[" ]]; then
+        rest="${body:1}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        case "${rest:0:1}" in
+            "{"|"["|'"'|"]") return 2 ;;
+        esac
     fi
     return 1
 }
@@ -1375,6 +1649,7 @@ process_consultant_response() {
             build_error_response "$consultant" "$effective_model" "$persona" \
                 "Provider returned malformed, truncated, or schema-invalid JSON" "$latency_ms" \
                 "$requested_model" "$model_identity_source" "$_tok" "$_tok_src" "$_tok_in" "$_tok_out" > "$output_file"
+            attach_raw_excerpt "$output_file" "$raw_response"
             return 1
         fi
     else
@@ -1423,12 +1698,12 @@ _synthesis_cli_ready() {
         claude)
             cmd="${CLAUDE_CMD:-claude}"
             command -v "$cmd" >/dev/null 2>&1 || return 1
-            help=$(run_with_timeout 8 "$cmd" --help 2>&1) || return 1
+            help=$(run_with_timeout 8 "$cmd" --help 2>&1 </dev/null) || return 1
             for flag in --print --no-session-persistence --setting-sources --tools; do
                 grep -q -- "$flag" <<<"$help" || return 1
             done
             if grep -Eq '^[[:space:]]+auth([[:space:]]|$)' <<<"$help"; then
-                status=$(run_with_timeout 12 "$cmd" auth status 2>&1) || return 1
+                status=$(run_with_timeout 12 "$cmd" auth status 2>&1 </dev/null) || return 1
                 printf '%s' "$status" | jq -e '.loggedIn == true' >/dev/null 2>&1
             else
                 return 0
@@ -1437,12 +1712,12 @@ _synthesis_cli_ready() {
         gemini)
             cmd="${GEMINI_CMD:-agy}"
             command -v "$cmd" >/dev/null 2>&1 || return 1
-            run_with_timeout 12 "${AGY_ENV_PREFIX[@]}" "$cmd" models >/dev/null 2>&1
+            run_with_timeout 12 "${AGY_ENV_PREFIX[@]}" "$cmd" models >/dev/null 2>&1 </dev/null
             ;;
         codex)
             cmd="${CODEX_CMD:-codex}"
             command -v "$cmd" >/dev/null 2>&1 || return 1
-            run_with_timeout 8 "$cmd" --version >/dev/null 2>&1
+            run_with_timeout 8 "$cmd" --version >/dev/null 2>&1 </dev/null
             ;;
         *) return 1 ;;
     esac
@@ -1476,6 +1751,42 @@ resolve_synthesis_cli() {
     return 1
 }
 
+# The synthesis CLI resolve_synthesis_cli will most likely pick, without its
+# readiness probes (help/auth/inventory calls are too slow for a budget
+# estimate): the same order and host exclusion, checking only that the
+# command is installed.
+# Usage: cli=$(likely_synthesis_cli)
+likely_synthesis_cli() {
+    local avoid_cmd candidate cmd
+    avoid_cmd=$(_consultant_to_cli "$(get_self_consultant_name)")
+    for candidate in "${SYNTHESIS_CMD:-}" gemini codex claude; do
+        [[ -n "$candidate" && "$candidate" != "$avoid_cmd" ]] || continue
+        case "$candidate" in
+            claude) cmd="${CLAUDE_CMD:-claude}" ;;
+            gemini) cmd="${GEMINI_CMD:-agy}" ;;
+            codex)  cmd="${CODEX_CMD:-codex}" ;;
+            *)      continue ;;
+        esac
+        if command -v "$cmd" >/dev/null 2>&1; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Model a synthesis CLI will be asked to use (empty = the CLI's own default).
+# Shared by build_synthesis_args and synthesis cost accounting.
+# Usage: model=$(synthesis_model_for_cli <cli_type>)
+synthesis_model_for_cli() {
+    case "$1" in
+        claude) printf '%s' "${SYNTHESIS_MODEL:-${CLAUDE_MODEL:-}}" ;;
+        gemini) printf '%s' "${SYNTHESIS_MODEL:-${GEMINI_MODEL:-}}" ;;
+        codex)  printf '%s' "${SYNTHESIS_MODEL:-${CODEX_MODEL:-}}" ;;
+        *)      printf '' ;;
+    esac
+}
+
 # Build synthesis command arguments for a resolved CLI type.
 # Sets the global SYNTHESIS_ARGS array directly (no eval needed).
 # Usage: build_synthesis_args <cli_type> [prompt] [codex_payload_file]
@@ -1490,7 +1801,8 @@ build_synthesis_args() {
                 "--no-session-persistence" "--setting-sources" "" "--tools" "" \
                 "--strict-mcp-config" "--mcp-config" '{"mcpServers":{}}' \
                 "--permission-mode" "plan")
-            local model="${SYNTHESIS_MODEL:-${CLAUDE_MODEL:-}}"
+            local model
+            model=$(synthesis_model_for_cli claude)
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;
         gemini)
@@ -1498,9 +1810,10 @@ build_synthesis_args() {
             # stdin and "-" is not a stdin sentinel. A prior `-p -` made agy answer
             # a literal "-" with a generic greeting -> unparseable synthesis ->
             # manual_review. Pass the prompt directly, mirroring query_gemini.sh.
-            # AGY_ENV_PREFIX is exec-safe under timeout (see agy_env above).
-            SYNTHESIS_ARGS=("${AGY_ENV_PREFIX[@]}" "${GEMINI_CMD:-agy}" "-p" "$prompt")
-            local model="${SYNTHESIS_MODEL:-${GEMINI_MODEL:-}}"
+            # AGY_RUN_PREFIX is exec-safe under timeout (see agy_env above).
+            SYNTHESIS_ARGS=("${AGY_RUN_PREFIX[@]}" "${GEMINI_CMD:-agy}" "-p" "$prompt")
+            local model
+            model=$(synthesis_model_for_cli gemini)
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=("--model" "$model")
             ;;
         codex)
@@ -1511,7 +1824,8 @@ build_synthesis_args() {
             SYNTHESIS_ARGS=("${CODEX_CMD:-codex}" exec --ephemeral \
                 --ignore-user-config --ignore-rules --skip-git-repo-check \
                 -s read-only --color never -o "$codex_payload_file")
-            local model="${SYNTHESIS_MODEL:-${CODEX_MODEL:-}}"
+            local model
+            model=$(synthesis_model_for_cli codex)
             [[ -n "$model" ]] && SYNTHESIS_ARGS+=(-m "$model")
             SYNTHESIS_ARGS+=(-)
             ;;

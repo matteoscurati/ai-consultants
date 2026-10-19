@@ -8,10 +8,11 @@
 # Usage: ./query_gemini.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   GEMINI_MODEL - agy model display name (default: "Gemini 3.8 Flash (High)")
+#   GEMINI_MODEL - agy model display name (default: "Gemini 4 Argon (High)")
 #   GEMINI_TIMEOUT - Timeout in seconds (default: 180)
 #   GEMINI_USE_API - Use Google AI API mode instead of the agy CLI (default: false)
-#   GEMINI_API_MODEL - API model ID for API mode (default: gemini-3.1-pro-preview)
+#   GEMINI_API_MODEL - API model ID for API mode (default: gemini-4-argon)
+#   GEMINI_API_MAX_TOKENS - API output budget, thinking included (default: 32768)
 #   GEMINI_API_KEY - API key for API mode
 #   GEMINI_REASONING_EFFORT - Optional CLI reasoning effort
 #   ENABLE_PERSONA - Enable "The Architect" persona (default: true)
@@ -45,15 +46,28 @@ START_TIME=$(get_timestamp_ms)
 
 # --- Execution (CLI or API mode) ---
 TEMP_OUTPUT=$(mktemp)
-trap 'rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"' EXIT
+GEMINI_WORKSPACE=""
+cleanup() {
+    rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"
+    remove_cli_workspace gemini "$GEMINI_WORKSPACE"
+}
+trap cleanup EXIT
 MODEL_IDENTITY_SOURCE="requested-only"
 EFFECTIVE_MODEL=""
 GEMINI_PROBE_REASON=""
 
 gemini_cli_exposes_requested_model() {
-    local inventory requested_norm
-    if ! inventory=$(run_with_timeout 10 "${AGY_ENV_PREFIX[@]}" "$GEMINI_CMD" models 2>&1); then
-        GEMINI_PROBE_REASON="Antigravity model inventory timed out, failed, or requires login"
+    local inventory requested_norm rc=0 detail
+    inventory=$(run_with_timeout 10 "${AGY_ENV_PREFIX[@]}" "$GEMINI_CMD" models 2>&1 </dev/null) || rc=$?
+    if (( rc != 0 )); then
+        # Name the cause agy printed (a sandbox that forbids its local
+        # server, a login prompt, ...) instead of guessing between them.
+        if (( rc == 124 )); then
+            detail="timed out after 10s"
+        else
+            detail=$(printf '%s\n' "$inventory" | pick_error_line)
+        fi
+        GEMINI_PROBE_REASON="Antigravity model inventory failed: ${detail:-exit $rc without a message (is agy signed in?)}"
         printf '%s\n' "$inventory" >&2
         return 1
     fi
@@ -112,17 +126,21 @@ else
     # does NOT read stdin, and "-" is not a stdin sentinel. A prior `-p -` shipped
     # silently broken: agy answered a literal "-" with a generic greeting (exit 0,
     # so no error surfaced -> fallback envelope). The prompt therefore rides as the
-    # -p argument. agy has --model (no -m alias) and no read-from-file flag, so a
-    # very large FULL_QUERY goes through argv (ARG_MAX-bounded; fine for normal
-    # contexts). stdin is /dev/null (agy ignores it; run_query's cat needs an EOF).
+    # -p argument. agy has --model (no -m alias) and no read-from-file flag, so
+    # FULL_QUERY goes through argv: guard_argv_prompt_size fails fast when it
+    # exceeds the single-argument limit, and the prompt is visible in the
+    # process list. stdin is /dev/null (agy ignores it; run_query's cat needs
+    # an EOF).
     # Strip SSH_* markers so agy consults the macOS Keychain (see agy_env /
     # AGY_ENV_PREFIX in lib/common.sh). Use the exec-safe prefix array — not the
     # agy_env function — because run_query dispatches through GNU timeout.
+    # AGY_RUN_PREFIX adds agy_exit_guard.sh: agy can print its answer and
+    # then never exit.
     #
     # Optional CLI effort: when GEMINI_REASONING_EFFORT is set, pass --effort.
     # agy accepts only a subset (e.g. low|medium|high); unsupported values fail
     # at the provider and surface as diagnosed errors — no local allowlist.
-    GEMINI_ARGS=("${AGY_ENV_PREFIX[@]}" "$GEMINI_CMD" -p "$FULL_QUERY" --model "$GEMINI_MODEL")
+    GEMINI_ARGS=("${AGY_RUN_PREFIX[@]}" "$GEMINI_CMD" -p "$FULL_QUERY" --model "$GEMINI_MODEL")
     effort_ok=true
     if [[ -n "${GEMINI_REASONING_EFFORT:-}" ]]; then
         source "$SCRIPT_DIR/lib/api.sh"
@@ -134,14 +152,22 @@ else
         fi
     fi
 
+    if [[ "$effort_ok" == "true" ]] && ! guard_argv_prompt_size "$CONSULTANT_NAME" "$FULL_QUERY"; then
+        effort_ok=false
+        exit_code=1
+    fi
+
     if [[ "$effort_ok" == "true" ]]; then
+        # agy is agentic: run it from a private empty directory so it cannot
+        # load project instructions or read files outside the built context.
+        GEMINI_WORKSPACE=$(make_cli_workspace gemini)
         # Keep failures inside an explicit conditional so `set -e` cannot skip
         # exit_code assignment (same guard as the API branch).
-        if run_query \
+        if (cd "${GEMINI_WORKSPACE:-.}" && run_query \
                 "Gemini" \
                 "$TEMP_OUTPUT" \
                 "$GEMINI_TIMEOUT_SECONDS" \
-                "${GEMINI_ARGS[@]}" </dev/null; then
+                "${GEMINI_ARGS[@]}") </dev/null; then
             exit_code=0
         else
             exit_code=$?

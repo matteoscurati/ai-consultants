@@ -73,6 +73,27 @@ classify_http_error() {
     esac
 }
 
+# One-line, secret-sanitized provider error ("code: message") from a JSON
+# error body, so auth/permission failures say WHY (e.g. an invalid key vs an
+# account without access to the model) without a manual re-request.
+# Usage: provider_error_summary <response_body_file>
+provider_error_summary() {
+    local file="$1" summary
+    [[ -s "$file" ]] || return 0
+    # "error" is an object for most providers and a plain string for some
+    # (xAI: {"code": "...", "error": "Incorrect API key provided: ..."}).
+    summary=$(jq -r '
+        (.error // .) as $e
+        | if ($e | type) == "object" then
+            [($e.code // $e.type // empty | tostring), ($e.message // empty | tostring)]
+          elif ($e | type) == "string" then
+            [(.code // empty | tostring), $e]
+          else [] end
+        | map(select(length > 0)) | join(": ")' "$file" 2>/dev/null | head -1 | cut -c1-200)
+    [[ -n "$summary" ]] || return 0
+    sanitize_error_message "$summary"
+}
+
 # Calculate exponential backoff delay
 # Usage: calculate_backoff <attempt_number>
 calculate_backoff() {
@@ -111,6 +132,10 @@ extract_retry_after() {
 # =============================================================================
 # REQUEST BUILDERS
 # =============================================================================
+# The prompt (question plus inlined context) reaches jq through stdin
+# (--rawfile /dev/stdin), never argv: Linux caps one argument at 128 KiB, the
+# whole argv is capped by ARG_MAX, and argv is visible in the process list. An
+# oversized --arg made jq fail and left an empty request body.
 
 # Build request body for Qwen3 (Alibaba DashScope format)
 # Usage: build_qwen_request <prompt> <model>
@@ -118,9 +143,9 @@ build_qwen_request() {
     local prompt="$1"
     local model="${2:-qwen-max}"
 
-    jq -n \
+    printf '%s' "$prompt" | jq -n \
         --arg model "$model" \
-        --arg prompt "$prompt" \
+        --rawfile prompt /dev/stdin \
         '{
             model: $model,
             input: {
@@ -189,9 +214,9 @@ build_openai_request() {
     local max_tokens="${3:-4096}"
     local reasoning_effort="${4:-}"
 
-    jq -n \
+    printf '%s' "$prompt" | jq -n \
         --arg model "$model" \
-        --arg prompt "$prompt" \
+        --rawfile prompt /dev/stdin \
         --argjson max_tokens "$max_tokens" \
         --arg effort "$reasoning_effort" \
         '{
@@ -211,9 +236,9 @@ build_anthropic_request() {
     local model="${2:-claude-sonnet-5}"
     local max_tokens="${3:-16384}"
 
-    jq -n \
+    printf '%s' "$prompt" | jq -n \
         --arg model "$model" \
-        --arg prompt "$prompt" \
+        --rawfile prompt /dev/stdin \
         --argjson max_tokens "$max_tokens" \
         '{
             model: $model,
@@ -225,21 +250,23 @@ build_anthropic_request() {
 }
 
 # Build request body for Google AI API (Gemini API mode)
-# Usage: build_google_ai_request <prompt> [thinking_level]
+# Usage: build_google_ai_request <prompt> [thinking_level] [max_output_tokens]
 # Note: Model is appended to URL, not in request body for Google AI
 build_google_ai_request() {
     local prompt="$1"
     local thinking_level="${2:-}"
+    local max_output_tokens="${3:-4096}"
 
-    jq -n \
-        --arg prompt "$prompt" \
+    printf '%s' "$prompt" | jq -n \
+        --rawfile prompt /dev/stdin \
         --arg thinking_level "$thinking_level" \
+        --argjson max_output_tokens "$max_output_tokens" \
         '{
             contents: [
                 { parts: [{ text: $prompt }] }
             ],
             generationConfig: {
-                maxOutputTokens: 4096
+                maxOutputTokens: $max_output_tokens
             }
         }
         | if $thinking_level == "" then .
@@ -275,7 +302,14 @@ parse_openai_response() {
     local response="$1"
 
     local content
-    content=$(echo "$response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
+    # Reasoning models (Mistral Large 4, Magistral) return content as chunks:
+    # a "thinking" chunk followed by "text" chunks. Keep only the visible text.
+    content=$(echo "$response" | jq -r '
+        .choices[0].message.content
+        | if type == "array" then
+            [.[]? | select(type == "object" and .type == "text") | (.text // "")] | join("")
+          elif type == "string" then .
+          else empty end' 2>/dev/null)
 
     if [[ -n "$content" && "$content" != "null" ]]; then
         echo "$content"
@@ -312,8 +346,14 @@ parse_anthropic_response() {
 parse_google_ai_response() {
     local response="$1"
 
+    # Thinking models (Gemini 4 Argon) can split the answer across several
+    # parts and, when thoughts are requested, prefix thought parts. Join the
+    # visible text parts only.
     local content
-    content=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
+    content=$(echo "$response" | jq -r '
+        [.candidates[0].content.parts[]?
+         | select(type == "object" and (.thought // false) != true)
+         | (.text // "")] | join("")' 2>/dev/null)
 
     if [[ -n "$content" && "$content" != "null" ]]; then
         echo "$content"
@@ -407,6 +447,30 @@ extract_token_split() {
 # MAIN API QUERY FUNCTION
 # =============================================================================
 
+# Request headers for an auth style, one per line (read by curl -H @file).
+# Usage: _api_request_headers <auth_style> <api_key>
+_api_request_headers() {
+    case "$1" in
+        none)
+            # No auth header needed
+            ;;
+        google_ai)
+            # Google AI uses x-goog-api-key header (more secure than URL param)
+            printf '%s\n' "x-goog-api-key: $2"
+            ;;
+        anthropic)
+            printf '%s\n' "x-api-key: $2" "anthropic-version: 2023-06-01"
+            ;;
+        apikey)
+            printf '%s\n' "X-API-Key: $2"
+            ;;
+        *)  # Default to bearer token
+            printf '%s\n' "Authorization: Bearer $2"
+            ;;
+    esac
+    printf '%s\n' "Content-Type: application/json"
+}
+
 # Execute an HTTP API query with retry and timeout
 #
 # Usage: run_api_query <consultant_name> <output_file> <timeout_sec> \
@@ -450,41 +514,28 @@ run_api_query() {
         fi
     fi
 
-    # Build authorization headers based on auth style
-    local auth_headers=()
-    case "$auth_style" in
-        none)
-            # No auth header needed
-            ;;
-        google_ai)
-            # Google AI uses x-goog-api-key header (more secure than URL param)
-            auth_headers+=("-H" "x-goog-api-key: $api_key")
-            ;;
-        anthropic)
-            auth_headers+=("-H" "x-api-key: $api_key")
-            auth_headers+=("-H" "anthropic-version: 2023-06-01")
-            ;;
-        apikey)
-            auth_headers+=("-H" "X-API-Key: $api_key")
-            ;;
-        *)  # Default to bearer token
-            auth_headers+=("-H" "Authorization: Bearer $api_key")
-            ;;
-    esac
-
-    # Temporary files
-    local temp_response=$(mktemp)
-    local temp_headers=$(mktemp)
+    # Temporary files for the response only. The request headers (API key)
+    # and body (prompt and context) reach curl through pipes (process
+    # substitution below): never argv, which other local users can read in the
+    # process list and Linux caps at 128 KiB per argument, and never a file on
+    # disk that a query stopped by the host (or killed) would leave behind.
+    local temp_response temp_headers
+    temp_response=$(mktemp)
+    temp_headers=$(mktemp)
     local error_file="${output_file}.err"
 
     # Note: We rely on explicit cleanup before each return rather than a trap,
     # because traps in functions affect the entire shell and can interfere
     # with other code paths. Cleanup happens in each exit branch below.
 
-    log_info "[$consultant_name] Querying API (timeout: ${timeout_seconds}s, max retry: $MAX_RETRIES)..."
+    log_info "[$consultant_name] Querying API (timeout: $(format_timeout_label "$timeout_seconds"), max retry: $MAX_RETRIES)..."
+
+    # curl has no wall-clock limit unless one is set; 0 means none.
+    local -a max_time_args=()
+    [[ "${timeout_seconds:-0}" == "0" ]] || max_time_args=(-m "$timeout_seconds")
 
     local attempt=1
-    local last_http_code=0
+    local last_failure="no attempt completed"
     local success=false
 
     while (( attempt <= MAX_RETRIES )); do
@@ -496,16 +547,15 @@ run_api_query() {
             -o "$temp_response" \
             -D "$temp_headers" \
             -X POST "$api_endpoint" \
-            "${auth_headers[@]}" \
-            -H "Content-Type: application/json" \
-            -m "$timeout_seconds" \
-            -d "$request_body" 2>"$error_file")
+            -H @<(_api_request_headers "$auth_style" "$api_key") \
+            "${max_time_args[@]+"${max_time_args[@]}"}" \
+            --data-binary @<(printf '%s' "$request_body") 2>"$error_file")
 
         local curl_exit=$?
-        last_http_code="$http_code"
 
         # Handle curl-level errors
         if [[ $curl_exit -eq 28 ]]; then
+            last_failure="timed out after ${timeout_seconds}s"
             log_warn "[$consultant_name] Timeout after ${timeout_seconds}s"
             ((attempt++)) || true
             if (( attempt <= MAX_RETRIES )); then
@@ -515,7 +565,8 @@ run_api_query() {
             fi
             continue
         elif [[ $curl_exit -ne 0 ]]; then
-            log_warn "[$consultant_name] Network error (curl exit: $curl_exit)"
+            last_failure="network error: $(describe_curl_exit "$curl_exit") (curl exit $curl_exit)"
+            log_warn "[$consultant_name] Network error: $(describe_curl_exit "$curl_exit") (curl exit $curl_exit)"
             local error_msg=""
             [[ -f "$error_file" ]] && error_msg=$(head -3 "$error_file" 2>/dev/null)
             # Sanitize error message to avoid leaking sensitive data
@@ -539,6 +590,7 @@ run_api_query() {
                     success=true
                     break
                 else
+                    last_failure="empty response body (HTTP $http_code)"
                     log_warn "[$consultant_name] Empty response body"
                     ((attempt++)) || true
                     if (( attempt <= MAX_RETRIES )); then
@@ -547,8 +599,10 @@ run_api_query() {
                 fi
                 ;;
             auth)
-                log_error "[$consultant_name] Authentication failed (HTTP $http_code)"
-                log_error "[$consultant_name] Check that $api_key_var is correct"
+                local auth_reason
+                auth_reason=$(provider_error_summary "$temp_response")
+                log_error "[$consultant_name] Authentication failed (HTTP $http_code)${auth_reason:+: $auth_reason}"
+                log_error "[$consultant_name] Check that $api_key_var is correct and that the account has access to this model"
                 rm -f "$temp_response" "$temp_headers" "$error_file"
                 return 1  # No retry for auth failures
                 ;;
@@ -556,6 +610,7 @@ run_api_query() {
                 # Try to get retry-after header
                 local retry_after=$(extract_retry_after "$temp_headers")
                 local backoff
+                last_failure="rate limited (HTTP $http_code)"
                 if [[ -n "$retry_after" ]]; then
                     backoff="$retry_after"
                     log_warn "[$consultant_name] Rate limited, server requests ${retry_after}s wait"
@@ -569,6 +624,7 @@ run_api_query() {
                 fi
                 ;;
             server)
+                last_failure="server error (HTTP $http_code)"
                 log_warn "[$consultant_name] Server error (HTTP $http_code)"
                 ((attempt++)) || true
                 if (( attempt <= MAX_RETRIES )); then
@@ -578,16 +634,14 @@ run_api_query() {
                 fi
                 ;;
             client)
-                log_error "[$consultant_name] Client error (HTTP $http_code)"
-                # Log response body for debugging (sanitized to avoid leaking sensitive data)
-                if [[ -s "$temp_response" ]]; then
-                    local error_msg=$(jq -r '.error.message // .message // .' "$temp_response" 2>/dev/null | head -5)
-                    log_debug "[$consultant_name] Response: $(sanitize_error_message "$error_msg")"
-                fi
+                local client_reason
+                client_reason=$(provider_error_summary "$temp_response")
+                log_error "[$consultant_name] Client error (HTTP $http_code)${client_reason:+: $client_reason}"
                 rm -f "$temp_response" "$temp_headers" "$error_file"
                 return 1  # No retry for client errors
                 ;;
             *)
+                last_failure="unexpected response (HTTP $http_code)"
                 log_warn "[$consultant_name] Unexpected response (HTTP $http_code)"
                 ((attempt++)) || true
                 if (( attempt <= MAX_RETRIES )); then
@@ -603,7 +657,7 @@ run_api_query() {
     if [[ "$success" == "true" ]]; then
         return 0
     else
-        log_error "[$consultant_name] All $MAX_RETRIES attempts failed (last HTTP: $last_http_code)"
+        log_error "[$consultant_name] All $MAX_RETRIES attempts failed: $last_failure"
         return 3
     fi
 }
@@ -694,13 +748,25 @@ check_rate_limit() {
 }
 
 # Resolve per request, without exporting automatic effort into later tiers.
+# GPT-6 Astra and GPT-6.1 Sol accept low|medium|high|xhigh|max (provider
+# default: medium; none/minimal unsupported). As panel consultants they get
+# high unless an effort is configured; an unsupported explicit value fails
+# before the request is billed.
+_codex_frontier_model() {
+    case "$1" in
+        gpt-6-astra|gpt-6.1-sol) return 0 ;;
+        *) return 1 ;;
+    esac
+}
 resolve_codex_effort() {
     local model="$1" effort="${2:-}"
-    [[ "$model" != gpt-6-astra || -n "$effort" ]] || effort=high
+    if [[ -z "$effort" ]] && _codex_frontier_model "$model"; then
+        effort=high
+    fi
     [[ -n "$effort" ]] || return 0
     effort=$(validate_reasoning_effort "$effort" Codex) || return 1
-    if [[ "$model" == gpt-6-astra && ( "$effort" == none || "$effort" == minimal ) ]]; then
-        log_error "[Codex] Astra requires low|medium|high|xhigh|max reasoning effort"
+    if _codex_frontier_model "$model" && [[ "$effort" == none || "$effort" == minimal ]]; then
+        log_error "[Codex] $model requires low|medium|high|xhigh|max reasoning effort"
         return 1
     fi
     printf '%s' "$effort"

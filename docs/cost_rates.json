@@ -1,7 +1,27 @@
 {
-  "version": "5.1.2",
-  "updated": "2026-09-28",
+  "version": "5.2.0",
+  "updated": "2026-10-16",
   "models": {
+    "gemini-4-argon": {
+      "input": 0.004,
+      "output": 0.02,
+      "notes": "Gemini 4 Argon, GA 2026-10-13. List-rate estimate from 2026-12-01; the introductory 0.002/0.01 per 1K through 2026-11-30 is not applied, so budgets fail safe. Thinking tokens bill as output; implicit-cache discounts excluded. Verified 2026-10-16."
+    },
+    "Gemini 4 Argon (High)": {
+      "input": 0.004,
+      "output": 0.02,
+      "notes": "API-equivalent list-rate estimate for the agy display name (gemini-4-argon); introductory 0.002/0.01 per 1K through 2026-11-30 not applied. Not a CLI invoice."
+    },
+    "Gemini 4 Argon (Medium)": {
+      "input": 0.004,
+      "output": 0.02,
+      "notes": "API-equivalent list-rate estimate for the agy display name (gemini-4-argon); introductory 0.002/0.01 per 1K through 2026-11-30 not applied. Not a CLI invoice."
+    },
+    "Gemini 4 Argon (Low)": {
+      "input": 0.004,
+      "output": 0.02,
+      "notes": "API-equivalent list-rate estimate for the agy display name (gemini-4-argon); introductory 0.002/0.01 per 1K through 2026-11-30 not applied. Not a CLI invoice."
+    },
     "gemini-3.8-flash": {
       "input": 0.00075,
       "output": 0.00375,
@@ -87,6 +107,12 @@
       "input": 0.00075,
       "output": 0.00375
     },
+    "gpt-6.1-sol": {
+      "input": 0.002,
+      "output": 0.01,
+      "provider": "OpenAI",
+      "notes": "Standard estimate ($2/$10 per 1M, 2026-10); >272K input: 2x input, 1.5x output for full request. Cache/service adjustments excluded."
+    },
     "gpt-6-astra": {
       "input": 0.01,
       "output": 0.05,
@@ -108,6 +134,15 @@
     "mistral-large-3": {
       "input": 0.002,
       "output": 0.006
+    },
+    "mistral-large-4": {
+      "input": 0.00136,
+      "output": 0.00418,
+      "notes": "Public preview (2026-10-06). List rate; the docs page currently shows a 50% preview price of 0.00068/0.00209 per 1K. Estimates use the list rate so budgets fail safe. Alias of mistral-large-4-0."
+    },
+    "mistral-large-4-0": {
+      "input": 0.00136,
+      "output": 0.00418
     },
     "mistral-medium-3-5": {
       "input": 0.0015,
@@ -446,6 +481,10 @@
       "input": 0,
       "output": 0
     },
+    "qwen3.8-flash": {
+      "input": 0,
+      "output": 0
+    },
     "qwen3.8-max-preview": {
       "input": 0,
       "output": 0
@@ -465,6 +504,7 @@
   },
   "unpriced_models": [
     "qwen3.8-max",
+    "qwen3.8-flash",
     "qwen3.8-max-preview",
     "glm-5.3",
     "glm-5.3-flash",
@@ -473,13 +513,13 @@
   "consultant_fallbacks": {
     "_comment": "Premium defaults - Updated Sep 2026",
     "claude": "claude-fable-5-1",
-    "gemini": "Gemini 3.8 Flash (High)",
-    "codex": "gpt-6-astra",
-    "mistral": "mistral-large-3",
+    "gemini": "Gemini 4 Argon (High)",
+    "codex": "gpt-6.1-sol",
+    "mistral": "mistral-medium-3.5",
     "deepseek": "deepseek-flash",
     "glm": "glm-5.3-flash",
     "grok": "grok-4.7",
-    "qwen3": "qwen3.7-max",
+    "qwen3": "qwen3.8-max",
     "kimi": "kimi-code/k3",
     "minimax": "minimax-m2.7"
   },
@@ -487,11 +527,11 @@
     "_comment": "Model tiers for apply_model_tier() function",
     "maximum": {
       "claude": "claude-fable-5-1",
-      "gemini": "Gemini 3.8 Flash (High)",
+      "gemini": "Gemini 4 Argon (High)",
       "codex": "gpt-6-astra",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
-      "glm": "glm-5.3-flash",
+      "glm": "glm-5.3",
       "grok": "grok-4.7",
       "qwen3": "qwen3.8-max",
       "kimi": "kimi-code/k3-256k",
@@ -499,13 +539,13 @@
     },
     "premium": {
       "claude": "claude-fable-5-1",
-      "gemini": "Gemini 3.8 Flash (High)",
-      "codex": "gpt-6-astra",
+      "gemini": "Gemini 4 Argon (High)",
+      "codex": "gpt-6.1-sol",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
       "glm": "glm-5.3-flash",
       "grok": "grok-4.7",
-      "qwen3": "qwen3.7-max",
+      "qwen3": "qwen3.8-max",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.7"
     },
@@ -517,7 +557,7 @@
       "deepseek": "deepseek-flash",
       "glm": "glm-5.3-flash",
       "grok": "grok-4.5",
-      "qwen3": "qwen3.6-35b-a3b",
+      "qwen3": "qwen3.8-flash",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.7"
     },
@@ -525,11 +565,11 @@
       "claude": "claude-haiku-4-5",
       "gemini": "Gemini 3.8 Flash (Low)",
       "codex": "gpt-5.6-luna",
-      "mistral": "devstral-small-2",
+      "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
       "glm": "glm-4-flash",
       "grok": "grok-4.5",
-      "qwen3": "qwen3-32b",
+      "qwen3": "qwen3.8-flash",
       "kimi": "kimi-code/k3",
       "minimax": "MiniMax-M2.5"
     }
@@ -537,20 +577,20 @@
   "transport_model_tiers": {
     "_comment": "Transport-specific namespaces used by Gemini and Mistral; the legacy model_tiers table reflects their CLI values.",
     "gemini": {
-      "maximum": {"cli": "Gemini 3.8 Flash (High)", "api": "gemini-3.1-pro-preview"},
-      "premium": {"cli": "Gemini 3.8 Flash (High)", "api": "gemini-3.1-pro-preview"},
+      "maximum": {"cli": "Gemini 4 Argon (High)", "api": "gemini-4-argon"},
+      "premium": {"cli": "Gemini 4 Argon (High)", "api": "gemini-4-argon"},
       "standard": {"cli": "Gemini 3.8 Flash (High)", "api": "gemini-3.1-pro-preview"},
       "economy": {"cli": "Gemini 3.8 Flash (Low)", "api": "gemini-3.1-pro-preview"}
     },
     "mistral": {
-      "maximum": {"cli": "mistral-medium-3.5", "api": "mistral-large-3"},
-      "premium": {"cli": "mistral-medium-3.5", "api": "mistral-large-3"},
-      "standard": {"cli": "mistral-medium-3.5", "api": "mistral-large-3"},
-      "economy": {"cli": "devstral-small-2", "api": "mistral-large-3"}
+      "maximum": {"cli": "mistral-medium-3.5", "api": "mistral-large-4"},
+      "premium": {"cli": "mistral-medium-3.5", "api": "mistral-large-4"},
+      "standard": {"cli": "mistral-medium-3.5", "api": "mistral-large-4"},
+      "economy": {"cli": "mistral-medium-3.5", "api": "mistral-large-4"}
     }
   },
   "opt_in_targets": {
-    "gemini_cli": ["Gemini 3.8 Flash (Medium)", "Gemini 3.7 Flash (High)", "Gemini 3.7 Flash (Low)", "Gemini 3.1 Pro (High)", "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Low)"],
+    "gemini_cli": ["Gemini 4 Argon (Medium)", "Gemini 4 Argon (Low)", "Gemini 3.8 Flash (Medium)", "Gemini 3.7 Flash (High)", "Gemini 3.7 Flash (Low)", "Gemini 3.1 Pro (High)", "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Low)"],
     "gemini_api": ["gemini-3.7-flash", "gemini-3.8-flash"],
     "mistral_api": ["mistral-medium-3-5", "mistral-large-2512", "mistral-small-2603"],
     "claude": []

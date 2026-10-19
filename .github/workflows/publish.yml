@@ -142,7 +142,7 @@ jobs:
       - name: Bash syntax check
         run: |
           status=0
-          for f in scripts/*.sh scripts/lib/*.sh; do
+          for f in bin/ai-consultants scripts/*.sh scripts/lib/*.sh benchmarks/breadth-v1/scripts/*.sh benchmarks/breadth-v1/fixtures/stub-adapters/*.sh; do
             if ! bash -n "$f"; then
               echo "FAIL: $f"
               status=1

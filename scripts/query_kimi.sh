@@ -41,6 +41,12 @@ START_TIME=$(get_timestamp_ms)
 # --- Execution ---
 TEMP_OUTPUT=$(mktemp)
 KIMI_CLI_VERSION=""
+KIMI_WORKSPACE=""
+cleanup() {
+    rm -f "$TEMP_OUTPUT" "${TEMP_OUTPUT}.err"
+    remove_cli_workspace kimi "$KIMI_WORKSPACE"
+}
+trap cleanup EXIT
 
 observe_kimi_cli_version() {
     local version
@@ -90,14 +96,22 @@ kimi_cli_supports_required_interface || {
 # Pass --model explicitly: KIMI_MODEL is a project-level override, while the
 # CLI otherwise falls back to the user's config.toml and may silently use an
 # older alias.
-if run_query \
-        "Kimi" \
-        "$TEMP_OUTPUT" \
-        "$KIMI_TIMEOUT_SECONDS" \
-        "$KIMI_CMD" --model "$KIMI_MODEL" -p "$FULL_QUERY" --output-format stream-json </dev/null; then
-    exit_code=0
+# The prompt is an argv value: fail fast above the single-argument limit.
+# Kimi is agentic, so it runs from a private empty directory (no project
+# instructions, no file access beyond the built context).
+if ! guard_argv_prompt_size "$CONSULTANT_NAME" "$FULL_QUERY"; then
+    exit_code=1
 else
-    exit_code=$?
+    KIMI_WORKSPACE=$(make_cli_workspace kimi)
+    if (cd "${KIMI_WORKSPACE:-.}" && run_query \
+            "Kimi" \
+            "$TEMP_OUTPUT" \
+            "$KIMI_TIMEOUT_SECONDS" \
+            "$KIMI_CMD" --model "$KIMI_MODEL" -p "$FULL_QUERY" --output-format stream-json) </dev/null; then
+        exit_code=0
+    else
+        exit_code=$?
+    fi
 fi
 
 # Extract the model's response from the stream-json output: the

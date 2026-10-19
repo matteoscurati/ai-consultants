@@ -102,68 +102,81 @@ See [COST_RATES.md](COST_RATES.md) for model pricing by tier.
 
 ## Supported Categories
 
-### CODE_REVIEW
-- Code quality review
-- Best practices
-- Code style
-
-**Keywords:** review, quality, refactor, clean code
-
-### BUG_DEBUG
-- Debugging
-- Error fixing
-- Troubleshooting
-
-**Keywords:** bug, error, crash, fix, debug, problem
-
-### ARCHITECTURE
-- System design
-- Design patterns
-- Scalability
-
-**Keywords:** architect, design, pattern, microservic, scalabil, structur
-
-### ALGORITHM
-- Algorithms
-- Data structures
-- Complexity
-
-**Keywords:** algorithm, complexity, O(n), recursive, sort, search, structur
+Pattern classification (`scripts/classify_question.sh`) checks the categories
+in the order below and returns the first match. Keywords are matched
+case-insensitively, mostly as substrings.
 
 ### SECURITY
 - Vulnerabilities
 - Authentication
 - Authorization
 
-**Keywords:** security, vulnerabil, injection, XSS, auth
+**Keywords (whole words):** security, secure, vulnerab…, exploit…, CVE-…, XSS,
+CSRF, SSRF, SQLi, JWT, OAuth, auth/authn/authz, authenticat…, authoriz…,
+password, encrypt…/decrypt…, secret, sanitiz…; also injection, access token,
+API key. Checked first, because security questions often also say "fix",
+"design" or "review". Dependency, constructor, setter, field, property,
+method, interface and fault injection are design or testing terms, not
+security.
+
+### CODE_REVIEW
+- Code quality review
+- Best practices
+
+**Keywords:** review, check, analyze … code, quality
+
+### BUG_DEBUG
+- Debugging
+- Error fixing
+- Troubleshooting
+
+**Keywords:** bug, error, crash, fix, debug, problem, issue, not working, fails,
+exception, traceback
+
+### ARCHITECTURE
+- System design
+- Design patterns
+- Scalability
+
+**Keywords:** architect, design, pattern, structure, microservic, monolit,
+scalabil, refactor, organiz, system design
+
+### ALGORITHM
+- Algorithms
+- Data structures
+- Complexity and performance
+
+**Keywords:** algorithm, optimi, performance, complexit, O(, big-o, efficien,
+sort, search, data structure
 
 ### QUICK_SYNTAX
 - Quick syntax
-- Fast how-tos
 - Snippets
 
-**Keywords:** how to, syntax, example, snippet
+**Keywords:** syntax, how to write, example of, snippet, one-liner
 
 ### DATABASE
 - SQL queries
 - Schema design
 - DB optimization
 
-**Keywords:** SQL, database, query, schema, index, join
+**Keywords:** database, SQL, query, MongoDB, Postgres, MySQL, Redis, index,
+migration, schema
 
 ### API_DESIGN
 - REST API
 - GraphQL
 - Endpoint design
 
-**Keywords:** API, REST, endpoint, GraphQL, HTTP
+**Keywords:** API, REST, GraphQL, endpoint, request, response, HTTP, webhook
 
 ### TESTING
 - Unit test
 - Integration test
 - Test strategy
 
-**Keywords:** test, unit, integration, mock, coverage
+**Keywords:** test, testing, unit test, integration, mock, stub, coverage, TDD,
+BDD
 
 ### GENERAL
 - Default for everything else
@@ -186,9 +199,11 @@ CLASSIFICATION_MODE=pattern
 CLASSIFICATION_MODE=llm
 ```
 
-- More accurate
-- Requires Claude CLI
-- Falls back to pattern if Claude is unavailable
+- More accurate, at the cost of one small call
+- Uses the Claude CLI on the economy model, stateless and tool-free, bounded by
+  `CLASSIFICATION_TIMEOUT` (default 30 s)
+- Falls back to pattern matching when Claude is unavailable, is the invoking
+  host, or returns an unknown category
 
 ## Usage Example
 
@@ -214,7 +229,7 @@ source scripts/lib/routing.sh
 get_affinity "SECURITY" "Mistral"  # → 10
 
 # Select consultants
-select_consultants "SECURITY" 7    # → All enabled consultants
+select_consultants "SECURITY" 7    # → Enabled consultants with affinity ≥ 7
 
 # Check recommendation
 is_recommended "SECURITY" "Claude" 7 && echo "Recommended"

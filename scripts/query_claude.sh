@@ -47,7 +47,7 @@ CLAUDE_SUPPORTS_AUTH_STATUS=false
 
 claude_cli_supports_advisory_contract() {
     local help flag
-    if ! help=$(run_with_timeout 8 "$CLAUDE_CMD" --help 2>&1); then
+    if ! help=$(run_with_timeout 8 "$CLAUDE_CMD" --help 2>&1 </dev/null); then
         return 1
     fi
     for flag in --print --model --output-format --no-session-persistence \
@@ -61,7 +61,7 @@ claude_cli_supports_advisory_contract() {
 
 claude_cli_is_authenticated() {
     local status
-    if ! status=$(run_with_timeout 12 "$CLAUDE_CMD" auth status 2>&1); then
+    if ! status=$(run_with_timeout 12 "$CLAUDE_CMD" auth status 2>&1 </dev/null); then
         return 1
     fi
     printf '%s' "$status" | jq -e '.loggedIn == true' >/dev/null 2>&1
@@ -222,6 +222,7 @@ if [[ $exit_code -eq 0 && -s "$TEMP_OUTPUT" ]]; then
         build_error_response "$CONSULTANT_NAME" "$EFFECTIVE_MODEL" "$PERSONA_NAME" \
             "Provider returned malformed, truncated, or schema-invalid JSON" "$LATENCY_MS" \
             "$MODEL_USED" "$MODEL_IDENTITY_SOURCE" "$_TOK" "$_TOK_SRC" "$_TOK_IN" "$_TOK_OUT" "$PROVIDER_COST" > "$OUTPUT_FILE"
+        attach_raw_excerpt "$OUTPUT_FILE" "$RAW_RESPONSE"
         exit_code=1
     fi
 else

@@ -106,7 +106,7 @@ test_template_covers_config_contract() {
     done < <(find "$SCRIPT_DIR" -type f -name '*.sh' \
         ! -name 'test_*.sh' ! -path '*/test_fixtures/*' ! -path '*/experiment/*' | sort) \
         | sed -E 's/^\$\{//; s/:[-=]$//' \
-        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_DOC_ROOT|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|FORCE|HOME|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|RUN_QUERY_REDACT_ERRORS|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
+        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_DOC_ROOT|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_SKIP_SESSION_SAVE|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_ROOT|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|ENV_SYNTHESIS_STRATEGY|FORCE|GEMINI_WORKSPACE|HOME|KIMI_WORKSPACE|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QWEN_WORKSPACE|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|RUN_QUERY_REDACT_ERRORS|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
         | sort -u > "$runtime"
     sort -u "$declared" "$runtime" -o "$declared"
     $BIN configure --show-parameters | sort -u > "$supported"
@@ -404,8 +404,8 @@ test_codex_default_migration_and_pin() {
     printf '%s\n' 'CODEX_MODEL=gpt-5.5' > "$cfg/.env"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "gpt-6-astra" "$(read_env "$cfg/.env" CODEX_MODEL)" \
-        "historical generated Codex default migrates to gpt-6-astra"
+    assert_eq "gpt-6.1-sol" "$(read_env "$cfg/.env" CODEX_MODEL)" \
+        "historical generated Codex default migrates to gpt-6.1-sol"
     assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "# ai-consultants:default" \
         "migrated Codex default records managed provenance"
 
@@ -421,14 +421,14 @@ test_codex_default_migration_and_pin() {
         "pinned gpt-5.5 survives later configure runs"
 
     local old marker
-    for old in gpt-5.5 gpt-5.6-sol; do
+    for old in gpt-5.5 gpt-5.6-sol gpt-6-astra; do
         for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin' ' # ai-consultants:default # ai-consultants:pin'; do
             printf 'CODEX_MODEL=%s%s\n' "$old" "$marker" > "$cfg/.env"
             run_clean_configure "$cfg" --force >/dev/null 2>&1
             if [[ "$marker" == *pin* ]]; then
                 assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "exact pin survives"
             else
-                assert_eq gpt-6-astra "$(read_env "$cfg/.env" CODEX_MODEL)" "marked/unmarked legacy migrates"
+                assert_eq gpt-6.1-sol "$(read_env "$cfg/.env" CODEX_MODEL)" "marked/unmarked legacy migrates"
                 assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "migrated-from=$old" "migration records origin"
                 run_clean_configure "$cfg" --force >/dev/null 2>&1
                 assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "migrated-from=$old" "origin persists idempotently"
@@ -443,11 +443,17 @@ test_codex_default_migration_and_pin() {
 
     printf 'CODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.5\r\nCODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.6-sol\r\n' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq gpt-6-astra "$(read_env "$cfg/.env" CODEX_MODEL)" "CRLF duplicate entries retain the final model"
+    assert_eq gpt-6.1-sol "$(read_env "$cfg/.env" CODEX_MODEL)" "CRLF duplicate entries migrate the final model"
     assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" 'migrated-from=gpt-5.6-sol' "CRLF duplicate entries retain final provenance"
     local loaded_model
     loaded_model=$(env -u CODEX_MODEL bash -c 'source "$1/lib/user_config.sh"; _apply_env_file "$2"; printf "%s" "$CODEX_MODEL"' _ "$SCRIPT_DIR" "$cfg/.env")
-    assert_eq gpt-6-astra "$loaded_model" "real runtime loader strips migration provenance"
+    assert_eq gpt-6.1-sol "$loaded_model" "real runtime loader strips migration provenance"
+
+    # A managed Astra default that was itself migrated keeps its first origin.
+    printf '%s\n' 'CODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.5' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq gpt-6.1-sol "$(read_env "$cfg/.env" CODEX_MODEL)" "managed Astra default migrates to Sol"
+    assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" 'migrated-from=gpt-5.5' "chained migration keeps the earliest origin"
     printf '%s\n' 'CLAUDE_MODEL=claude-opus-5 # ai-consultants:default # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq claude-opus-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "pin precedence also preserves Claude"
@@ -468,15 +474,17 @@ test_catalog_default_migrations_and_pins() {
         'MISTRAL_MODEL=mistral-large-3' \
         'CURSOR_CMD=agent' \
         'GLM_MODEL=glm-5.2' \
+        'QWEN3_MODEL=qwen3.7-max' \
         'GROK_MODEL=grok-4.5' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "Gemini 3.8 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "managed Gemini CLI default migrates"
-    assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "unverified Mistral API default is not migrated"
+    assert_eq qwen3.8-max "$(read_env "$cfg/.env" QWEN3_MODEL)" "managed Qwen default migrates to 3.8-max"
+    assert_eq "Gemini 4 Argon (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "managed Gemini CLI default migrates"
+    assert_eq mistral-large-4 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "managed Mistral API default migrates to Large 4"
     assert_eq mistral-medium-3.5 "$(read_env "$cfg/.env" MISTRAL_CLI_MODEL)" "new Mistral CLI field is populated"
     assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed Cursor command is dropped"
     assert_eq glm-5.3-flash "$(read_env "$cfg/.env" GLM_MODEL)" "managed GLM default migrates"
     assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "managed Grok default migrates"
-    for key in GEMINI_MODEL GLM_MODEL GROK_MODEL; do
+    for key in GEMINI_MODEL GLM_MODEL GROK_MODEL QWEN3_MODEL MISTRAL_MODEL; do
         assert_contains "$(grep "^${key}=" "$cfg/.env")" "# ai-consultants:default" "$key migration records managed provenance"
     done
 
@@ -486,8 +494,10 @@ test_catalog_default_migrations_and_pins() {
         'GEMINI_MODEL=Gemini 3.1 Pro (High) # ai-consultants:pin' \
         'MISTRAL_MODEL=mistral-large-3 # ai-consultants:pin' \
         'GLM_MODEL=glm-5.2 # ai-consultants:pin' \
+        'QWEN3_MODEL=qwen3.8-max-preview # ai-consultants:pin' \
         'GROK_MODEL=grok-4.5 # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq qwen3.8-max-preview "$(read_env "$cfg/.env" QWEN3_MODEL)" "pinned Qwen model survives"
     assert_eq "Gemini 3.1 Pro (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "pinned Gemini CLI model survives"
     assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "pinned Mistral API model survives"
     assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed pinned Cursor command is dropped"
@@ -609,7 +619,8 @@ test_gemini38_migration() {
             cfg="$TMP/gemini38-$level-${#marker}"; mkdir -p "$cfg"
             printf 'GEMINI_MODEL="Gemini 3.7 Flash (%s)"%s\n' "$level" "$marker" > "$cfg/.env"
             run_clean_configure "$cfg" --force >/dev/null 2>&1
-            expected="Gemini 3.8 Flash ($level)"
+            expected="Gemini 3.8 Flash (Low)"
+            [[ "$level" == Low ]] || expected="Gemini 4 Argon (High)"
             [[ "$marker" != *pin* ]] || expected="Gemini 3.7 Flash ($level)"
             assert_eq "$expected" "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini $level migration respects pin state"
             run_clean_configure "$cfg" --force >/dev/null 2>&1
@@ -624,7 +635,38 @@ test_gemini38_migration() {
     run_clean_configure "$cfg" --force --set 'GEMINI_MODEL=Gemini 3.8 Flash (Medium)' >/dev/null 2>&1
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq 'Gemini 3.8 Flash (Medium)' "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini Medium remains an explicit choice"
-    assert_eq gemini-3.1-pro-preview "$(read_env "$cfg/.env" GEMINI_API_MODEL)" "Gemini API Pro default remains separate"
+    assert_eq gemini-4-argon "$(read_env "$cfg/.env" GEMINI_API_MODEL)" "Gemini API default is Argon"
+
+    # The 5.1.2 defaults move to Argon unless pinned; Flash Low stays economy.
+    for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin'; do
+        cfg="$TMP/gemini-argon-${#marker}"; mkdir -p "$cfg"
+        printf 'GEMINI_MODEL="Gemini 3.8 Flash (High)"%s\nGEMINI_API_MODEL=gemini-3.1-pro-preview%s\n' "$marker" "$marker" > "$cfg/.env"
+        run_clean_configure "$cfg" --force >/dev/null 2>&1
+        if [[ "$marker" == *pin* ]]; then
+            assert_eq "Gemini 3.8 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "pinned Gemini 3.8 Flash (High) survives"
+            assert_eq gemini-3.1-pro-preview "$(read_env "$cfg/.env" GEMINI_API_MODEL)" "pinned Gemini 3.1 Pro API ID survives"
+        else
+            assert_eq "Gemini 4 Argon (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "unpinned Gemini CLI default migrates to Argon"
+            assert_eq gemini-4-argon "$(read_env "$cfg/.env" GEMINI_API_MODEL)" "unpinned Gemini API default migrates to Argon"
+            assert_contains "$(grep '^GEMINI_API_MODEL=' "$cfg/.env")" "# ai-consultants:default" "Gemini API migration records managed provenance"
+        fi
+    done
+    # 5.1.2 generated fixed timeouts; unpinned ones now mean "no limit".
+    cfg="$TMP/timeouts"; mkdir -p "$cfg"
+    printf '%s\n' 'GEMINI_TIMEOUT=180' 'CLAUDE_TIMEOUT=240 # ai-consultants:default' \
+        'SYNTHESIS_TOTAL_TIMEOUT=480' 'QWEN3_MAX_QUALITY_TIMEOUT=600' \
+        'CODEX_TIMEOUT=180 # ai-consultants:pin' 'MISTRAL_TIMEOUT=300' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "0|0|0|0" "$(read_env "$cfg/.env" GEMINI_TIMEOUT)|$(read_env "$cfg/.env" CLAUDE_TIMEOUT)|$(read_env "$cfg/.env" SYNTHESIS_TOTAL_TIMEOUT)|$(read_env "$cfg/.env" QWEN3_MAX_QUALITY_TIMEOUT)" \
+        "unpinned generated timeouts migrate to no limit"
+    assert_eq "180|300" "$(read_env "$cfg/.env" CODEX_TIMEOUT)|$(read_env "$cfg/.env" MISTRAL_TIMEOUT)" \
+        "pinned and custom timeouts remain hard limits"
+    assert_eq 0 "$(read_env "$cfg/.env" KIMI_TIMEOUT)" "a new config has no timeout"
+
+    cfg="$TMP/gemini-argon-economy"; mkdir -p "$cfg"
+    printf 'GEMINI_MODEL="Gemini 3.8 Flash (Low)"\n' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "Gemini 3.8 Flash (Low)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini 3.8 Flash (Low) is not promoted"
 }
 
 run_test "Test 1: public configure route and help" test_public_route_and_help

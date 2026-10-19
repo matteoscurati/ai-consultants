@@ -107,7 +107,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -o) shift; out="$1" ;;
     -D) shift; headers="$1" ;;
-    -d) shift; body="$1" ;;
+    --data-binary) shift; body=$(cat "${1#@}") ;;
   esac
   shift
 done

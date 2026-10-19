@@ -43,9 +43,11 @@ save_session() {
     touch "$SESSION_FILE"
     chmod 600 "$SESSION_FILE"
 
-    jq -n \
+    # The question goes through stdin, never jq argv: a --query-file question
+    # can exceed the single-argument limit (128 KiB on Linux).
+    printf '%s' "$query" | jq -n \
         --arg id "$session_id" \
-        --arg query "$query" \
+        --rawfile query /dev/stdin \
         --arg dir "$responses_dir" \
         --arg category "$category" \
         --arg timestamp "$timestamp" \
@@ -120,7 +122,7 @@ add_follow_up() {
 
     local timestamp=$(date -Iseconds)
 
-    jq --arg query "$follow_up_query" \
+    printf '%s' "$follow_up_query" | jq --rawfile query /dev/stdin \
        --arg dir "$follow_up_dir" \
        --arg ts "$timestamp" \
        '.follow_ups += [{query: $query, responses_dir: $dir, timestamp: $ts}]' \
@@ -165,24 +167,39 @@ add_to_history() {
     local timestamp=$(date -Iseconds)
     local query_preview="${query:0:100}"
 
-    jq --arg id "$session_id" \
+    # Keep the full query too: `followup.sh --session <id>` restores a session
+    # from this record, and a 100-character preview is not the question. It
+    # travels through stdin, not argv (see save_session).
+    printf '%s' "$query" | jq --arg id "$session_id" \
        --arg query "$query_preview" \
+       --rawfile full_query /dev/stdin \
        --arg dir "$responses_dir" \
        --arg cat "$category" \
        --arg ts "$timestamp" \
-       '.sessions += [{id: $id, query_preview: $query, responses_dir: $dir, category: $cat, timestamp: $ts}]' \
+       '.sessions += [{id: $id, query: $full_query, query_preview: $query, responses_dir: $dir, category: $cat, timestamp: $ts}]' \
        "$SESSION_HISTORY_FILE" > "${SESSION_HISTORY_FILE}.tmp" && \
        mv "${SESSION_HISTORY_FILE}.tmp" "$SESSION_HISTORY_FILE"
 }
 
-# Search session by ID
+# Search session by ID. Returns a record in the current-session shape, so it
+# can be restored as $SESSION_FILE. History entries written before the full
+# query was stored fall back to their preview.
 # Usage: get_session_by_id <session_id>
 get_session_by_id() {
     local session_id="$1"
 
     init_history
 
-    jq --arg id "$session_id" '.sessions[] | select(.id == $id)' "$SESSION_HISTORY_FILE"
+    jq --arg id "$session_id" '
+        [.sessions[] | select(.id == $id)] | last
+        | if . == null then empty else {
+            id,
+            query: (.query // .query_preview // ""),
+            responses_dir,
+            category: (.category // "GENERAL"),
+            timestamp,
+            follow_ups: (.follow_ups // [])
+          } end' "$SESSION_HISTORY_FILE"
 }
 
 # =============================================================================
@@ -214,7 +231,10 @@ $original_query
     # Add response summaries
     if [[ -d "$responses_dir" ]]; then
         for f in "$responses_dir"/*.json; do
-            if [[ -f "$f" ]]; then
+            # Only consultant envelopes: synthesis.json and
+            # optimization_metrics.json are not responses.
+            if [[ -f "$f" ]] && { ! declare -f _is_consultant_response_file >/dev/null 2>&1 \
+                    || _is_consultant_response_file "$f"; }; then
                 local consultant=$(jq -r '.consultant // "Unknown"' "$f" 2>/dev/null)
                 local summary=$(jq -r '.response.summary // "No summary"' "$f" 2>/dev/null)
                 local approach=$(jq -r '.response.approach // "unknown"' "$f" 2>/dev/null)

@@ -34,8 +34,10 @@ test_minimax_cli_model_and_identity() {
     assert_match '(^|[[:space:]])--model[[:space:]]+MiniMax-M2\.7($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "MiniMax pins M2.7"
     assert_match '(^|[[:space:]])--max-tokens[[:space:]]+4096($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "MiniMax pins the completion budget"
     assert_eq requested-only "$(jq -r '.metadata.model_identity_source' "$output")" "MiniMax does not claim unreported CLI identity"
-    assert_match 'under 4000 characters' "$(tr '\n' ' ' < "$args")" "MiniMax receives the compact-response contract"
-    assert_match 'Do not emit JSON' "$(tr '\n' ' ' < "$args")" "MiniMax uses the reliable prose contract"
+    assert_match 'Respond ONLY in valid JSON' "$(tr '\n' ' ' < "$args")" "MiniMax receives the shared JSON response contract"
+    assert_match 'The Pragmatic Optimizer' "$(tr '\n' ' ' < "$args")" "MiniMax receives its persona"
+    assert_eq 0 "$(grep -c 'Do not emit JSON' "$args" || true)" "MiniMax no longer receives the prose-only contract"
+    assert_eq structured "$(jq -r '.metadata.response_quality' "$output")" "MiniMax JSON answer is a structured envelope"
     assert_match '(^|[[:space:]])--system($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "MiniMax uses the native system channel"
     assert_match '(^|[[:space:]])--messages-file[[:space:]]+-($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "MiniMax reads the user message from stdin"
     assert_eq 0 "$(grep -c -x -- '--message' "$args" || true)" "MiniMax does not expose the user prompt through --message argv"
@@ -65,6 +67,8 @@ test_minimax_empty_and_failure_are_not_success() {
         assert_eq 1 "$rc" "MiniMax $mode output returns failure"
         assert_eq error "$(jq -r '.response.approach' "$output")" "MiniMax $mode output writes an error envelope"
     done
+    assert_match 'summary' "$(jq -r '.metadata.raw_excerpt // empty' "$TMP_ROOT/truncated.json")" \
+        "rejected malformed JSON is kept as a bounded diagnostic excerpt"
 }
 
 run_test "MiniMax CLI model and identity provenance" test_minimax_cli_model_and_identity

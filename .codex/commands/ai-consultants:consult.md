@@ -15,7 +15,7 @@ Query multiple AI models for expert opinions on a coding question.
 1. If no question provided in $ARGUMENTS, ask the user what they want to consult about.
 
    Separate supported consultation options from the question. Preserve
-   `--preset <name>` and `--strategy <name>` as CLI arguments before the
+   `--mode <name>`, `--preset <name>` and `--strategy <name>` as CLI arguments before the
    question; reject an incomplete option instead of guessing its value.
 
 2. **File context handling**: Identify which strings in $ARGUMENTS refer to files the user wants the consultants to look at. Use your judgment — verify existence via `Glob` or `Bash ls` when uncertain. This replaces fragile regex detection: a `Makefile`, `Dockerfile`, dotfile, or path without a common extension is still a file; an URL or regex pattern in the question text is not.
@@ -36,15 +36,30 @@ Query multiple AI models for expert opinions on a coding question.
    - Shell-quote every context-file path as one argument.
    - Install a shell trap that removes only the exact query file when the Bash
      invocation exits; question text must not persist in the temp directory.
+     Some harnesses (Codex) reject `rm -f`; `unlink "<file>"` removes it too.
    - Capture `caller_root="$PWD"` before changing directories. Pass it through
      `--context-root` so regular files from the user's project are staged under
      a private temp directory without widening the runtime filesystem allowlist.
 
    ```bash
-   caller_root="$PWD"; cd "${AI_CONSULTANTS_DIR:-$HOME/.codex/skills/ai-consultants}" && INVOKING_AGENT=codex ./scripts/consult_all.sh [--preset <name>] [--strategy <name>] --context-root "$caller_root" --query-file "<private-question-file>" "<file1[@TAG]>" "<file2[@TAG]>" ...
+   caller_root="$PWD"; cd "${AI_CONSULTANTS_DIR:-$HOME/.codex/skills/ai-consultants}" && INVOKING_AGENT=codex ./scripts/consult_all.sh [--mode <name> | --preset <name>] [--strategy <name>] --context-root "$caller_root" --query-file "<private-question-file>" "<file1[@TAG]>" "<file2[@TAG]>" ...
    ```
    - Each `<fileN>` is a file path, optionally suffixed with `@PRIMARY` or `@CONTEXT`.
-   - **Capture the last line of stdout** — it contains the output directory path (e.g., `/tmp/ai_consultations/20260315_143022_12345/`).
+   - **Capture the last line of stdout** — it contains the output directory path (e.g., `~/.cache/ai-consultants/consultations/20260315_143022_12345`).
+   - **No time limit by default.** Reasoning models can take several minutes.
+     If your shell tool can run a command in the background and read its output
+     while it runs, do so; otherwise use the longest timeout your tool allows.
+   - While waiting, the run logs `Output: <output_dir>` near the start and
+     `Still waiting after Ns for: <consultants>` every 30 seconds. You decide
+     when to stop waiting:
+     - `touch "<output_dir>/.proceed"` continues with the answers already
+       received: consultants still running are stopped, then synthesis runs.
+       Sent during synthesis, it skips the synthesis.
+     - `touch "<output_dir>/.abort"` ends the run and keeps the partial output.
+     Stopping does not cancel what a provider already generated and billed, so
+     keep waiting unless the user wants results now or a consultant looks stuck
+     (for example, far slower than the rest of the panel). Never stop the run
+     with SIGKILL: it would leave consultant CLIs running. Use `.abort` or SIGTERM.
    - Keep `INVOKING_AGENT=codex` exactly as shown. Never invoke
      `query_codex.sh` directly or remove self-exclusion.
 
@@ -52,7 +67,7 @@ Query multiple AI models for expert opinions on a coding question.
    - Read `<output_dir>/report.md` using the **Read** tool
    - Read `<output_dir>/synthesis.json` using the **Read** tool (may not exist if synthesis was skipped or failed)
    - If neither exists, use the **Glob** tool with pattern `<output_dir>/*.json` to discover individual consultant response files, then read each one
-   - `codex.json` must not exist and `.synthesis_provider` must not be `codex`.
+   - `codex.json` must not exist and the `synthesis_provider` field of `synthesis.json` must not be `codex`.
      Treat either condition as a self-exclusion failure.
 
 5. **Present the results** using this template. Preserve the union of distinct
@@ -82,7 +97,8 @@ Query multiple AI models for expert opinions on a coding question.
      ```bash
      cd "${AI_CONSULTANTS_DIR:-$HOME/.codex/skills/ai-consultants}" && ./scripts/doctor.sh
      ```
-   - **Exit code 124** (timeout): Suggest `--preset fast` for quicker results or increasing the timeout (e.g., `GEMINI_TIMEOUT=300`)
+   - **Consultant timeouts** (`Timeout after …s` in the output): a hard limit was set with `<NAME>_TIMEOUT`. Suggest `0` (no limit, the default) or `--mode fast-check` for quicker results
+   - **Stopped consultants** (`Stopped by the host`): present the answers received and name the consultants that were stopped before answering
    - **Partial failures** (some consultants responded, others didn't): Present the successful results normally and note which consultants failed at the end
    - **Empty output directory** (no JSON files produced): Suggest running `doctor.sh` to verify CLI installations and API keys
 

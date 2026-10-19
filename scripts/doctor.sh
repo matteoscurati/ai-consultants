@@ -25,6 +25,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/grok_sandbox.sh"
 source "$SCRIPT_DIR/lib/common.sh"
+# check_routing validates the affinity file routing resolves (_resolve_affinity_path).
+source "$SCRIPT_DIR/lib/routing.sh"
 
 # --- Parameters ---
 FIX_MODE=false
@@ -383,9 +385,15 @@ check_api_consultant() {
     # Mask API key for display
     local masked_key="${api_key:0:4}...${api_key: -4}"
 
-    # Test connectivity (simple HEAD request to avoid charges)
+    # Test connectivity (a GET the endpoint rejects, so nothing is billed).
+    # The key reaches curl through a pipe, never argv (process list) or a
+    # file an interrupted doctor would leave behind. curl's own -m bounds the
+    # probe, so it also works on macOS without GNU coreutils.
     if [[ -n "$api_url" ]] && command -v curl &> /dev/null; then
-        if timeout 10 curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $api_key" "$api_url" 2>/dev/null | grep -qE "^(200|401|403)"; then
+        local http_code=""
+        http_code=$(curl -s -m 10 -o /dev/null -w "%{http_code}" \
+            -H @<(printf 'Authorization: Bearer %s\n' "$api_key") "$api_url" 2>/dev/null </dev/null || true)
+        if [[ "$http_code" =~ ^(200|401|403|404|405)$ ]]; then
             _print "  ✓ $name: configured (key: $masked_key)"
             check_pass
         else
@@ -520,7 +528,12 @@ check_user_config() {
 check_routing() {
     print_section "Checking Routing Affinity Matrix (v2.11)"
 
-    local affinity_file="${AFFINITY_FILE:-$SCRIPT_DIR/../references/affinity.json}"
+    # Validate the file routing actually loads (AFFINITY_FILE, then the user
+    # config dir, then the bundled matrix), using routing's own resolver.
+    # Validating only the bundled file missed a broken user-level
+    # affinity.json.
+    local affinity_file
+    affinity_file=$(_resolve_affinity_path 2>/dev/null)
 
     if [[ ! -f "$affinity_file" ]]; then
         _print "  ✗ Affinity file: missing ($affinity_file)"
@@ -589,27 +602,18 @@ check_synthesis() {
         return 0
     fi
 
-    # Check for the configured Claude CLI (preferred). Bound --version: some
-    # builds wait on credential/keychain setup when HOME is isolated, and a
-    # static doctor must never hang on a provenance string.
-    if command -v "$CLAUDE_CMD" &> /dev/null; then
-        local claude_version
-        claude_version=$(run_with_timeout 5 "$CLAUDE_CMD" --version 2>/dev/null | head -1 || true)
-        [[ -n "$claude_version" ]] || claude_version="version unknown"
-        _print "  ✓ Claude CLI: $claude_version"
+    # Resolve the synthesizer exactly as synthesize.sh does: the configured
+    # SYNTHESIS_CMD, then gemini/codex/claude, never the invoking host. These
+    # are local readiness probes (help/auth/inventory), not model calls.
+    local synth_cli synth_model
+    synth_cli=$(resolve_synthesis_cli 2>/dev/null || true)
+    if [[ -n "$synth_cli" ]]; then
+        synth_model=$(synthesis_model_for_cli "$synth_cli")
+        _print "  ✓ Synthesis provider: $synth_cli (model: ${synth_model:-CLI default})"
         check_pass
     else
-        _print "  △ Claude CLI: not found (will use fallback synthesis)"
-        add_warning "synthesis" "Claude CLI not installed, using basic fallback synthesis"
-    fi
-
-    # Check synthesis template
-    local template_file="$SCRIPT_DIR/../templates/synthesis_prompt.md"
-    if [[ -f "$template_file" ]]; then
-        _print "  ✓ Synthesis template: found"
-        check_pass
-    else
-        _print "  ○ Synthesis template: using default"
+        _print "  △ Synthesis provider: none ready (local manual-review fallback will be used)"
+        add_warning "synthesis" "No ready synthesis CLI (claude, gemini, or codex, excluding the invoking host); synthesis falls back to manual review"
     fi
 }
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Offline Gemini 3.8 policy and promotional-rate checks.
+# Offline Gemini 4 Argon / 3.8 policy and rate checks.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP=$(mktemp -d)
@@ -9,10 +9,15 @@ unset GEMINI_MODEL GEMINI_API_MODEL GEMINI_REASONING_EFFORT
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/costs.sh"
 source "$SCRIPT_DIR/lib/api.sh"
-[[ "$GEMINI_MODEL" == 'Gemini 3.8 Flash (High)' && "$GEMINI_API_MODEL" == gemini-3.1-pro-preview ]] || exit 1
+[[ "$GEMINI_MODEL" == 'Gemini 4 Argon (High)' && "$GEMINI_API_MODEL" == gemini-4-argon \
+    && "$GEMINI_API_MAX_TOKENS" == 32768 ]] || exit 1
 for tier in maximum premium standard economy; do
-    [[ $(get_model_for_tier gemini "$tier" api) == gemini-3.1-pro-preview ]] || exit 1
-    if [[ "$tier" == economy ]]; then expected='Gemini 3.8 Flash (Low)'; else expected='Gemini 3.8 Flash (High)'; fi
+    case "$tier" in
+        maximum|premium) expected='Gemini 4 Argon (High)'; expected_api=gemini-4-argon ;;
+        standard) expected='Gemini 3.8 Flash (High)'; expected_api=gemini-3.1-pro-preview ;;
+        economy) expected='Gemini 3.8 Flash (Low)'; expected_api=gemini-3.1-pro-preview ;;
+    esac
+    [[ $(get_model_for_tier gemini "$tier" api) == "$expected_api" ]] || exit 1
     [[ $(get_model_for_tier gemini "$tier" cli) == "$expected" ]] || exit 1
     [[ $(jq -r --arg tier "$tier" '.model_tiers[$tier].gemini' "$COST_RATES_FILE") == "$expected" ]] || exit 1
 done
@@ -28,4 +33,12 @@ usage='{"usageMetadata":{"promptTokenCount":100,"cachedContentTokenCount":80,"ca
 mkdir "$TMP/responses"
 printf '%s\n' '{"consultant":"Gemini","model":"Gemini 3.8 Flash (High)","response":{"summary":"ok"},"metadata":{"tokens_source":"estimated"}}' > "$TMP/responses/gemini.json"
 [[ $(format_cost_caveats "$TMP/responses") == *'through 2026-12-31'* ]] || exit 1
-printf '%s\n' 'Gemini 3.8 CLI tiers, separate API Pro default and promotional estimates passed'
+# Argon is estimated at the list rate, not the introductory one.
+for model in 'Gemini 4 Argon (High)' 'Gemini 4 Argon (Medium)' 'Gemini 4 Argon (Low)' gemini-4-argon; do
+    [[ $(estimate_query_cost "$model" 2000 1000) == 0.028000 ]] || exit 1
+    COST_RATES_FILE="$TMP/missing" bash -c 'source "$1/lib/costs.sh";
+        [[ $(get_input_cost_per_1k "$2") == 0.004 && $(get_output_cost_per_1k "$2") == 0.02 ]]' _ "$SCRIPT_DIR" "$model"
+done
+printf '%s\n' '{"consultant":"Gemini","model":"Gemini 4 Argon (High)","response":{"summary":"ok"},"metadata":{"tokens_source":"estimated"}}' > "$TMP/responses/gemini.json"
+[[ $(format_cost_caveats "$TMP/responses") == *'Gemini 4 Argon list-rate'* ]] || exit 1
+printf '%s\n' 'Gemini Argon/3.8 CLI tiers, API tiers and list/promotional estimates passed'

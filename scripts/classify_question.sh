@@ -3,7 +3,7 @@
 #
 # Classifies questions by type to optimize consultant selection.
 #
-# Usage: ./classify_question.sh "question"
+# Usage: ./classify_question.sh "question"   (or - to read it from stdin)
 # Output: category (CODE_REVIEW, ARCHITECTURE, BUG_DEBUG, etc.)
 
 set -euo pipefail
@@ -12,6 +12,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 QUESTION="${1:-}"
+# "-" reads the question from stdin so callers never need to put a large
+# question in argv.
+if [[ "$QUESTION" == "-" ]]; then
+    QUESTION=$(cat)
+fi
 
 if [[ -z "$QUESTION" ]]; then
     log_error "Usage: $0 \"question\""
@@ -25,6 +30,19 @@ fi
 classify_by_patterns() {
     local question="$1"
     local q_lower=$(echo "$question" | tr '[:upper:]' '[:lower:]')
+
+    # SECURITY first: security questions routinely also say "fix", "check",
+    # "design", "review" or "performance", and matching those broader
+    # categories first meant SECURITY almost never won. The patterns avoid
+    # bare "auth"/"token" substrings ("author", "tokens per second"), and
+    # design-pattern or testing injections (dependency, constructor, field,
+    # fault injection) are removed first: they are not injection attacks.
+    local q_security
+    q_security=$(printf '%s\n' "$q_lower" | sed -E 's/(dependency|constructor|setter|field|property|method|interface|fault)[ -]injection//g')
+    if echo "$q_security" | grep -qE '(^|[^a-z])(security|secure|vulnerab[a-z]*|exploit[a-z]*|cve-[0-9]|xss|csrf|ssrf|sqli|jwt|oauth[0-9]*|auth|authn|authz|authenticat[a-z]*|authoriz[a-z]*|password[s]?|encrypt[a-z]*|decrypt[a-z]*|secret[s]?|sanitiz[a-z]*)([^a-z]|$)|injection|access token|api key'; then
+        echo "SECURITY"
+        return 0
+    fi
 
     # CODE_REVIEW patterns
     if echo "$q_lower" | grep -qE 'review|check|code review|analyze.*code|quality|qualit'; then
@@ -47,12 +65,6 @@ classify_by_patterns() {
     # ALGORITHM patterns
     if echo "$q_lower" | grep -qE 'algorithm|optimi|performance|complexit|O\(|big-o|efficien|sort|search|data structure'; then
         echo "ALGORITHM"
-        return 0
-    fi
-
-    # SECURITY patterns
-    if echo "$q_lower" | grep -qE 'security|vulnerabil|injection|xss|csrf|auth|authentication|password|encrypt|decrypt|token|jwt'; then
-        echo "SECURITY"
         return 0
     fi
 
@@ -110,8 +122,17 @@ QUESTION: $question
 
 Reply ONLY with the category name (e.g.: ARCHITECTURE), nothing else."
 
-    if command -v claude &> /dev/null; then
-        local result=$(echo "$prompt" | claude --print 2>/dev/null | tr -d '\n' | tr '[:lower:]' '[:upper:]')
+    # Same boundary as synthesis: never ask the invoking host to classify for
+    # itself, bound the call, and run it stateless, tool-free and on the
+    # economy model (classification needs one word, not the premium tier).
+    local claude_cmd="${CLAUDE_CMD:-claude}"
+    if [[ "$(get_self_consultant_name)" != "CLAUDE" ]] && command -v "$claude_cmd" &> /dev/null; then
+        local result
+        result=$(printf '%s' "$prompt" | run_with_timeout "${CLASSIFICATION_TIMEOUT:-30}" \
+            "$claude_cmd" --print --no-session-persistence --setting-sources "" --tools "" \
+            --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
+            --model "$(get_model_for_tier claude economy)" 2>/dev/null \
+            | tr -d '\n' | tr '[:lower:]' '[:upper:]' || true)
         # Validate that it's a valid category
         case "$result" in
             CODE_REVIEW|BUG_DEBUG|ARCHITECTURE|ALGORITHM|SECURITY|QUICK_SYNTAX|DATABASE|API_DESIGN|TESTING|GENERAL)

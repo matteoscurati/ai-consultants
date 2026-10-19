@@ -145,10 +145,61 @@ run_test "Test 1: version matches config.sh"           test_version_matches_conf
 run_test "Test 2: version is semver-shaped"            test_version_is_semver
 run_test "Test 3: version=unknown on malformed config" test_version_unknown_on_malformed_config
 run_test "Test 4: init creates .env with chmod 600"    test_init_chmod_600_on_env
+# M5: installed slash commands must point at a skill root that exists.
+test_install_points_commands_at_package_root() {
+    local home="$TMP/install-home" linked="$TMP/install-linked-home" root_real
+    root_real=$(cd -P "$PROJECT_ROOT" && pwd)
+    mkdir -p "$home"
+    HOME="$home" "$BIN" install >/dev/null 2>&1
+    assert_eq 1 "$(grep -c "cd \"\${AI_CONSULTANTS_DIR:-$root_real}\"" "$home/.claude/commands/ai-consultants:consult.md" | awk '{print ($1 > 0)}')" \
+        "non-default installs rewrite the command root to the package"
+    assert_eq 0 "$(grep -c 'HOME/.claude/skills/ai-consultants' "$home/.claude/commands/ai-consultants:consult.md" || true)" \
+        "rewritten commands no longer reference the missing default root"
+
+    mkdir -p "$linked/.claude/skills"
+    ln -s "$PROJECT_ROOT" "$linked/.claude/skills/ai-consultants"
+    HOME="$linked" "$BIN" install >/dev/null 2>&1
+    assert_eq 1 "$(grep -c 'HOME/.claude/skills/ai-consultants' "$linked/.claude/commands/ai-consultants:consult.md" | awk '{print ($1 > 0)}')" \
+        "a curl|bash-style install keeps the portable default root"
+}
+
+# An npx run must not repoint a working curl|bash install at its own cache,
+# which npm may delete; the existing install supplies the matching commands.
+test_install_prefers_existing_default_install() {
+    local home="$TMP/install-existing-home" partial="$TMP/install-partial-home" root out f
+    root="$home/.claude/skills/ai-consultants"
+    mkdir -p "$root/scripts" "$root/.claude/commands"
+    for f in consult_all.sh doctor.sh followup.sh; do
+        printf '#!/bin/bash\n' > "$root/scripts/$f"
+        chmod +x "$root/scripts/$f"
+    done
+    printf -- '---\nname: ai-consultants\n---\n' > "$root/SKILL.md"
+    printf 'AI_CONSULTANTS_VERSION="0.0.1"\n' > "$root/scripts/config.sh"
+    { cat "$PROJECT_ROOT/.claude/commands/ai-consultants:consult.md"; echo "existing-install-marker"; } \
+        > "$root/.claude/commands/ai-consultants:consult.md"
+
+    out=$(HOME="$home" "$BIN" install 2>&1)
+    assert_contains "existing-install-marker" "$(cat "$home/.claude/commands/ai-consultants:consult.md")" \
+        "commands come from the existing install"
+    assert_eq 1 "$(grep -c 'HOME/.claude/skills/ai-consultants' "$home/.claude/commands/ai-consultants:consult.md" | awk '{print ($1 > 0)}')" \
+        "commands keep the portable default root"
+    assert_eq 0 "$(find "$home/.claude/commands" -name 'ai-consultants:*.md' ! -name 'ai-consultants:consult.md' | wc -l | tr -d ' ')" \
+        "only the existing install's commands are installed"
+    assert_contains "install.sh\" --update" "$out" "a version mismatch suggests updating the install"
+
+    # A directory without the scripts is not an install: keep the package root.
+    mkdir -p "$partial/.claude/skills/ai-consultants"
+    HOME="$partial" "$BIN" install >/dev/null 2>&1
+    assert_eq 0 "$(grep -c 'HOME/.claude/skills/ai-consultants' "$partial/.claude/commands/ai-consultants:consult.md" || true)" \
+        "an incomplete default directory falls back to the package root"
+}
+
 run_test "Test 5: init creates both files"             test_init_creates_both_files
 run_test "Test 6: init preserves existing without --force" test_init_preserves_without_force
 run_test "Test 7: init --force overwrites"             test_init_force_overwrites
 run_test "Test 8: init refuses symlinked dir"          test_init_refuses_symlink
 run_test "Test 9: public help and fallback scaffold are coverage-only" test_public_help_and_fallback_scaffold_are_coverage_only
+run_test "Test 10: install points commands at the package root" test_install_points_commands_at_package_root
+run_test "Test 11: install prefers an existing default install" test_install_prefers_existing_default_install
 
 test_summary "bin"

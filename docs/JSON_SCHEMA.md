@@ -1,90 +1,188 @@
-# AI Consultants JSON Schema
+# AI Consultants JSON Contracts
 
-This document describes the JSON schema used for consultant responses.
+Two JSON contracts are written for every consultation, both defined in
+`scripts/lib/schema.json` (JSON Schema draft-07):
 
-## Complete Schema
+- **Consultant envelope** (`<consultant>.json`) — the schema's root.
+- **Synthesis artifact** (`synthesis.json`) — `definitions.synthesis_artifact`.
 
-The schema is defined in `scripts/lib/schema.json` following JSON Schema Draft-07.
+The schema is executable: `scripts/lib/json_schema_check.jq` checks a document
+against it with `jq` alone, and the test suites run it on every envelope and
+synthesis shape the runtime can produce.
 
-## Response Structure
+```bash
+# Consultant envelope
+jq -n --slurpfile schema scripts/lib/schema.json --slurpfile doc gemini.json \
+  -f scripts/lib/json_schema_check.jq
+# Synthesis artifact
+jq -n --slurpfile schema scripts/lib/schema.json --slurpfile doc synthesis.json \
+  --arg definition synthesis_artifact -f scripts/lib/json_schema_check.jq
+```
+
+The output is an array of errors; `[]` means the document conforms. (Any
+draft-07 validator, e.g. `jsonschema`, works too.)
+
+## Consultant Envelope
+
+Every consultant file has the same outer shape, whatever happened:
+
+| `metadata.response_quality` | Meaning | `confidence.score` |
+|---|---|---|
+| `structured` | The answer satisfied the JSON contract (after canonicalization) | 1-10, from the consultant |
+| `fallback` | Usable prose outside the contract; kept as context, never as attributed coverage | synthetic 5 |
+| `error` | The query failed, or the answer was malformed/truncated/schema-invalid | 0 |
 
 ```json
 {
   "consultant": "Gemini",
-  "model": "Gemini 3.7 Flash (High)",
+  "model": "Gemini 4 Argon (High)",
   "persona": "The Architect",
   "response": {
-    "summary": "TL;DR in 2-3 sentences (max 500 characters)",
-    "detailed": "Complete and detailed response",
+    "summary": "TL;DR in 2-3 sentences",
+    "detailed": "Complete response",
     "approach": "Name of the proposed approach",
-    "code_snippets": [...],
-    "pros": [...],
-    "cons": [...],
-    "alternatives": [...],
-    "caveats": [...],
-    "references": [...],
-    "findings": [
-      {"id": "gemini:1", "kind": "summary", "field": "summary", "text": "..."}
-    ]
+    "pros": ["..."],
+    "cons": ["..."],
+    "alternatives": [{"name": "...", "reason_not_chosen": "..."}],
+    "caveats": ["..."],
+    "references": ["..."],
+    "code_snippets": [{"language": "python", "code": "...", "description": "..."}],
+    "findings": [{"id": "gemini:1", "kind": "summary", "field": "summary", "text": "..."}]
   },
-  "confidence": {
-    "score": 8,
-    "reasoning": "Reasoning for the score",
-    "uncertainty_factors": [...]
-  },
+  "confidence": {"score": 8, "reasoning": "...", "uncertainty_factors": ["..."]},
   "metadata": {
     "tokens_used": 1500,
-    "tokens_source": "measured",
+    "tokens_source": "estimated",
     "tokens_input": 1200,
     "tokens_output": 300,
     "latency_ms": 2345,
-    "model_version": "Gemini 3.7 Flash (High)",
-    "requested_model": "Gemini 3.7 Flash (High)",
+    "model_version": "Gemini 4 Argon (High)",
+    "requested_model": "Gemini 4 Argon (High)",
     "model_identity_source": "capability-probed",
-    "cli_version": "0.27.0",
-    "cli_compatibility": "capability-probed",
-    "timestamp": "2024-01-14T12:34:56Z"
+    "response_quality": "structured",
+    "timestamp": "2026-09-29T12:34:56+02:00"
   }
 }
 ```
 
-## Required Fields
+### Required fields
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `consultant` | string | A roster name or a custom API agent name |
+| `model` | string | Best effective model identifier |
+| `persona` | string | Catalog persona name, `{AGENT}_PERSONA_NAME`, `Custom Persona`, or `External Consultant` |
+| `response.summary` | string | May be blank (then it yields no summary finding) |
+| `response.detailed` | string | Never atomized into coverage findings |
+| `response.approach` | string | `unspecified` when not given; `unstructured-provider-response` for fallback; `error` for failures |
+| `confidence.score` | integer 0-10 | See the table above |
+| `confidence.reasoning` | string | |
+| `metadata.*` | | `tokens_used`, `tokens_source`, `latency_ms`, `model_version`, `requested_model`, `model_identity_source`, `response_quality`, `timestamp` |
+
+`pros`, `cons`, `caveats`, `references` and `confidence.uncertainty_factors`
+are arrays of strings; `alternatives` items are strings or
+`{name, reason_not_chosen}` objects.
+
+### How a provider answer becomes an envelope
+
+Consultants are asked (persona + shared output contract in
+`scripts/lib/personas.sh`) to reply with
+`{"response": {...}, "confidence": {...}}`. The raw answer then goes through
+`normalize_consultant_response_text` (`scripts/lib/common.sh`):
+
+1. A Markdown fence is removed and JSON string wrappers are decoded.
+2. A parsed object is canonicalized by `scripts/lib/response_canonicalize.jq`,
+   which applies only deterministic, content-preserving repairs of shapes
+   observed from providers:
+   - a single wrapper key around the answer (`{"answer": {...}}`);
+   - a flat answer without the `response` object;
+   - `confidence` nested inside `response`, or given as a bare number/string;
+   - a score given as `"8/10"`, a 0-1 fraction, a 0-100 percentage, or a word
+     (`very low|low|medium|moderate|high|very high`);
+   - list fields given as one string or with non-string items.
+   `summary` is never derived from `detailed`.
+3. The one-brace-short form observed from GLM 5.3 Flash (`confidence` opened
+   inside `response`, outer object never closed) is repaired only in that
+   exact shape.
+4. An answer object embedded in prose is accepted when the span from the
+   first `{` to the last `}` parses and canonicalizes; an incidental JSON
+   example inside a prose answer keeps the prose fallback.
+5. `{"response": "<prose>"}` becomes a `fallback` envelope.
+
+Everything else that looks like JSON but cannot be canonicalized — missing
+`summary` or confidence, truncated or malformed text (also when pretty-printed
+over several lines), or more than one JSON value — fails closed as an `error`
+envelope with `metadata.raw_excerpt` (the first 2000 characters of the rejected
+answer). "Looks like JSON" means the first non-blank character opens an object,
+or opens an array of values; prose that merely starts with `[` (such as
+`[Note] ...`) is prose. Plain prose becomes a `fallback` envelope.
+
+### Metadata
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `consultant` | string | Consultant name |
-| `response` | object | Response object |
-| `response.summary` | string | TL;DR (max 500 char) |
-| `response.detailed` | string | Complete response |
-| `response.approach` | string | Approach name |
-| `confidence` | object | Confidence object |
-| `confidence.score` | integer | Score 1-10 |
-| `confidence.reasoning` | string | Reasoning |
-| `metadata` | object | Response metadata |
+| `tokens_used` | integer | Tokens consumed; read `tokens_source` before treating it as exact |
+| `tokens_source` | string | `measured` (provider usage: API, Claude CLI, Codex CLI telemetry) \| `estimated` (local 4-chars-per-token) \| `unknown` |
+| `tokens_input` / `tokens_output` | integer | Split of `tokens_used` (measured or estimated); prefer it over re-splitting the total |
+| `tokens_cached_input` | integer | Cached subset of `tokens_input` (Codex CLI); not added again |
+| `provider_cost_usd` | number | Provider-reported cost (Claude CLI); preferred over any estimate |
+| `billing_models` | array | Billing participants (Claude CLI); not content-model attestation |
+| `cost_source` / `cost_note` | string | Codex estimate provenance and limitations |
+| `latency_ms` | integer | Response time in ms |
+| `model_version` | string | Best effective model identifier |
+| `requested_model` | string | Model requested before provider resolution |
+| `model_identity_source` | string | `provider-reported` \| `capability-probed` \| `requested-only` |
+| `response_quality` | string | `structured` \| `fallback` \| `error` \| `unknown` |
+| `error` | string | Failure reason (error envelopes) |
+| `raw_excerpt` | string | First 2000 characters of a rejected answer |
+| `transport` | string | `cli` \| `api` \| `api_fallback` (Grok) |
+| `cli_version` / `cli_compatibility` | string | CLI provenance; compatibility is capability-probed, never version-gated |
+| `timestamp` | string | ISO 8601 |
 
-## Optional Fields
+A response replayed from the semantic cache also carries
+`cache_metadata: {cached_at, fingerprint, from_cache}`.
 
-### response.findings
+### `response.findings`
 
 `findings` is added locally by the synthesis stage to successful consultant
-responses. It preserves all legacy fields and never trusts provider-supplied
-IDs. Each item has a deterministic local `id` of
-`<consultant-slug>:<one-based-index>`, plus `kind`, source `field`, and the
-atomically attributable `text`. The shared slug rule ASCII-lowercases the
-consultant name, retains `[a-z0-9_]`, replaces other runs with `_`, trims edge
-underscores, and uses `unknown` if empty. Thus the public custom name
-`My_agent` has IDs such as `my_agent:1`.
+responses. It never trusts provider-supplied IDs. Each item has a
+deterministic local `id` of `<consultant-slug>:<one-based-index>`, plus
+`kind`, source `field`, and the atomically attributable `text`. The shared
+slug rule ASCII-lowercases the consultant name, retains `[a-z0-9_]`, replaces
+other runs with `_`, trims edge underscores, and uses `unknown` if empty
+(`My_agent` -> `my_agent:1`).
 
-The conservative normalization contract derives findings only from `summary`,
-`pros`, `cons`, `alternatives`, `caveats`, and `references`; alternatives may
-be meaningful strings or objects with meaningful name/reason text. Empty,
-null, or whitespace alternatives create no finding. Free-form fallback prose
-(`response_quality: fallback`) and successful envelopes with zero atomic
-findings are retained for human review but are non-normalizable; neither can
-be presented as audited coverage. Error envelopes remain excluded from
+Findings are derived only from `summary`, `pros`, `cons`, `alternatives`,
+`caveats`, and `references`. Fallback prose and successful envelopes with zero
+atomic findings are kept for human review but are non-normalizable; neither
+can be presented as audited coverage. Error envelopes are excluded from
 synthesis.
 
-## Synthesis Coverage Attribution
+## Synthesis Artifact
+
+`synthesis.json` is canonicalized by `scripts/lib/synthesis_canonicalize.jq`
+before and after the local integrity audit:
+
+| Field | Type | Source |
+|-------|------|--------|
+| `synthesis_version` | string | model or local fallback |
+| `timestamp` | string | **local** |
+| `strategy` | string | **local** (the selected strategy) |
+| `consultants_analyzed` | integer | **local** (successful responses) |
+| `coverage` | array of `synthesis_coverage_item` | model; audited locally |
+| `weighted_recommendation` | `{approach, summary, detailed, supporting_consultants[], incorporated_insights[]}` | model (a bare string becomes `summary`) |
+| `risk_assessment` | `{overall_risk, risks[{description, severity, mitigation, identified_by[]}]}` | model; levels normalized to `low\|medium\|high\|unknown` |
+| `action_items` | `[{priority, action, rationale}]` | model; strings become items, priorities become integers |
+| `follow_up_questions` | array of strings | model |
+| `coverage_integrity` | object | **local** audit (below) |
+| `coverage_input_truncated`, `truncated_consultants` | boolean, array | **local** |
+| `synthesis_provider` | string | **local**: `claude`, `gemini`, `codex`, or `local-fallback` |
+| `synthesis_metadata` | object | **local** estimate of the synthesis call (billed into the session cost) |
+
+Under a non-coverage strategy a missing `coverage` list becomes `[]`; under
+`coverage`/`union` a non-array `coverage` is a structural failure.
+
+### Coverage attribution and integrity
 
 Each synthesized `coverage` item requires `source_ids`, containing only local
 IDs from normalized findings. `scripts/lib/schema.json` defines this as
@@ -123,171 +221,6 @@ at least `DEGRADED` and its disclosure names the affected consultants; it is
 never a comprehensive claim. A non-coverage strategy can remain
 `NOT_APPLICABLE`, but still exposes this metadata and disclosure.
 
-### response.code_snippets
-
-Array of code snippets:
-
-```json
-{
-  "code_snippets": [
-    {
-      "language": "python",
-      "code": "def hello():\n    print('Hello')",
-      "description": "Example function"
-    }
-  ]
-}
-```
-
-### response.pros / response.cons
-
-Array of advantages and disadvantages:
-
-```json
-{
-  "pros": [
-    "Simple to implement",
-    "Excellent performance"
-  ],
-  "cons": [
-    "Requires more memory",
-    "Maintenance complexity"
-  ]
-}
-```
-
-### response.alternatives
-
-Array of considered alternatives:
-
-```json
-{
-  "alternatives": [
-    {
-      "name": "Approach B",
-      "reason_not_chosen": "Greater complexity without significant benefits"
-    }
-  ]
-}
-```
-
-### response.caveats
-
-Array of assumptions or limitations:
-
-```json
-{
-  "caveats": [
-    "Assumes Python 3.8+",
-    "Not tested on Windows"
-  ]
-}
-```
-
-### response.references
-
-Array of links or references:
-
-```json
-{
-  "references": [
-    "https://docs.python.org/3/library/...",
-    "RFC 7231"
-  ]
-}
-```
-
-### confidence.uncertainty_factors
-
-Factors that reduce confidence:
-
-```json
-{
-  "uncertainty_factors": [
-    "Limited context provided",
-    "Depends on unspecified requirements"
-  ]
-}
-```
-
-## Metadata Object
-
-```json
-{
-  "metadata": {
-    "tokens_used": 1500,
-    "tokens_source": "measured",
-    "tokens_input": 1200,
-    "tokens_output": 300,
-    "latency_ms": 2345,
-    "model_version": "gemini-3.1-pro-preview",
-    "requested_model": "gemini-3.1-pro-preview",
-    "model_identity_source": "provider-reported",
-    "timestamp": "2024-01-14T12:34:56Z"
-  }
-}
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `tokens_used` | integer | Tokens consumed. Provider-reported in API mode; locally approximated in CLI mode |
-| `tokens_source` | string | `measured` \| `estimated` \| `unknown` — how `tokens_used` was obtained |
-| `tokens_input` | integer | Prompt tokens, when the provider reported them (API mode only) |
-| `tokens_output` | integer | Completion tokens, when the provider reported them (API mode only) |
-| `latency_ms` | integer | Response time in ms |
-| `model_version` | string | Best effective model identifier available to the transport |
-| `requested_model` | string | Model identifier requested before provider resolution |
-| `model_identity_source` | string | `provider-reported` \| `capability-probed` \| `requested-only` |
-| `response_quality` | string | `structured` \| `fallback` \| `error` \| `unknown` |
-| `cli_version` | string | Observed CLI version for provenance; never a compatibility gate |
-| `cli_compatibility` | string | Capability-probe result: `capability-probed` or `incompatible` |
-| `timestamp` | string | ISO 8601 timestamp |
-
-## Enum Values
-
-### consultant
-
-```
-"Gemini" | "Codex" | "Mistral" | "Kimi" | "Claude" | "Qwen3" | "GLM" | "Grok" | "DeepSeek" | "MiniMax"
-```
-
-### persona
-
-```
-"The Architect" | "The Pragmatist" | "The Devil's Advocate" | "The Innovator" |
-"The Integrator" | "The Pair Programmer" | "The Systems Thinker" | "The Eastern Sage" |
-"The Synthesizer" | "The Analyst" | "The Methodologist" | "The Provocateur" |
-"The Code Specialist" | "The Pragmatic Optimizer" | "The Local Expert"
-```
-
-### critiques[].severity
-
-```
-"minor" | "moderate" | "major"
-```
-
-### metadata.tokens_source
-
-```
-"measured" | "estimated" | "unknown"
-```
-
-- `measured` — the provider's own usage figures, available in API mode.
-- `estimated` — a local 4-chars-per-token approximation over prompt + reply.
-  CLI-backed consultants report no token counts, so this is what they get; it
-  is the majority case, since CLI is the default transport.
-- `unknown` — not recorded (error responses, and callers on the pre-v2.25.0
-  metadata signature).
-
-When `tokens_input`/`tokens_output` are present, price on those rather than
-splitting `tokens_used`: output rates run several times input rates and
-consultations are large-context/short-reply, so a fixed split overstates cost
-substantially.
-
-Consumers that add up cost should read this field: a total built partly on
-estimates is not a measurement. `consult_all.sh` discloses the split on its
-session-cost line for that reason.
-
 ## Confidence Score Guidelines
 
 | Score | Meaning |
@@ -298,78 +231,6 @@ session-cost line for that reason.
 | 3-4 | Uncertain, requires verification |
 | 1-2 | Very uncertain, hypothesis |
 
-## Validation
-
-To validate an output against the schema:
-
-```bash
-# With jsonschema (Python)
-pip install jsonschema
-jsonschema -i output.json scripts/lib/schema.json
-
-# With jq (verify required fields)
-jq 'has("consultant") and has("response") and has("confidence")' output.json
-```
-
-## Complete Example
-
-```json
-{
-  "consultant": "Gemini",
-  "model": "gemini-3.1-pro-preview",
-  "persona": "The Architect",
-  "response": {
-    "summary": "I recommend using a Repository pattern to separate data access logic from business logic, improving testability and maintainability.",
-    "detailed": "The Repository pattern provides an abstraction between business logic and the persistence layer...",
-    "approach": "Repository Pattern",
-    "code_snippets": [
-      {
-        "language": "python",
-        "code": "class UserRepository:\n    def __init__(self, db_session):\n        self.session = db_session\n    \n    def get_by_id(self, user_id: int) -> User:\n        return self.session.query(User).get(user_id)",
-        "description": "Basic Repository implementation"
-      }
-    ],
-    "pros": [
-      "Better separation of concerns",
-      "Facilitates testing with mocks",
-      "Easily supports database switching"
-    ],
-    "cons": [
-      "Adds an abstraction layer",
-      "May seem like over-engineering for small projects"
-    ],
-    "alternatives": [
-      {
-        "name": "Active Record",
-        "reason_not_chosen": "Greater coupling with the database"
-      }
-    ],
-    "caveats": [
-      "Requires dependency injection for tests"
-    ],
-    "references": [
-      "https://martinfowler.com/eaaCatalog/repository.html"
-    ]
-  },
-  "confidence": {
-    "score": 8,
-    "reasoning": "Well-established pattern with extensive documentation. Score not 9-10 because it depends on project complexity.",
-    "uncertainty_factors": [
-      "Project size is unknown"
-    ]
-  },
-  "metadata": {
-    "tokens_used": 1250,
-    "tokens_source": "estimated",
-    "latency_ms": 1850,
-    "model_version": "gemini-3.1-pro-preview",
-    "requested_model": "gemini-3.1-pro-preview",
-    "model_identity_source": "requested-only",
-    "timestamp": "2024-01-14T12:34:56Z"
-  }
-}
-```
-
 ### Codex cost and cached-input metadata
 
 When present, `metadata.cost_source` is `unavailable` without token data, otherwise
@@ -378,7 +239,7 @@ When present, `metadata.cost_source` is `unavailable` without token data, otherw
 is not a provider invoice. `metadata.tokens_cached_input`, when supplied by
 CLI telemetry, is the cached subset of `tokens_input` and is not added again.
 Unknown splits use the documented estimation heuristic; they cannot establish
-an exact long-context bill. Astra maximum/premium uses `high` by default,
+an exact long-context bill. GPT-6.1 Sol (default/premium) and GPT-6 Astra (maximum) use `high` by default,
 including in max_quality; valid explicit Codex effort always takes precedence.
 
 ### Claude streaming billing metadata

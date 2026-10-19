@@ -123,17 +123,38 @@ MISTRAL_API_URL="${MISTRAL_API_URL:-https://api.mistral.ai/v1/chat/completions}"
 LAUNCH_STAGGER_MAX_SECONDS="${LAUNCH_STAGGER_MAX_SECONDS:-2}"
 
 # =============================================================================
+# GENERATION TIMEOUTS
+# =============================================================================
+# Every *_TIMEOUT below (consultants, maximum-tier Qwen/DeepSeek, synthesis)
+# defaults to 0: no wall-clock limit. Reasoning models legitimately take
+# minutes, and a timed-out call is usually still billed while its answer is
+# lost. The invoking host decides when to stop waiting instead: consult_all.sh
+# reports progress and accepts a "proceed" request (continue with the answers
+# received) or an "abort" request. A positive value restores a hard limit.
+# Probes (model inventory, auth, health gate, doctor) keep short limits: they
+# detect a dead service, they do not cut paid generation.
+WAIT_HEARTBEAT_SECONDS="${WAIT_HEARTBEAT_SECONDS:-30}"
+# agy can print its whole answer and then never exit (observed with agy 1.4.2).
+# When its output is one complete JSON object unchanged for this many seconds,
+# the run ends agy and keeps the answer (scripts/lib/agy_exit_guard.sh).
+# 0 waits for agy to exit, however long that takes.
+AGY_EXIT_GRACE_SECONDS="${AGY_EXIT_GRACE_SECONDS:-60}"
+
+# =============================================================================
 # GEMINI CONFIGURATION - The Architect
 # =============================================================================
 
 # CLI mode uses the Antigravity CLI (`agy`), successor to the deprecated
 # Gemini CLI (transitioned 2026-06-18). Models are passed by display name.
-GEMINI_MODEL="${GEMINI_MODEL:-Gemini 3.8 Flash (High)}"
-GEMINI_TIMEOUT_SECONDS="${GEMINI_TIMEOUT:-180}"
+GEMINI_MODEL="${GEMINI_MODEL:-Gemini 4 Argon (High)}"
+GEMINI_TIMEOUT_SECONDS="${GEMINI_TIMEOUT:-0}"
 GEMINI_CMD="${GEMINI_CMD:-agy}"
 # API mode (GEMINI_USE_API=true) talks to the Google AI generativelanguage
 # endpoint, which expects an API model ID, not an `agy` display name.
-GEMINI_API_MODEL="${GEMINI_API_MODEL:-gemini-3.1-pro-preview}"
+GEMINI_API_MODEL="${GEMINI_API_MODEL:-gemini-4-argon}"
+# Argon's thinking tokens count toward this budget; Google advises at least
+# 32768, which is also its per-request non-streaming output cap.
+GEMINI_API_MAX_TOKENS="${GEMINI_API_MAX_TOKENS:-32768}"
 
 # Auto-resolve the Gemini transport when the user hasn't pinned GEMINI_USE_API.
 # Rationale (npm/npx distribution): the agy CLI cannot be installed via npm
@@ -159,9 +180,10 @@ export GEMINI_USE_API
 # CODEX CONFIGURATION - The Pragmatist
 # =============================================================================
 
-# Model: "gpt-6-astra" (default), "gpt-5.6-terra", "gpt-5.6-luna", etc.
-CODEX_MODEL="${CODEX_MODEL:-gpt-6-astra}"
-CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-180}"
+# Model: "gpt-6.1-sol" (default/premium), "gpt-6-astra" (maximum),
+# "gpt-5.6-terra" (standard), "gpt-5.6-luna" (economy).
+CODEX_MODEL="${CODEX_MODEL:-gpt-6.1-sol}"
+CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-0}"
 CODEX_API_MAX_TOKENS="${CODEX_API_MAX_TOKENS:-16384}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
@@ -172,10 +194,11 @@ CODEX_CMD="${CODEX_CMD:-codex}"
 # The Vibe CLI and Mistral API use different model namespaces. Keep
 # MISTRAL_MODEL as the long-standing API setting, and select the CLI alias
 # independently through VIBE_ACTIVE_MODEL at dispatch time.
-MISTRAL_MODEL="${MISTRAL_MODEL:-mistral-large-3}"
+MISTRAL_MODEL="${MISTRAL_MODEL:-mistral-large-4}"
 MISTRAL_CLI_MODEL="${MISTRAL_CLI_MODEL:-mistral-medium-3.5}"
-MISTRAL_API_MAX_TOKENS="${MISTRAL_API_MAX_TOKENS:-4096}"
-MISTRAL_TIMEOUT_SECONDS="${MISTRAL_TIMEOUT:-180}"
+# Large 4 reasons before answering; its thinking chunks share this budget.
+MISTRAL_API_MAX_TOKENS="${MISTRAL_API_MAX_TOKENS:-16384}"
+MISTRAL_TIMEOUT_SECONDS="${MISTRAL_TIMEOUT:-0}"
 MISTRAL_CMD="${MISTRAL_CMD:-vibe}"
 MISTRAL_MAX_TURNS="${MISTRAL_MAX_TURNS:-4}"
 
@@ -183,13 +206,13 @@ MISTRAL_MAX_TURNS="${MISTRAL_MAX_TURNS:-4}"
 # QWEN3 CONFIGURATION - The Analyst (CLI/API switchable v2.7)
 # =============================================================================
 
-QWEN3_MODEL="${QWEN3_MODEL:-qwen3.7-max}"
+QWEN3_MODEL="${QWEN3_MODEL:-qwen3.8-max}"
 if [[ -n "${QWEN3_TIMEOUT+x}" ]]; then
     QWEN3_TIMEOUT_SECONDS="$QWEN3_TIMEOUT"
 elif [[ -z "${QWEN3_TIMEOUT_SECONDS+x}" ]]; then
-    QWEN3_TIMEOUT_SECONDS=180
+    QWEN3_TIMEOUT_SECONDS=0
 fi
-QWEN3_MAX_QUALITY_TIMEOUT="${QWEN3_MAX_QUALITY_TIMEOUT:-600}"
+QWEN3_MAX_QUALITY_TIMEOUT="${QWEN3_MAX_QUALITY_TIMEOUT:-0}"
 QWEN3_API_MAX_TOKENS="${QWEN3_API_MAX_TOKENS:-16384}"
 QWEN3_CMD="${QWEN3_CMD:-qwen}"
 QWEN3_API_URL="${QWEN3_API_URL:-https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation}"
@@ -202,7 +225,7 @@ QWEN3_FORMAT="${QWEN3_FORMAT:-qwen}"
 # =============================================================================
 
 GLM_MODEL="${GLM_MODEL:-glm-5.3-flash}"
-GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-180}"
+GLM_TIMEOUT_SECONDS="${GLM_TIMEOUT:-0}"
 GLM_API_MAX_TOKENS="${GLM_API_MAX_TOKENS:-16384}"
 GLM_API_URL="${GLM_API_URL:-https://api.z.ai/api/coding/paas/v4/chat/completions}"
 GLM_FORMAT="${GLM_FORMAT:-openai}"
@@ -214,7 +237,7 @@ GLM_FORMAT="${GLM_FORMAT:-openai}"
 
 GROK_CMD="${GROK_CMD:-grok}"
 GROK_MODEL="${GROK_MODEL:-grok-4.7}"
-GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-180}"
+GROK_TIMEOUT_SECONDS="${GROK_TIMEOUT:-0}"
 GROK_API_MAX_TOKENS="${GROK_API_MAX_TOKENS:-4096}"
 GROK_MAX_TURNS="${GROK_MAX_TURNS:-4}"
 GROK_OAUTH_MODE="${GROK_OAUTH_MODE:-shared}"
@@ -247,9 +270,9 @@ DEEPSEEK_MODEL="${DEEPSEEK_MODEL:-deepseek-flash}"
 if [[ -n "${DEEPSEEK_TIMEOUT+x}" ]]; then
     DEEPSEEK_TIMEOUT_SECONDS="$DEEPSEEK_TIMEOUT"
 elif [[ -z "${DEEPSEEK_TIMEOUT_SECONDS+x}" ]]; then
-    DEEPSEEK_TIMEOUT_SECONDS=180
+    DEEPSEEK_TIMEOUT_SECONDS=0
 fi
-DEEPSEEK_MAX_QUALITY_TIMEOUT="${DEEPSEEK_MAX_QUALITY_TIMEOUT:-600}"
+DEEPSEEK_MAX_QUALITY_TIMEOUT="${DEEPSEEK_MAX_QUALITY_TIMEOUT:-0}"
 DEEPSEEK_API_MAX_TOKENS="${DEEPSEEK_API_MAX_TOKENS:-16384}"
 DEEPSEEK_API_URL="${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}"
 DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
@@ -261,7 +284,7 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 
 MINIMAX_CMD="${MINIMAX_CMD:-mmx}"
 MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M2.7}"
-MINIMAX_TIMEOUT_SECONDS="${MINIMAX_TIMEOUT:-180}"
+MINIMAX_TIMEOUT_SECONDS="${MINIMAX_TIMEOUT:-0}"
 MINIMAX_API_MAX_TOKENS="${MINIMAX_API_MAX_TOKENS:-4096}"
 MINIMAX_MAX_TOKENS="${MINIMAX_MAX_TOKENS:-4096}"
 MINIMAX_MAX_QUALITY_TOKENS="${MINIMAX_MAX_QUALITY_TOKENS:-16384}"
@@ -291,13 +314,12 @@ if [[ -z "${MINIMAX_USE_API+x}" ]]; then
 fi
 export MINIMAX_USE_API
 
-# CLI installation: curl -fsSL https://ampcode.com/install.sh | bash
 # =============================================================================
 # KIMI CONFIGURATION - The Eastern Sage (v2.9)
 # =============================================================================
 
 KIMI_MODEL="${KIMI_MODEL:-kimi-code/k3}"
-KIMI_TIMEOUT_SECONDS="${KIMI_TIMEOUT:-180}"
+KIMI_TIMEOUT_SECONDS="${KIMI_TIMEOUT:-0}"
 KIMI_CMD="${KIMI_CMD:-kimi}"
 # CLI installation: curl -L code.kimi.com/install.sh | bash
 
@@ -307,7 +329,7 @@ KIMI_CMD="${KIMI_CMD:-kimi}"
 
 CLAUDE_MODEL="${CLAUDE_MODEL:-claude-fable-5-1}"
 CLAUDE_API_MAX_TOKENS="${CLAUDE_API_MAX_TOKENS:-16384}"
-CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-240}"
+CLAUDE_TIMEOUT_SECONDS="${CLAUDE_TIMEOUT:-0}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 
 # =============================================================================
@@ -492,8 +514,8 @@ USE_COMPACT_PROMPTS="${USE_COMPACT_PROMPTS:-true}"
 # Extract only essential fields for synthesis (instead of full JSON)
 SYNTHESIS_EXTRACT_FIELDS="${SYNTHESIS_EXTRACT_FIELDS:-true}"
 SYNTH_DETAIL_MAX_CHARS="${SYNTH_DETAIL_MAX_CHARS:-4000}"
-SYNTHESIS_TIMEOUT="${SYNTHESIS_TIMEOUT:-240}"
-SYNTHESIS_TOTAL_TIMEOUT="${SYNTHESIS_TOTAL_TIMEOUT:-480}"
+SYNTHESIS_TIMEOUT="${SYNTHESIS_TIMEOUT:-0}"
+SYNTHESIS_TOTAL_TIMEOUT="${SYNTHESIS_TOTAL_TIMEOUT:-0}"
 
 # =============================================================================
 # TOKEN COST OPTIMIZATION (v2.3)
@@ -512,8 +534,9 @@ RATE_LIMIT_DIR="${RATE_LIMIT_DIR:-${_AI_CONSULTANTS_XDG_CACHE}/ratelimit}"
 CHUNK_TEMP_DIR="${CHUNK_TEMP_DIR:-${_AI_CONSULTANTS_XDG_CACHE}/chunks}"
 
 # --- Response Length Limits ---
-# Limit output tokens by question category
-# NOTE: Default is FALSE (opt-in) per quality review - can truncate critical info
+# Deprecated no-op; retained for configuration compatibility. No adapter has
+# ever applied these limits (most consultant CLIs expose no output cap), so
+# enabling them changed nothing. Use a *_API_MAX_TOKENS setting instead.
 ENABLE_RESPONSE_LIMITS="${ENABLE_RESPONSE_LIMITS:-false}"
 # Format: "CATEGORY:MAX_TOKENS,..."
 MAX_RESPONSE_TOKENS_BY_CATEGORY="${MAX_RESPONSE_TOKENS_BY_CATEGORY:-QUICK_SYNTAX:200,CODE_REVIEW:800,BUG_DEBUG:800,ARCHITECTURE:1000,SECURITY:1000,DATABASE:600,GENERAL:500}"
@@ -619,11 +642,11 @@ get_model_for_tier() {
         maximum|max_quality|max-quality)
             case "$consultant" in
                 claude)   echo "claude-fable-5-1" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (High)" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-4-argon" || echo "Gemini 4 Argon (High)" ;;
                 codex)    echo "gpt-6-astra" ;;
-                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
+                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-4" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
-                glm)      echo "glm-5.3-flash" ;;
+                glm)      echo "glm-5.3" ;;  # flagship; Flash serves premium/standard
                 grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3-256k" ;;
@@ -634,13 +657,13 @@ get_model_for_tier() {
         premium|max|best)
             case "$consultant" in
                 claude)   echo "claude-fable-5-1" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (High)" ;;
-                codex)    echo "gpt-6-astra" ;;
-                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-4-argon" || echo "Gemini 4 Argon (High)" ;;
+                codex)    echo "gpt-6.1-sol" ;;
+                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-4" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;
                 grok)     echo "grok-4.7" ;;
-                qwen3)    echo "qwen3.7-max" ;;
+                qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
                 *)        echo "" ;;
@@ -651,11 +674,11 @@ get_model_for_tier() {
                 claude)   echo "claude-opus-5-5" ;;
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (High)" ;;
                 codex)    echo "gpt-5.6-terra" ;;
-                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "mistral-medium-3.5" ;;
+                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-4" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-4.5" ;;
-                qwen3)    echo "qwen3.6-35b-a3b" ;;  # Open-weight MoE (35B total, 3B active)
+                qwen3)    echo "qwen3.8-flash" ;;
                 kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.7" ;;
                 *)        echo "" ;;
@@ -666,11 +689,11 @@ get_model_for_tier() {
                 claude)   echo "claude-haiku-4-5" ;;
                 gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (Low)" ;;
                 codex)    echo "gpt-5.6-luna" ;;
-                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-3" || echo "devstral-small-2" ;;
+                mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-4" || echo "mistral-medium-3.5" ;;  # Devstral is retired
                 deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-4-flash" ;;
                 grok)     echo "grok-4.5" ;;
-                qwen3)    echo "qwen3-32b" ;;
+                qwen3)    echo "qwen3.8-flash" ;;
                 kimi)     echo "kimi-code/k3" ;;
                 minimax)  echo "MiniMax-M2.5" ;;
                 *)        echo "" ;;
@@ -678,6 +701,22 @@ get_model_for_tier() {
             ;;
         *)
             echo "" ;;
+    esac
+}
+
+# Name of the variable that selects the model on a consultant's ACTIVE
+# transport. Gemini and Mistral keep separate CLI and API identifiers, so an
+# override written to the wrong one is silently ignored.
+# Usage: model_env_var_for <consultant>
+model_env_var_for() {
+    local consultant upper mode_var
+    consultant=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    upper=$(echo "$consultant" | tr '[:lower:]' '[:upper:]')
+    mode_var="${upper}_USE_API"
+    case "$consultant" in
+        gemini)  [[ "${!mode_var:-false}" == "true" ]] && echo GEMINI_API_MODEL || echo GEMINI_MODEL ;;
+        mistral) [[ "${!mode_var:-false}" == "true" ]] && echo MISTRAL_MODEL || echo MISTRAL_CLI_MODEL ;;
+        *)       echo "${upper}_MODEL" ;;
     esac
 }
 
@@ -715,7 +754,7 @@ apply_model_tier() {
 
     # Gemini and Mistral intentionally carry both transport-specific IDs so a
     # later transport choice cannot send a CLI display name to an HTTP API (or
-    # an API slug to a CLI). Gemini 3.7/3.8 Flash use one API ID plus a thinking level.
+    # an API slug to a CLI). Gemini 3.8 Flash and 4 Argon use one API ID plus a thinking level.
     export GEMINI_MODEL="$(get_model_for_tier gemini "$tier" cli)"
     export GEMINI_API_MODEL="$(get_model_for_tier gemini "$tier" api)"
     export MISTRAL_CLI_MODEL="$(get_model_for_tier mistral "$tier" cli)"
@@ -794,54 +833,40 @@ apply_model_tier() {
 
     case "$tier" in
         maximum|max_quality|max-quality)
-            # Qwen3.8-Max exists only on the OpenAI-compatible Token Plan
-            # transport. Do not redirect a DashScope key or a CLI user to that
-            # separate paid endpoint just because they selected max_quality.
-            if [[ "${QWEN3_USE_API:-false}" == "true" \
-                && "${QWEN3_FORMAT:-qwen}" == "openai" \
-                && "${QWEN3_API_URL:-}" == *token-plan* \
-                && "${QWEN3_API_URL:-}" == */chat/completions \
-                && -n "${QWEN3_API_KEY:-}" ]]; then
-                export QWEN3_MODEL="qwen3.8-max"
-                if [[ -z "${QWEN3_REASONING_EFFORT:-}" ]]; then
-                    export QWEN3_REASONING_EFFORT=xhigh
-                    export _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED=true
-                fi
-                if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" != "true" ]]; then
-                    export _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR="$QWEN3_TIMEOUT_SECONDS"
-                    if declare -p QWEN3_TIMEOUT >/dev/null 2>&1; then
-                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET=true
-                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR="$QWEN3_TIMEOUT"
-                    else
-                        export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET=false
-                        unset _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
-                    fi
-                    export _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED=true
-                fi
-                export QWEN3_TIMEOUT="$QWEN3_MAX_QUALITY_TIMEOUT"
-                export QWEN3_TIMEOUT_SECONDS="$QWEN3_MAX_QUALITY_TIMEOUT"
-            else
-                export QWEN3_MODEL="qwen3.7-max"
-                if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" == "true" ]]; then
-                    export QWEN3_TIMEOUT_SECONDS="$_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR"
-                    if [[ "${_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET:-false}" == "true" ]]; then
-                        export QWEN3_TIMEOUT="$_AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR"
-                    else
-                        unset QWEN3_TIMEOUT
-                    fi
-                    unset _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR \
-                        _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
-                fi
+            # Qwen3.8-Max is served on every Qwen transport (qwen CLI, Token
+            # Plan, DashScope). Maximum applies QWEN3_MAX_QUALITY_TIMEOUT (0 =
+            # no limit) to all of them, restored when a later tier is applied.
+            # Reasoning effort is only transportable on the OpenAI-compatible
+            # wire; elsewhere it would just warn.
+            export QWEN3_MODEL="qwen3.8-max"
+            if [[ "${QWEN3_USE_API:-false}" == "true" && "${QWEN3_FORMAT:-qwen}" == "openai" \
+                && -z "${QWEN3_REASONING_EFFORT:-}" ]]; then
+                export QWEN3_REASONING_EFFORT=xhigh
+                export _AI_CONSULTANTS_TIER_QWEN_EFFORT_MANAGED=true
             fi
+            if [[ "${_AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED:-false}" != "true" ]]; then
+                export _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_PRIOR="$QWEN3_TIMEOUT_SECONDS"
+                if declare -p QWEN3_TIMEOUT >/dev/null 2>&1; then
+                    export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET=true
+                    export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR="$QWEN3_TIMEOUT"
+                else
+                    export _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR_SET=false
+                    unset _AI_CONSULTANTS_TIER_QWEN_PUBLIC_TIMEOUT_PRIOR
+                fi
+                export _AI_CONSULTANTS_TIER_QWEN_TIMEOUT_MANAGED=true
+            fi
+            export QWEN3_TIMEOUT="$QWEN3_MAX_QUALITY_TIMEOUT"
+            export QWEN3_TIMEOUT_SECONDS="$QWEN3_MAX_QUALITY_TIMEOUT"
             ;;
         *)
             export QWEN3_MODEL="$(get_model_for_tier qwen3 "$tier")"
             ;;
     esac
 
-    # Gemini 3.8 CLI availability is inventory-probed; new live smokes are
-    # required separately. API tiers remain on the proven 3.1 Pro ID;
-    # neither transport silently substitutes the other's model namespace.
+    # Gemini CLI availability is inventory-probed. Argon serves maximum and
+    # premium on both transports; standard and economy keep 3.8 Flash on the
+    # CLI and the 3.1 Pro ID on the API (3.8 Flash API is still opt-in).
+    # Neither transport silently substitutes the other's model namespace.
 
     case "$tier" in
         maximum|max_quality|max-quality)
@@ -1002,7 +1027,11 @@ apply_preset() {
         cost-capped)
             apply_model_tier "economy"
             _enable_preset_consultants GEMINI MISTRAL QWEN3
-            export MAX_SESSION_COST=0.10
+            # Lower only the stock $1.00 cap. A deliberately different
+            # MAX_SESSION_COST (env, user config, recipe) is the user's cap.
+            if [[ "${MAX_SESSION_COST:-1.00}" == "1.00" || "${MAX_SESSION_COST:-}" == "1" ]]; then
+                export MAX_SESSION_COST=0.10
+            fi
             ;;
         # --- Quality Tier Presets (v2.5) ---
         max_quality)
@@ -1035,4 +1064,4 @@ list_presets() {
 # VERSION
 # =============================================================================
 
-AI_CONSULTANTS_VERSION="5.1.2"
+AI_CONSULTANTS_VERSION="5.2.0"

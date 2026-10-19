@@ -133,6 +133,7 @@ get_input_cost_per_1k() {
 
     # Fallback to hardcoded rates for backwards compatibility
     case "$model" in
+        gemini-4-argon|"gemini 4 argon (high)"|"gemini 4 argon (medium)"|"gemini 4 argon (low)") echo "0.004" ;;
         gemini-3.8-flash|"gemini 3.8 flash (high)"|"gemini 3.8 flash (medium)"|"gemini 3.8 flash (low)") echo "0.00075" ;;
         gemini-2.5-pro)   echo "0.00125" ;;
         gemini-2.5-flash) echo "0.000075" ;;
@@ -141,6 +142,7 @@ get_input_cost_per_1k() {
         claude-opus-5-5) echo "0.004" ;;
         grok-4.7) echo "0.002" ;;
         gpt-6-astra|claude-fable-5-1) echo "0.01" ;;
+        gpt-6.1-sol) echo "0.002" ;;
         gpt-4)            echo "0.03" ;;
         gpt-4-turbo)      echo "0.01" ;;
         gpt-4o)           echo "0.005" ;;
@@ -184,6 +186,7 @@ get_output_cost_per_1k() {
 
     # Fallback to hardcoded rates for backwards compatibility
     case "$model" in
+        gemini-4-argon|"gemini 4 argon (high)"|"gemini 4 argon (medium)"|"gemini 4 argon (low)") echo "0.02" ;;
         gemini-3.8-flash|"gemini 3.8 flash (high)"|"gemini 3.8 flash (medium)"|"gemini 3.8 flash (low)") echo "0.00375" ;;
         gemini-2.5-pro)   echo "0.005" ;;
         gemini-2.5-flash) echo "0.0003" ;;
@@ -192,6 +195,7 @@ get_output_cost_per_1k() {
         claude-opus-5-5) echo "0.020" ;;
         grok-4.7) echo "0.006" ;;
         gpt-6-astra|claude-fable-5-1) echo "0.05" ;;
+        gpt-6.1-sol) echo "0.01" ;;
         gpt-4)            echo "0.06" ;;
         gpt-4-turbo)      echo "0.03" ;;
         gpt-4o)           echo "0.015" ;;
@@ -240,7 +244,7 @@ estimate_query_cost() {
     output_rate=$(get_output_cost_per_1k "$model")
 
     # Long-context multiplier applies to the entire request, not only excess.
-    if [[ "$model" == gpt-6-astra && "$input_tokens" -gt 272000 ]]; then
+    if [[ ( "$model" == gpt-6-astra || "$model" == gpt-6.1-sol ) && "$input_tokens" -gt 272000 ]]; then
         input_rate=$(echo "scale=6; $input_rate * 2" | bc)
         output_rate=$(echo "scale=6; $output_rate * 1.5" | bc)
     fi
@@ -343,6 +347,21 @@ _billing_model_for_response() {
     fi
 }
 
+# Estimated cost of the synthesis call recorded by synthesize.sh, or empty.
+# Usage: _synthesis_estimated_cost <responses_dir>
+_synthesis_estimated_cost() {
+    local f="$1/synthesis.json" micros
+    [[ -s "$f" ]] || return 0
+    # Integer micro-dollars from jq, then bc: both are locale-independent.
+    # (printf %f parses with LC_NUMERIC, so under it_IT/de_DE "0.03" was an
+    # invalid number and the whole session total came back empty.) Scaling
+    # first also avoids jq's exponent notation for tiny values, which bc
+    # cannot read.
+    micros=$(jq -r '.synthesis_metadata.estimated_cost_usd | numbers | select(. >= 0) | . * 1000000 | round' "$f" 2>/dev/null)
+    [[ "$micros" =~ ^[0-9]+$ ]] || return 0
+    echo "scale=6; $micros / 1000000" | bc
+}
+
 # Calculate total session cost from responses
 # Usage: calculate_session_cost <responses_dir>
 #
@@ -382,6 +401,14 @@ calculate_session_cost() {
         total_cost=$(echo "scale=6; $total_cost + $cost" | bc)
     done < <(_billable_response_files "$responses_dir")
 
+    # The synthesis call is billed too (on whichever CLI synthesize.sh used).
+    # synthesize.sh records an estimate; include it.
+    local synth_cost
+    synth_cost=$(_synthesis_estimated_cost "$responses_dir")
+    if [[ -n "$synth_cost" ]]; then
+        total_cost=$(echo "scale=6; $total_cost + $synth_cost" | bc)
+    fi
+
     # Provider-reported costs may carry fewer decimal places than locally
     # estimated values. Normalize the public result to the existing 6-place
     # contract without changing its numeric value.
@@ -413,7 +440,7 @@ format_cost_caveats() {
     local responses_dir="${1:-}"
     [[ -d "$responses_dir" ]] || return 0
 
-    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0 grok_47_estimate=0 opus_55_estimate=0 gemini_38_estimate=0
+    local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0 grok_47_estimate=0 opus_55_estimate=0 gemini_38_estimate=0 gemini_argon_estimate=0
     local unpriced_models=()
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
@@ -432,7 +459,7 @@ format_cost_caveats() {
 
         local model seen item
         model=$(_billing_model_for_response "$f")
-        if [[ "$model" == gpt-6-astra ]] && ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
+        if [[ "$model" == gpt-6-astra || "$model" == gpt-6.1-sol ]] && ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
             astra_estimate=1
         fi
         case "$model" in
@@ -452,6 +479,11 @@ format_cost_caveats() {
                     gemini_38_estimate=1
                 fi
                 ;;
+            gemini-4-argon|'Gemini 4 Argon (High)'|'Gemini 4 Argon (Medium)'|'Gemini 4 Argon (Low)')
+                if ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
+                    gemini_argon_estimate=1
+                fi
+                ;;
         esac
         is_unpriced_model "$model" || continue
         seen=false
@@ -469,7 +501,7 @@ format_cost_caveats() {
         parts="${parts:+$parts; }$unknown contributed no token data"
     fi
     if [[ $astra_estimate -eq 1 ]]; then
-        parts="${parts:+$parts; }cost estimated using Astra Standard rates; cache/service adjustments excluded, not an invoice"
+        parts="${parts:+$parts; }GPT-6 Astra/6.1 Sol cost estimated at Standard rates (incl. long-context pricing); cache/service adjustments excluded, not an invoice"
     fi
     if [[ $deepseek_flash_estimate -eq 1 ]]; then
         parts="${parts:+$parts; }DeepSeek Flash cost estimated at peak cache-miss rates; off-peak/cache discounts excluded, not an invoice"
@@ -482,6 +514,12 @@ format_cost_caveats() {
     fi
     if [[ $gemini_38_estimate -eq 1 ]]; then
         parts="${parts:+$parts; }Gemini 3.8 promotional API estimate through 2026-12-31; cache/service adjustments excluded, not a CLI invoice"
+    fi
+    if [[ $gemini_argon_estimate -eq 1 ]]; then
+        parts="${parts:+$parts; }Gemini 4 Argon list-rate API estimate (introductory price through 2026-11-30 not applied); cache adjustments excluded, not a CLI invoice"
+    fi
+    if [[ -n "$(_synthesis_estimated_cost "$responses_dir")" ]]; then
+        parts="${parts:+$parts; }includes an estimated synthesis call"
     fi
     local unpriced=""
     if (( ${#unpriced_models[@]} > 0 )); then
@@ -558,9 +596,17 @@ estimate_consultation_cost() {
         local IFS=','
         read -ra consultant_list <<< "$consultants"
         for consultant in "${consultant_list[@]}"; do
-            local fallback_model
-            fallback_model=$(get_consultant_fallback_model "$consultant")
-            local model_to_use="${fallback_model:-default}"
+            # Price the model this run will actually use (preset tier and
+            # active transport), not the catalog's premium default.
+            local model_to_use="" model_var
+            if declare -f model_env_var_for >/dev/null 2>&1; then
+                model_var=$(model_env_var_for "$consultant")
+                model_to_use="${!model_var:-}"
+            fi
+            if [[ -z "$model_to_use" ]]; then
+                model_to_use=$(get_consultant_fallback_model "$consultant")
+            fi
+            model_to_use="${model_to_use:-default}"
             local cost=$(estimate_query_cost "$model_to_use" "$estimated_input_tokens" "$estimated_output_tokens")
             total=$(echo "scale=6; $total + $cost" | bc)
         done
@@ -929,8 +975,20 @@ estimate_phase_cost() {
             estimate_consultation_cost "$num_consultants" "$context_size"
             ;;
         synthesis)
-            # Synthesis: single model, larger output
-            estimate_query_cost "claude-3-sonnet" 2000 1500
+            # Synthesis: one call on the CLI synthesize.sh will most likely
+            # use. It never synthesizes with the invoking host, so under a
+            # Claude host that is Gemini or Codex, not CLAUDE_MODEL. The
+            # prompt carries every consultant's findings, so it grows with
+            # the panel.
+            local synth_cli="" synth_model=""
+            if declare -f likely_synthesis_cli >/dev/null 2>&1; then
+                synth_cli=$(likely_synthesis_cli 2>/dev/null || true)
+            fi
+            if [[ -n "$synth_cli" ]] && declare -f synthesis_model_for_cli >/dev/null 2>&1; then
+                synth_model=$(synthesis_model_for_cli "$synth_cli")
+            fi
+            synth_model="${synth_model:-${SYNTHESIS_MODEL:-${CLAUDE_MODEL:-default}}}"
+            estimate_query_cost "$synth_model" $((2000 + 1500 * num_consultants)) 2000
             ;;
         *)
             echo "0"

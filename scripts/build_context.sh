@@ -123,6 +123,7 @@ _reset_stats() {
     map_clear "ORIGINAL_SIZES"
     map_clear "OPTIMIZED_SIZES"
     map_clear "OPTIMIZATION_APPLIED"
+    map_clear "FILE_DISPLAY_NAMES"
 }
 
 # Record file statistics
@@ -139,6 +140,7 @@ _record_file_stats() {
     map_set "ORIGINAL_SIZES" "$safe_name" "$original_size"
     map_set "OPTIMIZED_SIZES" "$safe_name" "$optimized_size"
     map_set "OPTIMIZATION_APPLIED" "$safe_name" "$opt_type"
+    map_set "FILE_DISPLAY_NAMES" "$safe_name" "$filename"
 
     _TOTAL_FILES_PROCESSED=$((_TOTAL_FILES_PROCESSED + 1))
     _TOTAL_ORIGINAL_BYTES=$((_TOTAL_ORIGINAL_BYTES + original_size))
@@ -232,6 +234,20 @@ _should_include_project_tree() {
         SECURITY|QUICK_SYNTAX|ALGORITHM|BUG_DEBUG|DATABASE|TESTING) return 1 ;;
         *) return 0 ;;
     esac
+}
+
+# A home directory or the filesystem root is not a project. Hosts build the
+# context from the caller's directory (--context-root), which can be $HOME:
+# walking it is slow and would send personal file names (including hidden
+# configuration directories) to every consultant.
+# Usage: _is_home_or_root_dir   (checks the current directory)
+_is_home_or_root_dir() {
+    local here home
+    here=$(pwd -P)
+    [[ "$here" == "/" ]] && return 0
+    [[ -n "${HOME:-}" ]] || return 1
+    home=$(cd "$HOME" 2>/dev/null && pwd -P) || return 1
+    [[ "$here" == "$home" ]]
 }
 
 # Parse a "path@TAG" argument into path + tag (default tag: PRIMARY).
@@ -449,9 +465,9 @@ _generate_manifest() {
             orig=$(map_get "ORIGINAL_SIZES" "$key")
             opt=$(map_get "OPTIMIZED_SIZES" "$key")
             method=$(map_get "OPTIMIZATION_APPLIED" "$key")
-            # Convert key back to something readable (approximate)
             local display_name
-            display_name=$(echo "$key" | tr '_' '/')
+            display_name=$(map_get "FILE_DISPLAY_NAMES" "$key")
+            [[ -n "$display_name" ]] || display_name="$key"
             echo "| $display_name | ${orig}B | ${opt}B | $method |"
         done
     fi
@@ -467,7 +483,8 @@ _generate_manifest() {
 # =============================================================================
 
 if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <output_file> \"question\" [file1[@TAG]] [file2[@TAG]] ..." >&2
+    echo "Usage: $0 <output_file> \"question\"|- [file1[@TAG]] [file2[@TAG]] ..." >&2
+    echo "  Pass - as the question to read it from stdin." >&2
     echo "" >&2
     echo "  @TAG: PRIMARY (default, focus of question) or CONTEXT (ambient reference)" >&2
     echo "" >&2
@@ -486,6 +503,12 @@ OUTPUT_FILE="$1"
 shift
 QUERY="$1"
 shift
+# "-" reads the question from stdin. consult_all.sh uses it so a large
+# --query-file question never rides in argv (Linux caps a single argument at
+# 128 KiB, and argv is visible in the process list).
+if [[ "$QUERY" == "-" ]]; then
+    QUERY=$(cat)
+fi
 
 # Returns 0 if PATH is under a recognized temp root: /tmp, /private/tmp (macOS:
 # /tmp is a symlink to /private/tmp), $TMPDIR, or the /private-prefixed macOS
@@ -570,8 +593,10 @@ _reset_stats
 
     # Project structure (relevant files, excluding noise).
     # Skipped for pointed categories where the tree is noise (e.g. SECURITY,
-    # QUICK_SYNTAX). Override with FORCE_PROJECT_TREE=true.
-    if _should_include_project_tree "$QUESTION_CATEGORY" || [[ "$FORCE_PROJECT_TREE" == "true" ]]; then
+    # QUICK_SYNTAX), and from a home directory or "/". Override with
+    # FORCE_PROJECT_TREE=true.
+    if { _should_include_project_tree "$QUESTION_CATEGORY" && ! _is_home_or_root_dir; } \
+        || [[ "$FORCE_PROJECT_TREE" == "true" ]]; then
         echo "## Project Structure"
         echo '```'
         find . -maxdepth 4 -type f \( \

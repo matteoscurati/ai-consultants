@@ -1,3 +1,5 @@
+<!-- Reference template only. The runtime synthesis prompt is built inline in scripts/synthesize.sh and the report is rendered by scripts/consult_all.sh; editing this file does not change their output. -->
+
 # AI Consultant Coverage Synthesis Prompt
 
 You are an expert meta-analyst. Build the comprehensive union of the distinct
