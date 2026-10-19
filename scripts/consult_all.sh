@@ -657,6 +657,7 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
                 fi
                 log_debug "Cost-aware: $consultant using model $local_model"
                 (
+                    trap '' INT
                     apply_launch_stagger
                     export "$model_var=$local_model"
                     "$query_script" "" "$CONTEXT_FILE" "$local_output_file"
@@ -666,11 +667,17 @@ for consultant in "${SELECTED_CONSULTANTS[@]}"; do
                 continue
             fi
         fi
-        # Standard launch (inherits current environment models)
-        ( apply_launch_stagger; "$query_script" "" "$CONTEXT_FILE" "$local_output_file" ) > /dev/null 2>"$local_err_file" &
+        # Standard launch (inherits current environment models). Every
+        # consultant, escalation and synthesis job ignores SIGINT: a terminal
+        # Ctrl-C reaches the whole process group, and only this script decides
+        # what it means (proceed or abort) and stops their process trees.
+        # Bash 3.2 ignores it in background jobs by itself; Bash 5 does not,
+        # and an adapter killed by it would orphan its CLI.
+        ( trap '' INT; apply_launch_stagger; "$query_script" "" "$CONTEXT_FILE" "$local_output_file" ) > /dev/null 2>"$local_err_file" &
     else
         # Fallback: custom API agent via generic API query
         (
+            trap '' INT
             apply_launch_stagger
             source "$SCRIPT_DIR/lib/api_query.sh"
             run_api_consultant "$consultant" "" "$CONTEXT_FILE" "$local_output_file"
@@ -1093,6 +1100,7 @@ if is_escalation_enabled && [[ $SUCCESS_COUNT -gt 0 ]]; then
                 if [[ -x "$query_script" ]]; then
                     escalation_file="$OUTPUT_DIR/${consultant_lower}_escalated.json"
                     (
+                        trap '' INT
                         export "$model_var=$premium_model"
                         "$query_script" "" "$CONTEXT_FILE" "$escalation_file"
                     ) > /dev/null 2>&1 &
@@ -1194,7 +1202,7 @@ if [[ "$ENABLE_SYNTHESIS" == "true" && $SUCCESS_COUNT -gt 0 ]]; then
         log_info "Generating automatic synthesis..."
         SYNTHESIS_FILE="$OUTPUT_DIR/synthesis.json"
 
-        printf '%s' "$QUERY" | "$SCRIPT_DIR/synthesize.sh" "$OUTPUT_DIR" "$SYNTHESIS_FILE" - > /dev/null &
+        ( trap '' INT; printf '%s' "$QUERY" | "$SCRIPT_DIR/synthesize.sh" "$OUTPUT_DIR" "$SYNTHESIS_FILE" - > /dev/null ) &
         synthesis_rc=0
         _wait_child_under_host_control $! "synthesis" || synthesis_rc=$?
         if [[ $synthesis_rc -eq 0 ]]; then
