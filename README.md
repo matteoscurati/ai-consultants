@@ -490,9 +490,9 @@ The maximum preset also applies the transport budgets proven by the live panel
 smoke: four bounded advisory turns for Mistral/Grok, the maximum-tier Qwen3.8-Max
 and DeepSeek timeouts (`QWEN3_MAX_QUALITY_TIMEOUT`/`DEEPSEEK_MAX_QUALITY_TIMEOUT`,
 default 0: no limit), and larger OpenAI-compatible output budgets for Qwen, GLM,
-and DeepSeek. MiniMax M3 likewise receives a 16,384-token completion budget in
-the maximum tier and the shared JSON response contract through mmx's native
-system channel.
+and DeepSeek. MiniMax-M3.1-Flash always reasons, so it receives a 16,384-token
+completion budget (32,768 in the maximum tier) and the shared JSON response
+contract through mmx's native system channel.
 Provider output is tagged `structured`, `fallback`, or `error`;
 malformed/truncated JSON fails
 closed. In coverage/union mode, only locally atomized `summary`, `pros`,
@@ -520,7 +520,13 @@ and cannot support a comprehensive coverage claim.
 | Grok | grok-4.7 | grok-4.7 | grok-4.5 | grok-4.5 |
 | Qwen3 | qwen3.8-max | qwen3.8-max | qwen3.8-flash | qwen3.8-flash |
 | Kimi | kimi-code/k3-256k | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
-| MiniMax | MiniMax-M3 | MiniMax-M2.7 | MiniMax-M2.7 | MiniMax-M2.5 |
+| MiniMax | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash |
+
+MiniMax-M3.1-Flash (released 2026-10-19, $0.15/$0.60 per 1M tokens) serves every
+MiniMax tier. It always reasons; set `MINIMAX_REASONING_EFFORT` (API mode) to
+`low`..`max` to trade depth for latency, while `mmx` uses the provider default
+(`max`). An authorized `mmx` smoke returned a structured answer in 30 s on
+2026-10-20 with requested-only identity; the API transport is offline-tested.
 
 Promotion is transport-specific. Gemini 4 Argon (GA 2026-10-13) is the Gemini
 default and maximum target: `Gemini 4 Argon (High)` on `agy` and `gemini-4-argon`

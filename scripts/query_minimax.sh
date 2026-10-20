@@ -4,9 +4,9 @@
 # Usage: ./query_minimax.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   MINIMAX_MODEL     - Model to use (default: MiniMax-M2.7)
-#   MINIMAX_TIMEOUT   - Timeout in seconds (default: 180)
-#   MINIMAX_MAX_TOKENS - Visible + reasoning completion budget (default: 4096)
+#   MINIMAX_MODEL     - Model to use (default: MiniMax-M3.1-Flash)
+#   MINIMAX_TIMEOUT   - Timeout in seconds (default: 0, no limit)
+#   MINIMAX_MAX_TOKENS - Visible + reasoning completion budget (default: 16384)
 #   MINIMAX_USE_API   - Use the HTTP API instead of the mmx CLI (default: false)
 #   MINIMAX_CMD       - CLI command (default: mmx)
 #   MINIMAX_API_KEY   - API key for the MiniMax API (required for API mode)
@@ -98,7 +98,7 @@ END_TIME=$(get_timestamp_ms)
 LATENCY_MS=$((END_TIME - START_TIME))
 
 # --- Configuration for response building ---
-MODEL_USED="${MINIMAX_MODEL:-MiniMax-M2.7}"
+MODEL_USED="${MINIMAX_MODEL:-MiniMax-M3.1-Flash}"
 PERSONA_NAME=$(get_persona_name "$CONSULTANT_NAME")
 
 # --- Post-processing: use shared helper ---

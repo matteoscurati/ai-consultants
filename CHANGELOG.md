@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [Unreleased]
+
+### Changed
+- **MiniMax-M3.1-Flash** (released 2026-10-19) serves every MiniMax tier, including `max_quality` (previously M3 maximum, M2.7 premium/standard and M2.5 economy). It always reasons: effort is `low`..`max` (provider default `max`) and `none` cannot be requested. API mode passes `MINIMAX_REASONING_EFFORT` as `reasoning_effort` and rejects `none`/`minimal` before the request; the `mmx` CLI has no effort flag, so it uses the provider default. Its reasoning shares the completion budget, so the defaults grow to 16,384 tokens (`MINIMAX_MAX_TOKENS`, `MINIMAX_API_MAX_TOKENS`) and 32,768 in the maximum tier. `configure` migrates unpinned `MiniMax-M2.5`/`MiniMax-M2.7` and the generated 4096/4096/16384 budgets; pins and other values (such as an explicit `MiniMax-M3`) are kept. Estimates use the list price ($0.15/$0.60 per 1M).
+
+### Verification
+- Offline gate: 34/34 suites, lint, Bash 3.2/5 syntax and generated docs; new tests cover the tier catalog, list rate, `configure` migration and pins, the default `mmx` arguments, and the API effort (`reasoning_effort` on the wire, `none`/`minimal` rejected before the request).
+- One authorized `mmx` CLI smoke on 2026-10-20 (no retry, 16,384-token budget, provider-default effort): a structured answer with The Pragmatic Optimizer persona and confidence 10 in 30 s for a short code question with context. Identity remains `requested-only` and tokens are estimated, because `mmx` text output reports neither. The API transport is offline-tested only: no MiniMax API key is configured.
+
 ## [5.2.0] - 2026-10-19
 
 ### Fixed

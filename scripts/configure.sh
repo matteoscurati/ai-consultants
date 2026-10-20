@@ -408,6 +408,34 @@ case "$(read_value "$WORK_FILE" GROK_MODEL 2>/dev/null || true)" in
         ;;
 esac
 
+# MiniMax-M2.5 (through 2.x) and MiniMax-M2.7 (through 5.2.0) were the
+# generated defaults; MiniMax-M3.1-Flash now serves every tier. It always
+# reasons and its reasoning shares the completion budget, so the generated
+# 4096/4096/16384 budgets move to 16384/16384/32768. Pins are kept.
+case "$(read_value "$WORK_FILE" MINIMAX_MODEL 2>/dev/null || true)" in
+    MiniMax-M2.5|MiniMax-M2.7)
+        if ! has_value_marker "$WORK_FILE" MINIMAX_MODEL "$PIN_MARKER"; then
+            set_value MINIMAX_MODEL "MiniMax-M3.1-Flash $DEFAULT_MARKER"
+            echo "Migrated managed MiniMax default to MiniMax-M3.1-Flash" >&2
+        fi
+        ;;
+esac
+migrated_budgets=0
+for budget_spec in MINIMAX_MAX_TOKENS:4096:16384 MINIMAX_API_MAX_TOKENS:4096:16384 \
+    MINIMAX_MAX_QUALITY_TOKENS:16384:32768; do
+    budget_key="${budget_spec%%:*}"
+    budget_old="${budget_spec#*:}"; budget_new="${budget_old#*:}"; budget_old="${budget_old%%:*}"
+    if [[ "$(read_value "$WORK_FILE" "$budget_key" 2>/dev/null || true)" == "$budget_old" ]] \
+        && ! has_value_marker "$WORK_FILE" "$budget_key" "$PIN_MARKER"; then
+        set_value "$budget_key" "$budget_new $DEFAULT_MARKER"
+        migrated_budgets=$((migrated_budgets + 1))
+    fi
+done
+if [[ $migrated_budgets -gt 0 ]]; then
+    echo "Migrated $migrated_budgets managed MiniMax token budget(s) for MiniMax-M3.1-Flash" >&2
+fi
+unset migrated_budgets budget_spec budget_key budget_old budget_new
+
 # Refresh only exact unpinned historical DeepSeek defaults. Environment and
 # --set selections carry pin markers and remain user-owned.
 case "$(read_value "$WORK_FILE" DEEPSEEK_MODEL 2>/dev/null || true)" in

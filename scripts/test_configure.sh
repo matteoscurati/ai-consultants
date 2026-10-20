@@ -466,6 +466,37 @@ test_codex_default_migration_and_pin() {
         "unrelated Codex model is not force-upgraded"
 }
 
+test_minimax_m31_flash_migration() {
+    local cfg="$TMP/minimax-m31-flash"
+    mkdir -p "$cfg"
+    printf '%s\n' \
+        'MINIMAX_MODEL=MiniMax-M2.7' \
+        'MINIMAX_MAX_TOKENS=4096' \
+        'MINIMAX_API_MAX_TOKENS=4096' \
+        'MINIMAX_MAX_QUALITY_TOKENS=16384' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq MiniMax-M3.1-Flash "$(read_env "$cfg/.env" MINIMAX_MODEL)" "managed MiniMax default migrates to M3.1-Flash"
+    assert_eq 16384 "$(read_env "$cfg/.env" MINIMAX_MAX_TOKENS)" "generated CLI budget grows for always-on reasoning"
+    assert_eq 16384 "$(read_env "$cfg/.env" MINIMAX_API_MAX_TOKENS)" "generated API budget grows for always-on reasoning"
+    assert_eq 32768 "$(read_env "$cfg/.env" MINIMAX_MAX_QUALITY_TOKENS)" "generated maximum-tier budget grows"
+    assert_contains "$(grep '^MINIMAX_MODEL=' "$cfg/.env")" "# ai-consultants:default" "MiniMax migration records managed provenance"
+
+    printf '%s\n' 'MINIMAX_MODEL=MiniMax-M2.5' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq MiniMax-M3.1-Flash "$(read_env "$cfg/.env" MINIMAX_MODEL)" "the 2.x MiniMax default migrates too"
+
+    printf '%s\n' 'MINIMAX_MODEL=MiniMax-M2.7 # ai-consultants:pin' 'MINIMAX_MAX_TOKENS=4096 # ai-consultants:pin' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq MiniMax-M2.7 "$(read_env "$cfg/.env" MINIMAX_MODEL)" "a pinned MiniMax model survives"
+    assert_eq 4096 "$(read_env "$cfg/.env" MINIMAX_MAX_TOKENS)" "a pinned MiniMax budget survives"
+
+    # MiniMax-M3 was never a generated default: it is the user's own choice.
+    printf '%s\n' 'MINIMAX_MODEL=MiniMax-M3' 'MINIMAX_MAX_TOKENS=8192' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq MiniMax-M3 "$(read_env "$cfg/.env" MINIMAX_MODEL)" "a non-default MiniMax model is not force-upgraded"
+    assert_eq 8192 "$(read_env "$cfg/.env" MINIMAX_MAX_TOKENS)" "a custom MiniMax budget is kept"
+}
+
 test_catalog_default_migrations_and_pins() {
     local cfg="$TMP/catalog-default-migrations"
     mkdir -p "$cfg"
@@ -698,5 +729,6 @@ run_test "DeepSeek V4.1 Flash migration" test_deepseek_flash_migration
 run_test "Grok 4.7 migration and Opus 5.5 selection" test_grok47_migration_and_opus55_selection
 
 run_test "Gemini 3.8 migration" test_gemini38_migration
+run_test "MiniMax M3.1 Flash migration" test_minimax_m31_flash_migration
 
 test_summary "configure"
