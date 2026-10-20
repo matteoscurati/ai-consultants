@@ -26,13 +26,17 @@ EOF
 test_minimax_cli_model_and_identity() {
     local fake="$TMP_ROOT/mmx" args="$TMP_ROOT/args" output="$TMP_ROOT/output.json"
     make_mmx_stub "$fake"
-    if ! MINIMAX_CMD="$fake" MINIMAX_USE_API=false MINIMAX_MODEL=MiniMax-M2.7 \
+    mkdir -p "$TMP_ROOT/empty-config"
+    # Defaults only: no user configuration, model or budget.
+    if ! env -u MINIMAX_MODEL -u MINIMAX_MAX_TOKENS AI_CONSULTANTS_CONFIG_DIR="$TMP_ROOT/empty-config" \
+        MINIMAX_CMD="$fake" MINIMAX_USE_API=false \
         MMX_ARGS_FILE="$args" MAX_RETRIES=1 "$SCRIPT_DIR/query_minimax.sh" test "" "$output" >/dev/null 2>&1; then
         assert_eq success failure "MiniMax CLI query completes"
         return
     fi
-    assert_match '(^|[[:space:]])--model[[:space:]]+MiniMax-M2\.7($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "MiniMax pins M2.7"
-    assert_match '(^|[[:space:]])--max-tokens[[:space:]]+4096($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "MiniMax pins the completion budget"
+    assert_match '(^|[[:space:]])--model[[:space:]]+MiniMax-M3\.1-Flash($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "MiniMax defaults to M3.1-Flash"
+    assert_match '(^|[[:space:]])--max-tokens[[:space:]]+16384($|[[:space:]])' "$(tr '\n' ' ' < "$args")" "MiniMax budget leaves room for always-on reasoning"
+    assert_eq MiniMax-M3.1-Flash "$(jq -r '.model' "$output")" "the envelope names the requested M3.1-Flash"
     assert_eq requested-only "$(jq -r '.metadata.model_identity_source' "$output")" "MiniMax does not claim unreported CLI identity"
     assert_match 'Respond ONLY in valid JSON' "$(tr '\n' ' ' < "$args")" "MiniMax receives the shared JSON response contract"
     assert_match 'The Pragmatic Optimizer' "$(tr '\n' ' ' < "$args")" "MiniMax receives its persona"

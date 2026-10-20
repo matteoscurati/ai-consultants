@@ -418,6 +418,28 @@ EOF
         run_api_consultant MiniMax test "" "$output" >/dev/null 2>&1
     assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "MiniMax maximum API budget reaches the wire"
 
+    # MiniMax-M3.1-Flash always reasons: a configured effort reaches the
+    # OpenAI-compatible wire, and none/minimal fail before anything is billed.
+    rm -f "$request_body"
+    PATH="$td:$PATH" MINIMAX_API_KEY=test MINIMAX_FORMAT=openai MINIMAX_MODEL=MiniMax-M3.1-Flash \
+        MINIMAX_REASONING_EFFORT=high \
+        REQUEST_BODY_FILE="$request_body" RATE_LIMIT_DIR="$td/rate-minimax-effort" MAX_RETRIES=1 \
+        run_api_consultant MiniMax test "" "$output" >/dev/null 2>&1
+    assert_eq "MiniMax-M3.1-Flash|high" "$(jq -r '"\(.model)|\(.reasoning_effort)"' "$request_body")" \
+        "MiniMax-M3.1-Flash effort reaches the wire"
+    local minimax_effort err
+    for minimax_effort in none minimal; do
+        rm -f "$request_body"
+        rc=0
+        err=$(PATH="$td:$PATH" MINIMAX_API_KEY=test MINIMAX_FORMAT=openai MINIMAX_MODEL=MiniMax-M3.1-Flash \
+            MINIMAX_REASONING_EFFORT="$minimax_effort" \
+            REQUEST_BODY_FILE="$request_body" RATE_LIMIT_DIR="$td/rate-minimax-$minimax_effort" MAX_RETRIES=1 \
+            run_api_consultant MiniMax test "" "$output" 2>&1 >/dev/null) || rc=$?
+        assert_eq "1|false" "$rc|$([[ -e "$request_body" ]] && echo true || echo false)" \
+            "MiniMax-M3.1-Flash rejects effort $minimax_effort before the request"
+        assert_match "always reasons" "$err" "the $minimax_effort rejection says why"
+    done
+
     rc=0
     rm -f "$output"
     PATH="$td:$PATH" DEEPSEEK_API_KEY=test DEEPSEEK_FORMAT=openai \

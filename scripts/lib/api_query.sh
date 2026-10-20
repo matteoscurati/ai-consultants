@@ -164,6 +164,12 @@ run_api_mode_query() {
             if [[ "$(to_upper "$consultant_name")" == CODEX ]]; then
                 request_body=$(build_codex_request "$query" "$model" "$api_max_tokens" "$effort") || return 1
             elif [[ -n "$effort" ]]; then
+                # MiniMax-M3.1-Flash always reasons; the provider answers
+                # none (and the unlisted minimal) with HTTP 400.
+                if [[ "$model" == MiniMax-M3.1-Flash* && ( "$effort" == none || "$effort" == minimal ) ]]; then
+                    log_error "[$consultant_name] $model always reasons: $effort_var must be low|medium|high|xhigh|max"
+                    return 1
+                fi
                 request_body=$(build_openai_request "$query" "$model" "$api_max_tokens" "$effort")
             else
                 request_body=$(build_openai_request "$query" "$model" "$api_max_tokens")

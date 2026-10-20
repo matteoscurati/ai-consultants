@@ -283,11 +283,14 @@ DEEPSEEK_FORMAT="${DEEPSEEK_FORMAT:-openai}"
 # =============================================================================
 
 MINIMAX_CMD="${MINIMAX_CMD:-mmx}"
-MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M2.7}"
+# MiniMax-M3.1-Flash (2026-10-19) serves every tier. It always reasons
+# (effort low..max, provider default max; none is rejected) and its
+# reasoning shares the completion budget, hence the larger token defaults.
+MINIMAX_MODEL="${MINIMAX_MODEL:-MiniMax-M3.1-Flash}"
 MINIMAX_TIMEOUT_SECONDS="${MINIMAX_TIMEOUT:-0}"
-MINIMAX_API_MAX_TOKENS="${MINIMAX_API_MAX_TOKENS:-4096}"
-MINIMAX_MAX_TOKENS="${MINIMAX_MAX_TOKENS:-4096}"
-MINIMAX_MAX_QUALITY_TOKENS="${MINIMAX_MAX_QUALITY_TOKENS:-16384}"
+MINIMAX_API_MAX_TOKENS="${MINIMAX_API_MAX_TOKENS:-16384}"
+MINIMAX_MAX_TOKENS="${MINIMAX_MAX_TOKENS:-16384}"
+MINIMAX_MAX_QUALITY_TOKENS="${MINIMAX_MAX_QUALITY_TOKENS:-32768}"
 MAX_QUALITY_API_MAX_TOKENS="${MAX_QUALITY_API_MAX_TOKENS:-16384}"
 MINIMAX_API_URL="${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}"
 MINIMAX_FORMAT="${MINIMAX_FORMAT:-openai}"
@@ -650,7 +653,7 @@ get_model_for_tier() {
                 grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3-256k" ;;
-                minimax)  echo "MiniMax-M3" ;;
+                minimax)  echo "MiniMax-M3.1-Flash" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -665,7 +668,7 @@ get_model_for_tier() {
                 grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3" ;;
-                minimax)  echo "MiniMax-M2.7" ;;
+                minimax)  echo "MiniMax-M3.1-Flash" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -680,7 +683,7 @@ get_model_for_tier() {
                 grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3.8-flash" ;;
                 kimi)     echo "kimi-code/k3" ;;
-                minimax)  echo "MiniMax-M2.7" ;;
+                minimax)  echo "MiniMax-M3.1-Flash" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -695,7 +698,7 @@ get_model_for_tier() {
                 grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3.8-flash" ;;
                 kimi)     echo "kimi-code/k3" ;;
-                minimax)  echo "MiniMax-M2.5" ;;
+                minimax)  echo "MiniMax-M3.1-Flash" ;;
                 *)        echo "" ;;
             esac
             ;;

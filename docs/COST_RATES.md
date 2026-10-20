@@ -64,9 +64,10 @@ models programmatically.
 | qwen3-32b | Legacy pins | $0.0004 | Qwen3 |
 | qwen3.8-max | Maximum/Premium | Unpriced | Qwen3 Token Plan |
 | qwen3.8-flash | Standard/Economy | Unpriced | Qwen3 Token Plan |
-| MiniMax-M3 | Maximum | $0.0003 | MiniMax (≤512k standard input) |
-| MiniMax-M2.7 | Premium/Standard | $0.0003 | MiniMax |
-| MiniMax-M2.5 | Economy | $0.0003 | MiniMax |
+| MiniMax-M3.1-Flash | All tiers | $0.00015 | MiniMax |
+| MiniMax-M3 | Legacy pins | $0.0003 | MiniMax (≤512k standard input) |
+| MiniMax-M2.7 | Legacy pins | $0.0003 | MiniMax |
+| MiniMax-M2.5 | Legacy pins | $0.0003 | MiniMax |
 | kimi-code/k3 | Premium/Standard/Economy | $0.0005 | Kimi |
 | kimi-code/k3-256k | Maximum | Unpriced | Kimi subscription |
 | default | - | $0.005 | Fallback |
@@ -116,9 +117,10 @@ models programmatically.
 | qwen3-32b | Legacy pins | $0.0016 | Qwen3 |
 | qwen3.8-max | Maximum/Premium | Unpriced | Qwen3 Token Plan |
 | qwen3.8-flash | Standard/Economy | Unpriced | Qwen3 Token Plan |
-| MiniMax-M3 | Maximum | $0.0012 | MiniMax (≤512k standard input) |
-| MiniMax-M2.7 | Premium/Standard | $0.0012 | MiniMax |
-| MiniMax-M2.5 | Economy | $0.0012 | MiniMax |
+| MiniMax-M3.1-Flash | All tiers | $0.0006 | MiniMax |
+| MiniMax-M3 | Legacy pins | $0.0012 | MiniMax (≤512k standard input) |
+| MiniMax-M2.7 | Legacy pins | $0.0012 | MiniMax |
+| MiniMax-M2.5 | Legacy pins | $0.0012 | MiniMax |
 | kimi-code/k3 | Premium/Standard/Economy | $0.002 | Kimi |
 | kimi-code/k3-256k | Maximum | Unpriced | Kimi subscription |
 | default | - | $0.015 | Fallback |

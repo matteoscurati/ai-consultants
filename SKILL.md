@@ -120,7 +120,7 @@ model, and structured-output surface. Compatible version changes are accepted;
 the observed version is recorded only as response provenance.
 
 The `max_quality` preset enables all 10 consultants. It uses the separately
-smoke-tested K3-256k and MiniMax M3 targets, GLM-5.3 (the flagship; Flash serves
+smoke-tested K3-256k target, MiniMax-M3.1-Flash (every MiniMax tier), GLM-5.3 (the flagship; Flash serves
 premium/standard) and Qwen3.8-Max (also the Qwen default; Flash serves
 standard/economy). Gemini 4 Argon (High) is the `agy` target for the default
 and maximum tiers (`gemini-4-argon` on the API); one authorized `agy` smoke passed on
@@ -134,7 +134,7 @@ respectively); no failed target is silently replaced.
 
 Maximum-quality transports use smoke-tested runtime budgets: four advisory
 turns for Mistral/Grok, no generation time limit, and larger response
-budgets for reasoning APIs; MiniMax M3 receives the shared JSON contract in
+budgets for reasoning APIs; MiniMax receives the shared JSON contract in
 its native system channel. Responses carry an explicit `structured`,
 `fallback`, or `error` quality. Truncated JSON fails closed. Coverage/union
 synthesis source-attributed claims use only locally normalized atomic fields;

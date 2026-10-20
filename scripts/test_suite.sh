@@ -1071,7 +1071,7 @@ test_economic_models() {
     assert_equals "gemini-3.1-pro-preview" "$(get_economic_model "gemini" api)" "Gemini API economy is hermetic"
     assert_equals "gpt-5.6-luna"     "$(get_economic_model "codex")"  "codex economy is gpt-5.6-luna"
     assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
-    assert_equals "MiniMax-M2.5"     "$(get_economic_model "minimax")" "minimax economy is MiniMax-M2.5"
+    assert_equals "MiniMax-M3.1-Flash" "$(get_economic_model "minimax")" "minimax economy is MiniMax-M3.1-Flash"
     assert_equals ""                 "$(get_economic_model "unknown")" "unknown consultant returns empty"
 }
 
@@ -1457,8 +1457,8 @@ test_model_for_tier() {
     assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "premium" api)" "Mistral API premium is Large 4"
     assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "standard" api)" "Mistral API standard is Large 4"
     assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "economy" api)" "Mistral API economy is Large 4"
-    assert_equals "MiniMax-M2.7"           "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M2.7"
-    assert_equals "MiniMax-M2.5"           "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M2.5"
+    assert_equals "MiniMax-M3.1-Flash"     "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M3.1-Flash"
+    assert_equals "MiniMax-M3.1-Flash"     "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M3.1-Flash"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "premium")"    "kimi premium is K3"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "standard")"   "kimi standard is K3"
     assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "economy")"    "kimi economy is K3"
@@ -1486,7 +1486,7 @@ test_model_for_tier() {
     assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "maximum")"    "Claude maximum is Fable 5.1"
     assert_equals "kimi-code/k3-256k"     "$(get_model_for_tier "kimi" "maximum")"      "maximum tier confines K3-256k"
     assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "maximum")"     "maximum catalog includes Qwen3.8-Max"
-    assert_equals "MiniMax-M3"            "$(get_model_for_tier "minimax" "maximum")"   "maximum tier confines MiniMax M3"
+    assert_equals "MiniMax-M3.1-Flash"    "$(get_model_for_tier "minimax" "maximum")"   "maximum tier uses MiniMax-M3.1-Flash"
 
     local max_quality_state
     max_quality_state=$(
@@ -1499,7 +1499,7 @@ test_model_for_tier() {
         done
         printf '%s\n' "$enabled"
     )
-    assert_equals "xhigh|max|max|0|0|16384|10" "$max_quality_state" "max_quality enables all 10 consultants with highest efforts and reasoning budgets"
+    assert_equals "xhigh|max|max|0|0|32768|10" "$max_quality_state" "max_quality enables all 10 consultants with highest efforts and reasoning budgets"
 
     local maximum_effort_lifecycle
     maximum_effort_lifecycle=$(
@@ -1529,7 +1529,7 @@ test_model_for_tier() {
         apply_model_tier standard
         printf '%s|%s|%s|%s|%s|%s\n' "$GROK_REASONING_EFFORT" "$GLM_REASONING_EFFORT" "$DEEPSEEK_REASONING_EFFORT" "$CLAUDE_TIMEOUT_SECONDS" "$DEEPSEEK_TIMEOUT_SECONDS" "$MINIMAX_MAX_TOKENS"
     )
-    assert_equals "xhigh|max|max|240|0|16384|low|medium|high|240|180|4096" "$maximum_effort_lifecycle" \
+    assert_equals "xhigh|max|max|240|0|32768|low|medium|high|240|180|4096" "$maximum_effort_lifecycle" \
         "maximum temporarily overrides and then restores provider efforts and timeouts"
 
     local maximum_unconfigured
@@ -1633,6 +1633,9 @@ test_model_catalog_parity() {
             fi
         done
     done
+    # MiniMax M3.1 Flash list price: $0.15 / $0.60 per 1M tokens (per-1K below).
+    assert_equals "0.00015|0.0006" "$(get_rate_from_file MiniMax-M3.1-Flash input)|$(get_rate_from_file MiniMax-M3.1-Flash output)" \
+        "MiniMax-M3.1-Flash is priced at its list rate"
 
     for consultant in gemini mistral; do
         for tier in maximum premium standard economy; do

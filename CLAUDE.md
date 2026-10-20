@@ -353,7 +353,7 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 | Tier | Description | Example Models |
 |------|-------------|----------------|
 | **premium** | Latest flagship models | claude-fable-5-1, Gemini 4 Argon (High), gpt-6.1-sol |
-| **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, Gemini 4 Argon (High), K3-256k, Qwen3.8-Max, MiniMax M3; Grok xhigh, GLM/DeepSeek max |
+| **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, Gemini 4 Argon (High), K3-256k, Qwen3.8-Max, MiniMax-M3.1-Flash; Grok xhigh, GLM/DeepSeek max |
 | **standard** | Good quality at reasonable cost | claude-opus-5-5, Gemini 3.8 Flash (High), gpt-5.6-terra |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.8 Flash (Low), gpt-5.6-luna |
 
@@ -400,7 +400,7 @@ All consultants now use premium models by default:
 | Grok | grok-4.7 |
 | Qwen3 | qwen3.8-max (standard/economy: qwen3.8-flash) |
 | Kimi | kimi-code/k3 |
-| MiniMax | MiniMax-M2.7 |
+| MiniMax | MiniMax-M3.1-Flash (every tier) |
 
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
 
@@ -417,7 +417,7 @@ The live full-panel smoke defines the `max_quality` runtime envelope, not just
 the model names. Mistral and Grok receive four bounded advisory turns plus an
 explicit no-tools/workspace instruction. Qwen3.8-Max and DeepSeek get
 `QWEN3_MAX_QUALITY_TIMEOUT`/`DEEPSEEK_MAX_QUALITY_TIMEOUT` (default 0, no limit);
-DeepSeek gets 16,384 completion tokens; GLM gets 16,384; MiniMax M3 gets 16,384
+DeepSeek gets 16,384 completion tokens; GLM gets 16,384; MiniMax-M3.1-Flash gets 32,768 (16,384 otherwise)
 plus the shared JSON response contract in mmx's native system channel. OpenAI-compatible
 `finish_reason=length` is an error. Every
 response records `metadata.response_quality=structured|fallback|error`:
@@ -621,7 +621,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `MINIMAX_USE_API` | false | Use MiniMax API instead of the mmx CLI (v2.21) |
 | `MINIMAX_CMD` | mmx | MiniMax CLI command (v2.21) |
 | `MINIMAX_API_KEY` | - | MiniMax API key (API mode only) (v2.10) |
-| `MINIMAX_MODEL` | MiniMax-M2.7 | MiniMax model (v2.10) |
+| `MINIMAX_MODEL` | MiniMax-M3.1-Flash | MiniMax model (v2.10; every tier since 5.3) |
 
 ## External Dependencies
 
@@ -771,6 +771,11 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### Unreleased (MiniMax-M3.1-Flash, branch feat/minimax-m3-1-flash)
+
+- **MiniMax-M3.1-Flash in every tier** (user decision, 2026-10-20), including `max_quality` in place of M3. It always reasons (effort low..max, provider default max; `none` is HTTP 400), so `api_query.sh` rejects `none`/`minimal` for it before dispatch and the budgets grow to 16,384 (`MINIMAX_MAX_TOKENS`, `MINIMAX_API_MAX_TOKENS`) and 32,768 (`MINIMAX_MAX_QUALITY_TOKENS`). `mmx` 1.0.16 has `--model` but no effort flag. `configure` migrates unpinned M2.5/M2.7 and the generated 4096/4096/16384 budgets; an explicit `MiniMax-M3` (the user's own value) is kept. Rate $0.15/$0.60 per 1M (`minimax-m3.1-flash`, per-1K 0.00015/0.0006).
+- Evidence: one authorized `mmx` smoke (2026-10-20) returned a structured persona answer in 30 s; identity `requested-only`, tokens estimated. No MiniMax API key is configured, so the API path is offline-tested only (the `mmx` OAuth token is not used for API calls).
 
 ### v5.2.0 (2026-10-19)
 
