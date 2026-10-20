@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 5.2.0
+**Version**: 5.3.0
 
 ## Distribution
 
@@ -772,10 +772,11 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 
 ## Changelog
 
-### Unreleased (MiniMax-M3.1-Flash, branch feat/minimax-m3-1-flash)
+### v5.3.0 (2026-10-20)
 
-- **MiniMax-M3.1-Flash in every tier** (user decision, 2026-10-20), including `max_quality` in place of M3. It always reasons (effort low..max, provider default max; `none` is HTTP 400), so `api_query.sh` rejects `none`/`minimal` for it before dispatch and the budgets grow to 16,384 (`MINIMAX_MAX_TOKENS`, `MINIMAX_API_MAX_TOKENS`) and 32,768 (`MINIMAX_MAX_QUALITY_TOKENS`). `mmx` 1.0.16 has `--model` but no effort flag. `configure` migrates unpinned M2.5/M2.7 and the generated 4096/4096/16384 budgets; an explicit `MiniMax-M3` (the user's own value) is kept. Rate $0.15/$0.60 per 1M (`minimax-m3.1-flash`, per-1K 0.00015/0.0006).
+- **MiniMax-M3.1-Flash in every tier** (user decision, 2026-10-20), including `max_quality` in place of M3. It always reasons (effort low..max, provider default max; `none` is HTTP 400), so `api_query.sh` rejects `none`/`minimal` for it before dispatch and the budgets grow to 16,384 (`MINIMAX_MAX_TOKENS`, `MINIMAX_API_MAX_TOKENS`) and 32,768 (`MINIMAX_MAX_QUALITY_TOKENS`). That last one is the `mmx` budget only: `apply_model_tier maximum` copies it into `MINIMAX_MAX_TOKENS` (`scripts/config.sh:912`), while the API budget in `max_quality` comes from the shared `MAX_QUALITY_API_MAX_TOKENS` (16,384, also used by Codex/Mistral/Grok, `scripts/config.sh:913-921`), so the maximum tier gives the API path no extra headroom over the default. Deliberately left alone: raising the shared value would change three other providers. `mmx` 1.0.16 has `--model` but no effort flag. `configure` migrates unpinned M2.5/M2.7 and the generated 4096/4096/16384 budgets; an explicit `MiniMax-M3` (the user's own value) is kept. Rate $0.15/$0.60 per 1M (`minimax-m3.1-flash`, per-1K 0.00015/0.0006).
 - Evidence: one authorized `mmx` smoke (2026-10-20) returned a structured persona answer in 30 s; identity `requested-only`, tokens estimated. No MiniMax API key is configured, so the API path is offline-tested only (the `mmx` OAuth token is not used for API calls).
+- Merged as PR #31 (`f8fef7d`); release 5.3.0 bumps the version surfaces and adds `docs/releases/v5.3.0.md`. The maintainer's own `MINIMAX_MODEL=MiniMax-M3` was an explicit value that `configure` keeps, so it was moved to M3.1-Flash and the new budgets by hand at the user's request (backup beside the file). The `ai-consultants-release` skill was usable again for this release: its symlink target `~/work/claude-skills` had gone missing and was re-cloned from the private `matteoscurati/claude-skills` repo.
 
 ### v5.2.0 (2026-10-19)
 
