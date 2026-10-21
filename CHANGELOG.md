@@ -11,6 +11,7 @@ For longer-form release notes (rationale, upgrade guides, performance numbers), 
 
 ### Fixed
 - `report.md` printed "coverage data unavailable" under Coverage Union even when `synthesis.json` held the merged points. The jq filter that renders them escaped its quotes inside a string interpolation, which jq 1.8 rejects, and the error was silenced. Each point now prints with its kind and the consultants that raised it. Found while recording the site demo; a regression test renders the section through `consult_all.sh`.
+- A terminal Ctrl-C could report a consultant it ended as failed (`Error (code: 1)`) instead of stopped, when the interrupt landed after the run had checked for host requests in that polling pass. The run now records such a consultant as stopped. This race made the e2e Ctrl-C test flaky on slower CI runners.
 
 ### Documentation
 - README "Why AI Consultants?" no longer says the union "covers what any one misses" or covers "materially more" than one strong model. It now states the internal evidence (three open-ended tasks) and its limits, matching the redesigned aiconsultants.sh.
