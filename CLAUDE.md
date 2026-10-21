@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 5.3.0
+**Version**: 5.3.1
 
 ## Distribution
 
@@ -771,6 +771,13 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v5.3.1 (2026-10-21)
+
+- **Coverage Union never reached `report.md`.** The renderer at `scripts/consult_all.sh:1352-1359` builds each line inside a single-quoted jq program, and wrote `\(.kind // \"consideration\")` and `join(\", \")`. jq 1.8.2 rejects a backslash-escaped quote inside an interpolation (`INVALID_CHARACTER`), and the `2>/dev/null || echo "- (coverage data unavailable; ...)"` fallback hid the error. Coverage Integrity, the recommendation and the risk table come from other jq calls, so the report still looked plausible. Two things kept it hidden. No test rendered a non-empty coverage list through `consult_all.sh` (the integrity tests' stubs return empty or invalid coverage). And the maintainer's own config runs `DEFAULT_PRESET=balanced` with `DEFAULT_STRATEGY=majority`, which never claims a coverage union. Found while recording the site demo: run `20261021_080117` reported MET 37/37 with 26 points in `synthesis.json` and the fallback line in the report. `test_report_renders_coverage_union_points` (`test_synthesize.sh`) fails two assertions on the old filter. Not done: the `2>/dev/null ||` fallback still conflates "no coverage" with "jq failed".
+- **A Ctrl-C-stopped consultant was reported as failed.** The Round 1 loop handles host requests at the top of each pass, then collects finished children. A terminal Ctrl-C reaches the CLIs and the script together. If it landed after the check, a consultant whose CLI it ended could be collected in the same pass with exit 1 (`Error (code: 1)`). A collected non-zero exit while `_HOST_PROCEED` is set now goes through `_record_round1_stopped`, split out of `_stop_round1_consultant`. It does not touch the PID again: the child is already reaped, and `kill_process_tree` on a reused PID would hit an unrelated process. The race surfaced as a flaky `test_e2e` Ctrl-C test on PR #32's first CI run. The test sends Ctrl-C right after a heartbeat, normally inside the 1 s poll pause, and a slow runner pushes it into the next pass. Reproduced in a scratch copy by delaying the Ctrl-C 1.5 s and adding a sleep between check and collect: the old loop failed 3/3, the new one passed 3/3. There is no permanent deterministic test (it would need a timing hook in the loop); the existing test no longer depends on timing for this path. The escalation and synthesis waits (`_wait_child_under_host_control`) were not changed.
+- **README** "Why AI Consultants?" no longer claims the union covers what any one model misses. It states the internal evidence (three open-ended tasks) and its limits, matching the redesigned site. The CHANGELOG records the post-5.3.0 MiniMax API smoke (Coding Plan key, passed in memory only).
+- **Site** (separate repo) redesigned around a recorded real run. The user authorized two billed runs. The first used the maintainer's `majority` default and was discarded. The second ran with `DEFAULT_STRATEGY=coverage`, `MAX_RETRIES=1` and the cache off. Merged as PR #32 (`0ff4e1c`); release 5.3.1 bumps the version surfaces and adds `docs/releases/v5.3.1.md`.
 
 ### v5.3.0 (2026-10-20)
 

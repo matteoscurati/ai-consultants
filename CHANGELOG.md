@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
-## [Unreleased]
+## [5.3.1] - 2026-10-21
 
 ### Fixed
 - `report.md` printed "coverage data unavailable" under Coverage Union even when `synthesis.json` held the merged points. The jq filter that renders them escaped its quotes inside a string interpolation, which jq 1.8 rejects, and the error was silenced. Each point now prints with its kind and the consultants that raised it. Found while recording the site demo; a regression test renders the section through `consult_all.sh`.
@@ -18,6 +18,7 @@ For longer-form release notes (rationale, upgrade guides, performance numbers), 
 
 ### Verification
 - After the 5.3.0 release, one authorized MiniMax API smoke (MiniMax-M3.1-Flash, no retry) returned HTTP 200 and a structured answer with a provider-reported model identity, so the API transport is no longer offline-tested only.
+- PR #32 CI and the 5.3.1 release gate passed 34/34 suites plus lint. The Ctrl-C race was reproduced by moving the interrupt into the window between the host check and collection: the old loop failed 3 times out of 3, the fixed loop passed 3 times out of 3.
 
 ## [5.3.0] - 2026-10-20
 

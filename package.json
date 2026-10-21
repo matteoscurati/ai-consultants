@@ -1,6 +1,6 @@
 {
   "name": "ai-consultants",
-  "version": "5.3.0",
+  "version": "5.3.1",
   "description": "A cross-vendor panel of up to 10 AI models that returns the coverage union of their distinct perspectives",
   "bin": {
     "ai-consultants": "bin/ai-consultants"
