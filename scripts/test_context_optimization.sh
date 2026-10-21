@@ -205,8 +205,13 @@ test_chunking_json_shape() {
         done
     } > "$big"
 
-    local json
-    json=$(chunk_file_semantically "$big" 2>/dev/null || echo "[]")
+    local json chunk_dir="$_TMPDIR/chunk-temp"
+    mkdir -p "$chunk_dir"
+    json=$(CHUNK_TEMP_DIR="$chunk_dir" chunk_file_semantically "$big" 2>/dev/null || echo "[]")
+    # Chunks travel on stdout only; a copy of the project file must not be
+    # left on disk (every call used to leave one in the cache directory).
+    assert_eq "0" "$(find "$chunk_dir" -type f | wc -l | tr -d ' ')" \
+        "chunking leaves no copy of the file in CHUNK_TEMP_DIR"
     if command -v jq >/dev/null 2>&1; then
         local count
         count=$(echo "$json" | jq 'length' 2>/dev/null || echo "0")
