@@ -899,8 +899,7 @@ _collect_round1_result() {
 # Stop Round 1 consultant <index> because the host asked to proceed. Not a
 # reliability failure: the consultant was still working.
 _stop_round1_consultant() {
-    local i="$1" elapsed="$2" name output_file pid
-    name="${NAMES[$i]}"
+    local i="$1" elapsed="$2" output_file pid
     output_file="${OUTPUT_FILES[$i]}"
     pid="${PIDS[$i]}"
     kill_process_tree "$pid"
@@ -910,6 +909,13 @@ _stop_round1_consultant() {
         _collect_round1_result "$i" 0
         return
     fi
+    _record_round1_stopped "$i" "$elapsed"
+}
+
+_record_round1_stopped() {
+    local i="$1" elapsed="$2" name output_file
+    name="${NAMES[$i]}"
+    output_file="${OUTPUT_FILES[$i]}"
     # Never let a partial envelope reach synthesis, voting or cost.
     rm -f "$output_file"
     log_warn "  $name: Stopped by the host after ${elapsed}s"
@@ -989,6 +995,13 @@ while [[ ${#PENDING[@]} -gt 0 ]]; do
         fi
         if wait "$pid" 2>/dev/null; then _rc=0; else _rc=$?; fi
         _untrack_child "$pid"
+        # A terminal Ctrl-C reaches the consultant CLIs and this script at
+        # once. One the interrupt ended can finish after this pass's host
+        # check: it was stopped, not failed. (The next pass stops the rest.)
+        if (( _rc != 0 )) && [[ "$_HOST_PROCEED" == "true" ]]; then
+            _record_round1_stopped "$i" "$(( $(date +%s) - WAIT_STARTED_AT ))"
+            continue
+        fi
         _collect_round1_result "$i" "$_rc"
     done
     PENDING=("${_still_running[@]+"${_still_running[@]}"}")
@@ -1352,7 +1365,7 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         jq -r '
             if ((.coverage // []) | length) > 0 then
                 .coverage[] |
-                "- **\(.kind // \"consideration\")**: \(.point) — raised by \((.raised_by // []) | join(\", \"))"
+                "- **\(.kind // "consideration")**: \(.point) — raised by \((.raised_by // []) | join(", "))"
             else
                 "- (coverage data unavailable; see individual responses)"
             end
