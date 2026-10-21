@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 5.3.1
+**Version**: 5.3.2
 
 ## Distribution
 
@@ -773,6 +773,19 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v5.3.2 (2026-10-21)
+
+- **Chunk copies of project files in the cache.** `chunk_file_semantically` (`scripts/lib/chunking.sh`) wrote the chunk array, which holds the file's code, to `CHUNK_TEMP_DIR/<session>_chunks.json` in both chunking paths. Nothing read it (grep: no consumer outside the writer) and nothing removed it. The maintainer's cache held 437 such files (19 MB) from May to October. Both writes, the now-unused `_CHUNK_SESSION_ID` and the source-time `mkdir`/`chmod` are removed. `CHUNK_TEMP_DIR` stays resolved in `config.sh`, because `test_user_config.sh` pins its XDG resolution and users may set it; it is documented as unused. The new assertion in `test_context_optimization.sh` Test 10 fails on the old code. Old copies are not deleted by the tool (no migration hook); the release note gives the `rm` command.
+- **Coverage Union outcomes.** `render_coverage_union` in `lib/coverage_integrity.sh` (now sourced by `consult_all.sh`) replaces the inline jq. It prints points, "the <strategy> strategy does not produce a coverage union", "the synthesis returned no coverage points", or the jq error (also via `log_warn`). It resolves the "Not done" item recorded under v5.3.1.
+- **jq compile-error guard.** `test_all.sh` copies `test_fixtures/jq_compile_guard.sh` to a temp dir as `jq` and puts it first on PATH. It captures only stderr via fd 3, so stdin, stdout and exit codes are unchanged. Records match `syntax error`, ` compile error` and `is not defined at <top-level>`; runtime errors are deliberately not recorded. Any record fails the gate. `AI_CONSULTANTS_TEST_NO_JQ_GUARD=1` opts out, and `test_jq_compile_guard.sh` covers the shim. Evidence:
+  - a first sweep of the full 34-suite gate through a diagnostic shim recorded 0 compile errors on the 5.3.1 tree;
+  - with 5.3.0's `consult_all.sh`, `test_synthesize` alone records 3;
+  - jq 1.7.1, downloaded from the jqlang release, rejects the 5.3.0 filter too, so the union never rendered on any jq version (the v5.3.1 entry blamed 1.8 only).
+
+  Cost: the local gate took about 23 min with the guard. The guard covers only exercised paths; it is not a static check.
+- **Housekeeping (maintainer machine, not shipped).** Merged and superseded branches deleted, PRs #29, #8 and #5 closed, the `sol61` worktree removed, `.env` backups gathered under `~/.config/ai-consultants/backups/`, and cache and consultations pruned. Inventory: workspace `_local/cleanup/2026-10-21/`.
+- Merged as PR #33 (`528f4e4`); release 5.3.2 bumps the version surfaces and adds `docs/releases/v5.3.2.md`.
 
 ### v5.3.1 (2026-10-21)
 

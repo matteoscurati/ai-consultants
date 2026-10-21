@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
-## [Unreleased]
+## [5.3.2] - 2026-10-21
 
 ### Fixed
 - The report's Coverage Union now says which of three things happened: the strategy makes no union (for example `majority`), the synthesis returned no points, or `synthesis.json` could not be read. The jq error is shown in the report and logged as a warning. Before, all three printed "coverage data unavailable", and a jq error was silenced.
@@ -17,6 +17,9 @@ For longer-form release notes (rationale, upgrade guides, performance numbers), 
 
 ### Testing
 - `npm test` now fails on any jq compile error during the run. `test_all.sh` puts a jq shim on PATH that records compile errors even when the caller discards stderr, the way the 5.3.0 Coverage Union bug hid. Runtime errors are not recorded. A sweep of the whole suite found no other compile error. Set `AI_CONSULTANTS_TEST_NO_JQ_GUARD=1` to run without it.
+
+### Verification
+- PR #33 CI (jq 1.7) and the 5.3.2 release gate passed 35/35 suites plus lint with the jq guard active. Each regression test fails on the previous code.
 
 ## [5.3.1] - 2026-10-21
 
