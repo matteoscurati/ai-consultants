@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [Unreleased]
+
+### Fixed
+- The report's Coverage Union now says which of three things happened: the strategy makes no union (for example `majority`), the synthesis returned no points, or `synthesis.json` could not be read. The jq error is shown in the report and logged as a warning. Before, all three printed "coverage data unavailable", and a jq error was silenced.
+
+### Privacy
+- Context chunking no longer leaves a copy of your files in `~/.cache/ai-consultants/chunks`. Every large file it chunked was saved there as JSON, the copy was never read and never removed, and it piled up across runs. Chunks now travel only in memory. `CHUNK_TEMP_DIR` is still accepted but unused. Existing copies are not deleted automatically: remove `~/.cache/ai-consultants/chunks` if you want them gone.
+
+### Testing
+- `npm test` now fails on any jq compile error during the run. `test_all.sh` puts a jq shim on PATH that records compile errors even when the caller discards stderr, the way the 5.3.0 Coverage Union bug hid. Runtime errors are not recorded. A sweep of the whole suite found no other compile error. Set `AI_CONSULTANTS_TEST_NO_JQ_GUARD=1` to run without it.
+
 ## [5.3.1] - 2026-10-21
 
 ### Fixed

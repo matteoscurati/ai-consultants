@@ -27,14 +27,11 @@ CHUNK_OVERLAP_LINES="${CHUNK_OVERLAP_LINES:-5}"
 # Priority keywords (comma-separated) for scoring chunks
 CHUNK_PRIORITY_KEYWORDS="${CHUNK_PRIORITY_KEYWORDS:-main,export,public,api,handler,controller}"
 
-# Temporary directory for chunk storage
+# CHUNK_TEMP_DIR is still accepted for configuration compatibility but nothing
+# is written there: chunks are returned on stdout only. Until 5.3.2 every call
+# also saved a copy of the chunked project file in that directory, which no
+# code ever read and nothing removed.
 CHUNK_TEMP_DIR="${CHUNK_TEMP_DIR:-${_AI_CONSULTANTS_XDG_CACHE:-/tmp/ai_consultants}/chunks}"
-
-# Initialize chunk storage directory with secure permissions
-if [[ ! -d "$CHUNK_TEMP_DIR" ]]; then
-    mkdir -p "$CHUNK_TEMP_DIR" 2>/dev/null || true
-fi
-chmod 700 "$CHUNK_TEMP_DIR" 2>/dev/null || true
 
 # =============================================================================
 # INTERNAL STATE (file-scoped, cleared between operations)
@@ -46,8 +43,6 @@ _CHUNK_CURRENT_FILE=""
 # Chunk counter for generating IDs
 _CHUNK_COUNTER=0
 
-# Session ID for current chunking operation
-_CHUNK_SESSION_ID=""
 
 # =============================================================================
 # LANGUAGE DETECTION
@@ -652,7 +647,6 @@ chunk_file_semantically() {
     # Initialize session
     _CHUNK_CURRENT_FILE="$file_path"
     _CHUNK_COUNTER=0
-    _CHUNK_SESSION_ID=$(date +%Y%m%d_%H%M%S)_$$
 
     local lang
     lang=$(_detect_language "$file_path")
@@ -755,11 +749,6 @@ chunk_file_semantically() {
             fi
         fi
     fi
-
-    # Save chunks to session file
-    local session_file="$CHUNK_TEMP_DIR/${_CHUNK_SESSION_ID}_chunks.json"
-    echo "$chunks" > "$session_file"
-    chmod 600 "$session_file" 2>/dev/null || true
 
     log_info "Created $_CHUNK_COUNTER chunks for: $file_path"
     echo "$chunks"
@@ -869,11 +858,6 @@ _chunk_by_tokens() {
 
         current_start=$((current_end + 1))
     done
-
-    # Save to session file
-    local session_file="$CHUNK_TEMP_DIR/${_CHUNK_SESSION_ID}_chunks.json"
-    echo "$chunks" > "$session_file"
-    chmod 600 "$session_file" 2>/dev/null || true
 
     log_info "Created $_CHUNK_COUNTER token-based chunks for: $file_path"
     echo "$chunks"

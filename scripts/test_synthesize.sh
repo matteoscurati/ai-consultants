@@ -276,6 +276,34 @@ EOF
         "report does not claim coverage data is missing when synthesis.json has it"
 }
 
+test_render_coverage_union_outcomes() {
+    local file="$TMP_ROOT/render-union.json" out
+    # shellcheck source=lib/coverage_integrity.sh
+    source "$SCRIPT_DIR/lib/coverage_integrity.sh"
+
+    printf '%s\n' '{"strategy":"coverage","coverage":[{"point":"Keys expire","raised_by":["Gemini","Codex"],"kind":"edge_case"}]}' > "$file"
+    assert_eq "- **edge_case**: Keys expire — raised by Gemini, Codex" "$(render_coverage_union "$file")" \
+        "a union point renders with its kind and the consultants that raised it"
+
+    printf '%s\n' '{"strategy":"majority","weighted_recommendation":{"summary":"s"}}' > "$file"
+    assert_contains "the majority strategy does not produce a coverage union" "$(render_coverage_union "$file")" \
+        "a strategy that makes no union says so"
+
+    printf '%s\n' '{"strategy":"coverage","coverage":[]}' > "$file"
+    assert_contains "the synthesis returned no coverage points" "$(render_coverage_union "$file")" \
+        "an empty union is reported as empty"
+
+    printf '%s' '{"strategy":' > "$file"
+    out=$(render_coverage_union "$file" 2>/dev/null)
+    assert_contains "Coverage Union could not be rendered from synthesis.json:" "$out" \
+        "an unreadable synthesis.json is reported, not shown as missing data"
+    assert_not_contains "returned no coverage points" "$out" "a jq failure is not presented as an empty union"
+
+    printf '%s\n' '{"strategy":"coverage","coverage":"not a list"}' > "$file"
+    assert_contains "Cannot iterate over string" "$(render_coverage_union "$file" 2>/dev/null)" \
+        "a malformed coverage field names the jq error"
+}
+
 test_synthesis_excludes_errors_and_keeps_fallback_detail() {
     local responses="$TMP_ROOT/responses" fake="$TMP_ROOT/claude"
     local prompt_file="$TMP_ROOT/prompt" output="$TMP_ROOT/synthesis.json"
@@ -761,6 +789,7 @@ run_test "Coverage integrity normalizes and audits local source IDs" test_covera
 run_test "Coverage integrity closes edge contracts" test_coverage_integrity_edge_contracts
 run_test "Report renders coverage integrity status" test_report_renders_coverage_integrity_status
 run_test "Report renders coverage union points" test_report_renders_coverage_union_points
+run_test "Coverage Union rendering names each outcome" test_render_coverage_union_outcomes
 run_test "Synthesis skips unready CLIs and uses bounded Codex" test_synthesis_skips_unready_clis_and_uses_bounded_codex
 run_test "Synthesis with no ready CLI uses local fallback" test_synthesis_with_no_ready_cli_uses_local_fallback
 run_test "Claude invoker never uses Claude for synthesis" test_claude_invoker_never_uses_claude_for_synthesis

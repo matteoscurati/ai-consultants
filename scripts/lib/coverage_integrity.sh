@@ -148,3 +148,32 @@ annotate_coverage_integrity() {
         return 1
     fi
 }
+
+# Print the report's Coverage Union lines for one synthesis.json. A strategy
+# that makes no union, a union with no points and a file jq cannot read are
+# different outcomes, and the report must say which one it was. A jq error is
+# shown, never silenced: a silenced one hid every union until 5.3.1.
+render_coverage_union() {
+    local synthesis_file="$1" lines err_file reason
+    err_file=$(mktemp "${TMPDIR:-/tmp}/coverage_union.XXXXXX")
+    if lines=$(jq -r '
+        (.coverage // []) as $coverage
+        | if ($coverage | length) > 0 then
+            $coverage[] | "- **\(.kind // "consideration")**: \(.point) — raised by \((.raised_by // []) | join(", "))"
+          elif (.strategy // "coverage") != "coverage" then
+            "- (the \(.strategy) strategy does not produce a coverage union; see the recommendation above and the individual responses)"
+          else
+            "- (the synthesis returned no coverage points; see the individual responses)"
+          end
+    ' "$synthesis_file" 2>"$err_file"); then
+        printf '%s\n' "$lines"
+    else
+        reason=$(head -n 1 "$err_file")
+        reason="${reason:-jq exited without a message}"
+        if declare -F log_warn >/dev/null; then
+            log_warn "Coverage Union could not be rendered from $synthesis_file: $reason"
+        fi
+        printf '%s\n' "- (Coverage Union could not be rendered from synthesis.json: $reason; see the individual responses)"
+    fi
+    rm -f "$err_file"
+}

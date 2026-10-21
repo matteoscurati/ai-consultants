@@ -532,7 +532,8 @@ CACHE_TTL_HOURS="${CACHE_TTL_HOURS:-24}"
 CACHE_DIR="${CACHE_DIR:-${_AI_CONSULTANTS_XDG_CACHE}/cache}"
 
 # --- Transient Workspaces (v2.13) ---
-# Both regenerable, default to XDG_CACHE_HOME alongside semantic cache.
+# Regenerable, under XDG_CACHE_HOME beside the semantic cache. CHUNK_TEMP_DIR
+# is accepted for compatibility only: since 5.3.2 nothing is written there.
 RATE_LIMIT_DIR="${RATE_LIMIT_DIR:-${_AI_CONSULTANTS_XDG_CACHE}/ratelimit}"
 CHUNK_TEMP_DIR="${CHUNK_TEMP_DIR:-${_AI_CONSULTANTS_XDG_CACHE}/chunks}"
 

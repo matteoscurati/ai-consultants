@@ -566,6 +566,8 @@ REPORT_MAX_JSON_LINES=50         # Max JSON lines in full report
 ```bash
 # Full regression suite (required before committing/releasing)
 npm test
+# (test_all.sh also fails on any jq compile error, even one a caller hides with
+# 2>/dev/null; see scripts/test_fixtures/jq_compile_guard.sh)
 
 # ShellCheck lint
 npm run lint

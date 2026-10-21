@@ -18,9 +18,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # config directory and drop every documented configuration key plus the
 # internal _AI_CONSULTANTS_* markers before any suite runs.
 # Set AI_CONSULTANTS_TEST_REAL_CONFIG=1 to run against the ambient config.
+_cleanup_dirs=()
+trap 'rm -rf "${_cleanup_dirs[@]+"${_cleanup_dirs[@]}"}"' EXIT
 if [[ "${AI_CONSULTANTS_TEST_REAL_CONFIG:-0}" != "1" ]]; then
     _hermetic_config_dir=$(mktemp -d "${TMPDIR:-/tmp}/ai-consultants-test-config.XXXXXX")
-    trap 'rm -rf "$_hermetic_config_dir"' EXIT
+    _cleanup_dirs+=("$_hermetic_config_dir")
     while IFS= read -r _key; do
         [[ "$_key" =~ ^[A-Z][A-Z0-9_]*$ ]] && unset "$_key"
     done < <(bash "$SCRIPT_DIR/configure.sh" --show-parameters 2>/dev/null)
@@ -29,6 +31,24 @@ if [[ "${AI_CONSULTANTS_TEST_REAL_CONFIG:-0}" != "1" ]]; then
     done < <(env)
     unset _key
     export AI_CONSULTANTS_CONFIG_DIR="$_hermetic_config_dir"
+fi
+
+# jq compile-error guard. Production code often runs jq with 2>/dev/null and a
+# fallback, so a filter that does not compile degrades silently instead of
+# failing (report.md never rendered the Coverage Union until 5.3.1). Every jq
+# call the suites make goes through test_fixtures/jq_compile_guard.sh, which
+# records compile errors even when stderr is discarded; any record fails the
+# gate below. Set AI_CONSULTANTS_TEST_NO_JQ_GUARD=1 to run without it.
+_jq_guard_log=""
+if [[ "${AI_CONSULTANTS_TEST_NO_JQ_GUARD:-0}" != "1" ]] && _jq_real=$(command -v jq); then
+    _jq_guard_dir=$(mktemp -d "${TMPDIR:-/tmp}/ai-consultants-jq-guard.XXXXXX")
+    _cleanup_dirs+=("$_jq_guard_dir")
+    cp "$SCRIPT_DIR/test_fixtures/jq_compile_guard.sh" "$_jq_guard_dir/jq"
+    chmod +x "$_jq_guard_dir/jq"
+    _jq_guard_log="$_jq_guard_dir/compile-errors.log"
+    : > "$_jq_guard_log"
+    export JQ_GUARD_REAL="$_jq_real" JQ_GUARD_LOG="$_jq_guard_log"
+    export PATH="$_jq_guard_dir:$PATH"
 fi
 
 C_RESET="\033[0m"
@@ -70,6 +90,12 @@ done
 
 echo -e "${C_BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 echo -e "Suites passed: ${C_GREEN}$total_pass${C_RESET} / ${#suites[@]}"
+if [[ -n "$_jq_guard_log" && -s "$_jq_guard_log" ]]; then
+    echo -e "${C_RED}jq compile errors during the run${C_RESET} (each is a filter that cannot work; callers that silence stderr hide it):"
+    cat "$_jq_guard_log"
+    failed_suites+=("jq compile-error guard")
+    ((total_fail++)) || true
+fi
 if (( total_fail > 0 )); then
     echo -e "Suites failed: ${C_RED}$total_fail${C_RESET}"
     for s in "${failed_suites[@]}"; do

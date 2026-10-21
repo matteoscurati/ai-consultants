@@ -226,6 +226,7 @@ source "$SCRIPT_DIR/lib/costs.sh"
 source "$SCRIPT_DIR/lib/reliability.sh"
 source "$SCRIPT_DIR/lib/routing.sh"
 source "$SCRIPT_DIR/lib/cache.sh"
+source "$SCRIPT_DIR/lib/coverage_integrity.sh"
 
 # Resolve query source. With --query-file, every positional argument is a
 # context file; reject non-files so an accidental inline query cannot be
@@ -1362,14 +1363,7 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         echo "### Coverage Union"
         echo ""
 
-        jq -r '
-            if ((.coverage // []) | length) > 0 then
-                .coverage[] |
-                "- **\(.kind // "consideration")**: \(.point) — raised by \((.raised_by // []) | join(", "))"
-            else
-                "- (coverage data unavailable; see individual responses)"
-            end
-        ' "$SYNTHESIS_FILE" 2>/dev/null || echo "- (coverage data unavailable; see individual responses)"
+        render_coverage_union "$SYNTHESIS_FILE"
 
         echo ""
 
