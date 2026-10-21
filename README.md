@@ -36,9 +36,9 @@
 
 ## Why AI Consultants?
 
-A single model gives you a single guess — and it misses whatever falls in its blind spots. AI Consultants fans your question out to a **panel of models from different vendors** and returns the **union of their distinct answers**: the point one model raised and the others didn't is exactly the value.
+A single model gives you one perspective. AI Consultants sends your question to a **panel of models from different vendors**, each answering once on its own, and returns the **union of their distinct points**, each tagged with the models that raised it. A point only one model raised stays in the list instead of being voted out.
 
-- **Cross-vendor diversity → coverage** — different model families have different blind spots, so the union covers what any one misses. On open-ended questions ("what could go wrong with this design?", "enumerate the risks") a diverse panel covers materially more of the answer space than one strong model — or than sampling one model repeatedly.
+- **Cross-vendor diversity → breadth** — different model families often raise different points. In a small internal test with three open-ended tasks ("what could go wrong with this design?", "enumerate the risks"), the merged list covered more items on a reference checklist than one strong model alone, or one model sampled several times. That is a direction, not a benchmark: there is no evidence that a panel is more *accurate* than one strong model, and models agreeing is not proof.
 - **Parallel fan-out** — every consultant runs at once; no serial deliberation rounds.
 - **Coverage synthesis** — the default synthesis is the deduplicated *union* of every distinct point, not a single voted winner (use `--strategy compare_only` for a side-by-side, or `majority` for a blended recommendation).
 - **10 supported consultants** with distinct personas (Architect, Pragmatist, Devil's Advocate, …) — the personas deliberately decorrelate the panel.

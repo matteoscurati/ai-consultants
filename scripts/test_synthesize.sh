@@ -245,6 +245,37 @@ EOF
         "report renders the affected consultant list"
 }
 
+test_report_renders_coverage_union_points() {
+    local run_out output_dir report union_cli="$TMP_ROOT/union-report-cli"
+    cat > "$union_cli" <<'EOF'
+#!/bin/bash
+if [[ "${1:-}" == "--help" ]]; then printf '%s\n' '--print --model --output-format --no-session-persistence --setting-sources --tools --strict-mcp-config --mcp-config --permission-mode --prompt --output --agent --workdir --max-turns' '  auth status' 'builtin: default, plan' 'VIBE_*'; exit 0; fi
+if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then printf '%s\n' '{"loggedIn":true}'; exit 0; fi
+for arg in "$@"; do
+  if [[ "$arg" == "--output-format" || "$arg" == "--output" ]]; then
+    printf '%s\n' '{"consultant":"Union","model":"m","response":{"summary":"Retries need idempotency keys","detailed":"detail","approach":"structured","pros":[],"cons":[]},"confidence":{"score":8,"reasoning":"ok"},"metadata":{"response_quality":"structured"}}'
+    exit 0
+  fi
+done
+cat >/dev/null
+printf '%s\n' '{"coverage":[{"point":"Retries need idempotency keys","raised_by":["Claude","Mistral"],"source_ids":["claude:1","mistral:1"],"kind":"risk"}],"weighted_recommendation":{"summary":"ok","approach":"keyed retries"}}'
+EOF
+    chmod +x "$union_cli"
+    run_out=$(HOME="$TMP_ROOT/union-report-home" XDG_CACHE_HOME="$TMP_ROOT/union-report-cache" \
+        XDG_STATE_HOME="$TMP_ROOT/union-report-state" XDG_DATA_HOME="$TMP_ROOT/union-report-data" \
+        INVOKING_AGENT=none ENABLE_CLAUDE=true ENABLE_CODEX=false ENABLE_GEMINI=false ENABLE_MISTRAL=true \
+        ENABLE_KIMI=false ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false \
+        CLAUDE_CMD="$union_cli" MISTRAL_CMD="$union_cli" ENABLE_SEMANTIC_CACHE=false ENABLE_SYNTHESIS=true \
+        ENABLE_SMART_ROUTING=false ENABLE_HEALTH_GATE=false SYNTHESIS_CMD=claude \
+        "$SCRIPT_DIR/consult_all.sh" "Render the coverage union" 2>/dev/null)
+    output_dir=$(printf '%s\n' "$run_out" | tail -n 1)
+    report="$output_dir/report.md"
+    assert_contains "- **risk**: Retries need idempotency keys — raised by Claude, Mistral" "$(cat "$report" 2>/dev/null)" \
+        "report lists each coverage union point with the consultants that raised it"
+    assert_not_contains "coverage data unavailable" "$(cat "$report" 2>/dev/null)" \
+        "report does not claim coverage data is missing when synthesis.json has it"
+}
+
 test_synthesis_excludes_errors_and_keeps_fallback_detail() {
     local responses="$TMP_ROOT/responses" fake="$TMP_ROOT/claude"
     local prompt_file="$TMP_ROOT/prompt" output="$TMP_ROOT/synthesis.json"
@@ -729,6 +760,7 @@ run_test "Synthesis artifacts conform to the schema" test_synthesis_artifacts_co
 run_test "Coverage integrity normalizes and audits local source IDs" test_coverage_integrity_normalizes_and_enforces_source_ids
 run_test "Coverage integrity closes edge contracts" test_coverage_integrity_edge_contracts
 run_test "Report renders coverage integrity status" test_report_renders_coverage_integrity_status
+run_test "Report renders coverage union points" test_report_renders_coverage_union_points
 run_test "Synthesis skips unready CLIs and uses bounded Codex" test_synthesis_skips_unready_clis_and_uses_bounded_codex
 run_test "Synthesis with no ready CLI uses local fallback" test_synthesis_with_no_ready_cli_uses_local_fallback
 run_test "Claude invoker never uses Claude for synthesis" test_claude_invoker_never_uses_claude_for_synthesis

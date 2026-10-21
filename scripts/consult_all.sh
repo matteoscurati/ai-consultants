@@ -1352,7 +1352,7 @@ REPORT_FILE="$OUTPUT_DIR/report.md"
         jq -r '
             if ((.coverage // []) | length) > 0 then
                 .coverage[] |
-                "- **\(.kind // \"consideration\")**: \(.point) — raised by \((.raised_by // []) | join(\", \"))"
+                "- **\(.kind // "consideration")**: \(.point) — raised by \((.raised_by // []) | join(", "))"
             else
                 "- (coverage data unavailable; see individual responses)"
             end
