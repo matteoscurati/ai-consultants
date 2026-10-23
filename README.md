@@ -403,7 +403,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Google Gemini** | `agy` | The Architect | Design patterns, scalability, enterprise |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, quick wins, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Problems, edge cases, vulnerabilities |
-| **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
+| **Kimi K3.1 Pro** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis, connecting ideas |
 | **Qwen3** | `qwen` | The Analyst | Data-driven analysis |
 | **Grok** | `grok` | The Provocateur | Challenge conventions |
@@ -449,18 +449,19 @@ npm install -g @openai/codex           # Codex
 pip install mistral-vibe               # Mistral
 
 # Optional CLI-based consultants
-curl -L code.kimi.com/install.sh | bash            # Kimi K3
+curl -L code.kimi.com/install.sh | bash            # Kimi K3.1 Pro
 npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
 curl -fsSL https://x.ai/cli/install.sh | bash # Grok Build (grok-4.7)
 npm install -g mmx-cli                       # MiniMax
 
 ```
 
-Kimi is pinned to K3 for every consultation, even if the user's Kimi CLI has a
-different default model:
+Kimi is pinned to K3.1 Pro at max thinking effort for every consultation, even
+if the user's Kimi CLI has a different default model or effort
+(`KIMI_REASONING_EFFORT` reaches the CLI as `KIMI_MODEL_THINKING_EFFORT`):
 
 ```bash
-KIMI_MODEL=kimi-code/k3 ai-consultants \
+KIMI_MODEL=kimi-code/k3.1-pro ai-consultants \
   "Review this API design from a holistic perspective"
 ```
 
@@ -519,7 +520,7 @@ and cannot support a comprehensive coverage claim.
 | GLM | glm-5.3 | glm-5.3-flash | glm-5.3-flash | glm-4-flash |
 | Grok | grok-4.7 | grok-4.7 | grok-4.5 | grok-4.5 |
 | Qwen3 | qwen3.8-max | qwen3.8-max | qwen3.8-flash | qwen3.8-flash |
-| Kimi | kimi-code/k3-256k | kimi-code/k3 | kimi-code/k3 | kimi-code/k3 |
+| Kimi | kimi-code/k3.1-pro | kimi-code/k3.1-pro | kimi-code/k3.1-pro | kimi-code/k3.1-pro |
 | MiniMax | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash |
 
 MiniMax-M3.1-Flash (released 2026-10-19, $0.15/$0.60 per 1M tokens) serves every
@@ -675,7 +676,8 @@ DEFAULT_PRESET=balanced      # minimal | balanced | thorough | high-stakes | fas
 DEFAULT_STRATEGY=coverage    # coverage | compare_only | majority | risk_averse | security_first | cost_capped
 ENABLE_SMART_ROUTING=true    # Auto-select consultants by question category
 MAX_SESSION_COST=1.00        # USD budget cap (paired with ENABLE_BUDGET_LIMIT=true to enforce)
-KIMI_MODEL=kimi-code/k3      # Pin the Kimi consultant to K3
+KIMI_MODEL=kimi-code/k3.1-pro # Pin the Kimi consultant to K3.1 Pro
+KIMI_REASONING_EFFORT=max    # Kimi thinking effort (empty = the Kimi CLI's own)
 CLAUDE_API_MAX_TOKENS=16384  # Shared thinking + visible-output budget in API mode
 MISTRAL_CLI_MODEL=mistral-medium-3.5 # Vibe alias; MISTRAL_MODEL remains API-only
 GEMINI_MODEL="Gemini 4 Argon (High)" # agy CLI; API uses GEMINI_API_MODEL

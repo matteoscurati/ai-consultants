@@ -781,7 +781,7 @@ test_response_tokens() {
     # The CLI-mode effort warning must not abort its caller under `set -e`
     # (an &&-list that short-circuits returns non-zero: the v2.22.0 shape).
     assert_exit_code_success "effort warning is set -e safe in CLI mode" \
-        bash -c "set -euo pipefail; source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; KIMI_REASONING_EFFORT=high warn_effort_ignored_in_cli Kimi 2>/dev/null; echo ok >/dev/null"
+        bash -c "set -euo pipefail; source '$SCRIPT_DIR/lib/common.sh' >/dev/null 2>&1; MISTRAL_USE_API=false MISTRAL_REASONING_EFFORT=high warn_effort_ignored_in_cli Mistral 2>/dev/null; echo ok >/dev/null"
 
     local saved="${COST_RATES_FILE:-}"
     COST_RATES_FILE="$SCRIPT_DIR/../docs/cost_rates.json"
@@ -875,6 +875,7 @@ test_unpriced_models() {
     assert_equals "0" "$(get_output_cost_per_1k qwen3.8-max)" "3.8 max output is 0, not the default rate"
     assert_equals "0" "$(get_input_cost_per_1k glm-5.3-flash)" "GLM 5.3 Flash coding-plan transport is unpriced"
     assert_equals "0" "$(get_output_cost_per_1k kimi-code/k3-256k)" "K3-256k subscription transport is unpriced"
+    assert_equals "0" "$(get_output_cost_per_1k kimi-code/k3.1-pro)" "K3.1 Pro subscription transport is unpriced"
 
     # The catalogued priced model must be untouched by this change.
     assert_equals "0.0012" "$(get_input_cost_per_1k qwen3.7-max)" "qwen3.7-max input unchanged"
@@ -890,10 +891,11 @@ test_unpriced_models() {
     else
         assert_equals "no" "no"   "qwen3.7-max is NOT flagged unpriced"
     fi
-    if is_unpriced_model "glm-5.3-flash" && is_unpriced_model "glm-5.3" && is_unpriced_model "kimi-code/k3-256k"; then
-        assert_equals yes yes "GLM 5.3 Flash, legacy GLM 5.3, and K3-256k are explicitly unpriced"
+    if is_unpriced_model "glm-5.3-flash" && is_unpriced_model "glm-5.3" && is_unpriced_model "kimi-code/k3-256k" \
+        && is_unpriced_model "kimi-code/k3.1-pro"; then
+        assert_equals yes yes "GLM 5.3 Flash, legacy GLM 5.3, K3-256k and K3.1 Pro are explicitly unpriced"
     else
-        assert_equals yes no "GLM 5.3 Flash, legacy GLM 5.3, and K3-256k are explicitly unpriced"
+        assert_equals yes no "GLM 5.3 Flash, legacy GLM 5.3, K3-256k and K3.1 Pro are explicitly unpriced"
     fi
 
     # The disclosure must reflect the responses on disk. It deliberately
@@ -1459,9 +1461,9 @@ test_model_for_tier() {
     assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "economy" api)" "Mistral API economy is Large 4"
     assert_equals "MiniMax-M3.1-Flash"     "$(get_model_for_tier "minimax" "premium")" "minimax premium is MiniMax-M3.1-Flash"
     assert_equals "MiniMax-M3.1-Flash"     "$(get_model_for_tier "minimax" "economy")" "minimax economy is MiniMax-M3.1-Flash"
-    assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "premium")"    "kimi premium is K3"
-    assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "standard")"   "kimi standard is K3"
-    assert_equals "kimi-code/k3"           "$(get_model_for_tier "kimi" "economy")"    "kimi economy is K3"
+    assert_equals "kimi-code/k3.1-pro"     "$(get_model_for_tier "kimi" "premium")"    "kimi premium is K3.1 Pro"
+    assert_equals "kimi-code/k3.1-pro"     "$(get_model_for_tier "kimi" "standard")"   "kimi standard is K3.1 Pro"
+    assert_equals "kimi-code/k3.1-pro"     "$(get_model_for_tier "kimi" "economy")"    "kimi economy is K3.1 Pro"
     # Codex / Gemini tier refresh (Aug 2026)
     assert_equals "gpt-6.1-sol"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-6.1-sol"
     assert_equals "gpt-6-astra"           "$(get_model_for_tier "codex" "maximum")"    "codex maximum stays gpt-6-astra"
@@ -1484,7 +1486,7 @@ test_model_for_tier() {
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3-flash"
     assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.5"
     assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "maximum")"    "Claude maximum is Fable 5.1"
-    assert_equals "kimi-code/k3-256k"     "$(get_model_for_tier "kimi" "maximum")"      "maximum tier confines K3-256k"
+    assert_equals "kimi-code/k3.1-pro"    "$(get_model_for_tier "kimi" "maximum")"      "maximum tier uses Kimi K3.1 Pro"
     assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "maximum")"     "maximum catalog includes Qwen3.8-Max"
     assert_equals "MiniMax-M3.1-Flash"    "$(get_model_for_tier "minimax" "maximum")"   "maximum tier uses MiniMax-M3.1-Flash"
 

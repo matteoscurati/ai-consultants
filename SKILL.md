@@ -96,7 +96,7 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 | **Google Gemini** | `agy` | The Architect | Design patterns, scalability |
 | **OpenAI Codex** | `codex` | The Pragmatist | Simplicity, proven solutions |
 | **Mistral Vibe** | `vibe` | The Devil's Advocate | Edge cases, vulnerabilities |
-| **Kimi K3** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
+| **Kimi K3.1 Pro** | `kimi` | The Eastern Sage | Holistic, balanced perspectives |
 | **Claude** | `claude` | The Synthesizer | Big picture, synthesis |
 | **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
 | **Grok** | `grok` | The Provocateur | Challenge conventions |
@@ -120,7 +120,7 @@ model, and structured-output surface. Compatible version changes are accepted;
 the observed version is recorded only as response provenance.
 
 The `max_quality` preset enables all 10 consultants. It uses the separately
-smoke-tested K3-256k target, MiniMax-M3.1-Flash (every MiniMax tier), GLM-5.3 (the flagship; Flash serves
+Kimi K3.1 Pro at max thinking effort (every Kimi tier), MiniMax-M3.1-Flash (every MiniMax tier), GLM-5.3 (the flagship; Flash serves
 premium/standard) and Qwen3.8-Max (also the Qwen default; Flash serves
 standard/economy). Gemini 4 Argon (High) is the `agy` target for the default
 and maximum tiers (`gemini-4-argon` on the API); one authorized `agy` smoke passed on

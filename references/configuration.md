@@ -264,7 +264,8 @@ MISTRAL_MODEL=mistral-large-4
 MISTRAL_CLI_MODEL=mistral-medium-3.5
 MISTRAL_MAX_TURNS=4
 MISTRAL_API_MAX_TOKENS=16384  # API only: Large 4 thinking + visible output
-KIMI_MODEL=kimi-code/k3
+KIMI_MODEL=kimi-code/k3.1-pro
+KIMI_REASONING_EFFORT=max   # passed as KIMI_MODEL_THINKING_EFFORT; empty = CLI default
 QWEN3_MODEL=qwen3.8-max     # standard/economy tiers use qwen3.8-flash
 QWEN3_MAX_QUALITY_TIMEOUT=0  # 0 = no limit
 QWEN3_API_MAX_TOKENS=16384
@@ -349,8 +350,12 @@ their proven 16,384-token budgets. OpenAI-compatible responses ending with
 answers. Claude CLI mode is preflighted and dispatched without session
 persistence, ambient setting sources, tools, or MCP servers.
 
-`KIMI_MODEL` is passed directly to `kimi --model`, so `kimi-code/k3` overrides
-any older default stored in the user's Kimi CLI configuration. Kimi CLI
+`KIMI_MODEL` is passed directly to `kimi --model`, so `kimi-code/k3.1-pro` overrides
+any older default stored in the user's Kimi CLI configuration. The Kimi CLI has
+no effort flag: `KIMI_REASONING_EFFORT` (default `max`) is validated like the
+other efforts and exported to the CLI as `KIMI_MODEL_THINKING_EFFORT`, its
+documented override of `[thinking] effort` in `~/.kimi-code/config.toml`. Set
+it to an empty value to leave the CLI's own effort in place. Kimi CLI
 compatibility is also capability-probed: prompt mode, `stream-json`, provider
 inventory, and the requested model must be present. No numeric CLI version is
 used as a gate.

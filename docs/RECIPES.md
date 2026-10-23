@@ -132,7 +132,7 @@ MISTRAL_USE_API=false
 QWEN3_USE_API=false
 MINIMAX_USE_API=false
 GROK_USE_API=false
-KIMI_MODEL=kimi-code/k3
+KIMI_MODEL=kimi-code/k3.1-pro
 
 ENABLE_GLM=false
 ENABLE_DEEPSEEK=false
@@ -142,7 +142,7 @@ ENABLE_DEEPSEEK=false
 ai-consultants doctor --live
 ```
 
-`KIMI_MODEL` is passed to the Kimi CLI with `--model`, so this recipe uses K3
+`KIMI_MODEL` is passed to the Kimi CLI with `--model`, so this recipe uses K3.1 Pro
 even when the Kimi CLI's own configuration (`~/.kimi-code/config.toml`) still
 names an older default model.
 

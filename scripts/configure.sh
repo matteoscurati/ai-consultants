@@ -436,6 +436,17 @@ if [[ $migrated_budgets -gt 0 ]]; then
 fi
 unset migrated_budgets budget_spec budget_key budget_old budget_new
 
+# kimi-code/k3 (through 5.3.x, copied from .env.example) and the max_quality
+# kimi-code/k3-256k target give way to K3.1 Pro in every tier. Pins are kept.
+case "$(read_value "$WORK_FILE" KIMI_MODEL 2>/dev/null || true)" in
+    kimi-code/k3|kimi-code/k3-256k)
+        if ! has_value_marker "$WORK_FILE" KIMI_MODEL "$PIN_MARKER"; then
+            set_value KIMI_MODEL "kimi-code/k3.1-pro $DEFAULT_MARKER"
+            echo "Migrated managed Kimi default to kimi-code/k3.1-pro" >&2
+        fi
+        ;;
+esac
+
 # Refresh only exact unpinned historical DeepSeek defaults. Environment and
 # --set selections carry pin markers and remain user-owned.
 case "$(read_value "$WORK_FILE" DEEPSEEK_MODEL 2>/dev/null || true)" in
