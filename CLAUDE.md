@@ -6,7 +6,7 @@ AI Consultants is a multi-model coverage system that queries up to 10 AI consult
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
-**Version**: 5.3.2
+**Version**: 5.4.0
 
 ## Distribution
 
@@ -775,6 +775,15 @@ curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/s
 - **No internal jargon**: Avoid referencing issue tracker IDs or internal codenames without context.
 
 ## Changelog
+
+### v5.4.0 (2026-10-23)
+
+- **Kimi K3.1 Pro in every tier** (user decision, 2026-10-23, "every tier"; the user's plan is Kimi Code Plus). `KIMI_MODEL` and all four `get_model_for_tier` branches (`scripts/config.sh:328`, `:661-706`) resolve to `kimi-code/k3.1-pro`, replacing `kimi-code/k3` and the `max_quality`-only `kimi-code/k3-256k`. The alias was read from the Kimi CLI's own model list after a `/login` refresh (`~/.kimi-code/config.toml`: `model = "k3.1-pro"`, 1,048,576 context, efforts low/high/max, default max), not from articles. That matters more than usual: per the launch coverage an unknown alias does not error, it falls back to K2.8 Preview with thinking disabled. The capability probe (`query_kimi.sh`, `provider list --json`) still rejects an alias the account cannot see. The catalog's 1M context is what this Plus account was given; the 256k variant has no K3.1 counterpart, so `max_quality` no longer needs a separate target.
+- **Thinking effort is now enforced for Kimi.** The CLI has no effort flag, so `query_kimi.sh` used to call `warn_effort_ignored_in_cli`. Kimi Code documents `KIMI_MODEL_THINKING_EFFORT` ("Force a thinking effort (`thinking.effort`), bypassing the model's declared `support_efforts`; `kimi` provider only"; also visible in the 2.3.1 binary as `forcedEffort`). `KIMI_REASONING_EFFORT` (default `max`, `config.sh:329`) goes through the shared `validate_reasoning_effort` and is exported only inside the dispatch subshell. `${KIMI_REASONING_EFFORT-max}` (no colon) is deliberate: unset means max, an explicitly empty value keeps the CLI's own `[thinking]` setting, which is the escape hatch for a pinned alias that declares no efforts (such as `kimi-for-coding-highspeed`). An invalid value exits 1 before dispatch and writes no envelope, the same as the capability-probe failure above it. No local allowlist (same stance as Claude/Gemini): the provider rejects what the model does not accept. `cache_identity` already keys on `${AGENT}_REASONING_EFFORT`, so effort is part of the fingerprint without changes.
+- **Tests.** `test_query_kimi.sh` Test 6 has the stub record `KIMI_MODEL_THINKING_EFFORT` from its environment: default max, explicit `HIGH` normalized to `high`, empty leaves it unset, invalid never dispatches. Run against the 5.3.2 `query_kimi.sh` and `config.sh`, three of its assertions fail. Two tests used Kimi as the example of "a CLI without effort control" (`test_query_codex.sh`, `test_suite.sh`); they now use Mistral (Vibe), which still has none. `test_configure.sh` covers the migration, provenance, pin and a non-default alias.
+- **Migration.** `configure` rewrites unpinned `kimi-code/k3`/`kimi-code/k3-256k` (`scripts/configure.sh`, after the MiniMax block). `configure` never generated `KIMI_MODEL`; the value arrives through `init` copying `.env.example`, which is exactly how the maintainer's own config held an unmarked `kimi-code/k3`. Same shape as the v3.4.0 Codex fix. A first `test_configure.sh` run reported 1/208 failing because it started before `.env.example` was updated (other tests copied the old K3 template); the full gate on the final tree passed 208/208.
+- **Cost.** `kimi-code/k3.1-pro` is in `models` at 0/0 and in `unpriced_models`. No official K3.1 Pro rate exists yet, and published K3 rates disagree with this catalog's K3 entry ($3/$15 per 1M on the Moonshot API in several write-ups vs our $0.50/$2), so inventing one was rejected. Worth revisiting the K3 entry separately.
+- Evidence: one authorized `query_kimi.sh` smoke (2026-10-23, `MAX_RETRIES=1`, cache off): structured, confidence 10, ~13.5 s, tokens estimated, identity capability-probed; the Kimi session's `state.json`/`wire.jsonl` record `modelAlias: kimi-code/k3.1-pro`, `thinkingEffort: max`. Receipts in the workspace `_local/releases/v5.4.0/`. Merged as PR #34; release 5.4.0 bumps the version surfaces and adds `docs/releases/v5.4.0.md`.
 
 ### v5.3.2 (2026-10-21)
 

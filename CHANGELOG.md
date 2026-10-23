@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [5.4.0] - 2026-10-23
+
+### Changed
+- **Kimi K3.1 Pro** (released 2026-10-23) serves every Kimi tier, including `max_quality` (previously `kimi-code/k3` for premium/standard/economy and `kimi-code/k3-256k` for maximum). The alias is `kimi-code/k3.1-pro`, with a 1M-token context; it needs a Kimi Code Plus plan or higher. If the Kimi CLI does not list it yet, run `kimi` once and `/login` to refresh the model list.
+- `configure` migrates unpinned `kimi-code/k3` (the value `.env.example` has shipped since 2.21.1) and `kimi-code/k3-256k`; pinned values and other aliases are kept.
+
+### Added
+- `KIMI_REASONING_EFFORT` (default `max`) sets Kimi's thinking effort. The Kimi CLI has no effort flag, so the value is validated like the other efforts and passed as `KIMI_MODEL_THINKING_EFFORT`, the CLI's documented override of `[thinking] effort` in `~/.kimi-code/config.toml`. Every consultation therefore runs at max regardless of the user's Kimi settings. An empty value keeps the CLI's own effort; an invalid one fails before any request.
+
+### Costs
+- K3.1 Pro is catalogued as explicitly unpriced: Moonshot has published no rate. Reports disclose it instead of presenting it as free. K3 rates stay for pinned models and past responses.
+
+### Verification
+- One authorized live Kimi smoke (2026-10-23, no retry) returned a structured answer with The Eastern Sage persona and confidence 10 in about 13.5 s; Kimi's own session state recorded model `k3.1-pro` and thinking effort `max`. PR #34 CI and the release gate passed 35/35 suites plus lint. The new tests fail on the previous code.
+
 ## [5.3.2] - 2026-10-21
 
 ### Fixed
