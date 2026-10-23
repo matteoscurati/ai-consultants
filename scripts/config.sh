@@ -321,7 +321,12 @@ export MINIMAX_USE_API
 # KIMI CONFIGURATION - The Eastern Sage (v2.9)
 # =============================================================================
 
-KIMI_MODEL="${KIMI_MODEL:-kimi-code/k3}"
+# Kimi K3.1 Pro (2026-10-23) serves every tier: one 1M-context alias, thinking
+# always on. The CLI has no effort flag, so KIMI_REASONING_EFFORT reaches it as
+# KIMI_MODEL_THINKING_EFFORT, which overrides the user's [thinking] setting.
+# Unset means max; an explicitly empty value leaves the CLI's own effort.
+KIMI_MODEL="${KIMI_MODEL:-kimi-code/k3.1-pro}"
+KIMI_REASONING_EFFORT="${KIMI_REASONING_EFFORT-max}"
 KIMI_TIMEOUT_SECONDS="${KIMI_TIMEOUT:-0}"
 KIMI_CMD="${KIMI_CMD:-kimi}"
 # CLI installation: curl -L code.kimi.com/install.sh | bash
@@ -653,7 +658,7 @@ get_model_for_tier() {
                 glm)      echo "glm-5.3" ;;  # flagship; Flash serves premium/standard
                 grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-max" ;;
-                kimi)     echo "kimi-code/k3-256k" ;;
+                kimi)     echo "kimi-code/k3.1-pro" ;;
                 minimax)  echo "MiniMax-M3.1-Flash" ;;
                 *)        echo "" ;;
             esac
@@ -668,7 +673,7 @@ get_model_for_tier() {
                 glm)      echo "glm-5.3-flash" ;;
                 grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-max" ;;
-                kimi)     echo "kimi-code/k3" ;;
+                kimi)     echo "kimi-code/k3.1-pro" ;;
                 minimax)  echo "MiniMax-M3.1-Flash" ;;
                 *)        echo "" ;;
             esac
@@ -683,7 +688,7 @@ get_model_for_tier() {
                 glm)      echo "glm-5.3-flash" ;;  # Same as premium (no mid-tier GLM)
                 grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3.8-flash" ;;
-                kimi)     echo "kimi-code/k3" ;;
+                kimi)     echo "kimi-code/k3.1-pro" ;;
                 minimax)  echo "MiniMax-M3.1-Flash" ;;
                 *)        echo "" ;;
             esac
@@ -698,7 +703,7 @@ get_model_for_tier() {
                 glm)      echo "glm-4-flash" ;;
                 grok)     echo "grok-4.5" ;;
                 qwen3)    echo "qwen3.8-flash" ;;
-                kimi)     echo "kimi-code/k3" ;;
+                kimi)     echo "kimi-code/k3.1-pro" ;;
                 minimax)  echo "MiniMax-M3.1-Flash" ;;
                 *)        echo "" ;;
             esac

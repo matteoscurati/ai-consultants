@@ -497,6 +497,27 @@ test_minimax_m31_flash_migration() {
     assert_eq 8192 "$(read_env "$cfg/.env" MINIMAX_MAX_TOKENS)" "a custom MiniMax budget is kept"
 }
 
+test_kimi_k31_pro_migration() {
+    local cfg="$TMP/kimi-k31-pro"
+    mkdir -p "$cfg"
+    printf '%s\n' 'KIMI_MODEL=kimi-code/k3' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq kimi-code/k3.1-pro "$(read_env "$cfg/.env" KIMI_MODEL)" "the K3 value copied from .env.example migrates to K3.1 Pro"
+    assert_contains "$(grep '^KIMI_MODEL=' "$cfg/.env")" "# ai-consultants:default" "Kimi migration records managed provenance"
+
+    printf '%s\n' 'KIMI_MODEL=kimi-code/k3-256k' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq kimi-code/k3.1-pro "$(read_env "$cfg/.env" KIMI_MODEL)" "the former max_quality K3-256k target migrates too"
+
+    printf '%s\n' 'KIMI_MODEL=kimi-code/k3 # ai-consultants:pin' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq kimi-code/k3 "$(read_env "$cfg/.env" KIMI_MODEL)" "a pinned Kimi model survives"
+
+    printf '%s\n' 'KIMI_MODEL=kimi-code/kimi-for-coding' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq kimi-code/kimi-for-coding "$(read_env "$cfg/.env" KIMI_MODEL)" "a non-default Kimi alias is not force-upgraded"
+}
+
 test_catalog_default_migrations_and_pins() {
     local cfg="$TMP/catalog-default-migrations"
     mkdir -p "$cfg"
@@ -730,5 +751,6 @@ run_test "Grok 4.7 migration and Opus 5.5 selection" test_grok47_migration_and_o
 
 run_test "Gemini 3.8 migration" test_gemini38_migration
 run_test "MiniMax M3.1 Flash migration" test_minimax_m31_flash_migration
+run_test "Kimi K3.1 Pro migration" test_kimi_k31_pro_migration
 
 test_summary "configure"

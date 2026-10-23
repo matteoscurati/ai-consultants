@@ -328,7 +328,7 @@ Get API key: [Alibaba Cloud DashScope](https://dashscope.console.aliyun.com/)
 
 **CLI/API Mode**: Qwen3 defaults to CLI mode (`QWEN3_USE_API=false`). Set to `true` to use the DashScope API.
 
-### Kimi K3 via Kimi Code CLI (The Eastern Sage) - v2.21.1
+### Kimi K3.1 Pro via Kimi Code CLI (The Eastern Sage) - v5.4
 
 ```bash
 curl -L code.kimi.com/install.sh | bash
@@ -336,16 +336,19 @@ curl -L code.kimi.com/install.sh | bash
 
 Verify: `kimi --version`
 
-AI Consultants pins K3 for every consultation, independently of the model in
-your user-level Kimi configuration:
+AI Consultants pins K3.1 Pro at max thinking effort for every consultation,
+independently of the model and effort in your user-level Kimi configuration:
 
 ```bash
-export KIMI_MODEL=kimi-code/k3
+export KIMI_MODEL=kimi-code/k3.1-pro
+export KIMI_REASONING_EFFORT=max   # reaches the CLI as KIMI_MODEL_THINKING_EFFORT
 ./scripts/query_kimi.sh "Review this API boundary"
 ```
 
-`max_quality` selects `kimi-code/k3-256k`, whose availability is verified from
-the Kimi provider inventory before the request.
+Every tier, `max_quality` included, uses `kimi-code/k3.1-pro`; its availability
+is verified from the Kimi provider inventory before the request. K3.1 Pro needs
+a Kimi Code Plus plan or higher. If the alias is missing, run `kimi` once and
+`/login` to refresh the model list (`~/.kimi-code/config.toml`).
 
 ### MiniMax (CLI via mmx) - v2.21
 

@@ -68,8 +68,9 @@ models programmatically.
 | MiniMax-M3 | Legacy pins | $0.0003 | MiniMax (≤512k standard input) |
 | MiniMax-M2.7 | Legacy pins | $0.0003 | MiniMax |
 | MiniMax-M2.5 | Legacy pins | $0.0003 | MiniMax |
-| kimi-code/k3 | Premium/Standard/Economy | $0.0005 | Kimi |
-| kimi-code/k3-256k | Maximum | Unpriced | Kimi subscription |
+| kimi-code/k3.1-pro | All tiers | Unpriced | Kimi subscription |
+| kimi-code/k3 | Legacy pins | $0.0005 | Kimi |
+| kimi-code/k3-256k | Legacy pins | Unpriced | Kimi subscription |
 | default | - | $0.005 | Fallback |
 
 ### Output Tokens
@@ -121,8 +122,9 @@ models programmatically.
 | MiniMax-M3 | Legacy pins | $0.0012 | MiniMax (≤512k standard input) |
 | MiniMax-M2.7 | Legacy pins | $0.0012 | MiniMax |
 | MiniMax-M2.5 | Legacy pins | $0.0012 | MiniMax |
-| kimi-code/k3 | Premium/Standard/Economy | $0.002 | Kimi |
-| kimi-code/k3-256k | Maximum | Unpriced | Kimi subscription |
+| kimi-code/k3.1-pro | All tiers | Unpriced | Kimi subscription |
+| kimi-code/k3 | Legacy pins | $0.002 | Kimi |
+| kimi-code/k3-256k | Legacy pins | Unpriced | Kimi subscription |
 | default | - | $0.015 | Fallback |
 
 ## Cost Estimation per Session
@@ -211,8 +213,8 @@ the providers' official pricing pages: [Anthropic](https://platform.claude.com/d
 Argon and Mistral Large 4 use their list rates, not the introductory or preview
 prices.
 
-`glm-5.3-flash`, `glm-5.3`, `qwen3.8-max`, `qwen3.8-flash`, and
-`kimi-code/k3-256k` are explicitly unpriced on
+`glm-5.3-flash`, `glm-5.3`, `qwen3.8-max`, `qwen3.8-flash`,
+`kimi-code/k3.1-pro`, and `kimi-code/k3-256k` are explicitly unpriced on
 the transports used here. Their zero catalog entries prevent the estimator from
 inventing a dollar figure; session reports disclose their exclusion rather than
 presenting them as free.

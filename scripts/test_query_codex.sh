@@ -404,11 +404,11 @@ test_gemini_effort_flag() {
 test_warn_effort_still_fires_for_unsupported_cli() {
     local out
     out=$(
-        KIMI_REASONING_EFFORT=high \
+        MISTRAL_REASONING_EFFORT=high MISTRAL_USE_API=false \
         bash -c '
             set -euo pipefail
             source "'"$SCRIPT_DIR"'/lib/common.sh" >/dev/null 2>&1
-            warn_effort_ignored_in_cli "Kimi"
+            warn_effort_ignored_in_cli "Mistral"
         ' 2>&1
     )
     assert_match 'ignored in CLI mode' "$out" "warn_effort_ignored_in_cli still warns for CLIs without effort control"

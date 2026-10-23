@@ -4,7 +4,9 @@
 # Usage: ./query_kimi.sh "question" [context_file] [output_file]
 #
 # Environment variables:
-#   KIMI_MODEL     - Kimi CLI model alias (default: kimi-code/k3)
+#   KIMI_MODEL     - Kimi CLI model alias (default: kimi-code/k3.1-pro)
+#   KIMI_REASONING_EFFORT - Thinking effort (default: max), passed to the CLI
+#                    as KIMI_MODEL_THINKING_EFFORT
 #   KIMI_TIMEOUT   - Timeout in seconds (default: 180)
 #   ENABLE_PERSONA - Enable "The Eastern Sage" persona (default: true)
 
@@ -22,9 +24,6 @@ OUTPUT_FILE="${3:-/tmp/kimi_response.json}"
 # --- Configuration ---
 ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 CONSULTANT_NAME="Kimi"
-
-# API-mode-only knob; say so rather than ignoring it silently (see common.sh).
-warn_effort_ignored_in_cli "Kimi"
 
 # --- Build query ---
 FULL_QUERY=$(build_full_query "$QUERY" "$CONTEXT_FILE")
@@ -84,6 +83,16 @@ kimi_cli_supports_required_interface || {
     exit 1
 }
 
+# The CLI has no effort flag. KIMI_MODEL_THINKING_EFFORT is its documented
+# override of [thinking] effort in the user's config.toml, so the configured
+# effort holds whatever that file says. Same validation gate as the other CLIs;
+# the provider rejects what the model does not accept.
+KIMI_CLI_EFFORT=""
+if [[ -n "${KIMI_REASONING_EFFORT:-}" ]]; then
+    source "$SCRIPT_DIR/lib/api.sh"
+    KIMI_CLI_EFFORT=$(validate_reasoning_effort "$KIMI_REASONING_EFFORT" "$CONSULTANT_NAME") || exit 1
+fi
+
 # Kimi takes the prompt as the -p argument (it does NOT read stdin). The old
 # `--quiet --input-format text` were NOT real flags on kimi 0.23.6 — commander
 # rejected them ("unknown option --quiet") and Kimi never ran.
@@ -103,7 +112,9 @@ if ! guard_argv_prompt_size "$CONSULTANT_NAME" "$FULL_QUERY"; then
     exit_code=1
 else
     KIMI_WORKSPACE=$(make_cli_workspace kimi)
-    if (cd "${KIMI_WORKSPACE:-.}" && run_query \
+    if (cd "${KIMI_WORKSPACE:-.}" \
+            && { [[ -z "$KIMI_CLI_EFFORT" ]] || export KIMI_MODEL_THINKING_EFFORT="$KIMI_CLI_EFFORT"; } \
+            && run_query \
             "Kimi" \
             "$TEMP_OUTPUT" \
             "$KIMI_TIMEOUT_SECONDS" \

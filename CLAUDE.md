@@ -241,7 +241,8 @@ curl -L code.kimi.com/install.sh | bash
 - `ENABLE_KIMI` - Enable Kimi consultant (default: true)
 - `KIMI_CMD` - CLI command (default: kimi)
 - `KIMI_TIMEOUT` - Timeout in seconds (default: 0, no limit)
-- `KIMI_MODEL` - Kimi CLI model alias (default: kimi-code/k3; passed explicitly with `--model`)
+- `KIMI_MODEL` - Kimi CLI model alias (default: kimi-code/k3.1-pro; passed explicitly with `--model`)
+- `KIMI_REASONING_EFFORT` - Thinking effort (default: max; exported to the CLI as `KIMI_MODEL_THINKING_EFFORT`, empty keeps the CLI's own)
 
 **Persona:** The Eastern Sage - Focuses on holistic understanding, balance of perspectives, and wisdom from diverse viewpoints.
 
@@ -353,7 +354,7 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 | Tier | Description | Example Models |
 |------|-------------|----------------|
 | **premium** | Latest flagship models | claude-fable-5-1, Gemini 4 Argon (High), gpt-6.1-sol |
-| **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, Gemini 4 Argon (High), K3-256k, Qwen3.8-Max, MiniMax-M3.1-Flash; Grok xhigh, GLM/DeepSeek max |
+| **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, Gemini 4 Argon (High), Kimi K3.1 Pro, Qwen3.8-Max, MiniMax-M3.1-Flash; Grok xhigh, GLM/DeepSeek/Kimi max |
 | **standard** | Good quality at reasonable cost | claude-opus-5-5, Gemini 3.8 Flash (High), gpt-5.6-terra |
 | **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.8 Flash (Low), gpt-5.6-luna |
 
@@ -399,7 +400,7 @@ All consultants now use premium models by default:
 | GLM | glm-5.3-flash |
 | Grok | grok-4.7 |
 | Qwen3 | qwen3.8-max (standard/economy: qwen3.8-flash) |
-| Kimi | kimi-code/k3 |
+| Kimi | kimi-code/k3.1-pro (every tier, max thinking) |
 | MiniMax | MiniMax-M3.1-Flash (every tier) |
 
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
@@ -618,7 +619,8 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `QWEN3_CMD` | qwen | Qwen CLI command (v2.7) |
 | `ENABLE_KIMI` | true | Enable Kimi consultant (v2.9) |
 | `KIMI_CMD` | kimi | Kimi CLI command (v2.9) |
-| `KIMI_MODEL` | kimi-code/k3 | Kimi CLI model alias |
+| `KIMI_MODEL` | kimi-code/k3.1-pro | Kimi CLI model alias |
+| `KIMI_REASONING_EFFORT` | max | Kimi thinking effort (`KIMI_MODEL_THINKING_EFFORT`) |
 | `ENABLE_MINIMAX` | true | Enable MiniMax consultant (v2.10; CLI via mmx v2.21) |
 | `MINIMAX_USE_API` | false | Use MiniMax API instead of the mmx CLI (v2.21) |
 | `MINIMAX_CMD` | mmx | MiniMax CLI command (v2.21) |
