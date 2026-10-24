@@ -18,11 +18,10 @@ COST_RATES_FILE="${COST_RATES_FILE:-$_COSTS_SCRIPT_DIR/../../docs/cost_rates.jso
 # Returns: rate as string, or exits with 1 if not found
 #
 # The match is CASE-INSENSITIVE: callers lowercase the model name, but several
-# rate keys are mixed-case (agy display names like "Gemini 3.1 Pro (High)", the
-# display-name model IDs). An exact-case jq lookup on a
-# lowercased model would miss those keys and silently fall through to
-# default_rate — mis-billing free/local and Gemini models. Downcasing both sides
-# fixes it generally (lowercase keys like minimax-m2.7/gpt-5.5 still match).
+# rate keys are mixed-case (agy display names like "Gemini 4 Argon (High)").
+# An exact-case jq lookup on a lowercased model would miss those keys and
+# report a catalogued model as unpriced. Downcasing both sides fixes it
+# generally (lowercase keys like minimax-m3.1-flash still match).
 get_rate_from_file() {
     local model="$1"
     local type="$2"
@@ -76,24 +75,14 @@ resolve_model_for_cost() {
         fi
     fi
 
-    # Check if model exists in rates file
-    if get_rate_from_file "$model" "input" >/dev/null 2>&1; then
-        echo "$model"
-        return 0
-    fi
-
-    # Model not in rates file, try fallback
-    if [[ -n "$fallback" ]]; then
-        type log_debug &>/dev/null && log_debug "Model '$model' not in rates, using fallback '$fallback' for $consultant"
-        echo "$fallback"
-        return 0
-    fi
-
-    # Return original (will use default rate)
+    # A named model keeps its own identity even when it is not catalogued:
+    # pricing it as the consultant's default would invent a figure. It is
+    # reported as unpriced instead.
     echo "$model"
 }
 
-# Get default rate from JSON file
+# Generic rate for the budget estimate made before the panel is selected,
+# when no model is known yet. Never used to price a named model.
 # Usage: get_default_rate <type: input|output>
 get_default_rate() {
     local type="$1"
@@ -115,113 +104,106 @@ get_default_rate() {
 # =============================================================================
 # COST RATES (USD per 1K tokens)
 # =============================================================================
-# Using case statements for bash 3.2 compatibility (no associative arrays)
-# External JSON file is tried first, then fallback to hardcoded rates
+# docs/cost_rates.json is the source of truth. The built-in table below covers
+# only the current tier models, so an install without the catalog still prices
+# them; it is not a second catalog and carries no retired models.
+
+# Built-in rate for a current tier model.
+# Usage: _builtin_rate <lowercased model> <type: input|output>
+# Returns 1 for any other model.
+_builtin_rate() {
+    local pair
+    case "$1" in
+        gemini-4-argon|"gemini 4 argon (high)"|"gemini 4 argon (medium)"|"gemini 4 argon (low)") pair="0.004 0.02" ;;
+        gemini-3.8-flash|"gemini 3.8 flash (high)"|"gemini 3.8 flash (medium)"|"gemini 3.8 flash (low)") pair="0.00075 0.00375" ;;
+        deepseek-flash)                pair="0.0003 0.0012" ;;
+        gpt-6-astra|claude-fable-5-1)  pair="0.01 0.05" ;;
+        gpt-6.1-sol)                   pair="0.002 0.01" ;;
+        gpt-6-luna)                    pair="0.0001 0.0005" ;;
+        claude-opus-5-5)               pair="0.004 0.020" ;;
+        claude-haiku-5-5)              pair="0.0001 0.0005" ;;
+        grok-4.7)                      pair="0.002 0.006" ;;
+        muse-wonder-1.0)               pair="0.004 0.02" ;;
+        muse-spark-1.3)                pair="0.00125 0.00425" ;;
+        *) return 1 ;;
+    esac
+    if [[ "$2" == "input" ]]; then echo "${pair% *}"; else echo "${pair#* }"; fi
+}
+
+# Check whether a model has a rate (catalogued, or built in). Subscription
+# models rated 0 in the catalog count as rated; see is_unpriced_model.
+# Usage: is_rated_model <model>
+is_rated_model() {
+    local model
+    model=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    [[ -n "$model" ]] || return 1
+    get_rate_from_file "$model" "input" >/dev/null 2>&1 || _builtin_rate "$model" "input" >/dev/null
+}
+
+# Rate for a model, or 0 when it has none: an uncatalogued model is reported
+# as unpriced (format_cost_caveats names it), never priced at a guessed rate.
+# Usage: _cost_per_1k <model> <type: input|output>
+_cost_per_1k() {
+    local model="$1" type="$2" rate
+    model=$(echo "$model" | tr '[:upper:]' '[:lower:]')
+    if rate=$(get_rate_from_file "$model" "$type" 2>/dev/null) \
+        || rate=$(_builtin_rate "$model" "$type"); then
+        echo "$rate"
+    else
+        echo "0"
+    fi
+}
 
 # Get input token cost per 1K tokens
 # Usage: get_input_cost_per_1k <model>
 get_input_cost_per_1k() {
-    local model="$1"
-    model=$(echo "$model" | tr '[:upper:]' '[:lower:]')
-
-    # Try external file first
-    local rate
-    if rate=$(get_rate_from_file "$model" "input" 2>/dev/null); then
-        echo "$rate"
-        return
-    fi
-
-    # Fallback to hardcoded rates for backwards compatibility
-    case "$model" in
-        gemini-4-argon|"gemini 4 argon (high)"|"gemini 4 argon (medium)"|"gemini 4 argon (low)") echo "0.004" ;;
-        gemini-3.8-flash|"gemini 3.8 flash (high)"|"gemini 3.8 flash (medium)"|"gemini 3.8 flash (low)") echo "0.00075" ;;
-        gemini-2.5-pro)   echo "0.00125" ;;
-        gemini-2.5-flash) echo "0.000075" ;;
-        gemini-2.0-flash) echo "0.0001" ;;
-        deepseek-flash|deepseek-v4-flash|deepseek-v4-flash-vision-exp) echo "0.0003" ;;
-        claude-opus-5-5) echo "0.004" ;;
-        grok-4.7) echo "0.002" ;;
-        gpt-6-astra|claude-fable-5-1) echo "0.01" ;;
-        gpt-6.1-sol) echo "0.002" ;;
-        gpt-4)            echo "0.03" ;;
-        gpt-4-turbo)      echo "0.01" ;;
-        gpt-4o)           echo "0.005" ;;
-        gpt-4o-mini)      echo "0.00015" ;;
-        o1)               echo "0.015" ;;
-        o3)               echo "0.015" ;;
-        claude-3-opus)    echo "0.015" ;;
-        claude-3-sonnet)  echo "0.003" ;;
-        claude-3-haiku)   echo "0.00025" ;;
-        mistral-large)    echo "0.004" ;;
-        mistral-medium)   echo "0.0027" ;;
-        mistral-small)    echo "0.001" ;;
-        cursor)           echo "0.005" ;;
-        # Qwen3 models (Alibaba DashScope)
-        qwen-max)         echo "0.004" ;;
-        qwen-plus)        echo "0.002" ;;
-        qwen-turbo)       echo "0.0008" ;;
-        # GLM models (Zhipu AI)
-        glm-4)            echo "0.003" ;;
-        glm-3-turbo)      echo "0.001" ;;
-        # Grok models (xAI)
-        grok-4.20-0309-reasoning)        echo "0.005" ;;
-        grok-2)           echo "0.01" ;;
-        # Default
-        *)                echo "0.005" ;;
-    esac
+    _cost_per_1k "$1" input
 }
 
 # Get output token cost per 1K tokens
 # Usage: get_output_cost_per_1k <model>
 get_output_cost_per_1k() {
-    local model="$1"
-    model=$(echo "$model" | tr '[:upper:]' '[:lower:]')
+    _cost_per_1k "$1" output
+}
 
-    # Try external file first
-    local rate
-    if rate=$(get_rate_from_file "$model" "output" 2>/dev/null); then
-        echo "$rate"
-        return
-    fi
+# Replacement recorded for a retired model.
+# Usage: retired_model_replacement <model>
+# Prints the replacement (empty when the consultant itself was removed) and
+# returns 0 for a retired model; returns 1 for any other model.
+retired_model_replacement() {
+    local model="$1" hit
+    [[ -n "$model" && -f "$COST_RATES_FILE" ]] || return 1
+    hit=$(jq -r --arg m "$model" '
+        first((.retired_models // {}) | to_entries[]
+            | select(.key != "_comment" and (.key | ascii_downcase) == ($m | ascii_downcase))
+            | "retired:" + (.value // "")) // ""' "$COST_RATES_FILE" 2>/dev/null)
+    [[ "$hit" == retired:* ]] || return 1
+    printf '%s\n' "${hit#retired:}"
+}
 
-    # Fallback to hardcoded rates for backwards compatibility
-    case "$model" in
-        gemini-4-argon|"gemini 4 argon (high)"|"gemini 4 argon (medium)"|"gemini 4 argon (low)") echo "0.02" ;;
-        gemini-3.8-flash|"gemini 3.8 flash (high)"|"gemini 3.8 flash (medium)"|"gemini 3.8 flash (low)") echo "0.00375" ;;
-        gemini-2.5-pro)   echo "0.005" ;;
-        gemini-2.5-flash) echo "0.0003" ;;
-        gemini-2.0-flash) echo "0.0004" ;;
-        deepseek-flash|deepseek-v4-flash|deepseek-v4-flash-vision-exp) echo "0.0012" ;;
-        claude-opus-5-5) echo "0.020" ;;
-        grok-4.7) echo "0.006" ;;
-        gpt-6-astra|claude-fable-5-1) echo "0.05" ;;
-        gpt-6.1-sol) echo "0.01" ;;
-        gpt-4)            echo "0.06" ;;
-        gpt-4-turbo)      echo "0.03" ;;
-        gpt-4o)           echo "0.015" ;;
-        gpt-4o-mini)      echo "0.0006" ;;
-        o1)               echo "0.06" ;;
-        o3)               echo "0.06" ;;
-        claude-3-opus)    echo "0.075" ;;
-        claude-3-sonnet)  echo "0.015" ;;
-        claude-3-haiku)   echo "0.00125" ;;
-        mistral-large)    echo "0.012" ;;
-        mistral-medium)   echo "0.0081" ;;
-        mistral-small)    echo "0.003" ;;
-        cursor)           echo "0.015" ;;
-        # Qwen3 models (Alibaba DashScope)
-        qwen-max)         echo "0.012" ;;
-        qwen-plus)        echo "0.006" ;;
-        qwen-turbo)       echo "0.002" ;;
-        # GLM models (Zhipu AI)
-        glm-4)            echo "0.009" ;;
-        glm-3-turbo)      echo "0.003" ;;
-        # Grok models (xAI)
-        grok-4.20-0309-reasoning)        echo "0.015" ;;
-        grok-2)           echo "0.03" ;;
-        # Default
-        *)                echo "0.015" ;;
-    esac
+# Warn about selected consultants whose model has no rate. The run still
+# uses the model (a provider may serve it, or it may be newer than the
+# catalog); its cost is reported as unpriced.
+# Usage: warn_uncatalogued_models <consultants_csv>
+warn_uncatalogued_models() {
+    declare -f model_env_var_for >/dev/null 2>&1 || return 0
+    local consultant model_var model replacement
+    local IFS=','
+    for consultant in $1; do
+        model_var=$(model_env_var_for "$consultant")
+        model="${!model_var:-}"
+        [[ -n "$model" ]] || continue
+        is_rated_model "$model" && continue
+        if replacement=$(retired_model_replacement "$model"); then
+            if [[ -n "$replacement" ]]; then
+                log_warn "$consultant: $model is retired; run 'ai-consultants configure' to migrate it to $replacement. Its cost is reported as unpriced."
+            else
+                log_warn "$consultant: $model is retired. Its cost is reported as unpriced."
+            fi
+        else
+            log_warn "$consultant: $model is not in the rate catalog. Its cost is reported as unpriced."
+        fi
+    done
 }
 
 # =============================================================================
@@ -244,13 +226,17 @@ estimate_query_cost() {
     output_rate=$(get_output_cost_per_1k "$model")
 
     # Long-context multiplier applies to the entire request, not only excess.
-    if [[ ( "$model" == gpt-6-astra || "$model" == gpt-6.1-sol ) && "$input_tokens" -gt 272000 ]]; then
+    if [[ ( "$model" == gpt-6-astra || "$model" == gpt-6.1-sol || "$model" == gpt-6-luna ) && "$input_tokens" -gt 272000 ]]; then
         input_rate=$(echo "scale=6; $input_rate * 2" | bc)
         output_rate=$(echo "scale=6; $output_rate * 1.5" | bc)
     fi
     if [[ "$model" == grok-4.7 && "$input_tokens" -gt 200000 ]]; then
         input_rate=$(echo "scale=6; $input_rate * 2" | bc)
         output_rate=$(echo "scale=6; $output_rate * 2" | bc)
+    fi
+    if [[ "$model" == claude-haiku-5-5 && "$input_tokens" -gt 100000 ]]; then
+        input_rate=$(echo "scale=6; $input_rate * 5" | bc)
+        output_rate=$(echo "scale=6; $output_rate * 5" | bc)
     fi
     # Calculate cost
     local input_cost output_cost total_cost
@@ -337,8 +323,7 @@ _billing_model_for_response() {
     requested=$(jq -r '.metadata.requested_model // empty' "$f" 2>/dev/null)
     consultant=$(jq -r '.consultant // empty' "$f" 2>/dev/null)
 
-    if get_rate_from_file "$effective" input >/dev/null 2>&1 \
-        || is_unpriced_model "$effective"; then
+    if is_rated_model "$effective"; then
         printf '%s\n' "$effective"
     elif [[ -n "$requested" ]]; then
         printf '%s\n' "$requested"
@@ -441,7 +426,7 @@ format_cost_caveats() {
     [[ -d "$responses_dir" ]] || return 0
 
     local estimated=0 unknown=0 priced=0 f astra_estimate=0 deepseek_flash_estimate=0 grok_47_estimate=0 opus_55_estimate=0 gemini_38_estimate=0 gemini_argon_estimate=0
-    local unpriced_models=()
+    local unpriced_models=() uncatalogued_models=()
     while IFS= read -r f; do
         [[ -n "$f" ]] || continue
 
@@ -459,11 +444,11 @@ format_cost_caveats() {
 
         local model seen item
         model=$(_billing_model_for_response "$f")
-        if [[ "$model" == gpt-6-astra || "$model" == gpt-6.1-sol ]] && ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
+        if [[ "$model" == gpt-6-astra || "$model" == gpt-6.1-sol || "$model" == gpt-6-luna ]] && ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
             astra_estimate=1
         fi
         case "$model" in
-            deepseek-flash|deepseek-v4-flash|deepseek-v4-flash-vision-exp)
+            deepseek-flash)
                 if ! jq -e '.metadata.provider_cost_usd | numbers' "$f" >/dev/null 2>&1; then
                     deepseek_flash_estimate=1
                 fi
@@ -485,6 +470,14 @@ format_cost_caveats() {
                 fi
                 ;;
         esac
+        if ! is_rated_model "$model"; then
+            seen=false
+            for item in "${uncatalogued_models[@]+"${uncatalogued_models[@]}"}"; do
+                [[ "$item" == "$model" ]] && seen=true
+            done
+            [[ "$seen" == "true" ]] || uncatalogued_models+=("$model")
+            continue
+        fi
         is_unpriced_model "$model" || continue
         seen=false
         for item in "${unpriced_models[@]+"${unpriced_models[@]}"}"; do
@@ -501,7 +494,7 @@ format_cost_caveats() {
         parts="${parts:+$parts; }$unknown contributed no token data"
     fi
     if [[ $astra_estimate -eq 1 ]]; then
-        parts="${parts:+$parts; }GPT-6 Astra/6.1 Sol cost estimated at Standard rates (incl. long-context pricing); cache/service adjustments excluded, not an invoice"
+        parts="${parts:+$parts; }GPT-6 Astra/6.1 Sol/Luna cost estimated at Standard rates (incl. long-context pricing); cache/service adjustments excluded, not an invoice"
     fi
     if [[ $deepseek_flash_estimate -eq 1 ]]; then
         parts="${parts:+$parts; }DeepSeek Flash cost estimated at peak cache-miss rates; off-peak/cache discounts excluded, not an invoice"
@@ -525,6 +518,10 @@ format_cost_caveats() {
     if (( ${#unpriced_models[@]} > 0 )); then
         unpriced=$(IFS=,; printf '%s' "${unpriced_models[*]}")
         parts="${parts:+$parts; }excludes ${unpriced//,/, } (credit-billed, no per-token price)"
+    fi
+    if (( ${#uncatalogued_models[@]} > 0 )); then
+        unpriced=$(IFS=,; printf '%s' "${uncatalogued_models[*]}")
+        parts="${parts:+$parts; }excludes ${unpriced//,/, } (not in the rate catalog)"
     fi
 
     [[ -z "$parts" ]] && return 0
@@ -778,28 +775,6 @@ get_max_response_tokens() {
 # NOTE: Default is false (opt-in) per quality review - aligns with config.sh
 is_response_limits_enabled() {
     [[ "${ENABLE_RESPONSE_LIMITS:-false}" == "true" ]]
-}
-
-# Get model tier (economy, standard, premium)
-# Usage: get_model_tier <model>
-get_model_tier() {
-    local model="$1"
-    model=$(echo "$model" | tr '[:upper:]' '[:lower:]')
-
-    case "$model" in
-        # Economy tier - cheapest models
-        gemini-2.5-flash|gemini-2.0-flash|gpt-4o-mini|claude-3-haiku|mistral-small|qwen-turbo|glm-3-turbo)
-            echo "economy"
-            ;;
-        # Premium tier - most expensive models
-        gpt-4|gpt-4-turbo|o1|o3|claude-3-opus|mistral-large|grok-2|qwen-max)
-            echo "premium"
-            ;;
-        # Standard tier - default/mid-range
-        *)
-            echo "standard"
-            ;;
-    esac
 }
 
 # Get economic model for a consultant

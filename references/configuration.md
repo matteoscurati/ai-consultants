@@ -14,7 +14,7 @@ For goal-oriented, copy-paste configurations, start with
 
 ## Automatic Configurator
 
-The public configurator detects all 10 supported consultants, chooses CLI or API
+The public configurator detects all 11 supported consultants, chooses CLI or API
 transport from the available CLI binaries and credentials, and writes the
 persistent XDG configuration:
 
@@ -63,6 +63,11 @@ GLM, Grok and DeepSeek defaults, and the fixed timeouts described under
 model override supplied with `--set` is stored with `# ai-consultants:pin`, so
 `--set CLAUDE_MODEL=claude-opus-5-5` keeps Opus 5.5 (the standard/medium
 target) as the default.
+Retired models (5.5.0, listed with their replacements under `retired_models`
+in `docs/cost_rates.json`) are replaced even when pinned: the marker is kept,
+the old value is recorded as `migrated-from=`, and `--set` refuses them. A
+retired or uncatalogued model selected at run time still runs, with a warning,
+and its cost is reported as unpriced.
 The exhaustive parameter contract is [`.env.example`](../.env.example); the
 configurator derives its accepted keys from that template, while
 [`scripts/config.sh`](../scripts/config.sh) remains the runtime source of truth.
@@ -215,6 +220,7 @@ MISTRAL_USE_API=false        # Use Mistral API instead of vibe CLI
 QWEN3_USE_API=false          # Use qwen CLI (default) or DashScope API
 GROK_USE_API=false           # Use Grok Build (default); API is fallback
 MINIMAX_USE_API=false        # Use mmx CLI (default) or MiniMax API
+# META_USE_API unset = auto (API if META_API_KEY set, else muse CLI)
 ```
 
 ### API Keys
@@ -227,6 +233,7 @@ MINIMAX_USE_API=false        # Use mmx CLI (default) or MiniMax API
 | Mistral | `MISTRAL_API_KEY` | Mistral API key |
 | Qwen3 | `QWEN3_API_KEY` | DashScope API key |
 | MiniMax | `MINIMAX_API_KEY` | MiniMax API key (API mode only; the mmx CLI uses OAuth) |
+| Meta | `META_API_KEY` | Meta Model API key (`LLM_...`); Muse Code also reads it headless |
 | GLM | `GLM_API_KEY` | Required when `ENABLE_GLM=true` |
 | Grok | `GROK_API_KEY` | xAI API fallback key; Grok Build CLI uses its own login |
 | DeepSeek | `DEEPSEEK_API_KEY` | Required when `ENABLE_DEEPSEEK=true` |
@@ -247,6 +254,9 @@ ENABLE_CLAUDE=true           # Claude CLI - The Synthesizer (auto-excluded under
 # API-only consultants (off by default - require API keys)
 ENABLE_GLM=false
 ENABLE_DEEPSEEK=false
+
+# Opt-in: Meta (muse CLI or META_API_KEY) - The Systems Thinker
+ENABLE_META=false
 ```
 
 ### Model Overrides
@@ -287,7 +297,17 @@ MINIMAX_MAX_TOKENS=16384
 MINIMAX_MAX_QUALITY_TOKENS=32768
 MINIMAX_REASONING_EFFORT=       # API only: low|medium|high|xhigh|max (default max)
 MAX_QUALITY_API_MAX_TOKENS=16384
+META_CMD=muse
+META_MODEL=muse-wonder-1.0      # standard/economy: muse-spark-1.3; always reasons
+META_REASONING_EFFORT=high      # minimal..max (none rejected); max_quality sets max
+META_API_MAX_TOKENS=32768       # reasoning shares the completion budget
+META_API_URL=https://api.meta.ai/v1/chat/completions
 ```
+
+Meta always runs in Standard mode, where Meta does not train on the content:
+the `muse` CLI gets `--contributor-mode off` on every run (subscriptions
+default to Contributor mode). `muse-spark-1.3-contributor` is a catalogued
+opt-in for the API and logs a warning whenever it is pinned.
 
 Anthropic counts adaptive thinking and visible response tokens against the same
 `CLAUDE_API_MAX_TOKENS` limit. The default is 16,384; a response that reaches
@@ -341,7 +361,7 @@ explicit `QWEN3_REASONING_EFFORT` pin is preserved in the maximum tier.
 
 The preset gives Mistral and Grok four bounded advisory turns, applies
 `QWEN3_MAX_QUALITY_TIMEOUT` and `DEEPSEEK_MAX_QUALITY_TIMEOUT` (default 0, no
-limit) to Qwen3.8-Max and DeepSeek, and uses the configured
+limit) to Qwen3.8-Max and DeepSeek, sets Meta to `max` effort, and uses the configured
 per-consultant `*_API_MAX_TOKENS` budget. Maximum temporarily raises Codex,
 Mistral, Grok, and MiniMax API budgets to `MAX_QUALITY_API_MAX_TOKENS` and
 restores them when leaving the tier; Qwen, GLM, and DeepSeek already default to
@@ -368,11 +388,9 @@ agent in a temporary workspace. The current Vibe default is
 structured answer with the provider-reported model `mistral-large-4` on
 2026-10-15. The
 preview is absent from `GET /v1/models` even for keys that can call it, so that
-listing is not an access check. Use
-`MISTRAL_MODEL=mistral-large-3 # ai-consultants:pin` to keep the previous
-target. The official API IDs `mistral-medium-3-5`, `mistral-large-2512`, and
-`mistral-small-2603` remain catalogued opt-ins until an authenticated API smoke
-passes in this project.
+listing is not an access check. Mistral Large 3 is retired. The official API
+IDs `mistral-medium-3-5` and `mistral-small-2603` remain catalogued opt-ins
+until an authenticated API smoke passes in this project.
 
 Gemini 4 Argon (GA 2026-10-13) is the Gemini default and maximum target:
 `GEMINI_MODEL="Gemini 4 Argon (High)"` on `agy` and `GEMINI_API_MODEL=gemini-4-argon`
@@ -384,8 +402,8 @@ low|medium|high), sends no sampling parameters, and spends thinking tokens from
 `GEMINI_API_MAX_TOKENS` (default 32768). Google excludes Argon from the Free tier
 and the AI Pro plan, so an `agy models` listing is not an access check. Pin
 `GEMINI_MODEL="Gemini 3.8 Flash (High)" # ai-consultants:pin` or
-`GEMINI_API_MODEL=gemini-3.1-pro-preview # ai-consultants:pin` to keep the previous
-targets.
+`GEMINI_API_MODEL=gemini-3.8-flash # ai-consultants:pin` to use Gemini 3.8
+Flash, the standard and economy target on both transports, by default.
 
 The current Vibe CLI exposes only `--prompt TEXT`, not stdin or a prompt-file
 surface, and the same holds for `agy` and `kimi`. Their adapters keep an
@@ -487,6 +505,7 @@ CLAUDE_TIMEOUT=0
 QWEN3_TIMEOUT=0
 QWEN3_MAX_QUALITY_TIMEOUT=0
 MINIMAX_TIMEOUT=0
+META_TIMEOUT=0
 GLM_TIMEOUT=0
 GROK_TIMEOUT=0
 GROK_MAX_TURNS=4

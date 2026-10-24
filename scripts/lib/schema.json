@@ -8,7 +8,7 @@
     "consultant": {
       "type": "string",
       "minLength": 1,
-      "description": "Consultant name: Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, or a custom API agent (title-cased from ENABLE_<NAME>)."
+      "description": "Consultant name: Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Meta, or a custom API agent (title-cased from ENABLE_<NAME>)."
     },
     "model": {
       "type": "string",

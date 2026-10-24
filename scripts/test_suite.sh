@@ -595,22 +595,23 @@ test_cost_rates() {
     local result
 
     # Known model
-    result=$(get_input_cost_per_1k "gpt-4o")
-    assert_equals "0.005" "$result" "gpt-4o input rate is 0.005"
+    result=$(get_input_cost_per_1k "gpt-6.1-sol")
+    assert_equals "0.002" "$result" "gpt-6.1-sol input rate is 0.002"
 
-    result=$(get_output_cost_per_1k "gpt-4o")
-    assert_equals "0.015" "$result" "gpt-4o output rate is 0.015"
+    result=$(get_output_cost_per_1k "gpt-6.1-sol")
+    assert_equals "0.01" "$result" "gpt-6.1-sol output rate is 0.01"
 
     # Economy model
-    result=$(get_input_cost_per_1k "gpt-4o-mini")
-    assert_equals "0.00015" "$result" "gpt-4o-mini input rate is 0.00015"
+    result=$(get_input_cost_per_1k "gpt-6-luna")
+    assert_equals "0.0001" "$result" "gpt-6-luna input rate is 0.0001"
 
-    # Unknown model gets default
+    # An unknown model is unpriced, never priced at a guessed rate
     result=$(get_input_cost_per_1k "totally-unknown-model-xyz")
-    assert_equals "0.005" "$result" "unknown model gets default input rate 0.005"
+    assert_equals "0" "$result" "unknown model input is unpriced (0)"
 
     result=$(get_output_cost_per_1k "totally-unknown-model-xyz")
-    assert_equals "0.015" "$result" "unknown model gets default output rate 0.015"
+    assert_equals "0" "$result" "unknown model output is unpriced (0)"
+    assert_exit_code_failure "unknown model has no rate" is_rated_model "totally-unknown-model-xyz"
 }
 
 # =============================================================================
@@ -621,14 +622,14 @@ test_cost_estimation() {
     suite "costs.sh: estimate_query_cost"
 
     local result
-    # gpt-4o: input=0.005/1K, output=0.015/1K
+    # gpt-6.1-sol: input=0.002/1K, output=0.01/1K
     # 1000 input tokens, 500 output tokens
-    # cost = (1000/1000)*0.005 + (500/1000)*0.015 = 0.005 + 0.0075 = 0.012500
-    result=$(estimate_query_cost "gpt-4o" 1000 500)
-    assert_equals "0.012500" "$result" "gpt-4o 1000in+500out = 0.0125 (leading zero, v2.17.0)"
+    # cost = (1000/1000)*0.002 + (500/1000)*0.01 = 0.002 + 0.005 = 0.007000
+    result=$(estimate_query_cost "gpt-6.1-sol" 1000 500)
+    assert_equals "0.007000" "$result" "gpt-6.1-sol 1000in+500out = 0.007 (leading zero, v2.17.0)"
 
     # Zero tokens
-    result=$(estimate_query_cost "gpt-4o" 0 0)
+    result=$(estimate_query_cost "gpt-6.1-sol" 0 0)
     assert_equals "0" "$result" "zero tokens = zero cost"
 }
 
@@ -644,46 +645,41 @@ test_cost_per1k_contract() {
 
     assert_equals "0.01" "$(get_input_cost_per_1k claude-fable-5-1)"  "Fable 5.1 input is per-1K (0.01)"
     assert_equals "0.05" "$(get_output_cost_per_1k claude-fable-5-1)" "Fable 5.1 output is per-1K (0.05)"
-    assert_equals "0.004" "$(get_input_cost_per_1k gpt-5.6-sol)"  "Sol input is per-1K (0.004)"
-    assert_equals "0.020" "$(get_output_cost_per_1k gpt-5.6-sol)" "Sol output is per-1K (0.020)"
-    assert_equals "0.002" "$(get_input_cost_per_1k gpt-5.6-terra)" "Terra input stays per-1K (0.002)"
-    assert_equals "0.012" "$(get_output_cost_per_1k gpt-5.6-terra)" "Terra output stays per-1K (0.012)"
-    assert_equals "0.005" "$(get_input_cost_per_1k claude-opus-4-8)"  "legacy opus-4-8 input remains priced"
-    assert_equals "0.025" "$(get_output_cost_per_1k claude-opus-4-8)" "legacy opus-4-8 output remains priced"
-    assert_equals "0.001" "$(get_input_cost_per_1k claude-haiku-4-5)" "haiku-4-5 input is per-1K (0.001)"
-    assert_equals "0.005" "$(get_output_cost_per_1k claude-haiku-4-5)" "haiku-4-5 output is per-1K (0.005)"
+    assert_equals "0.002" "$(get_input_cost_per_1k gpt-6.1-sol)"  "Sol input is per-1K (0.002)"
+    assert_equals "0.01" "$(get_output_cost_per_1k gpt-6.1-sol)" "Sol output is per-1K (0.01)"
+    assert_equals "0.0001" "$(get_input_cost_per_1k gpt-6-luna)" "Luna input is per-1K (0.0001)"
+    assert_equals "0.0005" "$(get_output_cost_per_1k gpt-6-luna)" "Luna output is per-1K (0.0005)"
+    assert_equals "0" "$(get_input_cost_per_1k claude-opus-4-8)"  "retired opus-4-8 is no longer priced"
+    assert_equals "0.0001" "$(get_input_cost_per_1k claude-haiku-5-5)" "haiku-5-5 input is per-1K (0.0001)"
+    assert_equals "0.0005" "$(get_output_cost_per_1k claude-haiku-5-5)" "haiku-5-5 output is per-1K (0.0005)"
 
     # End-to-end: per-1K rates => correct dollar costs (pre-fix opus 1k+1k was $30, not $0.03).
     # Leading zero restored in v2.17.0 (bc drops it).
     assert_equals "0.060000" "$(estimate_query_cost claude-fable-5-1 1000 1000)"  "Fable 5.1 1k+1k = 0.06"
-    assert_equals "0.006000" "$(estimate_query_cost claude-haiku-4-5 1000 1000)" "haiku 1k+1k = 0.006"
+    assert_equals "0.000600" "$(estimate_query_cost claude-haiku-5-5 1000 1000)" "haiku 1k+1k = 0.0006"
 
     # Cost lookup must be case-insensitive for display-name model IDs.
-    assert_equals "0.002" "$(get_input_cost_per_1k 'Gemini 3.1 Pro (High)')"  "Gemini 3.1 Pro input resolves (not default_rate)"
-    assert_equals "0.012" "$(get_output_cost_per_1k 'Gemini 3.1 Pro (High)')" "Gemini 3.1 Pro output resolves (not default_rate)"
-    assert_equals "0.002" "$(get_input_cost_per_1k 'grok-4.5')" "Grok 4.5 input rate is 2 USD/MTok"
-    assert_equals "0.006" "$(get_output_cost_per_1k 'grok-4.5')" "Grok 4.5 output rate is 6 USD/MTok"
-    assert_equals "0.01" "$(get_input_cost_per_1k claude-fable-5)" "Fable 5 input is 10 USD/MTok"
-    assert_equals "0.05" "$(get_output_cost_per_1k claude-fable-5)" "Fable 5 output is 50 USD/MTok"
-    assert_equals "0.00075" "$(get_input_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional input rate is current"
-    assert_equals "0.00375" "$(get_output_cost_per_1k gemini-3.7-flash)" "Gemini 3.7 promotional output rate is current"
+    assert_equals "0.004" "$(get_input_cost_per_1k 'Gemini 4 Argon (Medium)')"  "agy display name input resolves case-insensitively"
+    assert_equals "0.02" "$(get_output_cost_per_1k 'Gemini 4 Argon (Medium)')" "agy display name output resolves case-insensitively"
+    assert_equals "0.002" "$(get_input_cost_per_1k 'grok-4.7')" "Grok 4.7 input rate is 2 USD/MTok"
+    assert_equals "0.006" "$(get_output_cost_per_1k 'grok-4.7')" "Grok 4.7 output rate is 6 USD/MTok"
     assert_equals "0.00075" "$(get_input_cost_per_1k 'Gemini 3.8 Flash (High)')" "promoted Gemini CLI default resolves its promotional rate"
     assert_equals "Gemini 4 Argon (High)" "$(get_consultant_fallback_model gemini)" "legacy Gemini responses use the promoted CLI fallback"
     assert_equals "0.004" "$(get_input_cost_per_1k 'Gemini 4 Argon (High)')" "Argon CLI estimate uses the list input rate"
     assert_equals "0.02" "$(get_output_cost_per_1k gemini-4-argon)" "Argon API estimate uses the list output rate"
     assert_equals "0.0015" "$(get_input_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API input is priced"
     assert_equals "0.0075" "$(get_output_cost_per_1k mistral-medium-3-5)" "Mistral Medium 3.5 API output is priced"
-    assert_equals "0.002" "$(get_input_cost_per_1k mistral-large-3)" "legacy Mistral Large 3 input stays catalogued for pins"
-    assert_equals "0.006" "$(get_output_cost_per_1k mistral-large-3)" "legacy Mistral Large 3 output stays catalogued for pins"
+    assert_equals "0" "$(get_input_cost_per_1k mistral-large-3)" "retired Mistral Large 3 is no longer priced"
+    assert_equals "0.00015" "$(get_input_cost_per_1k mistral-small-2603)" "Mistral Small 4 opt-in input is priced"
+    assert_equals "0.0006" "$(get_output_cost_per_1k mistral-small-2603)" "Mistral Small 4 opt-in output is priced"
     assert_equals "0.00136" "$(get_input_cost_per_1k mistral-large-4)" "Mistral Large 4 input uses the list rate, not the preview discount"
     assert_equals "0.00418" "$(get_output_cost_per_1k mistral-large-4)" "Mistral Large 4 output uses the list rate, not the preview discount"
     assert_equals "0.00418" "$(get_output_cost_per_1k mistral-large-4-0)" "dated Mistral Large 4 ID is priced like the alias"
-    assert_equals "0.002" "$(get_input_cost_per_1k grok-4.6)" "Grok 4.6 input is 2 USD/MTok"
-    assert_equals "0.006" "$(get_output_cost_per_1k grok-4.6)" "Grok 4.6 output is 6 USD/MTok"
-    assert_equals "0.0005" "$(get_input_cost_per_1k composer-2.5)" "legacy Composer input remains catalogued"
-    assert_equals "0.0025" "$(get_output_cost_per_1k composer-2.5)" "legacy Composer output remains catalogued"
-    assert_equals "0.0003" "$(get_input_cost_per_1k MiniMax-M3)" "maximum MiniMax M3 input is catalogued"
-    assert_equals "0.0012" "$(get_output_cost_per_1k MiniMax-M3)" "maximum MiniMax M3 output is catalogued"
+    assert_equals "0.00132" "$(get_input_cost_per_1k deepseek-v4-pro)" "DeepSeek V4 Pro opt-in input is the peak list rate"
+    assert_equals "0.00396" "$(get_output_cost_per_1k deepseek-v4-pro)" "DeepSeek V4 Pro opt-in output is the peak list rate"
+    assert_equals "0.00015" "$(get_input_cost_per_1k MiniMax-M3.1-Flash)" "MiniMax M3.1 Flash input resolves from the configured spelling"
+    assert_equals "0.0006" "$(get_output_cost_per_1k MiniMax-M3.1-Flash)" "MiniMax M3.1 Flash output resolves from the configured spelling"
+    assert_equals "0" "$(get_input_cost_per_1k MiniMax-M3)" "retired MiniMax M3 is no longer priced"
 
     if [[ -n "$saved" ]]; then COST_RATES_FILE="$saved"; else unset COST_RATES_FILE; fi
 }
@@ -735,19 +731,19 @@ test_response_tokens() {
 
     # Metadata carries all of it, and the legacy short call still works.
     local md
-    md=$(build_response_metadata 1500 "gpt-5.5" "" 20500 "measured" 20000 500)
+    md=$(build_response_metadata 1500 "gpt-6.1-sol" "" 20500 "measured" 20000 500)
     assert_equals "20500"    "$(echo "$md" | jq -r '.tokens_used')"   "metadata records the total"
     assert_equals "measured" "$(echo "$md" | jq -r '.tokens_source')" "metadata records the source"
     assert_equals "20000"    "$(echo "$md" | jq -r '.tokens_input')"  "metadata records input tokens"
     assert_equals "500"      "$(echo "$md" | jq -r '.tokens_output')" "metadata records output tokens"
-    md=$(build_response_metadata 1500 "claude-opus-5" "" 20500 "measured" 20000 500 0.123456)
+    md=$(build_response_metadata 1500 "claude-opus-5-5" "" 20500 "measured" 20000 500 0.123456)
     assert_equals "0.123456" "$(echo "$md" | jq -r '.provider_cost_usd')" \
         "metadata records provider-reported cost"
-    md=$(build_response_metadata 1500 "gpt-5.5")
+    md=$(build_response_metadata 1500 "gpt-6.1-sol")
     assert_equals "0"       "$(echo "$md" | jq -r '.tokens_used')"   "legacy call defaults to 0"
     assert_equals "unknown" "$(echo "$md" | jq -r '.tokens_source')" "legacy call is marked unknown"
     assert_equals "null"    "$(echo "$md" | jq -r '.tokens_input')"  "legacy call omits the split"
-    assert_equals "gpt-5.5" "$(echo "$md" | jq -r '.metadata.requested_model // .requested_model')" \
+    assert_equals "gpt-6.1-sol" "$(echo "$md" | jq -r '.metadata.requested_model // .requested_model')" \
         "legacy metadata defaults requested_model to model"
     assert_equals "requested-only" "$(echo "$md" | jq -r '.model_identity_source')" \
         "legacy metadata labels model identity honestly"
@@ -788,32 +784,38 @@ test_response_tokens() {
     local rd="$td/responses"; mkdir -p "$rd"
 
     # The regression itself: real tokens must produce a real cost.
-    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":50000,"tokens_source":"estimated"}}\n' > "$rd/c.json"
+    printf '{"consultant":"Codex","model":"gpt-6.1-sol","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":50000,"tokens_source":"estimated"}}\n' > "$rd/c.json"
     assert_not_equals "0" "$(calculate_session_cost "$rd")" "non-zero tokens produce non-zero cost"
     assert_contains "estimated for 1 of 1" "$(format_cost_caveats "$rd")" "estimated share is disclosed"
 
     # A measured split must be priced on the REAL split, not re-derived 60/40.
-    # gpt-5.5 is 0.005 in / 0.030 out: 20000+500 costs 0.115, not 0.3075.
+    # gpt-6.1-sol is 0.002 in / 0.01 out: 20000+500 costs 0.045, not 0.0864.
     rm -f "$rd"/*.json
-    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
-    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "measured split priced as measured, not re-split 60/40"
-    assert_equals "" "$(format_cost_caveats "$rd")" "a fully measured, priced run discloses nothing"
+    printf '{"consultant":"Codex","model":"gpt-6.1-sol","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
+    assert_equals "0.045000" "$(calculate_session_cost "$rd")" "measured split priced as measured, not re-split 60/40"
+    assert_equals " [GPT-6 Astra/6.1 Sol/Luna cost estimated at Standard rates (incl. long-context pricing); cache/service adjustments excluded, not an invoice]" \
+        "$(format_cost_caveats "$rd")" "a fully measured, priced run discloses only its rate basis"
 
     # Keep the provider's versioned effective identity without mispricing it:
     # requested_model supplies the catalog key when that revision has no row.
-    printf '{"consultant":"Codex","model":"gpt-5.5-202608","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"requested_model":"gpt-5.5","model_identity_source":"provider-reported","tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
-    assert_equals "0.115000" "$(calculate_session_cost "$rd")" "provider revision uses requested-model pricing without relabeling identity"
+    printf '{"consultant":"Codex","model":"gpt-6.1-sol-202610","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"requested_model":"gpt-6.1-sol","model_identity_source":"provider-reported","tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
+    assert_equals "0.045000" "$(calculate_session_cost "$rd")" "provider revision uses requested-model pricing without relabeling identity"
 
     printf '{"consultant":"Codex","model":"unknown-provider-revision","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"requested_model":"custom-unknown","model_identity_source":"provider-reported","tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
-    assert_equals "0.107500" "$(calculate_session_cost "$rd")" "unknown requested model uses default rate, not consultant premium fallback"
+    assert_equals "0" "$(calculate_session_cost "$rd")" "unknown requested model is unpriced, not priced at a guessed rate"
+    assert_contains "custom-unknown (not in the rate catalog)" "$(format_cost_caveats "$rd")" "unknown requested model is named as unpriced"
 
-    printf '{"consultant":"Codex","model":"unknown-legacy-model","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
-    assert_equals "0.045000" "$(calculate_session_cost "$rd")" "legacy response without requested_model uses the current Codex fallback (gpt-6.1-sol)"
+    printf '{"consultant":"Codex","model":"default","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
+    assert_equals "0.045000" "$(calculate_session_cost "$rd")" "legacy response without a model name uses the current Codex fallback (gpt-6.1-sol)"
+
+    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/c.json"
+    assert_equals "0" "$(calculate_session_cost "$rd")" "a retired model is unpriced, not priced as the consultant default"
+    assert_contains "gpt-5.5 (not in the rate catalog)" "$(format_cost_caveats "$rd")" "a retired model is named as unpriced"
 
     # Claude CLI reports exact costUSD, including adaptive-thinking tokens and
     # cache pricing. It must win over reconstructing cost from visible output.
     rm -f "$rd"/*.json
-    printf '{"consultant":"Claude","model":"claude-opus-5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":100,"tokens_source":"measured","tokens_input":60,"tokens_output":40,"provider_cost_usd":0.987654}}\n' > "$rd/c.json"
+    printf '{"consultant":"Claude","model":"claude-opus-5-5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":100,"tokens_source":"measured","tokens_input":60,"tokens_output":40,"provider_cost_usd":0.987654}}\n' > "$rd/c.json"
     assert_equals "0.987654" "$(calculate_session_cost "$rd")" \
         "provider-reported cost wins over local token pricing"
 
@@ -823,13 +825,13 @@ test_response_tokens() {
     assert_equals "0.987654" "$(calculate_session_cost "$rd")" "pipeline metadata is not billed"
 
     # A cache hit made no API call.
-    printf '{"consultant":"GLM","model":"glm-5.2","response":{"approach":"y"},"confidence":{"score":9},"cache_metadata":{"from_cache":true},"metadata":{"tokens_used":40000,"tokens_source":"measured","tokens_input":30000,"tokens_output":10000}}\n' > "$rd/cached.json"
+    printf '{"consultant":"GLM","model":"glm-5.3-flash","response":{"approach":"y"},"confidence":{"score":9},"cache_metadata":{"from_cache":true},"metadata":{"tokens_used":40000,"tokens_source":"measured","tokens_input":30000,"tokens_output":10000}}\n' > "$rd/cached.json"
     assert_equals "0.987654" "$(calculate_session_cost "$rd")" "cache hit costs nothing"
 
     # Debate rounds are separate billed queries in a subdirectory.
     mkdir -p "$rd/round_1"
-    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/round_1/c.json"
-    assert_equals "1.102654" "$(calculate_session_cost "$rd")" "debate round spend is counted"
+    printf '{"consultant":"Codex","model":"gpt-6.1-sol","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/round_1/c.json"
+    assert_equals "1.032654" "$(calculate_session_cost "$rd")" "debate round spend is counted"
 
     # Peer-review artifacts are derived data, not additional consultations.
     # Anonymous copies retain token metadata while bookkeeping has no metadata,
@@ -838,15 +840,15 @@ test_response_tokens() {
     printf '{"anonymous_id":"Response_A","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/peer_review/anonymous/Response_A.json"
     printf '{"Response_A":{"consultant":"Codex","file":"c.json"}}\n' > "$rd/peer_review/mapping.json"
     printf '{"reviews":[{"response_id":"Response_A","quality_score":9}]}\n' > "$rd/peer_review/reviews/review_Gemini.json"
-    assert_equals "1.102654" "$(calculate_session_cost "$rd")" \
+    assert_equals "1.032654" "$(calculate_session_cost "$rd")" \
         "peer-review artifacts are not billed"
     assert_exit_code_failure "anonymous response copy is not a consultant response shape" \
         _is_consultant_response_file "$rd/peer_review/anonymous/Response_A.json"
     rm -rf "$rd/peer_review"
 
     # An escalation copy is the same query, already counted via the base file.
-    printf '{"consultant":"Codex","model":"gpt-5.5","response":{"approach":"x"},"confidence":{"score":9},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/Codex_escalated.json"
-    assert_equals "1.102654" "$(calculate_session_cost "$rd")" "escalation copy is not double-counted"
+    printf '{"consultant":"Codex","model":"gpt-6.1-sol","response":{"approach":"x"},"confidence":{"score":9},"metadata":{"tokens_used":20500,"tokens_source":"measured","tokens_input":20000,"tokens_output":500}}\n' > "$rd/Codex_escalated.json"
+    assert_equals "1.032654" "$(calculate_session_cost "$rd")" "escalation copy is not double-counted"
 
     # Failed consultations carry no token data and must not read as measured.
     rm -f "$rd"/*.json "$rd"/round_1/*.json
@@ -860,11 +862,11 @@ test_response_tokens() {
     rm -rf "$td"
 }
 
-# Credit-billed models (Qwen Cloud Token Plan) have no per-token price. An
-# absent catalog entry is NOT neutral: it falls through to default_rate
-# (0.005/0.015), which is ~4x the real qwen3.7-max input rate and gets reported
-# as a confident figure. The 0/0 entry plus the disclosure is what keeps the
-# report honest instead of fabricating or silently implying "free".
+# Subscription-billed models (Kimi Code, Qwen Token Plan, GLM coding plan) have
+# no per-token price on the transports used here. The 0/0 entry plus the
+# disclosure is what keeps the report honest instead of silently implying
+# "free". An uncatalogued model is likewise priced at 0 and named, never priced
+# at a guessed default rate.
 test_unpriced_models() {
     suite "costs.sh: credit-billed models (no per-token price)"
 
@@ -874,36 +876,51 @@ test_unpriced_models() {
     assert_equals "0" "$(get_input_cost_per_1k qwen3.8-max)"  "3.8 max input is 0, not the default rate"
     assert_equals "0" "$(get_output_cost_per_1k qwen3.8-max)" "3.8 max output is 0, not the default rate"
     assert_equals "0" "$(get_input_cost_per_1k glm-5.3-flash)" "GLM 5.3 Flash coding-plan transport is unpriced"
-    assert_equals "0" "$(get_output_cost_per_1k kimi-code/k3-256k)" "K3-256k subscription transport is unpriced"
     assert_equals "0" "$(get_output_cost_per_1k kimi-code/k3.1-pro)" "K3.1 Pro subscription transport is unpriced"
 
-    # The catalogued priced model must be untouched by this change.
-    assert_equals "0.0012" "$(get_input_cost_per_1k qwen3.7-max)" "qwen3.7-max input unchanged"
-    assert_equals "0.006"  "$(get_output_cost_per_1k qwen3.7-max)" "qwen3.7-max output unchanged"
+    # A catalogued priced model must be untouched by this change.
+    assert_equals "0.00136" "$(get_input_cost_per_1k mistral-large-4)" "mistral-large-4 input unchanged"
+    assert_equals "0.00418" "$(get_output_cost_per_1k mistral-large-4)" "mistral-large-4 output unchanged"
 
     if is_unpriced_model "qwen3.8-max"; then
         assert_equals "yes" "yes" "qwen3.8-max is flagged unpriced"
     else
         assert_equals "yes" "no"  "qwen3.8-max is flagged unpriced"
     fi
-    if is_unpriced_model "qwen3.7-max"; then
-        assert_equals "no" "yes"  "qwen3.7-max is NOT flagged unpriced"
+    if is_unpriced_model "mistral-large-4"; then
+        assert_equals "no" "yes"  "mistral-large-4 is NOT flagged unpriced"
     else
-        assert_equals "no" "no"   "qwen3.7-max is NOT flagged unpriced"
+        assert_equals "no" "no"   "mistral-large-4 is NOT flagged unpriced"
     fi
-    if is_unpriced_model "glm-5.3-flash" && is_unpriced_model "glm-5.3" && is_unpriced_model "kimi-code/k3-256k" \
+    if is_unpriced_model "glm-5.3-flash" && is_unpriced_model "glm-5.3" && is_unpriced_model "qwen3.8-flash" \
         && is_unpriced_model "kimi-code/k3.1-pro"; then
-        assert_equals yes yes "GLM 5.3 Flash, legacy GLM 5.3, K3-256k and K3.1 Pro are explicitly unpriced"
+        assert_equals yes yes "GLM 5.3 Flash, GLM 5.3, Qwen3.8 Flash and K3.1 Pro are explicitly unpriced"
     else
-        assert_equals yes no "GLM 5.3 Flash, legacy GLM 5.3, K3-256k and K3.1 Pro are explicitly unpriced"
+        assert_equals yes no "GLM 5.3 Flash, GLM 5.3, Qwen3.8 Flash and K3.1 Pro are explicitly unpriced"
     fi
+    assert_exit_code_failure "retired K3-256k is not a catalogued unpriced model" is_unpriced_model "kimi-code/k3-256k"
+    assert_equals "kimi-code/k3.1-pro" "$(retired_model_replacement kimi-code/k3-256k)" "retired K3-256k names its replacement"
+    assert_equals "MiniMax-M3.1-Flash" "$(retired_model_replacement minimax-m2.7)" "retired lookup is case-insensitive"
+    assert_exit_code_failure "a current model is not retired" retired_model_replacement grok-4.7
+    assert_exit_code_success "a removed consultant's model is retired" retired_model_replacement composer-2.5
+    assert_equals "" "$(retired_model_replacement composer-2.5)" "a removed consultant's model has no replacement"
+
+    # A retired or uncatalogued selection still runs, but the run says why its
+    # cost is missing; a catalogued subscription model is not warned about.
+    local warned
+    warned=$(LOG_LEVEL=WARN GROK_MODEL=grok-4.5 KIMI_MODEL=kimi-code/k3.1-pro DEEPSEEK_MODEL=deepseek-next \
+        warn_uncatalogued_models "Grok,Kimi,DeepSeek" 2>&1)
+    assert_contains "grok-4.5 is retired; run 'ai-consultants configure' to migrate it to grok-4.7" "$warned" \
+        "a retired selection names its replacement"
+    assert_contains "deepseek-next is not in the rate catalog" "$warned" "an uncatalogued selection is named"
+    assert_not_contains "k3.1-pro" "$warned" "a catalogued subscription model is not warned about"
 
     # The disclosure must reflect the responses on disk. It deliberately
     # rescans rather than reading state from calculate_session_cost, which runs
     # in a command substitution and cannot export anything to its caller.
     local td
     td=$(mktemp -d "${TMPDIR:-/tmp}/unpriced.XXXXXX")
-    printf '{"consultant":"GLM","model":"glm-5.2","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1200,"tokens_output":800}}\n' > "$td/b.json"
+    printf '{"consultant":"Mistral","model":"mistral-large-4","response":{"approach":"x"},"confidence":{"score":8},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1200,"tokens_output":800}}\n' > "$td/b.json"
     assert_equals "" "$(format_cost_caveats "$td")" "priced + measured run discloses nothing"
 
     printf '{"consultant":"Qwen3","model":"qwen3.8-max","response":{"approach":"y"},"confidence":{"score":9},"metadata":{"tokens_used":2000,"tokens_source":"measured","tokens_input":1200,"tokens_output":800}}\n' > "$td/a.json"
@@ -1047,22 +1064,6 @@ test_query_classification() {
 }
 
 # =============================================================================
-# TESTS: costs.sh - Model tier classification
-# =============================================================================
-
-test_model_tiers() {
-    suite "costs.sh: get_model_tier"
-
-    assert_equals "economy" "$(get_model_tier "gpt-4o-mini")" "gpt-4o-mini is economy"
-    assert_equals "economy" "$(get_model_tier "claude-3-haiku")" "claude-3-haiku is economy"
-    assert_equals "economy" "$(get_model_tier "gemini-2.0-flash")" "gemini-2.0-flash is economy"
-    assert_equals "premium" "$(get_model_tier "gpt-4")" "gpt-4 is premium"
-    assert_equals "premium" "$(get_model_tier "claude-3-opus")" "claude-3-opus is premium"
-    assert_equals "standard" "$(get_model_tier "gpt-4o")" "gpt-4o is standard (default)"
-    assert_equals "standard" "$(get_model_tier "some-random-model")" "unknown model is standard"
-}
-
-# =============================================================================
 # TESTS: costs.sh - Economic model mapping
 # =============================================================================
 
@@ -1070,9 +1071,11 @@ test_economic_models() {
     suite "costs.sh: get_economic_model"
 
     assert_equals "Gemini 3.8 Flash (Low)" "$(get_economic_model "gemini" cli)" "Gemini CLI economy is hermetic"
-    assert_equals "gemini-3.1-pro-preview" "$(get_economic_model "gemini" api)" "Gemini API economy is hermetic"
-    assert_equals "gpt-5.6-luna"     "$(get_economic_model "codex")"  "codex economy is gpt-5.6-luna"
-    assert_equals "claude-haiku-4-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-4-5"
+    assert_equals "gemini-3.8-flash" "$(get_economic_model "gemini" api)" "Gemini API economy is hermetic"
+    assert_equals "gpt-6-luna"       "$(get_economic_model "codex")"  "codex economy is gpt-6-luna"
+    assert_equals "claude-haiku-5-5" "$(get_economic_model "claude")" "claude economy is claude-haiku-5-5"
+    assert_equals "glm-5.3-flash"    "$(get_economic_model "glm")"    "glm economy is glm-5.3-flash"
+    assert_equals "grok-4.7"         "$(get_economic_model "grok")"   "grok economy is grok-4.7"
     assert_equals "MiniMax-M3.1-Flash" "$(get_economic_model "minimax")" "minimax economy is MiniMax-M3.1-Flash"
     assert_equals ""                 "$(get_economic_model "unknown")" "unknown consultant returns empty"
 }
@@ -1446,14 +1449,15 @@ test_model_for_tier() {
 
     assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "premium")"  "claude premium is Fable 5.1"
     assert_equals "claude-opus-5-5"       "$(get_model_for_tier "claude" "standard")" "claude standard is Opus 5.5"
-    assert_equals "claude-haiku-4-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-4-5"
+    assert_equals "claude-haiku-5-5"      "$(get_model_for_tier "claude" "economy")"  "claude economy is claude-haiku-5-5"
     assert_equals "Gemini 4 Argon (High)" "$(get_model_for_tier "gemini" "premium" cli)" "gemini CLI premium is Gemini 4 Argon (High)"
     assert_equals "gemini-4-argon" "$(get_model_for_tier "gemini" "premium" api)" "gemini API premium uses the Argon provider ID"
     assert_equals "Gemini 4 Argon (High)" "$(get_model_for_tier "gemini" "maximum" cli)" "Gemini 4 Argon serves the CLI maximum tier"
     assert_equals "gemini-4-argon" "$(get_model_for_tier "gemini" "maximum" api)" "Gemini 4 Argon serves the API maximum tier"
     assert_equals "Gemini 3.8 Flash (High)" "$(get_model_for_tier "gemini" "standard" cli)" "Gemini 3.8 Flash (High) keeps the CLI standard tier"
-    assert_equals "Gemini 3.8 Flash (Low)" "$(get_model_for_tier "gemini" "economy" cli)" "verified Gemini 3.7 is promoted in CLI economy tier"
-    assert_equals "gemini-3.1-pro-preview" "$(get_model_for_tier "gemini" "standard" api)" "unverified Gemini 3.7 stays out of API standard tier"
+    assert_equals "Gemini 3.8 Flash (Low)" "$(get_model_for_tier "gemini" "economy" cli)" "Gemini 3.8 Flash (Low) serves the CLI economy tier"
+    assert_equals "gemini-3.8-flash" "$(get_model_for_tier "gemini" "standard" api)" "Gemini 3.8 Flash serves the API standard tier"
+    assert_equals "gemini-3.8-flash" "$(get_model_for_tier "gemini" "economy" api)" "Gemini 3.8 Flash serves the API economy tier"
     assert_equals "mistral-medium-3.5" "$(get_model_for_tier "mistral" "premium" cli)" "Mistral CLI premium uses the Vibe alias"
     assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "maximum" api)" "Mistral API maximum is Large 4"
     assert_equals "mistral-large-4" "$(get_model_for_tier "mistral" "premium" api)" "Mistral API premium is Large 4"
@@ -1467,12 +1471,12 @@ test_model_for_tier() {
     # Codex / Gemini tier refresh (Aug 2026)
     assert_equals "gpt-6.1-sol"           "$(get_model_for_tier "codex" "premium")"    "codex premium is gpt-6.1-sol"
     assert_equals "gpt-6-astra"           "$(get_model_for_tier "codex" "maximum")"    "codex maximum stays gpt-6-astra"
-    assert_equals "gpt-5.6-terra"         "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-5.6-terra"
-    assert_equals "gpt-5.6-luna"          "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-5.6-luna"
+    assert_equals "gpt-6.1-sol"           "$(get_model_for_tier "codex" "standard")"   "codex standard is gpt-6.1-sol"
+    assert_equals "gpt-6-luna"            "$(get_model_for_tier "codex" "economy")"    "codex economy is gpt-6-luna"
     assert_equals "deepseek-flash"     "$(get_model_for_tier "deepseek" "standard")" "deepseek standard is deepseek-flash"
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "premium")"      "glm premium is glm-5.3-flash"
     assert_equals "grok-4.7"              "$(get_model_for_tier "grok" "premium")"     "grok premium is grok-4.7"
-    assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.5"
+    assert_equals "grok-4.7"              "$(get_model_for_tier "grok" "standard")"    "grok standard is grok-4.7"
     # qwen3.8-max is served on the qwen CLI, Token Plan and DashScope alike
     # (verified live 2026-10-02), so it is the premium default; Flash serves
     # standard and economy. The retired -preview ID is never selected.
@@ -1484,7 +1488,8 @@ test_model_for_tier() {
     # v2.17.0 changed standard/economy slots (cover the branches the diff edited)
     assert_equals "deepseek-flash"     "$(get_model_for_tier "deepseek" "economy")"  "deepseek economy is deepseek-flash"
     assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "standard")"      "glm standard is glm-5.3-flash"
-    assert_equals "grok-4.5"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.5"
+    assert_equals "grok-4.7"              "$(get_model_for_tier "grok" "economy")"      "grok economy is grok-4.7"
+    assert_equals "glm-5.3-flash"         "$(get_model_for_tier "glm" "economy")"       "glm economy is glm-5.3-flash"
     assert_equals "claude-fable-5-1"      "$(get_model_for_tier "claude" "maximum")"    "Claude maximum is Fable 5.1"
     assert_equals "kimi-code/k3.1-pro"    "$(get_model_for_tier "kimi" "maximum")"      "maximum tier uses Kimi K3.1 Pro"
     assert_equals "qwen3.8-max"           "$(get_model_for_tier "qwen3" "maximum")"     "maximum catalog includes Qwen3.8-Max"
@@ -1610,7 +1615,7 @@ test_model_for_tier() {
         apply_model_tier economy
         printf '%s|%s|%s|%s\n' "$GEMINI_MODEL" "$GEMINI_API_MODEL" "$MISTRAL_CLI_MODEL" "$MISTRAL_MODEL"
     )
-    assert_equals "Gemini 3.8 Flash (Low)|gemini-3.1-pro-preview|mistral-medium-3.5|mistral-large-4" \
+    assert_equals "Gemini 3.8 Flash (Low)|gemini-3.8-flash|mistral-medium-3.5|mistral-large-4" \
         "$economy_exports" "economy exports are transport-stable and hermetic"
 
     # Unknown tier returns empty
@@ -1658,7 +1663,7 @@ test_consultant_list_completeness() {
     suite "integration: ALL_CONSULTANTS completeness"
 
     local count=${#ALL_CONSULTANTS[@]}
-    assert_equals "10" "$count" "ALL_CONSULTANTS has 10 entries"
+    assert_equals "11" "$count" "ALL_CONSULTANTS has 11 entries"
 
     # Verify key consultants are present
     local all_str="${ALL_CONSULTANTS[*]}"
@@ -1666,6 +1671,7 @@ test_consultant_list_completeness() {
     assert_contains "Claude" "$all_str" "Claude in ALL_CONSULTANTS"
     assert_contains "MiniMax" "$all_str" "MiniMax in ALL_CONSULTANTS"
     assert_contains "Kimi" "$all_str" "Kimi in ALL_CONSULTANTS"
+    assert_contains "Meta" "$all_str" "Meta in ALL_CONSULTANTS"
     assert_not_contains "Cursor" "$all_str" "Cursor removed from ALL_CONSULTANTS"
     assert_not_contains "Amp" "$all_str" "Amp removed from ALL_CONSULTANTS"
     assert_not_contains "Kilo" "$all_str" "Kilo removed from ALL_CONSULTANTS"
@@ -1746,7 +1752,6 @@ main() {
     test_budget_checking
     test_query_complexity
     test_query_classification
-    test_model_tiers
     test_economic_models
     test_response_limits
     test_budget_enforcement

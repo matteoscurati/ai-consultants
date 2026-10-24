@@ -1,6 +1,6 @@
 # AI Consultants v5.4.0
 
-> **Coverage, not a single guess.** A panel of up to 10 frontier models from different vendors fans out on your question in parallel and hands you the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses.
+> **Coverage, not a single guess.** A panel of up to 11 frontier models from different vendors fans out on your question in parallel and hands you the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses.
 
 [![Version](https://img.shields.io/badge/version-5.4.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -41,7 +41,7 @@ A single model gives you one perspective. AI Consultants sends your question to 
 - **Cross-vendor diversity → breadth** — different model families often raise different points. In a small internal test with three open-ended tasks ("what could go wrong with this design?", "enumerate the risks"), the merged list covered more items on a reference checklist than one strong model alone, or one model sampled several times. That is a direction, not a benchmark: there is no evidence that a panel is more *accurate* than one strong model, and models agreeing is not proof.
 - **Parallel fan-out** — every consultant runs at once; no serial deliberation rounds.
 - **Coverage synthesis** — the default synthesis is the deduplicated *union* of every distinct point, not a single voted winner (use `--strategy compare_only` for a side-by-side, or `majority` for a blended recommendation).
-- **10 supported consultants** with distinct personas (Architect, Pragmatist, Devil's Advocate, …) — the personas deliberately decorrelate the panel.
+- **11 supported consultants** with distinct personas (Architect, Pragmatist, Devil's Advocate, …) — the personas deliberately decorrelate the panel.
 - **Best for breadth** — threat-modeling, design review, "what am I missing?", exhaustive enumeration. For a single-answer factual or defect-finding question, one strong model is usually enough.
 
 ---
@@ -408,6 +408,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"    # Codex excluded
 | **Qwen3** | `qwen` | The Analyst | Data-driven analysis |
 | **Grok** | `grok` | The Provocateur | Challenge conventions |
 | **MiniMax** | `mmx` | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
+| **Meta Muse** | `muse` | The Systems Thinker | System design, interactions, cascading effects |
 
 Grok uses Grok Build with `grok-4.7` in an isolated, tool-free sandbox. Prompts
 are passed through a private file rather than process arguments. It falls back
@@ -422,7 +423,7 @@ external `grok login` wins and the affected run fails without overwriting it or
 falling back to the API. Set `GROK_OAUTH_MODE=serialized` only for diagnostic
 full-run serialization. A new generation performs one locked inventory
 bootstrap because Grok 1.0.4 lazily initializes home metadata; inference is
-never serialized by that bootstrap. Qwen3 and MiniMax can also switch
+never serialized by that bootstrap. Qwen3, MiniMax and Meta can also switch
 from their CLI to API transport. Gemini, Codex, Claude, and Mistral are
 CLI/API switchable. Gemini, Grok, and Kimi verify the requested model
 against the CLI inventory before dispatch when that inventory exists. Grok and
@@ -430,6 +431,15 @@ Kimi compatibility is capability-probed before
 dispatch: the requested model, headless arguments, and structured-output
 surface must be available. Any CLI version is accepted when those checks pass;
 the observed version is response provenance only.
+
+Meta runs Muse Code headless (`muse exec`) advisory-only: a private empty
+workspace, no shell, no workspace writes, no web tools, no sandbox network, no
+personal rules or skills, no session log and `--contributor-mode off` (Muse
+Code subscriptions default to Contributor mode, which lets Meta train on the
+content). The prompt goes through `--prompt-file`. Its `muse exec` flags are
+capability-probed before dispatch. With `META_API_KEY` set (and no explicit
+`META_USE_API`), Meta uses the Meta Model API instead. Meta is opt-in
+(`ENABLE_META=false` until `configure` finds the CLI or a key).
 
 ### API-Only Consultants
 
@@ -453,6 +463,7 @@ curl -L code.kimi.com/install.sh | bash            # Kimi K3.1 Pro
 npm install -g @qwen-code/qwen-code@latest  # Qwen (alternative to API)
 curl -fsSL https://x.ai/cli/install.sh | bash # Grok Build (grok-4.7)
 npm install -g mmx-cli                       # MiniMax
+curl -fsSL https://dev.meta.ai/install.sh | sh  # Meta (Muse Code; run muse once to sign in)
 
 ```
 
@@ -475,16 +486,16 @@ Choose the right balance of quality, speed, and cost with model quality tiers.
 
 | Preset | Tier | Agents | Use Case |
 |--------|------|--------|----------|
-| `max_quality` | Maximum + max effort | All 10 | Critical decisions |
+| `max_quality` | Maximum + max effort | All 11 | Critical decisions |
 | `medium` | Standard | 3 | General questions |
 | `fast` | Economy | 2 | Quick checks |
 
 A preset only chooses the **consultant set and model tier** — every run then fans out in
 parallel and returns the coverage union.
-Preset panels use statically configured transports only (a CLI on `PATH`, or selected API mode with its key). Host self-exclusion is fail-closed; lost canonical slots are filled from `ALL_CONSULTANTS` in canonical order. If the effective target cannot be met, including after an enabled health gate prunes the panel, the run stops with promised/selected/missing-capacity guidance. Configured custom API agents are appended and may satisfy capacity, so a full preset can exceed its advertised count. `max_quality` still advertises 10 consultants, with an effective target of 9 for a canonical invoking host.
-For `max_quality`, Grok, GLM, and DeepSeek are also pinned to their highest
-accepted reasoning effort: Grok Build uses `xhigh`, while GLM and DeepSeek use
-`max`. Unsupported transport capabilities fail explicitly instead of reducing
+Preset panels use statically configured transports only (a CLI on `PATH`, or selected API mode with its key). Host self-exclusion is fail-closed; lost canonical slots are filled from `ALL_CONSULTANTS` in canonical order. If the effective target cannot be met, including after an enabled health gate prunes the panel, the run stops with promised/selected/missing-capacity guidance. Configured custom API agents are appended and may satisfy capacity, so a full preset can exceed its advertised count. `max_quality` still advertises 11 consultants, with an effective target of 10 for a canonical invoking host.
+For `max_quality`, Grok, GLM, DeepSeek and Meta are also pinned to their highest
+accepted reasoning effort: Grok Build uses `xhigh`, while GLM, DeepSeek and Meta
+use `max`. Unsupported transport capabilities fail explicitly instead of reducing
 effort silently.
 
 The maximum preset also applies the transport budgets proven by the live panel
@@ -510,18 +521,29 @@ and cannot support a comprehensive coverage claim.
 
 | Consultant | `max_quality` | Premium | Standard | Economy |
 |------------|---------------|---------|----------|---------|
-| Claude | claude-fable-5-1 | claude-fable-5-1 | claude-opus-5-5 | claude-haiku-4-5 |
+| Claude | claude-fable-5-1 | claude-fable-5-1 | claude-opus-5-5 | claude-haiku-5-5 |
 | Gemini CLI | Gemini 4 Argon (High) | Gemini 4 Argon (High) | Gemini 3.8 Flash (High) | Gemini 3.8 Flash (Low) |
-| Gemini API | gemini-4-argon | gemini-4-argon | gemini-3.1-pro-preview | gemini-3.1-pro-preview |
-| Codex | gpt-6-astra | gpt-6.1-sol | gpt-5.6-terra | gpt-5.6-luna |
+| Gemini API | gemini-4-argon | gemini-4-argon | gemini-3.8-flash | gemini-3.8-flash |
+| Codex | gpt-6-astra | gpt-6.1-sol | gpt-6.1-sol | gpt-6-luna |
 | Mistral CLI | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 | mistral-medium-3.5 |
 | Mistral API | mistral-large-4 | mistral-large-4 | mistral-large-4 | mistral-large-4 |
 | DeepSeek | deepseek-flash | deepseek-flash | deepseek-flash | deepseek-flash |
-| GLM | glm-5.3 | glm-5.3-flash | glm-5.3-flash | glm-4-flash |
-| Grok | grok-4.7 | grok-4.7 | grok-4.5 | grok-4.5 |
+| GLM | glm-5.3 | glm-5.3-flash | glm-5.3-flash | glm-5.3-flash |
+| Grok | grok-4.7 | grok-4.7 | grok-4.7 | grok-4.7 |
 | Qwen3 | qwen3.8-max | qwen3.8-max | qwen3.8-flash | qwen3.8-flash |
 | Kimi | kimi-code/k3.1-pro | kimi-code/k3.1-pro | kimi-code/k3.1-pro | kimi-code/k3.1-pro |
 | MiniMax | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash | MiniMax-M3.1-Flash |
+| Meta | muse-wonder-1.0 | muse-wonder-1.0 | muse-spark-1.3 | muse-spark-1.3 |
+
+Every tier uses current models only. 5.5.0 retired the superseded ones (94
+IDs, listed with their replacements in `docs/cost_rates.json`): `configure`
+migrates them, and a retired model selected at run time still runs with a
+warning and is reported as unpriced. The economy tier moved to Claude Haiku 5.5,
+GPT-6 Luna, Grok 4.7 and GLM-5.3-Flash, standard Codex to GPT-6.1 Sol (there is
+no GPT-6 mid model), and the Gemini API standard/economy tiers to
+`gemini-3.8-flash`. Authorized CLI smokes on 2026-10-24 returned structured
+answers from Claude Haiku 5.5 (provider-reported identity, 6 s) and GPT-6 Luna
+(requested-only, 4 s); the Gemini API target is offline-tested.
 
 MiniMax-M3.1-Flash (released 2026-10-19, $0.15/$0.60 per 1M tokens) serves every
 MiniMax tier. It always reasons; set `MINIMAX_REASONING_EFFORT` (API mode) to
@@ -529,21 +551,34 @@ MiniMax tier. It always reasons; set `MINIMAX_REASONING_EFFORT` (API mode) to
 (`max`). An authorized `mmx` smoke returned a structured answer in 30 s on
 2026-10-20 with requested-only identity; the API transport is offline-tested.
 
+Meta (new in 5.5.0) uses Muse Wonder (`muse-wonder-1.0`, preview, $4/$20 per 1M
+tokens) for the default, premium and maximum tiers and Muse Spark 1.3
+(`muse-spark-1.3`, $1.25/$4.25) for standard and economy, both in Standard mode,
+where Meta does not train on the content. Both always reason: effort is `high`
+by default and `max` in `max_quality` (`META_REASONING_EFFORT`, `minimal`..`max`;
+`none` is rejected), and the reasoning shares the 32,768-token API completion
+budget. A Contributor-mode model (`muse-spark-1.3-contributor`, $0.10/$0.20)
+must be pinned by hand and is logged with a warning on every run. A non-streaming
+API request that runs past Meta's server time limit returns HTTP 504
+`gateway_timeout` and is not retried. One authorized `muse exec` smoke (Muse
+Code 1.4.12, Muse Wonder, 2026-10-24) returned a structured persona answer in
+12 s with requested-only identity and estimated tokens; the API transport is
+offline-tested.
+
 Promotion is transport-specific. Gemini 4 Argon (GA 2026-10-13) is the Gemini
 default and maximum target: `Gemini 4 Argon (High)` on `agy` and `gemini-4-argon`
 on the API. An authorized `agy` consultation smoke returned a structured answer
 with capability-probed identity on 2026-10-16; the API transport is covered by
 offline tests only. Google excludes Argon from the Free tier and the AI Pro
-plan, so the `agy` listing alone is not an access check. Gemini 3.8 Flash keeps
-the CLI standard (High) and economy (Low) tiers; the API standard and economy
-tiers keep `gemini-3.1-pro-preview`, and `gemini-3.8-flash` remains an explicit
-API opt-in whose live transport is not yet verified. Mistral Large 4 (`mistral-large-4`, public preview) is the
+plan, so the `agy` listing alone is not an access check. Gemini 3.8 Flash serves
+the standard (High) and economy (Low) tiers on the CLI and, as `gemini-3.8-flash`,
+on the API; that API transport is offline-tested. Mistral Large 4 (`mistral-large-4`, public preview) is the
 Mistral API target for every tier. An authorized consultation smoke returned a
 structured answer with provider-reported identity on 2026-10-15; the preview is absent from
 `GET /v1/models`, so that listing is not an access check. Vibe keeps
 `mistral-medium-3.5`. The other Mistral
-API IDs (`mistral-medium-3-5`, `mistral-large-2512`, `mistral-small-2603`)
-remain catalogued opt-ins. Claude
+API IDs (`mistral-medium-3-5`, `mistral-small-2603`) remain catalogued
+opt-ins. Claude
 Fable 5.1 is the default/premium/maximum target; use
 `CLAUDE_MODEL=claude-opus-5-5` for the lower-cost standard override. Selecting a preset later intentionally reapplies that
 preset's tier and can replace an explicit model override for the run.
@@ -596,7 +631,7 @@ apply_model_tier "economy"   # Set all to economy models
 | `high-stakes` | — | 4 | premium | Critical decisions |
 | `security` | — | 3 | base | Security reviews |
 | `cost-capped` | — | 3 | economy | Budget-conscious options |
-| `max_quality` | `max-quality` | 10 | maximum | Maximum coverage for critical decisions |
+| `max_quality` | `max-quality` | 11 | maximum | Maximum coverage for critical decisions |
 | `medium` | — | 3 | standard | General questions |
 | `fast` | — | 2 | economy | Quick checks |
 
@@ -652,7 +687,7 @@ review every parameter or `--dry-run` to preview a redacted result.
 Auto-selected `*_USE_API` values are marked `# ai-consultants:auto`, allowing a
 later run to adapt when a CLI or credential changes. Environment variables,
 `--set`, and unmarked values remain explicit user choices, except for the exact
-historical generated Claude default described below.
+historical generated Claude default and the retired models described below.
 Managed model defaults use `# ai-consultants:default`; `configure` upgrades
 the exact historical defaults it generated when they are not pinned (for
 example `CLAUDE_MODEL=claude-opus-4-8`/`claude-opus-5` to Fable 5.1, and the
@@ -660,7 +695,10 @@ previous Gemini, Codex, Mistral API, Qwen, GLM, Grok and DeepSeek defaults),
 and turns the fixed timeouts it generated through 5.1.2 into 0 (no limit).
 To keep a model, run for example
 `ai-consultants configure --set CLAUDE_MODEL=claude-opus-5-5`; explicit model
-overrides are stored with `# ai-consultants:pin` and never migrated.
+overrides are stored with `# ai-consultants:pin` and never migrated while the
+model is current. A retired model (see `retired_models` in
+`docs/cost_rates.json`) is replaced even when pinned: the marker is kept, the
+old value is recorded as `migrated-from=`, and `--set` refuses a retired model.
 
 Enter credentials through `--interactive`/`--advanced` or export them before the
 run; avoid passing API keys through `--set`, where the shell may retain them in

@@ -587,6 +587,9 @@ if [[ ${#SELECTED_CONSULTANTS[@]} -lt 2 ]]; then
     exit 1
 fi
 
+# A retired or uncatalogued model still runs, but its cost cannot be priced.
+warn_uncatalogued_models "$(IFS=','; echo "${SELECTED_CONSULTANTS[*]}")"
+
 # --- Refined Cost Estimation (v2.4) ---
 # Now that we know which consultants are selected, recalculate with accurate model rates
 if [[ "$ENABLE_COST_TRACKING" == "true" ]]; then

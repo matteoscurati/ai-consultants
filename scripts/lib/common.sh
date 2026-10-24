@@ -316,7 +316,7 @@ guard_argv_prompt_size() {
 # The query is passed via stdin to the command.
 # Use the exec-safe array form under run_query (agy_env is same-shell only).
 # Example:
-#   echo "$QUERY" | run_query "Gemini" "/tmp/out.json" 120 "${AGY_ENV_PREFIX[@]}" agy -p "..." --model "Gemini 3.1 Pro (High)"
+#   echo "$QUERY" | run_query "Gemini" "/tmp/out.json" 120 "${AGY_ENV_PREFIX[@]}" agy -p "..." --model "Gemini 4 Argon (High)"
 #
 run_query() {
     local consultant_name="$1"
@@ -450,7 +450,7 @@ to_title() {
 
 # Central list of known/predefined agents (to distinguish from custom ones)
 # This list is used by discovery functions to identify custom agents
-KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GROK MINIMAX"
+KNOWN_CLI_AGENTS="GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GROK MINIMAX META"
 KNOWN_API_AGENTS="GLM DEEPSEEK"
 
 # Every non-consultant ENABLE_* flag declared in config.sh. This is a denylist
@@ -529,6 +529,7 @@ validate_api_mode() {
         QWEN3)      api_key_var="QWEN3_API_KEY" ;;
         GROK)       api_key_var="GROK_API_KEY" ;;
         MINIMAX)    api_key_var="MINIMAX_API_KEY" ;;
+        META)       api_key_var="META_API_KEY" ;;
         *)
             log_error "Unknown agent for API mode: $agent"
             return 1
@@ -561,6 +562,7 @@ get_api_key_var() {
         GROK)       echo "GROK_API_KEY" ;;
         DEEPSEEK)   echo "DEEPSEEK_API_KEY" ;;
         MINIMAX)    echo "MINIMAX_API_KEY" ;;
+        META)       echo "META_API_KEY" ;;
         *)          echo "" ;;
     esac
 }
@@ -582,6 +584,7 @@ get_api_url() {
         GROK)       echo "${GROK_API_URL:-https://api.x.ai/v1/chat/completions}" ;;
         DEEPSEEK)   echo "${DEEPSEEK_API_URL:-https://api.deepseek.com/v1/chat/completions}" ;;
         MINIMAX)    echo "${MINIMAX_API_URL:-https://api.minimax.io/v1/chat/completions}" ;;
+        META)       echo "${META_API_URL:-https://api.meta.ai/v1/chat/completions}" ;;
         *)          echo "" ;;
     esac
 }
@@ -612,7 +615,7 @@ get_api_format() {
     case "$agent_upper" in
         GEMINI)     default_format="google_ai" ;;
         CLAUDE)     default_format="anthropic" ;;
-        CODEX|MISTRAL|GLM|GROK|DEEPSEEK|MINIMAX)  default_format="openai" ;;
+        CODEX|MISTRAL|GLM|GROK|DEEPSEEK|MINIMAX|META)  default_format="openai" ;;
         QWEN3)      default_format="qwen" ;;
         *)          default_format="openai" ;;
     esac
@@ -695,6 +698,7 @@ get_self_consultant_name() {
         mistral|vibe|mistral_vibe)      echo "MISTRAL" ;;
         kimi|kimi_code|kimicode)        echo "KIMI" ;;
         qwen|qwen3|qwen_code|qwencode)  echo "QWEN3" ;;
+        muse|muse_code|musecode|meta)   echo "META" ;;
         *)                              echo "" ;;
     esac
 }
@@ -733,7 +737,7 @@ is_consultant_statically_configured() {
             [[ -n "$api_key_var" && -n "${!api_key_var:-}" ]]
             return
             ;;
-        GEMINI|CODEX|MISTRAL|KIMI|CLAUDE|QWEN3|GROK|MINIMAX)
+        GEMINI|CODEX|MISTRAL|KIMI|CLAUDE|QWEN3|GROK|MINIMAX|META)
             ;;
         *)
             return 1
@@ -879,7 +883,7 @@ validate_consultant_name() {
     upper=$(to_upper "$name")
 
     # Check against known agents
-    local valid_agents="GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX"
+    local valid_agents="GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX META"
     for agent in $valid_agents; do
         if [[ "$upper" == "$agent" ]]; then
             return 0
@@ -1593,7 +1597,7 @@ normalize_consultant_response_text() {
 # Usage: process_consultant_response <consultant> <model> <persona> <temp_output> <output_file> <exit_code> <latency_ms> [native_json_field]
 # Parameters:
 #   consultant       - Consultant name (e.g., "Gemini")
-#   model            - Model used (e.g., "gemini-3.1-pro-preview")
+#   model            - Model used (e.g., "gemini-4-argon")
 #   persona          - Persona name (e.g., "The Architect")
 #   temp_output      - Path to temporary output file from CLI/API
 #   output_file      - Path to final output file

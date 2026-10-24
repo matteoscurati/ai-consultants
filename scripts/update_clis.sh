@@ -40,6 +40,7 @@ _CLI_ENTRIES=(
     "Qwen3|QWEN3_CMD|qwen"
     "Grok|GROK_CMD|grok"
     "MiniMax|MINIMAX_CMD|mmx"
+    "Meta|META_CMD|muse"
 )
 
 # Cached global package listings (filled once by _load_caches; tests may set them
@@ -67,6 +68,7 @@ _cli_meta() {
         qwen)     NPM_PKG="@qwen-code/qwen-code" ;;
         grok)     SELF_SUB="update"; INSTALLER="curl -fsSL https://x.ai/cli/install.sh | bash" ;;
         mmx)      NPM_PKG="mmx-cli"; SELF_SUB="update" ;;
+        muse)     INSTALLER="curl -fsSL https://dev.meta.ai/install.sh | sh" ;;
     esac
 }
 

@@ -14,7 +14,7 @@ thorough||3|base|Comprehensive analysis
 high-stakes||4|premium|Critical decisions
 security||3|base|Security reviews
 cost-capped||3|economy|Budget-conscious options
-max_quality|max-quality|10|maximum|Maximum coverage for critical decisions
+max_quality|max-quality|11|maximum|Maximum coverage for critical decisions
 medium||3|standard|General questions
 fast||2|economy|Quick checks
 EOF

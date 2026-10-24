@@ -32,8 +32,8 @@ When an agent invokes the skill, follow `SKILL.md`'s execution contract:
 
 ## Current architecture
 
-- 10 consultants: Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok,
-  DeepSeek, and MiniMax.
+- 11 consultants: Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok,
+  DeepSeek, MiniMax, and Meta.
 - Parallel fan-out with configurable personas.
 - Coverage-union synthesis by default; majority and comparison strategies
   remain optional.

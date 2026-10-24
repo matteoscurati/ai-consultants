@@ -15,9 +15,9 @@ for tier in maximum premium; do
     [[ $(get_model_for_tier claude "$tier") == claude-fable-5-1 ]] || exit 1
 done
 [[ $(get_model_for_tier claude standard) == claude-opus-5-5 ]] || exit 1
-[[ $(get_model_for_tier claude economy) == claude-haiku-4-5 ]] || exit 1
+[[ $(get_model_for_tier claude economy) == claude-haiku-5-5 ]] || exit 1
 for tier in standard economy; do
-    [[ $(get_model_for_tier grok "$tier") == grok-4.5 ]] || exit 1
+    [[ $(get_model_for_tier grok "$tier") == grok-4.7 ]] || exit 1
 done
 jq -e '.consultant_fallbacks.grok == "grok-4.7" and
     .model_tiers.maximum.grok == "grok-4.7" and .model_tiers.premium.grok == "grok-4.7" and
@@ -25,6 +25,9 @@ jq -e '.consultant_fallbacks.grok == "grok-4.7" and
 [[ $(estimate_query_cost grok-4.7 200000 1000) == 0.406000 ]] || exit 1
 [[ $(estimate_query_cost grok-4.7 200001 1000) == 0.812004 ]] || exit 1
 [[ $(estimate_query_cost claude-opus-5-5 2000 1000) == 0.028000 ]] || exit 1
+# Haiku 5.5 bills the whole request at 5x once the prompt exceeds 100K tokens.
+[[ $(estimate_query_cost claude-haiku-5-5 100000 1000) == 0.010500 ]] || exit 1
+[[ $(estimate_query_cost claude-haiku-5-5 100001 1000) == 0.052500 ]] || exit 1
 COST_RATES_FILE="$TMP/missing" bash -c 'source "$1/lib/costs.sh";
     [[ $(get_input_cost_per_1k grok-4.7) == 0.002 && $(get_output_cost_per_1k grok-4.7) == 0.006 &&
        $(get_input_cost_per_1k claude-opus-5-5) == 0.004 && $(get_output_cost_per_1k claude-opus-5-5) == 0.020 ]]' _ "$SCRIPT_DIR"
@@ -34,7 +37,7 @@ build_anthropic_request hello claude-opus-5-5 16384 | jq -e '
 [[ $(parse_anthropic_response '{"content":[{"type":"thinking","thinking":"","signature":"s"},{"type":"text","text":"visible"}]}') == visible ]] || exit 1
 build_openai_request hello grok-4.7 16384 xhigh | jq -e '.model == "grok-4.7" and .reasoning_effort == "xhigh" and .max_tokens == 16384' >/dev/null
 printf '%s\n' '{"type":"assistant","message":{"id":"m","model":"claude-opus-5-5","content":[{"type":"thinking","thinking":""},{"type":"text","text":"visible"}],"stop_reason":"end_turn"}}' \
-    '{"type":"result","subtype":"success","is_error":false,"result":"visible","modelUsage":{"claude-haiku-4-5":{"costUSD":0.001}},"total_cost_usd":0.01}' |
+    '{"type":"result","subtype":"success","is_error":false,"result":"visible","modelUsage":{"claude-haiku-5-5":{"costUSD":0.001}},"total_cost_usd":0.01}' |
     jq -Rse -f "$SCRIPT_DIR/lib/claude_stream.jq" | jq -e '.success and .content_model == "claude-opus-5-5" and .cost == 0.01' >/dev/null
 mkdir "$TMP/responses"
 for model in grok-4.7 claude-opus-5-5; do

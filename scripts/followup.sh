@@ -183,7 +183,7 @@ case "$MODE" in
         _target_lower=$(to_lower "$TARGET_CONSULTANT")
         case "$_target_lower" in
             qwen) _target_lower=qwen3 ;;
-            gemini|codex|mistral|kimi|claude|qwen3|glm|grok|deepseek|minimax) ;;
+            gemini|codex|mistral|kimi|claude|qwen3|glm|grok|deepseek|minimax|meta) ;;
             *)
                 log_error "Unknown consultant: $TARGET_CONSULTANT"
                 exit 1

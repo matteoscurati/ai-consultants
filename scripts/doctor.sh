@@ -287,6 +287,7 @@ check_cli_consultants() {
     check_cli_consultant "Qwen" "$QWEN3_CMD" "npm install -g @qwen-code/qwen-code@latest" "QWEN3"
     check_cli_consultant "Grok Build" "$GROK_CMD" "curl -fsSL https://x.ai/cli/install.sh | bash" "GROK"
     check_cli_consultant "MiniMax" "$MINIMAX_CMD" "npm install -g mmx-cli" "MINIMAX"
+    check_cli_consultant "Meta (Muse Code)" "$META_CMD" "curl -fsSL https://dev.meta.ai/install.sh | sh" "META"
 }
 
 # =============================================================================
@@ -329,7 +330,7 @@ check_api_mode_switching() {
     local has_api_mode=false
 
     # Check switchable consultants
-    for agent in GEMINI CODEX CLAUDE MISTRAL QWEN3 GROK MINIMAX; do
+    for agent in GEMINI CODEX CLAUDE MISTRAL QWEN3 GROK MINIMAX META; do
         local enabled_var="ENABLE_${agent}"
         local use_api_var="${agent}_USE_API"
         local is_enabled="${!enabled_var:-false}"
@@ -349,6 +350,7 @@ check_api_mode_switching() {
         check_api_mode "Qwen3" "QWEN3_USE_API" "QWEN3_API_KEY" "ENABLE_QWEN3"
         check_api_mode "Grok" "GROK_USE_API" "GROK_API_KEY" "ENABLE_GROK"
         check_api_mode "MiniMax" "MINIMAX_USE_API" "MINIMAX_API_KEY" "ENABLE_MINIMAX"
+        check_api_mode "Meta" "META_USE_API" "META_API_KEY" "ENABLE_META"
     else
         _print "  ○ All switchable consultants using CLI mode"
     fi
@@ -423,7 +425,7 @@ check_configuration() {
 
     # Count enabled consultants using a compact loop
     local enabled_count=0
-    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX"
+    local consultant_flags="ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KIMI ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX ENABLE_META"
     for flag in $consultant_flags; do
         [[ "${!flag:-false}" == "true" ]] && { ((enabled_count++)) || true; }
     done
@@ -800,6 +802,7 @@ suggest_configuration() {
         "ENABLE_QWEN3:${QWEN3_CMD:-qwen}"
         "ENABLE_GROK:${GROK_CMD:-grok}"
         "ENABLE_MINIMAX:${MINIMAX_CMD:-mmx}"
+        "ENABLE_META:${META_CMD:-muse}"
     )
 
     local available_count=0
@@ -808,7 +811,8 @@ suggest_configuration() {
         local flag="${entry%%:*}"
         local cmd="${entry##*:}"
         if command -v "$cmd" >/dev/null 2>&1 || \
-           [[ "$flag" == "ENABLE_GROK" && -n "${GROK_API_KEY:-}" ]]; then
+           [[ "$flag" == "ENABLE_GROK" && -n "${GROK_API_KEY:-}" ]] || \
+           [[ "$flag" == "ENABLE_META" && -n "${META_API_KEY:-}" ]]; then
             lines+=("${flag}=true")
             ((available_count++)) || true
         else
@@ -883,13 +887,15 @@ _count_available_consultants() {
         "QWEN3|ENABLE_QWEN3|${QWEN3_CMD:-qwen}"
         "GROK|ENABLE_GROK|${GROK_CMD:-grok}"
         "MINIMAX|ENABLE_MINIMAX|${MINIMAX_CMD:-mmx}"
+        "META|ENABLE_META|${META_CMD:-muse}"
     )
     for entry in "${entries[@]}"; do
         IFS='|' read -r name flag cmd <<<"$entry"
         local enabled="${!flag:-false}"
         [[ "$enabled" != "true" ]] && continue
         if command -v "$cmd" >/dev/null 2>&1 || \
-           [[ "$name" == "GROK" && -n "${GROK_API_KEY:-}" ]]; then
+           [[ "$name" == "GROK" && -n "${GROK_API_KEY:-}" ]] || \
+           [[ "$name" == "META" && -n "${META_API_KEY:-}" ]]; then
             [[ "$name" == "$invoker_consultant" ]] && continue
             ((count++)) || true
         fi
@@ -1119,6 +1125,7 @@ check_live_consultants() {
         "Claude|ENABLE_CLAUDE"
         "Qwen3|ENABLE_QWEN3"     "GLM|ENABLE_GLM"       "Grok|ENABLE_GROK"
         "DeepSeek|ENABLE_DEEPSEEK" "MiniMax|ENABLE_MINIMAX"
+        "Meta|ENABLE_META"
     )
 
     local live_pass=0 live_fail=0 e name flagvar lower out err reason rc

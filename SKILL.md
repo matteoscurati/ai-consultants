@@ -1,6 +1,6 @@
 ---
 name: ai-consultants
-description: Consult Gemini, Codex, Mistral Vibe, Claude, Kimi, Qwen, MiniMax, GLM, Grok, and DeepSeek as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
+description: Consult Gemini, Codex, Mistral Vibe, Claude, Kimi, Qwen, MiniMax, Meta Muse, GLM, Grok, and DeepSeek as external experts for coding questions. Automatically excludes the invoking agent from the panel to avoid self-consultation. Use when you have doubts about implementations, want a second opinion, need to choose between different approaches, or when explicitly requested with phrases like "ask the consultants", "what do the other models think", "compare solutions", "get expert opinions", "I'm not sure about this approach", "what would other models say". Make sure to consult this skill whenever the user is weighing trade-offs, comparing architectures, validating complex solutions, or wants multiple perspectives on any non-trivial coding decision. Do NOT use for simple questions that only need one model's answer or when you already have high confidence in a solution.
 license: MIT
 compatibility: Requires bash, jq, and at least 2 AI CLI tools (agy, codex, vibe, etc.). macOS and Linux.
 metadata:
@@ -101,10 +101,11 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 | **Qwen** | `qwen` | The Analyst | Data-driven, metrics |
 | **Grok** | `grok` | The Provocateur | Challenge conventions |
 | **MiniMax** | `mmx` | The Pragmatic Optimizer | Performance, efficiency, pragmatism |
+| **Meta Muse** | `muse` | The Systems Thinker | System design, interactions (opt-in) |
 
 **API-only consultants**: GLM (The Methodologist), DeepSeek (The Code Specialist)
 
-**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, and MiniMax can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.7` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers.
+**CLI/API Mode**: Gemini, Codex, Claude, Mistral, Qwen, Grok, MiniMax, and Meta can switch between CLI and API mode via `*_USE_API` environment variables. Grok is CLI-first on Grok Build with `grok-4.7` and falls back to the xAI API when the CLI cannot run. Gemini auto-selects API mode when `GEMINI_API_KEY` is set (no `agy` install needed) and the CLI otherwise. Mistral keeps separate API (`MISTRAL_MODEL`) and Vibe (`MISTRAL_CLI_MODEL`) identifiers.
 
 Grok CLI OAuth defaults to `GROK_OAUTH_MODE=shared`: concurrent invocations
 share one runner-owned persistent `GROK_HOME` so the vendor auth lock can
@@ -119,18 +120,24 @@ dispatch, their adapters verify the required headless arguments, requested
 model, and structured-output surface. Compatible version changes are accepted;
 the observed version is recorded only as response provenance.
 
-The `max_quality` preset enables all 10 consultants. It uses the separately
+The `max_quality` preset enables all 11 consultants. It uses the separately
 Kimi K3.1 Pro at max thinking effort (every Kimi tier), MiniMax-M3.1-Flash (every MiniMax tier), GLM-5.3 (the flagship; Flash serves
-premium/standard) and Qwen3.8-Max (also the Qwen default; Flash serves
+premium/standard/economy) and Qwen3.8-Max (also the Qwen default; Flash serves
 standard/economy). Gemini 4 Argon (High) is the `agy` target for the default
 and maximum tiers (`gemini-4-argon` on the API); one authorized `agy` smoke passed on
 2026-10-16 with capability-probed identity, and the API transport is offline-tested only.
-Gemini 3.8 Flash High/Low keep the CLI standard/economy tiers, the API standard/economy
-tiers keep 3.1 Pro, and `gemini-3.8-flash` is an explicit API opt-in. Claude Fable 5.1 is the default/premium/maximum target. Mistral
+Gemini 3.8 Flash serves the standard/economy tiers (High/Low on the CLI, `gemini-3.8-flash`
+on the API). Claude Fable 5.1 is the default/premium/maximum target. Tiers use current models
+only: since 5.5.0 superseded models are retired, `configure` migrates them, and a retired
+model selected at run time runs with a warning and is reported as unpriced. Mistral
 API mode uses Mistral Large 4 in every tier; the other new Mistral API IDs remain explicit opt-ins.
-Grok, GLM, and DeepSeek receive their
-highest accepted reasoning effort in this preset (`xhigh`, `max`, and `max`
-respectively); no failed target is silently replaced.
+Meta uses Muse Wonder for the default/premium/maximum tiers and Muse Spark 1.3 for
+standard/economy, always in Standard mode (the `muse` CLI runs with
+`--contributor-mode off`); it is opt-in. One `muse exec` smoke passed on 2026-10-24;
+the API transport is offline-tested.
+Grok, GLM, DeepSeek, and Meta receive their
+highest accepted reasoning effort in this preset (`xhigh`, `max`, `max`, and
+`max` respectively); no failed target is silently replaced.
 
 Maximum-quality transports use smoke-tested runtime budgets: four advisory
 turns for Mistral/Grok, no generation time limit, and larger response
@@ -244,7 +251,7 @@ Use `ai-consultants configure --show-parameters` for the exact accepted keys,
 `--set KEY=VALUE` for repeatable automation, or `--advanced` to review all of
 them interactively.
 
-CLI/API switching: `GEMINI_USE_API`, `CODEX_USE_API`, `CLAUDE_USE_API`, `MISTRAL_USE_API`, `QWEN3_USE_API`, `GROK_USE_API`, `MINIMAX_USE_API`.
+CLI/API switching: `GEMINI_USE_API`, `CODEX_USE_API`, `CLAUDE_USE_API`, `MISTRAL_USE_API`, `QWEN3_USE_API`, `GROK_USE_API`, `MINIMAX_USE_API`, `META_USE_API`.
 
 See [Full Configuration Reference](references/configuration.md) for all variables, model overrides, tiers, timeouts, and optimization settings.
 
