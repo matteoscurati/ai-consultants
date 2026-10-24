@@ -167,7 +167,7 @@ npx ai-consultants doctor --fix
 npx ai-consultants install  # Install slash commands for Claude Code
 
 # Option B: curl | bash
-curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/reasance/ai-consultants/main/scripts/install.sh | bash
 ~/.claude/skills/ai-consultants/scripts/doctor.sh --fix
 ```
 

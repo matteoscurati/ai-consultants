@@ -30,4 +30,4 @@ Configuration (presets, strategies, features, personas, API keys) can be managed
 
 Troubleshooting: run `./scripts/doctor.sh` or `./scripts/doctor.sh --fix`.
 
-Full docs: https://github.com/matteoscurati/ai-consultants
+Full docs: https://github.com/reasance/ai-consultants

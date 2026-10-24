@@ -65,7 +65,7 @@ EOF
     cat > "$TMP/fixture/README.md" <<EOF
 # AI Consultants v${CURRENT}
 
-[![Version](https://img.shields.io/badge/version-${CURRENT}-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-${CURRENT}-blue.svg)](https://github.com/reasance/ai-consultants)
 
 Fixture body.
 EOF
@@ -148,7 +148,7 @@ test_bump_updates_all_surfaces() {
     assert_file_has_line "$TMP/fixture/README.md" "# AI Consultants v${NEW}" \
         "README.md title shows new version"
     assert_file_has_line "$TMP/fixture/README.md" \
-        "[![Version](https://img.shields.io/badge/version-${NEW}-blue.svg)](https://github.com/matteoscurati/ai-consultants)" \
+        "[![Version](https://img.shields.io/badge/version-${NEW}-blue.svg)](https://github.com/reasance/ai-consultants)" \
         "README.md badge shows new version"
     assert_file_missing_line "$TMP/fixture/README.md" "# AI Consultants v${CURRENT}" \
         "README.md title no longer shows old version"

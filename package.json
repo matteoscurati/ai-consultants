@@ -41,11 +41,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/matteoscurati/ai-consultants.git"
+    "url": "git+https://github.com/reasance/ai-consultants.git"
   },
-  "homepage": "https://github.com/matteoscurati/ai-consultants#readme",
+  "homepage": "https://github.com/reasance/ai-consultants#readme",
   "bugs": {
-    "url": "https://github.com/matteoscurati/ai-consultants/issues"
+    "url": "https://github.com/reasance/ai-consultants/issues"
   },
   "scripts": {
     "test": "bash scripts/test_all.sh",

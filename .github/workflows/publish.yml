@@ -6,7 +6,7 @@ name: Publish
 # secret. It requires a one-time setup on npmjs.com:
 #   npmjs.com/package/ai-consultants -> Settings -> Trusted Publisher
 #     Publisher:          GitHub Actions
-#     Organization/user:  matteoscurati
+#     Organization/user:  reasance
 #     Repository:         ai-consultants
 #     Workflow filename:  publish.yml     (exact, case-sensitive, with .yml)
 #     Environment:        (leave empty)
