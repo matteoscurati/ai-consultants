@@ -763,7 +763,7 @@ Drift between these is the most common release-process bug. Keep them in sync pe
 cd ~/.claude/skills/ai-consultants && git pull
 
 # If installed via curl | bash
-curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/reasance/ai-consultants/main/scripts/install.sh | bash
 \`\`\`
 
 <Note any configuration changes required, or "No configuration changes required.">

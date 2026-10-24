@@ -2,7 +2,7 @@
 # AI Consultants - Installation Script
 #
 # One-liner install:
-#   curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/reasance/ai-consultants/main/scripts/install.sh | bash
 #
 # Or with options:
 #   curl -fsSL ... | bash -s -- --no-commands --branch dev
@@ -22,7 +22,7 @@ set -euo pipefail
 
 INSTALL_DIR="${AI_CONSULTANTS_DIR:-${HOME}/.claude/skills/ai-consultants}"
 COMMANDS_DIR="${HOME}/.claude/commands"
-REPO_URL="${AI_CONSULTANTS_REPO:-https://github.com/matteoscurati/ai-consultants.git}"
+REPO_URL="${AI_CONSULTANTS_REPO:-https://github.com/reasance/ai-consultants.git}"
 BRANCH="main"
 INSTALL_COMMANDS=true
 UPDATE_MODE=false
@@ -79,7 +79,7 @@ Usage:
   ./install.sh [options]
 
 One-liner install:
-  curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/reasance/ai-consultants/main/scripts/install.sh | bash
 
 Options:
   --branch <name>    Install from specific branch (default: main)
@@ -373,5 +373,5 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 log_info "Using another host agent? (Codex, Gemini, Cursor, Kimi)"
-echo "     See: https://github.com/matteoscurati/ai-consultants#supported-cli-agents"
+echo "     See: https://github.com/reasance/ai-consultants#supported-cli-agents"
 echo ""

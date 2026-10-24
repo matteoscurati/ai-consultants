@@ -2,10 +2,10 @@
 
 > **Coverage, not a single guess.** A panel of up to 11 frontier models from different vendors fans out on your question in parallel and hands you the *union* of what they collectively see — the risks, edge cases, and approaches a single model misses.
 
-[![Version](https://img.shields.io/badge/version-5.5.0-blue.svg)](https://github.com/matteoscurati/ai-consultants)
+[![Version](https://img.shields.io/badge/version-5.5.0-blue.svg)](https://github.com/reasance/ai-consultants)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange.svg)](https://docs.anthropic.com/en/docs/claude-code/skills)
-[![GitHub stars](https://img.shields.io/github/stars/matteoscurati/ai-consultants?style=social)](https://github.com/matteoscurati/ai-consultants)
+[![GitHub stars](https://img.shields.io/github/stars/reasance/ai-consultants?style=social)](https://github.com/reasance/ai-consultants)
 [![agentskills.io](https://img.shields.io/badge/agentskills.io-compatible-blue.svg)](https://agentskills.io)
 
 ---
@@ -70,7 +70,7 @@ npx ai-consultants install
 
 ```bash
 # Install the skill
-curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/reasance/ai-consultants/main/scripts/install.sh | bash
 
 # Ask your first question
 /ai-consultants:consult "How should I structure my authentication system?"
@@ -209,7 +209,7 @@ AI Consultants follows the open [Agent Skills standard](https://agentskills.io),
 **Installation:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/reasance/ai-consultants/main/scripts/install.sh | bash
 ```
 
 **Slash Commands:**
@@ -242,7 +242,7 @@ slash command.
 **Installation:**
 
 ```bash
-git clone https://github.com/matteoscurati/ai-consultants.git ~/.codex/skills/ai-consultants
+git clone https://github.com/reasance/ai-consultants.git ~/.codex/skills/ai-consultants
 ~/.codex/skills/ai-consultants/scripts/doctor.sh --fix
 # Or share an existing installation through the cross-agent skills directory:
 # ln -s ~/.claude/skills/ai-consultants ~/.agents/skills/ai-consultants
@@ -280,7 +280,7 @@ Antigravity (`agy`) replaced the Gemini CLI for individual Google accounts.
 ```bash
 # Per project (agy reads <project>/.agents/skills/)
 mkdir -p .agents/skills
-git clone https://github.com/matteoscurati/ai-consultants.git .agents/skills/ai-consultants
+git clone https://github.com/reasance/ai-consultants.git .agents/skills/ai-consultants
 # Or for every project: agy's user skill directory is ~/.gemini/config/skills/
 ```
 
@@ -317,7 +317,7 @@ available there. The Gemini consultant is excluded as for agy.
 npm install -g skillport
 
 # Add AI Consultants skill
-skillport add github.com/matteoscurati/ai-consultants
+skillport add github.com/reasance/ai-consultants
 
 # Load skill in your agent
 skillport show ai-consultants
@@ -326,7 +326,7 @@ skillport show ai-consultants
 Or clone and use the included installer:
 
 ```bash
-git clone https://github.com/matteoscurati/ai-consultants.git
+git clone https://github.com/reasance/ai-consultants.git
 cd ai-consultants
 ./scripts/skillport-install.sh
 ```
@@ -352,7 +352,7 @@ skillport status ai-consultants
 **Installation:**
 
 ```bash
-git clone https://github.com/matteoscurati/ai-consultants.git
+git clone https://github.com/reasance/ai-consultants.git
 cd ai-consultants
 ./scripts/doctor.sh --fix
 ./bin/ai-consultants configure
@@ -876,7 +876,7 @@ enough — the panel adds little.
 - [Smart Routing](docs/SMART_ROUTING.md) - Category-based routing
 - [JSON Schema](docs/JSON_SCHEMA.md) - Output format specification
 - [Reference Details](references/details.md) - Presets, strategies, best practices
-- [Changelog](https://github.com/matteoscurati/ai-consultants/blob/main/CHANGELOG.md) - Complete version history
+- [Changelog](https://github.com/reasance/ai-consultants/blob/main/CHANGELOG.md) - Complete version history
 - [Contributing](CONTRIBUTING.md) - How to contribute
 
 ---

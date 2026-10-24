@@ -28,7 +28,7 @@ AI Consultants is designed as a **Claude Code skill**. This is the fastest and e
 
 ```bash
 # One-liner installation
-curl -fsSL https://raw.githubusercontent.com/matteoscurati/ai-consultants/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/reasance/ai-consultants/main/scripts/install.sh | bash
 ```
 
 This installs to `~/.claude/skills/ai-consultants/` and makes slash commands available in Claude Code.
@@ -85,7 +85,7 @@ Codex CLI supports the Agent Skills standard and can use AI Consultants directly
 
 ```bash
 # Option A: Clone directly
-git clone https://github.com/matteoscurati/ai-consultants.git ~/.codex/skills/ai-consultants
+git clone https://github.com/reasance/ai-consultants.git ~/.codex/skills/ai-consultants
 
 # Option B: Symlink from existing installation
 ln -s ~/.claude/skills/ai-consultants ~/.codex/skills/ai-consultants
@@ -158,10 +158,10 @@ npm install -g skillport
 
 ```bash
 # From GitHub
-skillport add github.com/matteoscurati/ai-consultants
+skillport add github.com/reasance/ai-consultants
 
 # Or from local clone
-git clone https://github.com/matteoscurati/ai-consultants.git
+git clone https://github.com/reasance/ai-consultants.git
 cd ai-consultants
 ./scripts/skillport-install.sh
 ```
@@ -192,7 +192,7 @@ For any agent that supports the [agentskills.io](https://agentskills.io) standar
 
 ```bash
 # Clone to the agent's skills directory
-git clone https://github.com/matteoscurati/ai-consultants.git ~/.{agent}/skills/ai-consultants
+git clone https://github.com/reasance/ai-consultants.git ~/.{agent}/skills/ai-consultants
 
 # Replace {agent} with your agent name (claude, codex, gemini, etc.)
 ```
