@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For longer-form release notes (rationale, upgrade guides, performance numbers), see `docs/releases/v<VERSION>.md`.
 
+## [5.5.0] - 2026-10-24
+
+### Added
+- **Meta (Muse), the eleventh consultant**, with The Systems Thinker persona. It is opt-in (`ENABLE_META=false`; `configure` enables it when it finds the `muse` CLI or `META_API_KEY`). Muse Wonder (`muse-wonder-1.0`, preview) serves the default, premium and maximum tiers; Muse Spark 1.3 (`muse-spark-1.3`) serves standard and economy. `max_quality` now has 11 consultants and runs Meta at `max` effort.
+- CLI mode runs Muse Code (`muse exec`) advisory-only: a private empty workspace, no shell, workspace writes, web tools, sandbox network, personal rules or session log, and the prompt through `--prompt-file`. Its flags are checked before any request.
+- API mode uses the Meta Model API (`META_API_KEY`, selected automatically when set) with `max_completion_tokens`. `META_REASONING_EFFORT` defaults to `high`; `none` is rejected before anything is billed.
+
+### Changed
+- **Superseded models are retired.** Tiers, the rate catalog, tests and docs now hold current models only. The economy tier moves to Claude Haiku 5.5, GPT-6 Luna, Grok 4.7 and GLM-5.3-Flash; standard Codex to GPT-6.1 Sol (there is no GPT-6 mid model); the Gemini API standard/economy tiers to `gemini-3.8-flash`.
+- `configure` replaces a persisted retired model with its family's current one, pinned or not: the marker is kept and `migrated-from=<old>` is recorded. `configure --set` refuses a retired model and names the replacement.
+- A retired or unknown model chosen at run time (for example through an environment variable) still runs, with a warning, and the session report lists it as unpriced instead of applying a fallback rate.
+- An HTTP 504 `gateway_timeout` is no longer retried, since the same request would run past the provider's time limit again.
+
+### Privacy
+- Meta never runs in Contributor mode by default. Muse Code subscriptions turn Contributor mode on, which lets Meta train on prompts, code and responses; every CLI run passes `--contributor-mode off`. A `*-contributor` model must be pinned by hand and logs a warning on every run.
+
+### Costs
+- Every price was checked against the official pricing pages on 2026-10-24. DeepSeek V4 Pro moves to $1.32/$3.96 per 1M (was $0.435/$0.87). Meta: Muse Wonder $4/$20, Muse Spark 1.3 $1.25/$4.25, Contributor variant $0.10/$0.20 per 1M; cached input is excluded.
+
+### Verification
+- `npm test` 36/36 plus lint, locally and in CI. Authorized live smokes on 2026-10-24, one call each with no retry: Meta through Muse Code 1.4.12 (Muse Wonder, structured, 12 s), Claude Haiku 5.5 and GPT-6 Luna through their CLIs (structured). The Meta API transport and the Gemini API tier change are offline-tested only.
+
 ## [5.4.0] - 2026-10-23
 
 ### Changed
