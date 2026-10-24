@@ -22,9 +22,9 @@ while IFS='=' read -r _ambient_var _; do
     unset "$_ambient_var"
 done < <(env | sed -n '/^ENABLE_[A-Z0-9_]*=/s/=.*//p; /^[A-Z0-9_]*_API_URL=/s/=.*//p')
 unset GEMINI_API_KEY OPENAI_API_KEY ANTHROPIC_API_KEY MISTRAL_API_KEY QWEN3_API_KEY
-unset GLM_API_KEY GROK_API_KEY XAI_API_KEY DEEPSEEK_API_KEY MINIMAX_API_KEY
+unset GLM_API_KEY GROK_API_KEY XAI_API_KEY DEEPSEEK_API_KEY MINIMAX_API_KEY META_API_KEY
 unset GEMINI_USE_API CODEX_USE_API CLAUDE_USE_API MISTRAL_USE_API QWEN3_USE_API
-unset GROK_USE_API MINIMAX_USE_API DEFAULT_PRESET
+unset GROK_USE_API MINIMAX_USE_API META_USE_API DEFAULT_PRESET
 
 source "$SCRIPT_DIR/lib/test_helpers.sh"
 source "$SCRIPT_DIR/lib/common.sh" >/dev/null 2>&1
@@ -51,9 +51,9 @@ HOSTS="unknown codex claude gemini mistral kimi qwen3"
 _set_all_static_transports() {
     GEMINI_CMD="$STATIC_CLI" CODEX_CMD="$STATIC_CLI" MISTRAL_CMD="$STATIC_CLI"
     KIMI_CMD="$STATIC_CLI" CLAUDE_CMD="$STATIC_CLI" QWEN3_CMD="$STATIC_CLI"
-    GROK_CMD="$STATIC_CLI" MINIMAX_CMD="$STATIC_CLI"
+    GROK_CMD="$STATIC_CLI" MINIMAX_CMD="$STATIC_CLI" META_CMD="$STATIC_CLI"
     GEMINI_USE_API=false CODEX_USE_API=false MISTRAL_USE_API=false
-    QWEN3_USE_API=false GROK_USE_API=false MINIMAX_USE_API=false
+    QWEN3_USE_API=false GROK_USE_API=false MINIMAX_USE_API=false META_USE_API=false
     GLM_API_KEY=test-glm DEEPSEEK_API_KEY=test-deepseek
 }
 
@@ -61,9 +61,9 @@ _set_one_static_transport() {
     GEMINI_CMD=not-a-static-transport CODEX_CMD=not-a-static-transport
     MISTRAL_CMD=not-a-static-transport KIMI_CMD=not-a-static-transport
     CLAUDE_CMD=not-a-static-transport QWEN3_CMD=not-a-static-transport
-    GROK_CMD=not-a-static-transport MINIMAX_CMD="$STATIC_CLI"
+    GROK_CMD=not-a-static-transport MINIMAX_CMD="$STATIC_CLI" META_CMD=not-a-static-transport
     GEMINI_USE_API=false CODEX_USE_API=false MISTRAL_USE_API=false
-    QWEN3_USE_API=false GROK_USE_API=false MINIMAX_USE_API=false
+    QWEN3_USE_API=false GROK_USE_API=false MINIMAX_USE_API=false META_USE_API=false
     GLM_API_KEY='' DEEPSEEK_API_KEY=''
 }
 
@@ -87,7 +87,7 @@ test_host_preset_matrix_with_sufficient_static_transports() {
                 if [[ "$host" == "unknown" ]]; then
                     assert_eq "$raw" "$effective" "$host / $preset keeps raw max_quality target"
                 else
-                    assert_eq "9" "$effective" "$host / $preset makes max_quality attainable after self-exclusion"
+                    assert_eq "10" "$effective" "$host / $preset makes max_quality attainable after self-exclusion"
                 fi
             fi
 
@@ -149,9 +149,9 @@ test_preset_integration_refills_before_dispatch() {
         GEMINI_CMD="$STUB_CLI" CODEX_CMD="$STUB_CLI" MISTRAL_CMD="$MISTRAL_STUB" \
         KIMI_CMD=not-a-static-transport CLAUDE_CMD=not-a-static-transport \
         QWEN3_CMD=not-a-static-transport GROK_CMD=not-a-static-transport \
-        MINIMAX_CMD=not-a-static-transport \
+        META_CMD=not-a-static-transport MINIMAX_CMD=not-a-static-transport \
         GEMINI_USE_API=false CODEX_USE_API=false MISTRAL_USE_API=false \
-        QWEN3_USE_API=false GROK_USE_API=false MINIMAX_USE_API=false \
+        QWEN3_USE_API=false GROK_USE_API=false MINIMAX_USE_API=false META_USE_API=false \
         GLM_API_KEY='' DEEPSEEK_API_KEY='' \
         ENABLE_SYNTHESIS=false ENABLE_SEMANTIC_CACHE=false ENABLE_HEALTH_GATE=false \
         ENABLE_SMART_ROUTING=false "$SCRIPT_DIR/consult_all.sh" --preset minimal \
@@ -176,9 +176,9 @@ test_preset_integration_fails_before_provider_dispatch() {
         GEMINI_CMD=not-a-static-transport CODEX_CMD=not-a-static-transport \
         MISTRAL_CMD=not-a-static-transport KIMI_CMD=not-a-static-transport \
         CLAUDE_CMD=not-a-static-transport QWEN3_CMD=not-a-static-transport \
-        GROK_CMD=not-a-static-transport MINIMAX_CMD="$STATIC_CLI" \
+        GROK_CMD=not-a-static-transport META_CMD=not-a-static-transport MINIMAX_CMD="$STATIC_CLI" \
         GEMINI_USE_API=false CODEX_USE_API=false MISTRAL_USE_API=false \
-        QWEN3_USE_API=false GROK_USE_API=false MINIMAX_USE_API=false \
+        QWEN3_USE_API=false GROK_USE_API=false MINIMAX_USE_API=false META_USE_API=false \
         GLM_API_KEY='' DEEPSEEK_API_KEY='' \
         ENABLE_SYNTHESIS=false ENABLE_SEMANTIC_CACHE=false ENABLE_HEALTH_GATE=false \
         ENABLE_SMART_ROUTING=false "$SCRIPT_DIR/consult_all.sh" --preset minimal \
@@ -199,7 +199,7 @@ test_zero_static_transport_has_clean_capacity_diagnostic() {
         INVOKING_AGENT=unknown GEMINI_CMD=not-a-static-transport CODEX_CMD=not-a-static-transport \
         MISTRAL_CMD=not-a-static-transport KIMI_CMD=not-a-static-transport \
         CLAUDE_CMD=not-a-static-transport QWEN3_CMD=not-a-static-transport \
-        GROK_CMD=not-a-static-transport MINIMAX_CMD=not-a-static-transport \
+        GROK_CMD=not-a-static-transport META_CMD=not-a-static-transport MINIMAX_CMD=not-a-static-transport \
         GEMINI_USE_API=false CODEX_USE_API=false MISTRAL_USE_API=false QWEN3_USE_API=false \
         GROK_USE_API=false MINIMAX_USE_API=false GLM_API_KEY='' DEEPSEEK_API_KEY='' \
         ENABLE_SYNTHESIS=false ENABLE_SEMANTIC_CACHE=false ENABLE_HEALTH_GATE=false \
@@ -222,7 +222,7 @@ test_custom_agent_can_satisfy_preset_capacity() {
         INVOKING_AGENT=codex GEMINI_CMD="$STUB_CLI" CODEX_CMD=not-a-static-transport \
         MISTRAL_CMD=not-a-static-transport KIMI_CMD=not-a-static-transport \
         CLAUDE_CMD=not-a-static-transport QWEN3_CMD=not-a-static-transport \
-        GROK_CMD=not-a-static-transport MINIMAX_CMD=not-a-static-transport \
+        GROK_CMD=not-a-static-transport META_CMD=not-a-static-transport MINIMAX_CMD=not-a-static-transport \
         GEMINI_USE_API=false CODEX_USE_API=false MISTRAL_USE_API=false QWEN3_USE_API=false \
         GROK_USE_API=false MINIMAX_USE_API=false GLM_API_KEY='' DEEPSEEK_API_KEY='' \
         ENABLE_TESTCUSTOM=true TESTCUSTOM_API_URL=file:///dev/null MAX_RETRIES=1 RETRY_DELAY_SECONDS=0 \
@@ -254,7 +254,7 @@ test_health_gate_rechecks_effective_preset_target() {
         XDG_DATA_HOME="$TMP/health-xdg/data" AI_CONSULTANTS_CONFIG_DIR="$TMP/health-config" \
         INVOKING_AGENT=codex GEMINI_CMD="$STUB_CLI" CODEX_CMD=not-a-static-transport \
         MISTRAL_CMD="$health_fail" KIMI_CMD=not-a-static-transport CLAUDE_CMD=not-a-static-transport \
-        QWEN3_CMD=not-a-static-transport GROK_CMD=not-a-static-transport MINIMAX_CMD=not-a-static-transport \
+        QWEN3_CMD=not-a-static-transport GROK_CMD=not-a-static-transport META_CMD=not-a-static-transport MINIMAX_CMD=not-a-static-transport \
         GEMINI_USE_API=false CODEX_USE_API=false MISTRAL_USE_API=false QWEN3_USE_API=false \
         GROK_USE_API=false MINIMAX_USE_API=false GLM_API_KEY='' DEEPSEEK_API_KEY='' \
         MAX_RETRIES=1 RETRY_DELAY_SECONDS=0 HEALTH_GATE_TIMEOUT=5 ENABLE_SYNTHESIS=false \

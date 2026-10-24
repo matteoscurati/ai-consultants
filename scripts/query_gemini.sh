@@ -93,7 +93,7 @@ if is_api_mode "gemini"; then
     source "$SCRIPT_DIR/lib/api_query.sh"
 
     # API mode addresses the Google AI endpoint, which needs an API model ID
-    # (not an agy display name like "Gemini 3.1 Pro (High)").
+    # (not an agy display name like "Gemini 4 Argon (High)").
     # Keep the failure inside an explicit conditional: a bare call whose
     # function returns non-zero aborts the script under `set -e` before
     # exit_code is read, so no error-response envelope is ever written and

@@ -14,8 +14,8 @@ source "$SCRIPT_DIR/lib/api.sh"
 for tier in maximum premium standard economy; do
     case "$tier" in
         maximum|premium) expected='Gemini 4 Argon (High)'; expected_api=gemini-4-argon ;;
-        standard) expected='Gemini 3.8 Flash (High)'; expected_api=gemini-3.1-pro-preview ;;
-        economy) expected='Gemini 3.8 Flash (Low)'; expected_api=gemini-3.1-pro-preview ;;
+        standard) expected='Gemini 3.8 Flash (High)'; expected_api=gemini-3.8-flash ;;
+        economy) expected='Gemini 3.8 Flash (Low)'; expected_api=gemini-3.8-flash ;;
     esac
     [[ $(get_model_for_tier gemini "$tier" api) == "$expected_api" ]] || exit 1
     [[ $(get_model_for_tier gemini "$tier" cli) == "$expected" ]] || exit 1

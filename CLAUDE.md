@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AI Consultants is a multi-model coverage system that queries up to 10 AI consultants (Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax) to obtain diverse perspectives on coding problems.
+AI Consultants is a multi-model coverage system that queries up to 11 AI consultants (Gemini, Codex, Mistral, Kimi, Claude, Qwen3, GLM, Grok, DeepSeek, MiniMax, Meta) to obtain diverse perspectives on coding problems.
 
 **Self-Exclusion**: The invoking agent is automatically excluded from both the panel and synthesis. Claude Code won't query or synthesize with Claude, Codex CLI won't query or synthesize with Codex, etc.
 
@@ -190,7 +190,7 @@ contract.
 ### Configuration Presets
 ```bash
 # Quality Tier Presets (v2.5)
-./scripts/consult_all.sh --preset max_quality "question"  # all 10 consultants + maximum tier/max effort
+./scripts/consult_all.sh --preset max_quality "question"  # all 11 consultants + maximum tier/max effort
 ./scripts/consult_all.sh --preset medium "question"       # 3 consultants + standard models
 ./scripts/consult_all.sh --preset fast "question"         # 2 consultants + economy models
 
@@ -272,7 +272,7 @@ npm install -g @qwen-code/qwen-code@latest
 ## v2.6 Features
 
 ### CLI/API Mode Switching
-Seven consultants can switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3, Grok, MiniMax**.
+Eight consultants can switch between CLI and API mode: **Gemini, Codex, Claude, Mistral, Qwen3, Grok, MiniMax, Meta**.
 
 When API mode is enabled for an agent, CLI mode is disabled (mutual exclusivity).
 
@@ -311,6 +311,7 @@ New environment variables in `config.sh`:
 | `QWEN3_USE_API` | false | Use DashScope API instead of qwen CLI (v2.7) |
 | `GROK_USE_API` | auto | Use xAI API when Grok Build is unavailable |
 | `MINIMAX_USE_API` | false | Use MiniMax API instead of the mmx CLI (v2.21) |
+| `META_USE_API` | auto | Meta Model API when `META_API_KEY` is set, otherwise the muse CLI (v5.5) |
 | `GEMINI_API_URL` | https://generativelanguage.googleapis.com/v1beta/models | Google AI endpoint |
 | `CODEX_API_URL` | https://api.openai.com/v1/chat/completions | OpenAI endpoint |
 | `CLAUDE_API_URL` | https://api.anthropic.com/v1/messages | Anthropic endpoint |
@@ -354,11 +355,13 @@ Three normal tiers plus a `maximum` tier are configurable via `apply_model_tier(
 | Tier | Description | Example Models |
 |------|-------------|----------------|
 | **premium** | Latest flagship models | claude-fable-5-1, Gemini 4 Argon (High), gpt-6.1-sol |
-| **maximum** | All 10 consultants; maximum targets and highest provider effort | claude-fable-5-1, Gemini 4 Argon (High), Kimi K3.1 Pro, Qwen3.8-Max, MiniMax-M3.1-Flash; Grok xhigh, GLM/DeepSeek/Kimi max |
-| **standard** | Good quality at reasonable cost | claude-opus-5-5, Gemini 3.8 Flash (High), gpt-5.6-terra |
-| **economy** | Optimized for speed and low cost | claude-haiku-4-5, Gemini 3.8 Flash (Low), gpt-5.6-luna |
+| **maximum** | All 11 consultants; maximum targets and highest provider effort | claude-fable-5-1, Gemini 4 Argon (High), Kimi K3.1 Pro, Qwen3.8-Max, MiniMax-M3.1-Flash, muse-wonder-1.0; Grok xhigh, GLM/DeepSeek/Kimi/Meta max |
+| **standard** | Good quality at reasonable cost | claude-opus-5-5, Gemini 3.8 Flash (High), gpt-6.1-sol |
+| **economy** | Optimized for speed and low cost | claude-haiku-5-5, Gemini 3.8 Flash (Low), gpt-6-luna, grok-4.7, glm-5.3-flash |
 
-**Default models are now premium tier** for maximum quality.
+**Default models are now premium tier** for maximum quality. Tiers use current
+models only; superseded models are listed in `retired_models` in
+`docs/cost_rates.json` (5.5.0).
 
 ```bash
 # Programmatic usage
@@ -370,7 +373,7 @@ apply_model_tier "economy"   # Set all consultants to economy models
 
 # Get model for a specific consultant and tier (v2.8.1)
 get_model_for_tier "gemini" "premium"   # → Gemini 4 Argon (High) on agy
-get_model_for_tier "claude" "economy"   # → claude-haiku-4-5
+get_model_for_tier "claude" "economy"   # → claude-haiku-5-5
 ```
 
 ### Quality Tier Presets
@@ -402,6 +405,7 @@ All consultants now use premium models by default:
 | Qwen3 | qwen3.8-max (standard/economy: qwen3.8-flash) |
 | Kimi | kimi-code/k3.1-pro (every tier, max thinking) |
 | MiniMax | MiniMax-M3.1-Flash (every tier) |
+| Meta | muse-wonder-1.0 (standard/economy: muse-spark-1.3; opt-in) |
 
 Override with environment variables: `CLAUDE_MODEL`, `GEMINI_MODEL`, `CODEX_MODEL`, `KIMI_MODEL`, etc.
 
@@ -626,6 +630,13 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 | `MINIMAX_CMD` | mmx | MiniMax CLI command (v2.21) |
 | `MINIMAX_API_KEY` | - | MiniMax API key (API mode only) (v2.10) |
 | `MINIMAX_MODEL` | MiniMax-M3.1-Flash | MiniMax model (v2.10; every tier since 5.3) |
+| `ENABLE_META` | false | Enable Meta consultant (v5.5; `configure` enables it when it finds muse or a key) |
+| `META_USE_API` | auto | Meta Model API when `META_API_KEY` is set, otherwise the muse CLI |
+| `META_CMD` | muse | Muse Code CLI command |
+| `META_API_KEY` | - | Meta Model API key (Muse Code also reads it headless) |
+| `META_MODEL` | muse-wonder-1.0 | Meta model (standard/economy: muse-spark-1.3) |
+| `META_REASONING_EFFORT` | high | minimal..max (`none` rejected); max_quality sets max |
+| `META_API_MAX_TOKENS` | 32768 | API reasoning + visible completion budget |
 
 ## External Dependencies
 
@@ -636,6 +647,7 @@ for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f" && echo "OK: $f"; done
 - `claude` CLI - Claude (v2.2, also used for synthesis)
 - `qwen` CLI - Qwen via qwen-code (v2.7, optional)
 - `mmx` CLI - MiniMax via mmx-cli (v2.21, optional; `npm i -g mmx-cli`, auth `mmx auth login`)
+- `muse` CLI - Meta via Muse Code (v5.5, optional; `curl -fsSL https://dev.meta.ai/install.sh | sh`, sign in with `muse`)
 - `jq` - JSON parsing
 
 ## Error Handling and Retry

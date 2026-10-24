@@ -207,14 +207,7 @@ EOF
     assert_eq "requested-only" "$(jq -r '.metadata.model_identity_source' "$output_file")" \
         "missing provider model is labeled requested-only"
     assert_eq false "$(jq -r '.generationConfig | has("thinkingConfig")' "$body_file")" \
-        "non-3.7 Gemini API model preserves the legacy request body"
-
-    PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
-        GEMINI_API_MODEL=gemini-3.7-flash GEMINI_REASONING_EFFORT=high \
-        REQUEST_BODY_FILE="$body_file" MAX_RETRIES=1 \
-        "$SCRIPT_DIR/query_gemini.sh" "test 3.7 thinking" "" "$output_file" >/dev/null 2>&1
-    assert_eq high "$(jq -r '.generationConfig.thinkingConfig.thinkingLevel' "$body_file")" \
-        "Gemini 3.7 API request transports the selected thinking level"
+        "a Gemini API model without thinking levels preserves the legacy request body"
     local level rc
     for level in low medium high; do
         PATH="$td:$PATH" GEMINI_USE_API=true GEMINI_API_KEY=test-key \
@@ -383,13 +376,13 @@ EOF
     assert_eq ok "$(jq -r '.response.summary' "$output")" "DeepSeek visible content is separate from reasoning"
 
     rm -f "$request_body"
-    PATH="$td:$PATH" GROK_API_KEY=test GROK_MODEL=grok-4.6 GROK_FORMAT=openai \
+    PATH="$td:$PATH" GROK_API_KEY=test GROK_MODEL=grok-4.7 GROK_FORMAT=openai \
         GROK_REASONING_EFFORT=xhigh GROK_API_MAX_TOKENS=16384 REQUEST_BODY_FILE="$request_body" \
         RATE_LIMIT_DIR="$td/rate-grok-api" MAX_RETRIES=1 \
         run_api_consultant Grok test "" "$output" >/dev/null 2>&1
     assert_eq xhigh "$(jq -r '.reasoning_effort' "$request_body")" \
         "Grok API xhigh effort reaches the request body"
-    assert_eq grok-4.6 "$(jq -r '.model' "$request_body")" \
+    assert_eq grok-4.7 "$(jq -r '.model' "$request_body")" \
         "Grok API effort assertion is non-vacuous"
     assert_eq 16384 "$(jq -r '.max_tokens' "$request_body")" "Grok maximum API budget reaches the wire"
 

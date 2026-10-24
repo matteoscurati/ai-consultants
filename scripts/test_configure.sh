@@ -106,7 +106,7 @@ test_template_covers_config_contract() {
     done < <(find "$SCRIPT_DIR" -type f -name '*.sh' \
         ! -name 'test_*.sh' ! -path '*/test_fixtures/*' ! -path '*/experiment/*' | sort) \
         | sed -E 's/^\$\{//; s/:[-=]$//' \
-        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_DOC_ROOT|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_SKIP_SESSION_SAVE|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_ROOT|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|ENV_SYNTHESIS_STRATEGY|FORCE|GEMINI_WORKSPACE|HOME|KIMI_WORKSPACE|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QWEN_WORKSPACE|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|RUN_QUERY_REDACT_ERRORS|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
+        | grep -Ev '^(AFFINITY_DEFAULT|AI_CONSULTANTS_CONFIG_DIR|AI_CONSULTANTS_DIR|AI_CONSULTANTS_DOC_ROOT|AI_CONSULTANTS_INSTALL_DEFINE_ONLY|AI_CONSULTANTS_SKIP_SESSION_SAVE|AI_CONSULTANTS_REPO|AI_CONSULTANTS_VERSION|CODEX_HOME|CONTEXT_ROOT|CONTEXT_SIZE|CONTEXT_STAGE_ROOT|CURRENT_COST|ENV_SYNTHESIS_STRATEGY|FORCE|GEMINI_WORKSPACE|HOME|KIMI_WORKSPACE|META_WORKSPACE|ORCH_SHAPE|ORCHESTRATION_SELECT_WINNER|PIP_PKG|PRESET|QUERY_COMPLEXITY|QWEN_WORKSPACE|QUERY_INTENT|QUESTION|QUESTION_CATEGORY|QUORUM_ATTEMPTED|QUORUM_MIN_EFF|QUORUM_OUTCOME|ROOT|RUN_QUERY_REDACT_ERRORS|SKIP_GATE|STANCE_OPTIONS_PROMPT|SUCCESS_COUNT|SYNTHESIS_STRATEGY|TMPDIR|VAR|XAI_API_KEY|XDG_CONFIG_HOME)$' \
         | sort -u > "$runtime"
     sort -u "$declared" "$runtime" -o "$declared"
     $BIN configure --show-parameters | sort -u > "$supported"
@@ -371,15 +371,23 @@ test_claude_default_migration_and_pin() {
         "migrated Claude default records managed provenance"
 
     run_clean_configure "$cfg" --force \
-        --set CLAUDE_MODEL=claude-opus-5 >/dev/null 2>&1
-    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "explicit lower-cost Opus 5 remains selectable"
+        --set CLAUDE_MODEL=claude-opus-5-5 >/dev/null 2>&1
+    assert_eq "claude-opus-5-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "explicit lower-cost Opus 5.5 remains selectable"
     assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:pin" \
         "explicit model override records pin provenance"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "claude-opus-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "pinned Opus 5 survives later configure runs"
+    assert_eq "claude-opus-5-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "pinned Opus 5.5 survives later configure runs"
+
+    local rc=0 out
+    out=$(run_clean_configure "$cfg" --force --set CLAUDE_MODEL=claude-opus-5 2>&1) || rc=$?
+    assert_eq "1" "$([[ $rc -ne 0 ]] && echo 1 || echo 0)" "a retired model is refused by --set"
+    assert_contains "$out" "CLAUDE_MODEL=claude-opus-5 is retired; use claude-opus-5-5" \
+        "the refusal names the replacement"
+    assert_eq "claude-opus-5-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "a refused --set leaves the config unchanged"
     assert_contains "$(cat "$cfg/.env")" "# claude-opus-5-5 (or apply_model_tier standard for a single run)." \
         "lower-cost Claude guidance survives configure rewrites"
 
@@ -394,8 +402,10 @@ test_claude_default_migration_and_pin() {
     mkdir -p "$cfg"
     printf '%s\n' 'CLAUDE_MODEL=claude-fable-5' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "claude-fable-5" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
-        "non-Opus legacy Claude choice is not migrated"
+    assert_eq "claude-fable-5-1" "$(read_env "$cfg/.env" CLAUDE_MODEL)" \
+        "a retired hand-written Claude choice moves to its family's current model"
+    assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:pin migrated-from=claude-fable-5" \
+        "the hand-written choice stays user-owned and records its origin"
 }
 
 test_codex_default_migration_and_pin() {
@@ -410,23 +420,26 @@ test_codex_default_migration_and_pin() {
         "migrated Codex default records managed provenance"
 
     run_clean_configure "$cfg" --force \
-        --set CODEX_MODEL=gpt-5.5 >/dev/null 2>&1
-    assert_eq "gpt-5.5" "$(read_env "$cfg/.env" CODEX_MODEL)" \
-        "explicit legacy Codex model remains selectable"
+        --set CODEX_MODEL=gpt-6-astra >/dev/null 2>&1
+    assert_eq "gpt-6-astra" "$(read_env "$cfg/.env" CODEX_MODEL)" \
+        "explicit non-default Codex model remains selectable"
     assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "# ai-consultants:pin" \
         "explicit Codex model override records pin provenance"
 
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "gpt-5.5" "$(read_env "$cfg/.env" CODEX_MODEL)" \
-        "pinned gpt-5.5 survives later configure runs"
+    assert_eq "gpt-6-astra" "$(read_env "$cfg/.env" CODEX_MODEL)" \
+        "pinned gpt-6-astra survives later configure runs"
 
     local old marker
     for old in gpt-5.5 gpt-5.6-sol gpt-6-astra; do
         for marker in '' ' # ai-consultants:default' ' # ai-consultants:pin' ' # ai-consultants:default # ai-consultants:pin'; do
             printf 'CODEX_MODEL=%s%s\n' "$old" "$marker" > "$cfg/.env"
             run_clean_configure "$cfg" --force >/dev/null 2>&1
-            if [[ "$marker" == *pin* ]]; then
-                assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "exact pin survives"
+            if [[ "$marker" == *pin* && "$old" == gpt-6-astra ]]; then
+                assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "exact pin of a current model survives"
+            elif [[ "$marker" == *pin* ]]; then
+                assert_eq gpt-6.1-sol "$(read_env "$cfg/.env" CODEX_MODEL)" "a pinned retired model migrates"
+                assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "# ai-consultants:pin migrated-from=$old" "a migrated pin stays a pin"
             else
                 assert_eq gpt-6.1-sol "$(read_env "$cfg/.env" CODEX_MODEL)" "marked/unmarked legacy migrates"
                 assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "migrated-from=$old" "migration records origin"
@@ -434,11 +447,17 @@ test_codex_default_migration_and_pin() {
                 assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" "migrated-from=$old" "origin persists idempotently"
             fi
         done
-        run_clean_configure "$cfg" --force --set "CODEX_MODEL=$old" >/dev/null 2>&1
-        assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "explicit old model override survives"
         env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
             CODEX_MODEL="$old" "$BIN" configure --force >/dev/null 2>&1
-        assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "environment model overrides migration"
+        if [[ "$old" == gpt-6-astra ]]; then
+            run_clean_configure "$cfg" --force --set "CODEX_MODEL=$old" >/dev/null 2>&1
+            assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "explicit current model override survives"
+            assert_eq "$old" "$(read_env "$cfg/.env" CODEX_MODEL)" "environment model overrides migration"
+        else
+            assert_eq gpt-6.1-sol "$(read_env "$cfg/.env" CODEX_MODEL)" "a retired environment model is migrated in the file"
+            assert_eq 0 "$(run_clean_configure "$cfg" --force --set "CODEX_MODEL=$old" >/dev/null 2>&1 && echo 1 || echo 0)" \
+                "a retired --set model is refused"
+        fi
     done
 
     printf 'CODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.5\r\nCODEX_MODEL=gpt-6-astra # ai-consultants:default migrated-from=gpt-5.6-sol\r\n' > "$cfg/.env"
@@ -456,14 +475,19 @@ test_codex_default_migration_and_pin() {
     assert_contains "$(grep '^CODEX_MODEL=' "$cfg/.env")" 'migrated-from=gpt-5.5' "chained migration keeps the earliest origin"
     printf '%s\n' 'CLAUDE_MODEL=claude-opus-5 # ai-consultants:default # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq claude-opus-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "pin precedence also preserves Claude"
+    assert_eq claude-opus-5-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "a pinned retired Claude model moves to its family's current model"
+    assert_contains "$(grep '^CLAUDE_MODEL=' "$cfg/.env")" "# ai-consultants:pin" "pin precedence survives the migration"
 
     local other_cfg="$TMP/codex-model-unrelated"
     mkdir -p "$other_cfg"
+    printf '%s\n' 'CODEX_MODEL=gpt-7-preview' > "$other_cfg/.env"
+    run_clean_configure "$other_cfg" --force >/dev/null 2>&1
+    assert_eq "gpt-7-preview" "$(read_env "$other_cfg/.env" CODEX_MODEL)" \
+        "an uncatalogued Codex model is not force-upgraded"
     printf '%s\n' 'CODEX_MODEL=gpt-5.4' > "$other_cfg/.env"
     run_clean_configure "$other_cfg" --force >/dev/null 2>&1
-    assert_eq "gpt-5.4" "$(read_env "$other_cfg/.env" CODEX_MODEL)" \
-        "unrelated Codex model is not force-upgraded"
+    assert_eq "gpt-6.1-sol" "$(read_env "$other_cfg/.env" CODEX_MODEL)" \
+        "a retired hand-written Codex model is migrated"
 }
 
 test_minimax_m31_flash_migration() {
@@ -487,13 +511,15 @@ test_minimax_m31_flash_migration() {
 
     printf '%s\n' 'MINIMAX_MODEL=MiniMax-M2.7 # ai-consultants:pin' 'MINIMAX_MAX_TOKENS=4096 # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq MiniMax-M2.7 "$(read_env "$cfg/.env" MINIMAX_MODEL)" "a pinned MiniMax model survives"
+    assert_eq MiniMax-M3.1-Flash "$(read_env "$cfg/.env" MINIMAX_MODEL)" "a pinned retired MiniMax model migrates"
+    assert_contains "$(grep '^MINIMAX_MODEL=' "$cfg/.env")" "# ai-consultants:pin migrated-from=MiniMax-M2.7" "the migrated MiniMax pin records its origin"
     assert_eq 4096 "$(read_env "$cfg/.env" MINIMAX_MAX_TOKENS)" "a pinned MiniMax budget survives"
 
-    # MiniMax-M3 was never a generated default: it is the user's own choice.
+    # MiniMax-M3 was never a generated default: it is the user's own choice,
+    # moved to the current model while its custom budget is kept.
     printf '%s\n' 'MINIMAX_MODEL=MiniMax-M3' 'MINIMAX_MAX_TOKENS=8192' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq MiniMax-M3 "$(read_env "$cfg/.env" MINIMAX_MODEL)" "a non-default MiniMax model is not force-upgraded"
+    assert_eq MiniMax-M3.1-Flash "$(read_env "$cfg/.env" MINIMAX_MODEL)" "a retired hand-written MiniMax model migrates"
     assert_eq 8192 "$(read_env "$cfg/.env" MINIMAX_MAX_TOKENS)" "a custom MiniMax budget is kept"
 }
 
@@ -511,11 +537,16 @@ test_kimi_k31_pro_migration() {
 
     printf '%s\n' 'KIMI_MODEL=kimi-code/k3 # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq kimi-code/k3 "$(read_env "$cfg/.env" KIMI_MODEL)" "a pinned Kimi model survives"
+    assert_eq kimi-code/k3.1-pro "$(read_env "$cfg/.env" KIMI_MODEL)" "a pinned retired Kimi model migrates"
+    assert_contains "$(grep '^KIMI_MODEL=' "$cfg/.env")" "# ai-consultants:pin migrated-from=kimi-code/k3" "the migrated Kimi pin records its origin"
 
     printf '%s\n' 'KIMI_MODEL=kimi-code/kimi-for-coding' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq kimi-code/kimi-for-coding "$(read_env "$cfg/.env" KIMI_MODEL)" "a non-default Kimi alias is not force-upgraded"
+    assert_eq kimi-code/k3.1-pro "$(read_env "$cfg/.env" KIMI_MODEL)" "the retired kimi-for-coding alias migrates"
+
+    printf '%s\n' 'KIMI_MODEL=kimi-code/k4-preview' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq kimi-code/k4-preview "$(read_env "$cfg/.env" KIMI_MODEL)" "an uncatalogued Kimi alias is not force-upgraded"
 }
 
 test_catalog_default_migrations_and_pins() {
@@ -549,12 +580,17 @@ test_catalog_default_migrations_and_pins() {
         'QWEN3_MODEL=qwen3.8-max-preview # ai-consultants:pin' \
         'GROK_MODEL=grok-4.5 # ai-consultants:pin' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq qwen3.8-max-preview "$(read_env "$cfg/.env" QWEN3_MODEL)" "pinned Qwen model survives"
-    assert_eq "Gemini 3.1 Pro (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "pinned Gemini CLI model survives"
-    assert_eq mistral-large-3 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "pinned Mistral API model survives"
+    assert_eq qwen3.8-max "$(read_env "$cfg/.env" QWEN3_MODEL)" "pinned retired Qwen model migrates"
+    assert_eq "Gemini 4 Argon (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "pinned retired Gemini CLI model migrates"
+    assert_eq mistral-large-4 "$(read_env "$cfg/.env" MISTRAL_MODEL)" "pinned retired Mistral API model migrates"
     assert_eq "0" "$(grep -c '^CURSOR_CMD=' "$cfg/.env" || true)" "removed pinned Cursor command is dropped"
-    assert_eq glm-5.2 "$(read_env "$cfg/.env" GLM_MODEL)" "pinned GLM model survives"
-    assert_eq grok-4.5 "$(read_env "$cfg/.env" GROK_MODEL)" "pinned Grok model survives"
+    assert_eq glm-5.3 "$(read_env "$cfg/.env" GLM_MODEL)" "pinned retired GLM flagship moves to the current flagship"
+    assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "pinned retired Grok model migrates"
+    for key in GEMINI_MODEL MISTRAL_MODEL GLM_MODEL QWEN3_MODEL GROK_MODEL; do
+        assert_contains "$(grep "^${key}=" "$cfg/.env")" "# ai-consultants:pin migrated-from=" "$key stays pinned and records its origin"
+    done
+    assert_contains "$(grep '^GEMINI_MODEL=' "$cfg/.env")" "migrated-from=Gemini_3.1_Pro_(High)" \
+        "a display-name origin is recorded without spaces"
 
     cfg="$TMP/catalog-current-glm-default"
     mkdir -p "$cfg"
@@ -574,10 +610,14 @@ test_catalog_default_migrations_and_pins() {
 
     cfg="$TMP/catalog-unrelated-gemini"
     mkdir -p "$cfg"
+    printf '%s\n' 'GEMINI_MODEL="Gemini 5 Preview (High)"' > "$cfg/.env"
+    run_clean_configure "$cfg" --force >/dev/null 2>&1
+    assert_eq "Gemini 5 Preview (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" \
+        "an uncatalogued Gemini CLI value is not force-upgraded"
     printf '%s\n' 'GEMINI_MODEL="Gemini 3.6 Flash (High)"' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq "Gemini 3.6 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" \
-        "unrelated Gemini CLI value is not force-upgraded"
+    assert_eq "Gemini 3.8 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" \
+        "a retired Gemini CLI value moves to the same-level current Flash"
 }
 
 test_backups_are_unique_within_one_second() {
@@ -612,8 +652,10 @@ test_deepseek_flash_migration() {
             mkdir -p "$cfg"
             printf 'DEEPSEEK_MODEL=%s%s\n' "$old" "$marker" > "$cfg/.env"
             run_clean_configure "$cfg" --force >/dev/null 2>&1
-            if [[ "$marker" == *pin* ]]; then
-                assert_eq "$old" "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek explicit pin survives"
+            if [[ "$marker" == *pin* && "$old" == deepseek-v4-pro ]]; then
+                assert_eq "$old" "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek explicit pin of the current Pro survives"
+            elif [[ "$marker" == *pin* ]]; then
+                assert_eq deepseek-flash "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "a pinned retired DeepSeek alias migrates"
             else
                 assert_eq deepseek-flash "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek historical default migrates"
                 assert_contains "$(grep '^DEEPSEEK_MODEL=' "$cfg/.env")" '# ai-consultants:default' "DeepSeek migration records managed provenance"
@@ -627,8 +669,8 @@ test_deepseek_flash_migration() {
     env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
         DEEPSEEK_MODEL=deepseek-v4-pro "$BIN" configure --force >/dev/null 2>&1
     assert_eq deepseek-v4-pro "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "environment overrides DeepSeek migration"
-    run_clean_configure "$cfg" --force --set DEEPSEEK_MODEL=deepseek-v4-flash >/dev/null 2>&1
-    assert_eq deepseek-v4-flash "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek --set wins"
+    run_clean_configure "$cfg" --force --set DEEPSEEK_MODEL=deepseek-flash >/dev/null 2>&1
+    assert_eq deepseek-flash "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "DeepSeek --set wins"
     printf 'DEEPSEEK_MODEL=custom-deepseek\n' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq custom-deepseek "$(read_env "$cfg/.env" DEEPSEEK_MODEL)" "unrelated DeepSeek model survives"
@@ -641,7 +683,8 @@ test_grok47_migration_and_opus55_selection() {
         printf 'GROK_MODEL=grok-4.6%s\n' "$marker" > "$cfg/.env"
         run_clean_configure "$cfg" --force >/dev/null 2>&1
         if [[ "$marker" == *pin* ]]; then
-            assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "explicit Grok 4.6 pin survives"
+            assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "a pinned retired Grok 4.6 migrates"
+            assert_contains "$(grep '^GROK_MODEL=' "$cfg/.env")" '# ai-consultants:pin migrated-from=grok-4.6' "the Grok pin is kept with its origin"
         else
             assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "unpinned Grok 4.6 migrates"
             assert_contains "$(grep '^GROK_MODEL=' "$cfg/.env")" '# ai-consultants:default' "Grok 4.7 records managed provenance"
@@ -653,10 +696,11 @@ test_grok47_migration_and_opus55_selection() {
     printf 'GROK_MODEL=grok-4.6\n' > "$cfg/.env"
     env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
         GROK_MODEL=grok-4.6 "$BIN" configure --force >/dev/null 2>&1
-    assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "environment Grok model wins"
-    run_clean_configure "$cfg" --force --set GROK_MODEL=grok-4.6 --set CLAUDE_MODEL=claude-opus-5-5 >/dev/null 2>&1
+    assert_eq grok-4.7 "$(read_env "$cfg/.env" GROK_MODEL)" "a retired environment Grok model is migrated in the file"
+    assert_eq 0 "$(run_clean_configure "$cfg" --force --set GROK_MODEL=grok-4.6 >/dev/null 2>&1 && echo 1 || echo 0)" \
+        "a retired Grok --set is refused"
+    run_clean_configure "$cfg" --force --set CLAUDE_MODEL=claude-opus-5-5 >/dev/null 2>&1
     run_clean_configure "$cfg" --force >/dev/null 2>&1
-    assert_eq grok-4.6 "$(read_env "$cfg/.env" GROK_MODEL)" "Grok --set remains pinned"
     assert_eq claude-opus-5-5 "$(read_env "$cfg/.env" CLAUDE_MODEL)" "explicit Opus 5.5 survives configure"
     printf 'GROK_MODEL=custom-grok\nCLAUDE_MODEL=claude-fable-5-1\n' > "$cfg/.env"
     run_clean_configure "$cfg" --force >/dev/null 2>&1
@@ -673,7 +717,7 @@ test_gemini38_migration() {
             run_clean_configure "$cfg" --force >/dev/null 2>&1
             expected="Gemini 3.8 Flash (Low)"
             [[ "$level" == Low ]] || expected="Gemini 4 Argon (High)"
-            [[ "$marker" != *pin* ]] || expected="Gemini 3.7 Flash ($level)"
+            [[ "$marker" != *pin* ]] || expected="Gemini 3.8 Flash ($level)"
             assert_eq "$expected" "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini $level migration respects pin state"
             run_clean_configure "$cfg" --force >/dev/null 2>&1
             assert_eq "$expected" "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini migration is idempotent"
@@ -683,7 +727,7 @@ test_gemini38_migration() {
     printf 'GEMINI_MODEL="Gemini 3.7 Flash (High)"\n' > "$cfg/.env"
     env "${CLEAN_ENV_ARGS[@]}" PATH="$(clean_path)" AI_CONSULTANTS_CONFIG_DIR="$cfg" \
         GEMINI_MODEL='Gemini 3.7 Flash (High)' "$BIN" configure --force >/dev/null 2>&1
-    assert_eq 'Gemini 3.7 Flash (High)' "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini environment model wins"
+    assert_eq 'Gemini 3.8 Flash (High)' "$(read_env "$cfg/.env" GEMINI_MODEL)" "a retired environment Gemini model is migrated in the file"
     run_clean_configure "$cfg" --force --set 'GEMINI_MODEL=Gemini 3.8 Flash (Medium)' >/dev/null 2>&1
     run_clean_configure "$cfg" --force >/dev/null 2>&1
     assert_eq 'Gemini 3.8 Flash (Medium)' "$(read_env "$cfg/.env" GEMINI_MODEL)" "Gemini Medium remains an explicit choice"
@@ -696,7 +740,7 @@ test_gemini38_migration() {
         run_clean_configure "$cfg" --force >/dev/null 2>&1
         if [[ "$marker" == *pin* ]]; then
             assert_eq "Gemini 3.8 Flash (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "pinned Gemini 3.8 Flash (High) survives"
-            assert_eq gemini-3.1-pro-preview "$(read_env "$cfg/.env" GEMINI_API_MODEL)" "pinned Gemini 3.1 Pro API ID survives"
+            assert_eq gemini-4-argon "$(read_env "$cfg/.env" GEMINI_API_MODEL)" "a pinned retired Gemini API ID moves to Argon"
         else
             assert_eq "Gemini 4 Argon (High)" "$(read_env "$cfg/.env" GEMINI_MODEL)" "unpinned Gemini CLI default migrates to Argon"
             assert_eq gemini-4-argon "$(read_env "$cfg/.env" GEMINI_API_MODEL)" "unpinned Gemini API default migrates to Argon"

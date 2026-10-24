@@ -30,7 +30,7 @@ fi
 # their fallback selector honor this marker, especially for billed APIs.
 if [[ "${_AI_CONSULTANTS_PRESET_APPLIED:-false}" != "true" ]]; then
     for _preset_optout_flag in ENABLE_GEMINI ENABLE_CODEX ENABLE_MISTRAL ENABLE_KIMI \
-        ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX; do
+        ENABLE_CLAUDE ENABLE_QWEN3 ENABLE_GLM ENABLE_GROK ENABLE_DEEPSEEK ENABLE_MINIMAX ENABLE_META; do
         if [[ -n "${!_preset_optout_flag+x}" && "${!_preset_optout_flag}" == "false" ]]; then
             export "_AI_CONSULTANTS_PRESET_OPTOUT_${_preset_optout_flag}=true"
         fi
@@ -79,7 +79,7 @@ DEFAULT_OUTPUT_DIR_BASE="${DEFAULT_OUTPUT_DIR_BASE:-${_AI_CONSULTANTS_XDG_CACHE}
 # =============================================================================
 # For agents that support both CLI and API mode, set USE_API=true to use API mode.
 # When API mode is enabled, CLI mode is automatically disabled (mutual exclusivity).
-# 7 agents support switching: Gemini, Codex, Claude, Mistral, Qwen3, Grok, MiniMax
+# 8 agents support switching: Gemini, Codex, Claude, Mistral, Qwen3, Grok, MiniMax, Meta
 
 # Mode switching (true = API, false = CLI). DEFAULT IS CLI — when a consultant
 # has a CLI, the tool uses it; the CLIs are the primary transport (OAuth /
@@ -99,6 +99,7 @@ QWEN3_USE_API="${QWEN3_USE_API:-false}"  # Default false to use qwen CLI
 # MiniMax configuration section below (needs MINIMAX_API_KEY), so an explicit
 # unset stays distinguishable from an explicit "false" (back-compat for pre-v2.21
 # API-only MiniMax users -- see the rationale at the resolve block).
+# META_USE_API is auto-resolved in the Meta section below (needs META_API_KEY).
 
 # API endpoints for CLI-switchable agents
 GEMINI_API_URL="${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models}"
@@ -181,7 +182,7 @@ export GEMINI_USE_API
 # =============================================================================
 
 # Model: "gpt-6.1-sol" (default/premium), "gpt-6-astra" (maximum),
-# "gpt-5.6-terra" (standard), "gpt-5.6-luna" (economy).
+# "gpt-6.1-sol" (standard too), "gpt-6-luna" (economy).
 CODEX_MODEL="${CODEX_MODEL:-gpt-6.1-sol}"
 CODEX_TIMEOUT_SECONDS="${CODEX_TIMEOUT:-0}"
 CODEX_API_MAX_TOKENS="${CODEX_API_MAX_TOKENS:-16384}"
@@ -318,6 +319,35 @@ fi
 export MINIMAX_USE_API
 
 # =============================================================================
+# META CONFIGURATION - The Systems Thinker (CLI/API, v5.5)
+# =============================================================================
+
+# Muse Wonder serves maximum/premium, Muse Spark 1.3 standard/economy. Both
+# always reason (effort minimal..max; none is rejected) and the reasoning shares
+# the completion budget. Effort defaults to high (max in the maximum tier); an
+# explicitly empty META_REASONING_EFFORT leaves the provider's own level. Content is never sent in Contributor mode: the CLI
+# always gets --contributor-mode off, and a *-contributor model must be pinned.
+META_CMD="${META_CMD:-muse}"
+META_MODEL="${META_MODEL:-muse-wonder-1.0}"
+META_REASONING_EFFORT="${META_REASONING_EFFORT-high}"
+META_TIMEOUT_SECONDS="${META_TIMEOUT:-0}"
+META_API_MAX_TOKENS="${META_API_MAX_TOKENS:-32768}"
+META_API_URL="${META_API_URL:-https://api.meta.ai/v1/chat/completions}"
+META_FORMAT="${META_FORMAT:-openai}"
+# CLI mode uses Muse Code (curl -fsSL https://dev.meta.ai/install.sh | sh;
+# sign in once with `muse`). API mode uses META_API_KEY against META_API_URL;
+# Muse Code also reads META_API_KEY for headless runs.
+# As for MiniMax, a configured key with no explicit META_USE_API selects the API.
+if [[ -z "${META_USE_API+x}" ]]; then
+    if [[ -n "${META_API_KEY:-}" ]]; then
+        META_USE_API=true
+    else
+        META_USE_API=false
+    fi
+fi
+export META_USE_API
+
+# =============================================================================
 # KIMI CONFIGURATION - The Eastern Sage (v2.9)
 # =============================================================================
 
@@ -347,7 +377,7 @@ CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 # Use this array when iterating over consultants programmatically.
 
 # All available consultants (ordered by typical usage)
-ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax")
+ALL_CONSULTANTS=("Gemini" "Codex" "Mistral" "Kimi" "Claude" "Qwen3" "GLM" "Grok" "DeepSeek" "MiniMax" "Meta")
 
 # =============================================================================
 # ENABLED CONSULTANTS
@@ -363,6 +393,8 @@ ENABLE_CLAUDE="${ENABLE_CLAUDE:-true}"   # Auto-disabled when invoked by Claude 
 ENABLE_QWEN3="${ENABLE_QWEN3:-true}"     # qwen-code CLI (v2.7); API opt-in
 ENABLE_GROK="${ENABLE_GROK:-true}"       # Grok Build CLI; API fallback
 ENABLE_MINIMAX="${ENABLE_MINIMAX:-true}" # mmx CLI (v2.21); API opt-in
+# Muse Code CLI or Meta Model API (v5.5); opt-in, as Muse Wonder is in preview
+ENABLE_META="${ENABLE_META:-false}"
 
 # API-only consultants (disabled by default - require API keys)
 ENABLE_GLM="${ENABLE_GLM:-false}"
@@ -374,7 +406,7 @@ ENABLE_DEEPSEEK="${ENABLE_DEEPSEEK:-false}"
 
 # Agent that invoked this skill - used for self-exclusion to prevent
 # an agent from consulting itself.
-# Values: claude, codex, gemini, mistral, kimi, qwen3, or "unknown".
+# Values: claude, codex, gemini, mistral, kimi, qwen3, muse, or "unknown".
 # Cursor may still be the host, but maps to no panel consultant.
 # Example: INVOKING_AGENT=claude ./scripts/consult_all.sh "question"
 INVOKING_AGENT="${INVOKING_AGENT:-unknown}"
@@ -390,8 +422,8 @@ ENABLE_PERSONA="${ENABLE_PERSONA:-true}"
 # Available: 1=Architect, 2=Pragmatist, 3=Devil's Advocate, 4=Innovator,
 #   5=Integrator, 6=Analyst, 7=Methodologist, 8=Provocateur, 9=Mentor,
 #   10=Optimizer, 11=Security Expert, 12=Minimalist, 13=DX Advocate,
-#   14=Debugger, 15=Reviewer
-# Defaults are set in lib/personas.sh (GEMINI=1, CODEX=2, MISTRAL=3, etc.)
+#   14=Debugger, 15=Reviewer, 19=Systems Thinker
+# Defaults are set in lib/personas.sh (GEMINI=1, CODEX=2, MISTRAL=3, META=19, etc.)
 
 # =============================================================================
 # AUTO-SYNTHESIS (v2.0)
@@ -660,6 +692,7 @@ get_model_for_tier() {
                 qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3.1-pro" ;;
                 minimax)  echo "MiniMax-M3.1-Flash" ;;
+                meta)     echo "muse-wonder-1.0" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -675,36 +708,39 @@ get_model_for_tier() {
                 qwen3)    echo "qwen3.8-max" ;;
                 kimi)     echo "kimi-code/k3.1-pro" ;;
                 minimax)  echo "MiniMax-M3.1-Flash" ;;
+                meta)     echo "muse-wonder-1.0" ;;
                 *)        echo "" ;;
             esac
             ;;
         standard|medium|balanced)
             case "$consultant" in
                 claude)   echo "claude-opus-5-5" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (High)" ;;
-                codex)    echo "gpt-5.6-terra" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.8-flash" || echo "Gemini 3.8 Flash (High)" ;;
+                codex)    echo "gpt-6.1-sol" ;;  # No GPT-6 mid model; 6.1 Sol costs less than 5.6 Terra did
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-4" || echo "mistral-medium-3.5" ;;
                 deepseek) echo "deepseek-flash" ;;
                 glm)      echo "glm-5.3-flash" ;;  # Same as premium (no mid-tier GLM)
-                grok)     echo "grok-4.5" ;;
+                grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-flash" ;;
                 kimi)     echo "kimi-code/k3.1-pro" ;;
                 minimax)  echo "MiniMax-M3.1-Flash" ;;
+                meta)     echo "muse-spark-1.3" ;;
                 *)        echo "" ;;
             esac
             ;;
         economy|fast|quick)
             case "$consultant" in
-                claude)   echo "claude-haiku-4-5" ;;
-                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.1-pro-preview" || echo "Gemini 3.8 Flash (Low)" ;;
-                codex)    echo "gpt-5.6-luna" ;;
+                claude)   echo "claude-haiku-5-5" ;;
+                gemini)   [[ "$transport" == "api" ]] && echo "gemini-3.8-flash" || echo "Gemini 3.8 Flash (Low)" ;;
+                codex)    echo "gpt-6-luna" ;;
                 mistral)  [[ "$transport" == "api" ]] && echo "mistral-large-4" || echo "mistral-medium-3.5" ;;  # Devstral is retired
                 deepseek) echo "deepseek-flash" ;;
-                glm)      echo "glm-4-flash" ;;
-                grok)     echo "grok-4.5" ;;
+                glm)      echo "glm-5.3-flash" ;;
+                grok)     echo "grok-4.7" ;;
                 qwen3)    echo "qwen3.8-flash" ;;
                 kimi)     echo "kimi-code/k3.1-pro" ;;
                 minimax)  echo "MiniMax-M3.1-Flash" ;;
+                meta)     echo "muse-spark-1.3" ;;
                 *)        echo "" ;;
             esac
             ;;
@@ -750,7 +786,7 @@ apply_model_tier() {
             ;;
     esac
 
-    local consultants="claude codex deepseek glm grok minimax kimi"
+    local consultants="claude codex deepseek glm grok minimax kimi meta"
     for c in $consultants; do
         local model
         model=$(get_model_for_tier "$c" "$tier")
@@ -800,7 +836,7 @@ apply_model_tier() {
     case "$tier" in
         maximum|max_quality|max-quality) ;;
         *)
-            for effort_provider in GROK GLM DEEPSEEK; do
+            for effort_provider in GROK GLM DEEPSEEK META; do
                 effort_var="${effort_provider}_REASONING_EFFORT"
                 managed_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_MANAGED"
                 prior_set_var="_AI_CONSULTANTS_TIER_${effort_provider}_EFFORT_PRIOR_SET"
@@ -873,13 +909,12 @@ apply_model_tier() {
     esac
 
     # Gemini CLI availability is inventory-probed. Argon serves maximum and
-    # premium on both transports; standard and economy keep 3.8 Flash on the
-    # CLI and the 3.1 Pro ID on the API (3.8 Flash API is still opt-in).
+    # premium on both transports; standard and economy use 3.8 Flash on both.
     # Neither transport silently substitutes the other's model namespace.
 
     case "$tier" in
         maximum|max_quality|max-quality)
-            for effort_spec in GROK:xhigh GLM:max DEEPSEEK:max; do
+            for effort_spec in GROK:xhigh GLM:max DEEPSEEK:max META:max; do
                 effort_provider="${effort_spec%%:*}"
                 effort_target="${effort_spec#*:}"
                 effort_var="${effort_provider}_REASONING_EFFORT"
@@ -943,7 +978,7 @@ apply_model_tier() {
 #   high-stakes  - Broad premium panel for critical decisions
 #
 # Quality Tiers (v2.5):
-#   max_quality  - all 10 consultants + maximum models/effort
+#   max_quality  - all 11 consultants + maximum models/effort
 #   medium       - 3 consultants + standard models
 #   fast         - 2 consultants + economy models
 #
@@ -954,7 +989,7 @@ _disable_all_consultants() {
     export ENABLE_GEMINI=false ENABLE_CODEX=false ENABLE_MISTRAL=false
     export ENABLE_KIMI=false ENABLE_CLAUDE=false
     export ENABLE_QWEN3=false ENABLE_GLM=false ENABLE_GROK=false
-    export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false
+    export ENABLE_DEEPSEEK=false ENABLE_MINIMAX=false ENABLE_META=false
 }
 
 # A deliberate per-consultant false remains an opt-out when a preset is used.
@@ -985,9 +1020,9 @@ get_preset_panel_size() {
 }
 
 # Return the host-aware target for a preset. The raw max_quality contract is
-# ten consultants, but a canonical invoking host is fail-closed excluded and
-# cannot be replaced from a ten-member canonical roster. Its attainable panel
-# is therefore nine; every other preset retains its raw target and is filled
+# eleven consultants, but a canonical invoking host is fail-closed excluded and
+# cannot be replaced from an eleven-member canonical roster. Its attainable panel
+# is therefore ten; every other preset retains its raw target and is filled
 # from the canonical roster by the orchestrator.
 # Usage: get_effective_preset_panel_size <preset_name>
 get_effective_preset_panel_size() {
@@ -1046,7 +1081,7 @@ apply_preset() {
         max_quality)
             # Maximum quality - costly/separate-plan models stay confined here.
             apply_model_tier "maximum"
-            _enable_preset_consultants GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX
+            _enable_preset_consultants GEMINI CODEX MISTRAL KIMI CLAUDE QWEN3 GLM GROK DEEPSEEK MINIMAX META
             ;;
         medium)
             # Balanced quality - standard models, good coverage

@@ -1,12 +1,34 @@
 {
-  "version": "5.4.0",
-  "updated": "2026-10-23",
+  "version": "5.5.0",
+  "updated": "2026-10-24",
   "models": {
+    "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
+    "_comment_scope": "Current models only (5.5.0). Superseded models are listed in retired_models with their replacement; configure migrates them and the runtime warns. A model absent from this table is reported as unpriced, never priced at a guessed rate. Rates are official list prices, Verified 2026-10-24.",
+    "claude-fable-5-1": {
+      "input": 0.01,
+      "output": 0.05,
+      "provider": "Anthropic",
+      "notes": "Standard API list rate ($10/$50 per 1M). Cache/service adjustments excluded. Verified 2026-10-24."
+    },
+    "claude-opus-5-5": {
+      "input": 0.004,
+      "output": 0.02,
+      "provider": "Anthropic",
+      "notes": "Standard API list rate ($4/$20 per 1M); 1M context at standard pricing. Cache/service adjustments excluded. Verified 2026-10-24."
+    },
+    "claude-haiku-5-5": {
+      "input": 0.0001,
+      "output": 0.0005,
+      "provider": "Anthropic",
+      "notes": "Standard API list rate ($0.10/$0.50 per 1M) for prompts up to 100K tokens; over 100K the whole request bills at $0.50/$2.50 (5x). Verified 2026-10-24."
+    },
     "gemini-4-argon": {
       "input": 0.004,
       "output": 0.02,
-      "notes": "Gemini 4 Argon, GA 2026-10-13. List-rate estimate from 2026-12-01; the introductory 0.002/0.01 per 1K through 2026-11-30 is not applied, so budgets fail safe. Thinking tokens bill as output; implicit-cache discounts excluded. Verified 2026-10-16."
+      "provider": "Google",
+      "notes": "List rate from 2026-12-01 ($4/$20 per 1M); the introductory $2/$10 through 2026-11-30 is not applied, so budgets fail safe. Thinking tokens bill as output; cache discounts excluded. Verified 2026-10-24."
     },
+    "_comment_agy": "Antigravity CLI (agy) addresses Gemini models by display name and runs on subscription auth; these rates mirror the matching Gemini API model so the estimator stays consistent.",
     "Gemini 4 Argon (High)": {
       "input": 0.004,
       "output": 0.02,
@@ -25,7 +47,8 @@
     "gemini-3.8-flash": {
       "input": 0.00075,
       "output": 0.00375,
-      "notes": "Promotional API-equivalent estimate through 2026-12-31; standard from 2027-01-01: 0.0015/0.0075 per 1K. Cache/service adjustments excluded; not a CLI invoice."
+      "provider": "Google",
+      "notes": "Promotional rate through 2026-12-31 ($0.75/$3.75 per 1M); standard from 2027-01-01: $1.50/$7.50. Cache/service adjustments excluded. Verified 2026-10-24."
     },
     "Gemini 3.8 Flash (High)": {
       "input": 0.00075,
@@ -42,454 +65,84 @@
       "output": 0.00375,
       "notes": "Promotional API-equivalent estimate through 2026-12-31; standard from 2027-01-01: 0.0015/0.0075 per 1K. Cache/service adjustments excluded; not a CLI invoice."
     },
-    "claude-opus-5-5": {
-      "input": 0.004,
-      "output": 0.020,
-      "notes": "Standard API list-rate estimate; cache/service adjustments excluded. Verified 2026-09-26."
-    },
-    "grok-4.7": {
-      "input": 0.002,
-      "output": 0.006,
-      "notes": "Standard API estimate; above 200K input both rates double for the request. Cache, regional, priority and Fast rates excluded. Verified 2026-09-26."
-    },
-    "deepseek-flash": {
-      "input": 0.0003,
-      "output": 0.0012,
-      "provider": "DeepSeek",
-      "notes": "DeepSeek-V4.1-Flash, verified 2026-09-10. Peak cache-miss estimate; off-peak and cache-hit discounts excluded. See https://api-docs.deepseek.com/quick_start/pricing/"
-    },
-    "deepseek-v4-flash-vision-exp": {
-      "input": 0.0003,
-      "output": 0.0012,
-      "provider": "DeepSeek",
-      "notes": "Retired alias served by V4.1 Flash; peak cache-miss estimate."
-    },
-    "_comment_units": "All rates are USD per 1,000 tokens (per-1K). lib/costs.sh computes cost as (token_count / 1000) * rate, so every value here MUST be a per-1K rate = (provider $/1M price) / 1000. Do NOT paste $/MTok figures directly.",
-    "_comment_premium": "Premium tier models - Sep 2026",
-    "claude-fable-5-1": {
+    "gpt-6-astra": {
       "input": 0.01,
-      "output": 0.05
-    },
-    "claude-opus-5": {
-      "input": 0.005,
-      "output": 0.025
-    },
-    "claude-fable-5": {
-      "input": 0.01,
-      "output": 0.05
-    },
-    "gemini-3.1-pro-preview": {
-      "input": 0.00125,
-      "output": 0.005
-    },
-    "_comment_agy": "Antigravity CLI (agy) addresses Gemini models by display name (v2.15). agy runs on OAuth/subscription auth; these per-1K rates mirror the matching Gemini API tier so the estimator stays consistent. gemini-3.1-pro-preview etc. above remain for GEMINI_USE_API mode.",
-    "Gemini 3.1 Pro (High)": {
-      "input": 0.002,
-      "output": 0.012
-    },
-    "Gemini 3.6 Flash (High)": {
-      "input": 0.0015,
-      "output": 0.0075
-    },
-    "Gemini 3.6 Flash (Low)": {
-      "input": 0.0015,
-      "output": 0.0075
-    },
-    "gemini-3.7-flash": {
-      "input": 0.00075,
-      "output": 0.00375
-    },
-    "Gemini 3.7 Flash (High)": {
-      "input": 0.00075,
-      "output": 0.00375
-    },
-    "Gemini 3.7 Flash (Low)": {
-      "input": 0.00075,
-      "output": 0.00375
+      "output": 0.05,
+      "provider": "OpenAI",
+      "notes": "Standard rate ($10/$50 per 1M). >272K input: long-context rates for the full request (2x input, 1.5x output). Cache/service adjustments excluded. Verified 2026-10-24."
     },
     "gpt-6.1-sol": {
       "input": 0.002,
       "output": 0.01,
       "provider": "OpenAI",
-      "notes": "Standard estimate ($2/$10 per 1M, 2026-10); >272K input: 2x input, 1.5x output for full request. Cache/service adjustments excluded."
+      "notes": "Standard rate ($2/$10 per 1M). >272K input: long-context rates for the full request (2x input, 1.5x output). Cache/service adjustments excluded. Verified 2026-10-24."
     },
-    "gpt-6-astra": {
-      "input": 0.01,
-      "output": 0.05,
+    "gpt-6-luna": {
+      "input": 0.0001,
+      "output": 0.0005,
       "provider": "OpenAI",
-      "notes": "Standard estimate; >272K input: 2x input, 1.5x output for full request. Cache/service adjustments excluded."
-    },
-    "gpt-5.6-sol": {
-      "input": 0.004,
-      "output": 0.020
-    },
-    "gpt-5.6-terra": {
-      "input": 0.002,
-      "output": 0.012
-    },
-    "gpt-5.6-luna": {
-      "input": 0.0002,
-      "output": 0.0012
-    },
-    "mistral-large-3": {
-      "input": 0.002,
-      "output": 0.006
+      "notes": "Standard rate ($0.10/$0.50 per 1M). >272K input: long-context rates for the full request (2x input, 1.5x output). Cache/service adjustments excluded. Verified 2026-10-24."
     },
     "mistral-large-4": {
       "input": 0.00136,
       "output": 0.00418,
-      "notes": "Public preview (2026-10-06). List rate; the docs page currently shows a 50% preview price of 0.00068/0.00209 per 1K. Estimates use the list rate so budgets fail safe. Alias of mistral-large-4-0."
+      "provider": "Mistral",
+      "notes": "Public preview; list rate ($1.36/$4.18 per 1M). Alias of mistral-large-4-0. Verified 2026-10-24."
     },
     "mistral-large-4-0": {
       "input": 0.00136,
       "output": 0.00418
     },
+    "mistral-medium-3.5": {
+      "input": 0.0015,
+      "output": 0.0075,
+      "provider": "Mistral",
+      "notes": "Medium 3.5 ($1.50/$7.50 per 1M); Vibe CLI name. Verified 2026-10-24."
+    },
     "mistral-medium-3-5": {
       "input": 0.0015,
       "output": 0.0075
     },
-    "mistral-medium-3.5": {
-      "input": 0.0015,
-      "output": 0.0075
-    },
-    "mistral-large-2512": {
-      "input": 0.0005,
-      "output": 0.0015
-    },
     "mistral-small-2603": {
       "input": 0.00015,
-      "output": 0.0006
+      "output": 0.0006,
+      "provider": "Mistral",
+      "notes": "Mistral Small 4 ($0.15/$0.60 per 1M); API opt-in. Verified 2026-10-24."
+    },
+    "deepseek-flash": {
+      "input": 0.0003,
+      "output": 0.0012,
+      "provider": "DeepSeek",
+      "notes": "DeepSeek-V4.1-Flash. Peak cache-miss rate ($0.30/$1.20 per 1M); off-peak (50%) and cache-hit discounts excluded. Verified 2026-10-24."
     },
     "deepseek-v4-pro": {
-      "input": 0.000435,
-      "output": 0.00087
+      "input": 0.00132,
+      "output": 0.00396,
+      "provider": "DeepSeek",
+      "notes": "Peak cache-miss rate ($1.32/$3.96 per 1M); off-peak (50%) and cache-hit discounts excluded. Opt-in. Verified 2026-10-24."
     },
-    "glm-5.1": {
-      "input": 0.0005,
-      "output": 0.002
-    },
-    "grok-4.5": {
+    "grok-4.7": {
       "input": 0.002,
-      "output": 0.006
-    },
-    "grok-4.6": {
-      "input": 0.002,
-      "output": 0.006
-    },
-    "qwen3.6-plus": {
-      "input": 0.000325,
-      "output": 0.00195
-    },
-    "qwen3.6-35b-a3b": {
-      "input": 0.000163,
-      "output": 0.0009
-    },
-    "composer-2": {
-      "input": 0.0005,
-      "output": 0.0025
-    },
-    "minimax-m2.7": {
-      "input": 0.0003,
-      "output": 0.0012
-    },
-    "minimax-m3": {
-      "input": 0.0003,
-      "output": 0.0012
+      "output": 0.006,
+      "provider": "xAI",
+      "notes": "Standard rate ($2/$6 per 1M); at 200K input or more both rates double for the request. Cache, regional, priority and Fast rates excluded. Verified 2026-10-24."
     },
     "minimax-m3.1-flash": {
       "input": 0.00015,
-      "output": 0.0006
+      "output": 0.0006,
+      "provider": "MiniMax",
+      "notes": "Pay-as-you-go rate ($0.15/$0.60 per 1M); cache reads excluded. Verified 2026-10-24."
     },
-    "kimi-code/k3": {
-      "input": 0.0005,
-      "output": 0.002
-    },
-    "_comment_kimi_legacy": "Legacy Kimi aliases retained only for historical and pinned-response cost lookup; since 5.4.0 every tier uses kimi-code/k3.1-pro.",
-    "kimi-code/kimi-for-coding": {
-      "input": 0.0005,
-      "output": 0.002
-    },
-    "nvidia/nemotron-3-super-120b-a12b:free": {
-      "input": 0.00,
-      "output": 0.00
-    },
-    "_comment_standard": "Standard tier models",
-    "claude-sonnet-5": {
-      "input": 0.003,
-      "output": 0.015
-    },
-    "gemini-3-flash-preview": {
-      "input": 0.000075,
-      "output": 0.0003
-    },
-    "gpt-5.3": {
-      "input": 0.0025,
-      "output": 0.010
-    },
-    "mistral-medium-latest": {
-      "input": 0.001,
-      "output": 0.003
-    },
-    "deepseek-v3.2": {
-      "input": 0.00027,
-      "output": 0.0011
-    },
-    "grok-3": {
-      "input": 0.003,
-      "output": 0.009
-    },
-    "_comment_economy": "Economy tier models",
-    "claude-haiku-4-5": {
-      "input": 0.001,
-      "output": 0.005
-    },
-    "gemini-2.0-flash": {
-      "input": 0.0001,
-      "output": 0.0004
-    },
-    "gpt-4o-mini": {
-      "input": 0.00015,
-      "output": 0.0006
-    },
-    "devstral-small-2": {
+    "_comment_unpriced": "Subscription-billed transports: these consultants run on a plan that bills by quota (Kimi Code, Qwen Token Plan, GLM coding-plan endpoint), not per token. Rated 0 and listed in unpriced_models, so the session report discloses the exclusion instead of implying the model was free. For reference, the pay-as-you-go API prices per 1M are: kimi-k3.1-pro $2/$10, qwen3.8-max $2/$6, qwen3.8-flash $0.15/$0.47, GLM-5.3 $1.40/$4.40, GLM-5.3-Flash $0.15/$0.50 (Verified 2026-10-24.)",
+    "kimi-code/k3.1-pro": {
       "input": 0,
       "output": 0
     },
-    "deepseek-chat": {
-      "input": 0.001,
-      "output": 0.002
-    },
-    "glm-4-flash": {
-      "input": 0.001,
-      "output": 0.003
-    },
-    "grok-3-mini": {
-      "input": 0.001,
-      "output": 0.003
-    },
-    "qwen3-32b": {
-      "input": 0.0004,
-      "output": 0.0016
-    },
-    "minimax-m2.5": {
-      "input": 0.0003,
-      "output": 0.0012
-    },
-    "_comment_legacy": "Legacy models for backwards compatibility",
-    "Gemini 3.5 Flash (High)": {
-      "input": 0.0015,
-      "output": 0.009
-    },
-    "Gemini 3.5 Flash (Low)": {
-      "input": 0.0015,
-      "output": 0.009
-    },
-    "gpt-5.5": {
-      "input": 0.005,
-      "output": 0.030
-    },
-    "gpt-5.4": {
-      "input": 0.0025,
-      "output": 0.015
-    },
-    "gpt-5.4-nano": {
-      "input": 0.0002,
-      "output": 0.00125
-    },
-    "claude-sonnet-4-6": {
-      "input": 0.003,
-      "output": 0.015
-    },
-    "claude-opus-4-8": {
-      "input": 0.005,
-      "output": 0.025
-    },
-    "claude-opus-4-7": {
-      "input": 0.005,
-      "output": 0.025
-    },
-    "opus-4.6": {
-      "input": 0.005,
-      "output": 0.025
-    },
-    "sonnet-4.6": {
-      "input": 0.003,
-      "output": 0.015
-    },
-    "haiku-4.5": {
-      "input": 0.001,
-      "output": 0.005
-    },
-    "gpt-5.3-codex": {
-      "input": 0.003,
-      "output": 0.012
-    },
-    "composer-1.5": {
-      "input": 0.005,
-      "output": 0.015
-    },
-    "deepseek-reasoner": {
-      "input": 0.00055,
-      "output": 0.00219
-    },
-    "qwen3.5-plus": {
-      "input": 0.0016,
-      "output": 0.0064
-    },
-    "grok-4.20-0309-reasoning": {
-      "input": 0.005,
-      "output": 0.015
-    },
-    "claude-opus-4-5-20251124": {
-      "input": 0.005,
-      "output": 0.025
-    },
-    "claude-sonnet-4-5-20251124": {
-      "input": 0.003,
-      "output": 0.015
-    },
-    "claude-3-5-haiku-20241022": {
-      "input": 0.0008,
-      "output": 0.004
-    },
-    "gpt-5.2-codex": {
-      "input": 0.003,
-      "output": 0.012
-    },
-    "gpt-5.2": {
-      "input": 0.0025,
-      "output": 0.010
-    },
-    "gpt-4": {
-      "input": 0.03,
-      "output": 0.06
-    },
-    "gpt-4-turbo": {
-      "input": 0.01,
-      "output": 0.03
-    },
-    "gpt-4o": {
-      "input": 0.005,
-      "output": 0.015
-    },
-    "o1": {
-      "input": 0.015,
-      "output": 0.06
-    },
-    "o3": {
-      "input": 0.015,
-      "output": 0.06
-    },
-    "claude-3-opus": {
-      "input": 0.015,
-      "output": 0.075
-    },
-    "claude-3-sonnet": {
-      "input": 0.003,
-      "output": 0.015
-    },
-    "claude-3-haiku": {
-      "input": 0.00025,
-      "output": 0.00125
-    },
-    "mistral-large": {
-      "input": 0.004,
-      "output": 0.012
-    },
-    "mistral-medium": {
-      "input": 0.0027,
-      "output": 0.0081
-    },
-    "mistral-small": {
-      "input": 0.001,
-      "output": 0.003
-    },
-    "glm-4.7": {
-      "input": 0.0005,
-      "output": 0.002
-    },
-    "qwen3-max": {
-      "input": 0.0016,
-      "output": 0.0064
-    },
-    "qwen3-235b-a22b": {
-      "input": 0.0008,
-      "output": 0.0032
-    },
-    "cursor": {
-      "input": 0.005,
-      "output": 0.015
-    },
-    "qwen-max": {
-      "input": 0.004,
-      "output": 0.012
-    },
-    "qwen-plus": {
-      "input": 0.002,
-      "output": 0.006
-    },
-    "qwen-turbo": {
-      "input": 0.0008,
-      "output": 0.002
-    },
-    "glm-4": {
-      "input": 0.003,
-      "output": 0.009
-    },
-    "glm-3-turbo": {
-      "input": 0.001,
-      "output": 0.003
-    },
-    "grok-2": {
-      "input": 0.01,
-      "output": 0.03
-    },
-    "deepseek-coder": {
-      "input": 0.001,
-      "output": 0.002
-    },
-    "minimax-m2.1": {
-      "input": 0.0003,
-      "output": 0.0015
-    },
-    "composer-2.5": {
-      "input": 0.0005,
-      "output": 0.0025
-    },
-    "gemini-3-flash": {
-      "input": 0.0005,
-      "output": 0.003
-    },
-    "deepseek-v4-flash": {
-      "input": 0.0003,
-      "output": 0.0012
-    },
-    "glm-5.2": {
-      "input": 0.00098,
-      "output": 0.00308
-    },
-    "grok-4.1-fast": {
-      "input": 0.0002,
-      "output": 0.0005
-    },
-    "qwen3.7-max": {
-      "input": 0.0012,
-      "output": 0.006
-    },
-    "grok-4.3": {
-      "input": 0.00125,
-      "output": 0.0025
-    },
-    "_comment_unpriced": "Credit-billed models: drawn from a prepaid subscription pool, with no published per-token price. Rated 0 so the estimator does not fabricate a figure - an absent model would otherwise fall through to default_rate (0.005/0.015) and be reported as a confident, wrong number. Every entry here must also be listed in unpriced_models, which is what makes the session report disclose the exclusion instead of implying the model was free.",
     "qwen3.8-max": {
       "input": 0,
       "output": 0
     },
     "qwen3.8-flash": {
-      "input": 0,
-      "output": 0
-    },
-    "qwen3.8-max-preview": {
       "input": 0,
       "output": 0
     },
@@ -501,39 +154,131 @@
       "input": 0,
       "output": 0
     },
-    "kimi-code/k3-256k": {
-      "input": 0,
-      "output": 0
+    "muse-wonder-1.0": {
+      "input": 0.004,
+      "output": 0.02,
+      "provider": "Meta",
+      "notes": "Standard mode rate ($4.00/$20.00 per 1M; cached input $0.20 excluded). No long-context premium. Preview; no Contributor mode on the API. Verified 2026-10-24."
     },
-    "kimi-code/k3.1-pro": {
-      "input": 0,
-      "output": 0
+    "muse-spark-1.3": {
+      "input": 0.00125,
+      "output": 0.00425,
+      "provider": "Meta",
+      "notes": "Standard mode rate ($1.25/$4.25 per 1M; cached input $0.15 excluded). No long-context premium. Verified 2026-10-24."
+    },
+    "muse-spark-1.3-contributor": {
+      "input": 0.0001,
+      "output": 0.0002,
+      "provider": "Meta",
+      "notes": "Contributor mode rate ($0.10/$0.20 per 1M): Meta may train on prompts, context and responses. Opt-in by pinning only. Verified 2026-10-24."
     }
   },
   "unpriced_models": [
+    "kimi-code/k3.1-pro",
     "qwen3.8-max",
     "qwen3.8-flash",
-    "qwen3.8-max-preview",
     "glm-5.3",
-    "glm-5.3-flash",
-    "kimi-code/k3-256k",
-    "kimi-code/k3.1-pro"
+    "glm-5.3-flash"
   ],
-  "consultant_fallbacks": {
-    "_comment": "Premium defaults - Updated Sep 2026",
-    "claude": "claude-fable-5-1",
-    "gemini": "Gemini 4 Argon (High)",
-    "codex": "gpt-6.1-sol",
-    "mistral": "mistral-medium-3.5",
-    "deepseek": "deepseek-flash",
-    "glm": "glm-5.3-flash",
-    "grok": "grok-4.7",
-    "qwen3": "qwen3.8-max",
-    "kimi": "kimi-code/k3.1-pro",
-    "minimax": "minimax-m3.1-flash"
+  "retired_models": {
+    "_comment": "Superseded models (removed in 5.5.0) -> current replacement. configure migrates a persisted value, pinned or not, and records migrated-from; the runtime warns when one is still selected. null: the consultant itself was removed.",
+    "claude-fable-5": "claude-fable-5-1",
+    "claude-opus-5": "claude-opus-5-5",
+    "claude-opus-4-8": "claude-opus-5-5",
+    "claude-opus-4-7": "claude-opus-5-5",
+    "opus-4.6": "claude-opus-5-5",
+    "claude-opus-4-5-20251124": "claude-opus-5-5",
+    "claude-3-opus": "claude-opus-5-5",
+    "claude-sonnet-5": "claude-opus-5-5",
+    "claude-sonnet-4-6": "claude-opus-5-5",
+    "sonnet-4.6": "claude-opus-5-5",
+    "claude-sonnet-4-5-20251124": "claude-opus-5-5",
+    "claude-3-sonnet": "claude-opus-5-5",
+    "claude-haiku-4-5": "claude-haiku-5-5",
+    "haiku-4.5": "claude-haiku-5-5",
+    "claude-3-5-haiku-20241022": "claude-haiku-5-5",
+    "claude-3-haiku": "claude-haiku-5-5",
+    "Gemini 3.1 Pro (High)": "Gemini 4 Argon (High)",
+    "Gemini 3.7 Flash (High)": "Gemini 3.8 Flash (High)",
+    "Gemini 3.6 Flash (High)": "Gemini 3.8 Flash (High)",
+    "Gemini 3.5 Flash (High)": "Gemini 3.8 Flash (High)",
+    "Gemini 3.7 Flash (Low)": "Gemini 3.8 Flash (Low)",
+    "Gemini 3.6 Flash (Low)": "Gemini 3.8 Flash (Low)",
+    "Gemini 3.5 Flash (Low)": "Gemini 3.8 Flash (Low)",
+    "gemini-3.1-pro-preview": "gemini-4-argon",
+    "gemini-3.7-flash": "gemini-3.8-flash",
+    "gemini-3-flash": "gemini-3.8-flash",
+    "gemini-3-flash-preview": "gemini-3.8-flash",
+    "gemini-2.0-flash": "gemini-3.8-flash",
+    "gpt-5.6-sol": "gpt-6.1-sol",
+    "gpt-5.6-terra": "gpt-6.1-sol",
+    "gpt-5.5": "gpt-6.1-sol",
+    "gpt-5.4": "gpt-6.1-sol",
+    "gpt-5.3": "gpt-6.1-sol",
+    "gpt-5.3-codex": "gpt-6.1-sol",
+    "gpt-5.2": "gpt-6.1-sol",
+    "gpt-5.2-codex": "gpt-6.1-sol",
+    "gpt-4": "gpt-6.1-sol",
+    "gpt-4-turbo": "gpt-6.1-sol",
+    "gpt-4o": "gpt-6.1-sol",
+    "o1": "gpt-6.1-sol",
+    "o3": "gpt-6.1-sol",
+    "gpt-5.6-luna": "gpt-6-luna",
+    "gpt-5.4-nano": "gpt-6-luna",
+    "gpt-4o-mini": "gpt-6-luna",
+    "mistral-large-3": "mistral-large-4",
+    "mistral-large-2512": "mistral-large-4",
+    "mistral-large": "mistral-large-4",
+    "mistral-medium-latest": "mistral-large-4",
+    "mistral-medium": "mistral-large-4",
+    "mistral-small": "mistral-small-2603",
+    "devstral-small-2": "mistral-medium-3.5",
+    "deepseek-v4-flash": "deepseek-flash",
+    "deepseek-v4-flash-vision-exp": "deepseek-flash",
+    "deepseek-v3.2": "deepseek-flash",
+    "deepseek-chat": "deepseek-flash",
+    "deepseek-coder": "deepseek-flash",
+    "deepseek-reasoner": "deepseek-flash",
+    "glm-5.2": "glm-5.3",
+    "glm-5.1": "glm-5.3",
+    "glm-4.7": "glm-5.3-flash",
+    "glm-4-flash": "glm-5.3-flash",
+    "glm-4": "glm-5.3-flash",
+    "glm-3-turbo": "glm-5.3-flash",
+    "grok-4.6": "grok-4.7",
+    "grok-4.5": "grok-4.7",
+    "grok-4.3": "grok-4.7",
+    "grok-4.20-0309-reasoning": "grok-4.7",
+    "grok-4.1-fast": "grok-4.7",
+    "grok-3": "grok-4.7",
+    "grok-3-mini": "grok-4.7",
+    "grok-2": "grok-4.7",
+    "qwen3.8-max-preview": "qwen3.8-max",
+    "qwen3.7-max": "qwen3.8-max",
+    "qwen3.6-plus": "qwen3.8-max",
+    "qwen3.5-plus": "qwen3.8-max",
+    "qwen3-max": "qwen3.8-max",
+    "qwen-max": "qwen3.8-max",
+    "qwen3-235b-a22b": "qwen3.8-max",
+    "qwen-plus": "qwen3.8-max",
+    "qwen3.6-35b-a3b": "qwen3.8-flash",
+    "qwen3-32b": "qwen3.8-flash",
+    "qwen-turbo": "qwen3.8-flash",
+    "kimi-code/k3": "kimi-code/k3.1-pro",
+    "kimi-code/k3-256k": "kimi-code/k3.1-pro",
+    "kimi-code/kimi-for-coding": "kimi-code/k3.1-pro",
+    "MiniMax-M3": "MiniMax-M3.1-Flash",
+    "MiniMax-M2.7": "MiniMax-M3.1-Flash",
+    "MiniMax-M2.5": "MiniMax-M3.1-Flash",
+    "MiniMax-M2.1": "MiniMax-M3.1-Flash",
+    "composer-2": null,
+    "composer-2.5": null,
+    "composer-1.5": null,
+    "cursor": null,
+    "nvidia/nemotron-3-super-120b-a12b:free": null
   },
   "model_tiers": {
-    "_comment": "Model tiers for apply_model_tier() function",
+    "_comment": "Model tiers for apply_model_tier() (mirrors get_model_for_tier in scripts/config.sh)",
     "maximum": {
       "claude": "claude-fable-5-1",
       "gemini": "Gemini 4 Argon (High)",
@@ -544,7 +289,8 @@
       "grok": "grok-4.7",
       "qwen3": "qwen3.8-max",
       "kimi": "kimi-code/k3.1-pro",
-      "minimax": "MiniMax-M3.1-Flash"
+      "minimax": "MiniMax-M3.1-Flash",
+      "meta": "muse-wonder-1.0"
     },
     "premium": {
       "claude": "claude-fable-5-1",
@@ -556,53 +302,106 @@
       "grok": "grok-4.7",
       "qwen3": "qwen3.8-max",
       "kimi": "kimi-code/k3.1-pro",
-      "minimax": "MiniMax-M3.1-Flash"
+      "minimax": "MiniMax-M3.1-Flash",
+      "meta": "muse-wonder-1.0"
     },
     "standard": {
       "claude": "claude-opus-5-5",
       "gemini": "Gemini 3.8 Flash (High)",
-      "codex": "gpt-5.6-terra",
+      "codex": "gpt-6.1-sol",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
       "glm": "glm-5.3-flash",
-      "grok": "grok-4.5",
+      "grok": "grok-4.7",
       "qwen3": "qwen3.8-flash",
       "kimi": "kimi-code/k3.1-pro",
-      "minimax": "MiniMax-M3.1-Flash"
+      "minimax": "MiniMax-M3.1-Flash",
+      "meta": "muse-spark-1.3"
     },
     "economy": {
-      "claude": "claude-haiku-4-5",
+      "claude": "claude-haiku-5-5",
       "gemini": "Gemini 3.8 Flash (Low)",
-      "codex": "gpt-5.6-luna",
+      "codex": "gpt-6-luna",
       "mistral": "mistral-medium-3.5",
       "deepseek": "deepseek-flash",
-      "glm": "glm-4-flash",
-      "grok": "grok-4.5",
+      "glm": "glm-5.3-flash",
+      "grok": "grok-4.7",
       "qwen3": "qwen3.8-flash",
       "kimi": "kimi-code/k3.1-pro",
-      "minimax": "MiniMax-M3.1-Flash"
+      "minimax": "MiniMax-M3.1-Flash",
+      "meta": "muse-spark-1.3"
     }
   },
   "transport_model_tiers": {
     "_comment": "Transport-specific namespaces used by Gemini and Mistral; the legacy model_tiers table reflects their CLI values.",
     "gemini": {
-      "maximum": {"cli": "Gemini 4 Argon (High)", "api": "gemini-4-argon"},
-      "premium": {"cli": "Gemini 4 Argon (High)", "api": "gemini-4-argon"},
-      "standard": {"cli": "Gemini 3.8 Flash (High)", "api": "gemini-3.1-pro-preview"},
-      "economy": {"cli": "Gemini 3.8 Flash (Low)", "api": "gemini-3.1-pro-preview"}
+      "maximum": {
+        "cli": "Gemini 4 Argon (High)",
+        "api": "gemini-4-argon"
+      },
+      "premium": {
+        "cli": "Gemini 4 Argon (High)",
+        "api": "gemini-4-argon"
+      },
+      "standard": {
+        "cli": "Gemini 3.8 Flash (High)",
+        "api": "gemini-3.8-flash"
+      },
+      "economy": {
+        "cli": "Gemini 3.8 Flash (Low)",
+        "api": "gemini-3.8-flash"
+      }
     },
     "mistral": {
-      "maximum": {"cli": "mistral-medium-3.5", "api": "mistral-large-4"},
-      "premium": {"cli": "mistral-medium-3.5", "api": "mistral-large-4"},
-      "standard": {"cli": "mistral-medium-3.5", "api": "mistral-large-4"},
-      "economy": {"cli": "mistral-medium-3.5", "api": "mistral-large-4"}
+      "maximum": {
+        "cli": "mistral-medium-3.5",
+        "api": "mistral-large-4"
+      },
+      "premium": {
+        "cli": "mistral-medium-3.5",
+        "api": "mistral-large-4"
+      },
+      "standard": {
+        "cli": "mistral-medium-3.5",
+        "api": "mistral-large-4"
+      },
+      "economy": {
+        "cli": "mistral-medium-3.5",
+        "api": "mistral-large-4"
+      }
     }
   },
+  "consultant_fallbacks": {
+    "_comment": "Premium defaults - 5.5.0",
+    "claude": "claude-fable-5-1",
+    "gemini": "Gemini 4 Argon (High)",
+    "codex": "gpt-6.1-sol",
+    "mistral": "mistral-medium-3.5",
+    "deepseek": "deepseek-flash",
+    "glm": "glm-5.3-flash",
+    "grok": "grok-4.7",
+    "qwen3": "qwen3.8-max",
+    "kimi": "kimi-code/k3.1-pro",
+    "minimax": "minimax-m3.1-flash",
+    "meta": "muse-wonder-1.0"
+  },
   "opt_in_targets": {
-    "gemini_cli": ["Gemini 4 Argon (Medium)", "Gemini 4 Argon (Low)", "Gemini 3.8 Flash (Medium)", "Gemini 3.7 Flash (High)", "Gemini 3.7 Flash (Low)", "Gemini 3.1 Pro (High)", "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Low)"],
-    "gemini_api": ["gemini-3.7-flash", "gemini-3.8-flash"],
-    "mistral_api": ["mistral-medium-3-5", "mistral-large-2512", "mistral-small-2603"],
-    "claude": []
+    "gemini_cli": [
+      "Gemini 4 Argon (Medium)",
+      "Gemini 4 Argon (Low)",
+      "Gemini 3.8 Flash (Medium)"
+    ],
+    "mistral_api": [
+      "mistral-medium-3-5",
+      "mistral-small-2603"
+    ],
+    "deepseek": [
+      "deepseek-v4-pro"
+    ],
+    "claude": [],
+    "meta": [
+      "muse-spark-1.3-contributor"
+    ]
   },
   "default_rate": {
     "input": 0.005,

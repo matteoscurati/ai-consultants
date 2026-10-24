@@ -363,6 +363,33 @@ API mode is opt-in: set `MINIMAX_USE_API=true` with `MINIMAX_API_KEY`.
 
 Verify: `mmx --version`
 
+### Meta (Muse Code CLI or Meta Model API) - v5.5
+
+Meta is opt-in. Install Muse Code and sign in once (browser sign-in or an API
+key); a Muse Code subscription or pay-as-you-go both work:
+
+```bash
+curl -fsSL https://dev.meta.ai/install.sh | sh
+muse                    # first run: trust prompt and sign-in, then exit
+ai-consultants configure   # enables ENABLE_META once muse is on PATH
+```
+
+Or use the Meta Model API with a pay-as-you-go key from the Model API
+dashboard (keys start with `LLM_`): set `META_API_KEY`, and Meta selects the
+API unless `META_USE_API=false`. Muse Code also reads `META_API_KEY` for headless
+runs.
+
+The CLI runs `muse exec` advisory-only: a private empty workspace, no shell, no
+workspace writes, no web tools, no sandbox network, no personal rules or
+skills, no session log and `--contributor-mode off`. Subscriptions default to
+Contributor mode, in which Meta may train on prompts, code and responses, so
+it is switched off on every run. Muse Wonder (`muse-wonder-1.0`, preview) serves
+the default, premium and maximum tiers; Muse Spark 1.3 (`muse-spark-1.3`) serves
+standard and economy. Pin `META_MODEL=muse-spark-1.3-contributor` only if you
+accept Contributor mode for the API; every run logs a warning.
+
+Verify: `muse --version`
+
 ---
 
 ## Self-Exclusion (v2.2)
@@ -410,7 +437,7 @@ INVOKING_AGENT=codex ./scripts/consult_all.sh "Question"
 
 ## CLI/API Mode Switching (v2.6+)
 
-Seven consultants can switch between CLI mode (using local CLI tools) and API mode (direct API calls): **Gemini, Codex, Claude, Mistral, Qwen3, Grok, and MiniMax**. Grok is CLI-first and runs in an isolated, tool-free strict sandbox. It falls back automatically only when Grok Build is missing, cannot launch, or lacks usable authentication and a key is available; request failures after launch are surfaced without an API fallback.
+Eight consultants can switch between CLI mode (using local CLI tools) and API mode (direct API calls): **Gemini, Codex, Claude, Mistral, Qwen3, Grok, MiniMax, and Meta**. Grok is CLI-first and runs in an isolated, tool-free strict sandbox. It falls back automatically only when Grok Build is missing, cannot launch, or lacks usable authentication and a key is available; request failures after launch are surfaced without an API fallback.
 
 Grok's normal OAuth mode is `GROK_OAUTH_MODE=shared`, which is safe for the
 parallel panel: each call gets a private HOME/workspace/prompt/output, while a
@@ -493,7 +520,7 @@ Presets let you quickly configure how many consultants to use.
 | `minimal` | 2 (Gemini + Codex) | Quick, cheap |
 | `balanced` | 3 (+ Mistral) | Standard |
 | `thorough` | 3 | Comprehensive |
-| `max_quality` | All 10, maximum models and max provider effort | Critical decisions |
+| `max_quality` | All 11, maximum models and max provider effort | Critical decisions |
 | `high-stakes` | Expanded panel | Critical decisions |
 | `security` | Security-focused | Security reviews |
 | `cost-capped` | Budget-friendly | Low cost |
@@ -636,6 +663,7 @@ ENABLE_DEEPSEEK=false
 ENABLE_KIMI=true
 ENABLE_MINIMAX=true
 MINIMAX_API_KEY=your-key
+ENABLE_META=false      # v5.5: The Systems Thinker (muse CLI or META_API_KEY)
 
 # Self-exclusion (v2.2)
 INVOKING_AGENT=unknown  # Set automatically by slash commands
@@ -656,6 +684,7 @@ CLAUDE_USE_API=false
 MISTRAL_USE_API=false
 QWEN3_USE_API=false    # Default: CLI mode
 MINIMAX_USE_API=false  # Default: mmx CLI mode
+# META_USE_API         # Unset: API when META_API_KEY is set, else muse CLI
 
 # Defaults (v2.8)
 DEFAULT_PRESET=balanced
@@ -847,7 +876,8 @@ participants separately. A missing or conflicting content model remains
 completion is required even when partial response text or billing is available.
 
 Codex defaults to `gpt-6.1-sol` (default and premium); `max_quality` selects
-`gpt-6-astra`, standard selects `gpt-5.6-terra`, economy selects `gpt-5.6-luna`.
+`gpt-6-astra`, standard also selects `gpt-6.1-sol` (there is no GPT-6 mid
+model, and Sol costs less than GPT-5.6 Terra did), and economy selects `gpt-6-luna`.
 GPT-6.1 Sol is close to Astra on agentic coding at one fifth of its token price.
 Configure migrates exact unpinned persisted `gpt-5.5`, `gpt-5.6-sol` and
 `gpt-6-astra` values to `gpt-6.1-sol` and records `migrated-from` provenance
@@ -856,8 +886,9 @@ Configure migrates exact unpinned persisted `gpt-5.5`, `gpt-5.6-sol` and
 for example `--set CODEX_MODEL=gpt-6-astra` to keep Astra as the default.
 
 GPT-6 Astra and GPT-6.1 Sol use `high` effort when no effort is configured
-(their provider default is `medium`). Explicit `low`, `medium`,
-`high`, `xhigh`, and `max` prevail; `none`/`minimal` fail before dispatch.
+(their provider default is `medium`); economy GPT-6 Luna keeps the provider
+default. Explicit `low`, `medium`, `high`, `xhigh`, and `max` prevail;
+`none`/`minimal` fail before dispatch on all three.
 The default completion budget is 16384 tokens, including reasoning; override
 `CODEX_API_MAX_TOKENS` explicitly as needed. The text-only Chat Completions
 request uses `max_completion_tokens` and `reasoning_effort`, without tools.
@@ -888,6 +919,22 @@ actual request even when omitted from public help. Unsupported mandatory flags
 block dispatch; the optional `--no-auto-update` guard is used when its parser
 probe succeeds, including on CLIs that hide it from help.
 
+### Retired models (5.5.0)
+
+Each tier uses only current models. Superseded models are listed in
+`retired_models` in `docs/cost_rates.json`, each with its family's current
+replacement (for example `claude-haiku-4-5` -> `claude-haiku-5-5`,
+`gpt-5.6-luna` -> `gpt-6-luna`, `grok-4.5` -> `grok-4.7`, `glm-4-flash` ->
+`glm-5.3-flash`, `kimi-code/k3` -> `kimi-code/k3.1-pro`).
+
+- `ai-consultants configure` replaces a persisted retired value even when it is
+  pinned. The marker is kept, the old value is recorded as `migrated-from=`
+  (spaces become underscores), and the timestamped backup keeps the original.
+- `configure --set` refuses a retired model and names the replacement.
+- A retired or uncatalogued model selected at run time, for example by an
+  environment variable, still runs. The run warns, and the cost report names
+  it as unpriced instead of applying a default rate.
+
 ### DeepSeek V4.1 Flash
 
 DeepSeek uses the HTTP API with `DEEPSEEK_MODEL=deepseek-flash` in every tier.
@@ -898,11 +945,10 @@ other tiers leave effort to the provider unless explicitly configured. The
 provider defaults to thinking mode at high effort. Existing text-only Chat
 Completions requests and the 16,384-token completion budget remain compatible.
 
-`configure` migrates exact unpinned `deepseek-v4-pro` and `deepseek-v4-flash`
-values; `# ai-consultants:pin`, environment overrides and `--set` preserve explicit
-choices. Old Flash aliases are still accepted but route to V4.1 Flash upstream.
-An explicit pin preserves the requested ID, not a guarantee against provider
-routing changes. Peak cache-miss costs are estimates, excluding cache/off-peak
+`configure` migrates an exact unpinned `deepseek-v4-pro` default to
+`deepseek-flash`; a pinned `deepseek-v4-pro` (a current opt-in at $1.32/$3.96
+per 1M) is kept. The retired `deepseek-v4-flash` aliases, which the provider
+still routes to V4.1 Flash, are migrated even when pinned. Peak cache-miss costs are estimates, excluding cache/off-peak
 discounts. An authorized one-attempt API smoke on 2026-09-10 passed with a structured
 response and provider-reported `deepseek-flash`; no version identity was invented
 from the alias. No CLI transport is introduced.
@@ -912,16 +958,17 @@ Sources: [models/pricing](https://api-docs.deepseek.com/quick_start/pricing/) an
 
 ### Grok 4.7 and Claude Opus 5.5
 
-Grok defaults to `grok-4.7` for premium/maximum; standard/economy stay on
-`grok-4.5`. Configure migrates exact unpinned persisted `grok-4.5`/`grok-4.6`
-defaults. Pins, environment overrides, `--set` and unrelated IDs survive.
+Grok uses `grok-4.7` in every tier since 5.5.0 (same price as Grok 4.5).
+`grok-4.5` and `grok-4.6` are retired: configure migrates them even when
+pinned, and `--set` refuses them. Unrelated IDs survive.
 The existing capability/model inventory probes, strict sandbox and OAuth
 isolation still apply; the Grok 4.7 Fast variant is not implicitly selected.
 
 Claude standard/medium selects `claude-opus-5-5`; default/premium/maximum
-remain Fable 5.1 and economy remains Haiku 4.5. Select Opus directly with
+remain Fable 5.1 and economy uses Haiku 5.5 (since 5.5.0). Select Opus directly with
 `configure --set CLAUDE_MODEL=claude-opus-5-5`. The historical unpinned Claude
-default migration to Fable is unchanged; explicit old Opus pins stay pinned.
+default migration to Fable is unchanged; pinned retired Opus, Sonnet and Fable
+models move to their family's current model and stay pinned.
 
 Opus 5.5 has always-on adaptive thinking, including empty thinking display
 blocks. Our tool-free single-turn API request omits thinking overrides, sampling
@@ -949,8 +996,9 @@ parameters, and spends thinking from `GEMINI_API_MAX_TOKENS` (default 32768).
 
 Configure migrates an unpinned `Gemini 3.8 Flash (High)`, `Gemini 3.7 Flash (High)`
 or `Gemini 3.1 Pro (High)` CLI value to `Gemini 4 Argon (High)`, and an unpinned
-`gemini-3.1-pro-preview` API value to `gemini-4-argon`. Pin a value with
-`# ai-consultants:pin` to keep it.
+`gemini-3.1-pro-preview` API value to `gemini-4-argon`. Pin `Gemini 3.8 Flash
+(High)` with `# ai-consultants:pin` to keep it; Gemini 3.7 Flash and 3.1 Pro
+are retired and migrate even when pinned.
 
 ### Gemini 3.8 Flash
 
@@ -959,10 +1007,9 @@ The installed `agy models` inventory on 2026-09-27 lists Gemini 3.8 Flash
 Medium remains an explicit `GEMINI_MODEL` choice. Inventory
 evidence is capability-probed, not provider attestation of a generated answer.
 
-Configure migrates unpinned Flash 3.7 Low to 3.8 Flash Low. Pins,
-environment/--set overrides and unrelated models are preserved. API standard and
-economy remain on `gemini-3.1-pro-preview`.
-Select `GEMINI_API_MODEL=gemini-3.8-flash` explicitly to use Flash via API; its
+Configure migrates Flash 3.7 (and 3.6/3.5) values to the same-level 3.8
+Flash, pinned or not; unrelated models are preserved. Since 5.5.0 the API
+standard and economy tiers use `gemini-3.8-flash` (offline-tested); its
 native thinking levels are low/medium/high. Other explicit efforts fail before
 dispatch. With no effort setting, the provider's API default is medium.
 

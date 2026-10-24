@@ -131,6 +131,7 @@ CLAUDE_USE_API=false
 MISTRAL_USE_API=false
 QWEN3_USE_API=false
 MINIMAX_USE_API=false
+META_USE_API=false
 GROK_USE_API=false
 KIMI_MODEL=kimi-code/k3.1-pro
 
@@ -149,9 +150,9 @@ names an older default model.
 ## 8. Hybrid CLI and API panel
 
 Enable API transport only where needed. Grok normally uses Grok Build and
-automatically falls back to the xAI API if the CLI cannot run. Gemini and
-MiniMax automatically choose API mode when their API key is present unless
-`*_USE_API` is explicitly set.
+automatically falls back to the xAI API if the CLI cannot run. Gemini,
+MiniMax and Meta automatically choose API mode when their API key is present
+unless `*_USE_API` is explicitly set.
 
 ```dotenv
 CODEX_USE_API=false
@@ -240,8 +241,8 @@ Understand the tradeoffs:
 
 `qwen3.8-max-preview` was a separate, older Token Plan deployment; as of
 2026-10-02 the Token Plan model list no longer includes it. `configure`
-migrates an unpinned `qwen3.8-max-preview` (or the previous default
-`qwen3.7-max`) to `qwen3.8-max`; a pinned value is left alone.
+migrates `qwen3.8-max-preview` (or the previous default `qwen3.7-max`) to
+`qwen3.8-max`, even when pinned: both are retired since 5.5.0.
 
 ### API mode (the effort knob works here)
 

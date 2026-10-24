@@ -1,4 +1,4 @@
-# Cost Rates - AI Consultants v5.4.0
+# Cost Rates - AI Consultants v5.5.0
 
 This page documents the per-token rates used by the cost tracking system.
 
@@ -24,108 +24,108 @@ models programmatically.
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
 | Gemini 4 Argon (High) | Maximum/Premium | $0.004 | Gemini (CLI smoke passed; API-equivalent list-rate estimate) |
+| Gemini 4 Argon (Medium/Low) | CLI opt-in | $0.004 | Gemini (agy CLI; API-equivalent list-rate estimate) |
 | gemini-4-argon | API Maximum/Premium | $0.004 | Gemini API (list rate; offline-tested) |
 | Gemini 3.8 Flash (High) | Standard | $0.00075 | Gemini (CLI smoke passed; API-equivalent estimate; promotional through 2026-12-31) |
 | Gemini 3.8 Flash (Low) | Economy | $0.00075 | Gemini (CLI smoke passed; API-equivalent estimate; promotional through 2026-12-31) |
-| Gemini 3.1 Pro (High) | CLI opt-in | $0.002 | Gemini (agy CLI) |
-| gemini-3.1-pro-preview | API Standard/Economy | $0.00125 | Gemini API |
-| Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0015 | Gemini |
+| Gemini 3.8 Flash (Medium) | CLI opt-in | $0.00075 | Gemini (agy CLI; promotional through 2026-12-31) |
+| gemini-3.8-flash | API Standard/Economy | $0.00075 | Gemini API (promotional through 2026-12-31; offline-tested) |
 | gpt-6-astra | Maximum | $0.010 | Codex |
-| gpt-6.1-sol | Default/Premium | $0.002 | Codex |
-| gpt-5.6-sol | Explicit override | $0.004 | Codex |
-| gpt-5.6-terra | Standard | $0.002 | Codex |
-| gpt-5.6-luna | Economy | $0.0002 | Codex |
+| gpt-6.1-sol | Default/Premium/Standard | $0.002 | Codex |
+| gpt-6-luna | Economy | $0.0001 | Codex |
 | claude-fable-5-1 | Maximum/Premium | $0.010 | Claude |
 | claude-opus-5-5 | Standard | $0.004 | Claude |
-| claude-opus-5 | Legacy override | $0.005 | Claude |
-| claude-fable-5 | Legacy pins | $0.010 | Claude |
-| claude-sonnet-5 | Legacy pins | $0.003 | Claude |
-| claude-haiku-4-5 | Economy | $0.001 | Claude |
+| claude-haiku-5-5 | Economy | $0.0001 | Claude (prompts over 100K: 5x for the whole request) |
 | mistral-large-4 / mistral-large-4-0 | API all tiers (preview, list rate) | $0.00136 | Mistral |
-| mistral-large-3 | Legacy API pin | $0.002 | Mistral |
 | mistral-medium-3.5 / mistral-medium-3-5 | CLI all tiers / API opt-in | $0.0015 | Mistral |
-| mistral-large-2512 | API opt-in | $0.0005 | Mistral |
 | mistral-small-2603 | API opt-in | $0.00015 | Mistral |
-| devstral-small-2 | Legacy (retired) | $0.00 | Mistral |
-| composer-2.5 | Legacy | $0.0005 | Removed Cursor consultant |
-| composer-2 | Legacy | $0.0005 | Removed Cursor consultant |
-| gemini-3-flash | Legacy | $0.0005 | Removed Cursor consultant |
-| deepseek-v4-pro | Legacy explicit override | $0.000435 | DeepSeek |
 | deepseek-flash | All tiers | $0.0003 | DeepSeek (peak, cache miss) |
-| deepseek-v4-flash / deepseek-v4-flash-vision-exp | Retired aliases → V4.1 Flash | $0.0003 | DeepSeek (peak, cache miss) |
-| glm-5.3-flash | Premium/Standard | Unpriced | GLM coding-plan endpoint |
+| deepseek-v4-pro | Opt-in | $0.00132 | DeepSeek (peak, cache miss) |
+| grok-4.7 | All tiers | $0.002 | Grok |
+| MiniMax-M3.1-Flash | All tiers | $0.00015 | MiniMax |
+| muse-wonder-1.0 | Default/Maximum/Premium | $0.004 | Meta (preview, Standard mode) |
+| muse-spark-1.3 | Standard/Economy | $0.00125 | Meta (Standard mode) |
+| muse-spark-1.3-contributor | Opt-in | $0.0001 | Meta (Contributor mode: Meta may train on the content) |
 | glm-5.3 | Maximum | Unpriced | GLM coding-plan endpoint |
-| glm-4-flash | Economy | $0.001 | GLM |
-| grok-4.7 | Maximum/Premium | $0.002 | Grok |
-| grok-4.6 | Legacy override | $0.002 | Grok |
-| grok-4.5 | Standard/Economy | $0.002 | Grok |
-| qwen3.7-max | Legacy pins | $0.0012 | Qwen3 |
-| qwen3.6-35b-a3b | Legacy pins | $0.000163 | Qwen3 |
-| qwen3-32b | Legacy pins | $0.0004 | Qwen3 |
+| glm-5.3-flash | Premium/Standard/Economy | Unpriced | GLM coding-plan endpoint |
 | qwen3.8-max | Maximum/Premium | Unpriced | Qwen3 Token Plan |
 | qwen3.8-flash | Standard/Economy | Unpriced | Qwen3 Token Plan |
-| MiniMax-M3.1-Flash | All tiers | $0.00015 | MiniMax |
-| MiniMax-M3 | Legacy pins | $0.0003 | MiniMax (≤512k standard input) |
-| MiniMax-M2.7 | Legacy pins | $0.0003 | MiniMax |
-| MiniMax-M2.5 | Legacy pins | $0.0003 | MiniMax |
 | kimi-code/k3.1-pro | All tiers | Unpriced | Kimi subscription |
-| kimi-code/k3 | Legacy pins | $0.0005 | Kimi |
-| kimi-code/k3-256k | Legacy pins | Unpriced | Kimi subscription |
-| default | - | $0.005 | Fallback |
+| any other model | - | Unpriced | Named in the session report; never priced at a guessed rate |
 
 ### Output Tokens
 
 | Model | Tier | Cost/1K | Consultant |
 |-------|------|---------|------------|
 | Gemini 4 Argon (High) | Maximum/Premium | $0.020 | Gemini (CLI smoke passed; API-equivalent list-rate estimate) |
+| Gemini 4 Argon (Medium/Low) | CLI opt-in | $0.020 | Gemini (agy CLI; API-equivalent list-rate estimate) |
 | gemini-4-argon | API Maximum/Premium | $0.020 | Gemini API (list rate; offline-tested) |
 | Gemini 3.8 Flash (High) | Standard | $0.00375 | Gemini (CLI smoke passed; API-equivalent estimate; promotional through 2026-12-31) |
 | Gemini 3.8 Flash (Low) | Economy | $0.00375 | Gemini (CLI smoke passed; API-equivalent estimate; promotional through 2026-12-31) |
-| Gemini 3.1 Pro (High) | CLI opt-in | $0.012 | Gemini (agy CLI) |
-| gemini-3.1-pro-preview | API Standard/Economy | $0.005 | Gemini API |
-| Gemini 3.6 Flash (High/Low) | Legacy CLI pins | $0.0075 | Gemini |
+| Gemini 3.8 Flash (Medium) | CLI opt-in | $0.00375 | Gemini (agy CLI; promotional through 2026-12-31) |
+| gemini-3.8-flash | API Standard/Economy | $0.00375 | Gemini API (promotional through 2026-12-31; offline-tested) |
 | gpt-6-astra | Maximum | $0.050 | Codex |
-| gpt-6.1-sol | Default/Premium | $0.010 | Codex |
-| gpt-5.6-sol | Explicit override | $0.020 | Codex |
-| gpt-5.6-terra | Standard | $0.012 | Codex |
-| gpt-5.6-luna | Economy | $0.0012 | Codex |
+| gpt-6.1-sol | Default/Premium/Standard | $0.010 | Codex |
+| gpt-6-luna | Economy | $0.0005 | Codex |
 | claude-fable-5-1 | Maximum/Premium | $0.050 | Claude |
 | claude-opus-5-5 | Standard | $0.020 | Claude |
-| claude-opus-5 | Legacy override | $0.025 | Claude |
-| claude-fable-5 | Legacy pins | $0.050 | Claude |
-| claude-sonnet-5 | Legacy pins | $0.015 | Claude |
-| claude-haiku-4-5 | Economy | $0.005 | Claude |
+| claude-haiku-5-5 | Economy | $0.0005 | Claude (prompts over 100K: 5x for the whole request) |
 | mistral-large-4 / mistral-large-4-0 | API all tiers (preview, list rate) | $0.00418 | Mistral |
-| mistral-large-3 | Legacy API pin | $0.006 | Mistral |
 | mistral-medium-3.5 / mistral-medium-3-5 | CLI all tiers / API opt-in | $0.0075 | Mistral |
-| mistral-large-2512 | API opt-in | $0.0015 | Mistral |
 | mistral-small-2603 | API opt-in | $0.0006 | Mistral |
-| devstral-small-2 | Legacy (retired) | $0.00 | Mistral |
-| composer-2.5 | Legacy | $0.0025 | Removed Cursor consultant |
-| composer-2 | Legacy | $0.0025 | Removed Cursor consultant |
-| gemini-3-flash | Legacy | $0.003 | Removed Cursor consultant |
-| deepseek-v4-pro | Legacy explicit override | $0.00087 | DeepSeek |
-| deepseek-flash | All tiers | $0.0012 | DeepSeek (peak) |
-| deepseek-v4-flash / deepseek-v4-flash-vision-exp | Retired aliases → V4.1 Flash | $0.0012 | DeepSeek (peak) |
-| glm-5.3-flash | Premium/Standard | Unpriced | GLM coding-plan endpoint |
+| deepseek-flash | All tiers | $0.0012 | DeepSeek (peak, cache miss) |
+| deepseek-v4-pro | Opt-in | $0.00396 | DeepSeek (peak, cache miss) |
+| grok-4.7 | All tiers | $0.006 | Grok |
+| MiniMax-M3.1-Flash | All tiers | $0.0006 | MiniMax |
+| muse-wonder-1.0 | Default/Maximum/Premium | $0.020 | Meta (preview, Standard mode) |
+| muse-spark-1.3 | Standard/Economy | $0.00425 | Meta (Standard mode) |
+| muse-spark-1.3-contributor | Opt-in | $0.0002 | Meta (Contributor mode: Meta may train on the content) |
 | glm-5.3 | Maximum | Unpriced | GLM coding-plan endpoint |
-| glm-4-flash | Economy | $0.003 | GLM |
-| grok-4.7 | Maximum/Premium | $0.006 | Grok |
-| grok-4.6 | Legacy override | $0.006 | Grok |
-| grok-4.5 | Standard/Economy | $0.006 | Grok |
-| qwen3.7-max | Legacy pins | $0.006 | Qwen3 |
-| qwen3.6-35b-a3b | Legacy pins | $0.0009 | Qwen3 |
-| qwen3-32b | Legacy pins | $0.0016 | Qwen3 |
+| glm-5.3-flash | Premium/Standard/Economy | Unpriced | GLM coding-plan endpoint |
 | qwen3.8-max | Maximum/Premium | Unpriced | Qwen3 Token Plan |
 | qwen3.8-flash | Standard/Economy | Unpriced | Qwen3 Token Plan |
-| MiniMax-M3.1-Flash | All tiers | $0.0006 | MiniMax |
-| MiniMax-M3 | Legacy pins | $0.0012 | MiniMax (≤512k standard input) |
-| MiniMax-M2.7 | Legacy pins | $0.0012 | MiniMax |
-| MiniMax-M2.5 | Legacy pins | $0.0012 | MiniMax |
 | kimi-code/k3.1-pro | All tiers | Unpriced | Kimi subscription |
-| kimi-code/k3 | Legacy pins | $0.002 | Kimi |
-| kimi-code/k3-256k | Legacy pins | Unpriced | Kimi subscription |
-| default | - | $0.015 | Fallback |
+| any other model | - | Unpriced | Named in the session report; never priced at a guessed rate |
+
+## Retired models (5.5.0)
+
+5.5.0 removed every superseded model from the catalog, the tiers, the tests
+and the documentation. `retired_models` in `docs/cost_rates.json` maps each
+one (94 IDs, from GPT-4 and Claude 3 to Gemini 3.7, Grok 4.6, Qwen 3.7,
+GLM 5.2, Kimi K3 and MiniMax M3) to its family's current model.
+
+- `ai-consultants configure` replaces a persisted retired value, pinned or
+  not, keeps its marker, records `migrated-from=<old>` and writes the usual
+  timestamped backup. `--set` refuses a retired model and names the replacement.
+- A retired or uncatalogued model selected at run time (for example by an
+  environment variable) still runs. The run warns, and the session report
+  names it as unpriced instead of applying a default rate.
+- Models of removed consultants (Cursor Composer) and free OpenRouter IDs have
+  no replacement.
+
+## Verification (2026-10-24)
+
+Every price in the catalog was checked against the provider's official
+pricing page on 2026-10-24: [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing),
+[OpenAI](https://developers.openai.com/api/docs/pricing),
+[Google](https://ai.google.dev/gemini-api/docs/pricing),
+[xAI](https://docs.x.ai/docs/models),
+[Mistral](https://docs.mistral.ai/getting-started/models/models_overview/) (model pages),
+[DeepSeek](https://api-docs.deepseek.com/quick_start/pricing/),
+[MiniMax](https://platform.minimax.io/docs/guides/pricing),
+[Z.ai](https://docs.z.ai/guides/overview/pricing),
+[Alibaba Model Studio](https://www.alibabacloud.com/help/en/model-studio/model-pricing) and
+[Kimi](https://platform.kimi.ai/docs/pricing/chat) and
+[Meta](https://dev.meta.ai/docs/pricing-rate-limits). DeepSeek V4 Pro moved from
+$0.435/$0.87 to its current $1.32/$3.96 per 1M. The subscription-billed models
+have published API prices for reference: Kimi K3.1 Pro $2/$10, Qwen3.8-Max
+$2/$6, Qwen3.8-Flash $0.15/$0.47, GLM-5.3 $1.40/$4.40 and GLM-5.3-Flash
+$0.15/$0.50 per 1M; their CLI or plan transports are billed by quota instead.
+
+Meta bills Muse Wonder and Muse Spark per token with no long-context premium;
+cached input ($0.20 and $0.15 per 1M) is excluded from the estimate, and
+reasoning tokens bill as output. A Muse Code subscription is billed by quota,
+so a CLI run on a subscription is estimated at the API list rate.
 
 ## Cost Estimation per Session
 
@@ -203,19 +203,15 @@ Session reports say how many responses were estimated. Actual costs may vary.
 
 ### Data Source
 
-Rates are defined in `docs/cost_rates.json` and are periodically updated from
-the providers' official pricing pages: [Anthropic](https://platform.claude.com/docs/en/about-claude/models/choosing-a-model),
-[Google](https://ai.google.dev/gemini-api/docs/pricing),
-[Mistral](https://docs.mistral.ai/getting-started/models/models_overview/),
-[xAI](https://docs.x.ai/developers/models), and
-[MiniMax](https://platform.minimax.io/docs/guides/pricing-paygo). The Gemini
-3.8 Flash rate is the promotion effective through December 31, 2026; Gemini 4
+Rates are defined in `docs/cost_rates.json` and are updated from the
+providers' official pricing pages (see Verification above). The Gemini 3.8
+Flash rate is the promotion effective through December 31, 2026; Gemini 4
 Argon and Mistral Large 4 use their list rates, not the introductory or preview
-prices.
+prices. A small built-in table in `lib/costs.sh` prices the current tier models
+when the catalog file is missing.
 
-`glm-5.3-flash`, `glm-5.3`, `qwen3.8-max`, `qwen3.8-flash`,
-`kimi-code/k3.1-pro`, and `kimi-code/k3-256k` are explicitly unpriced on
-the transports used here. Their zero catalog entries prevent the estimator from
+`glm-5.3-flash`, `glm-5.3`, `qwen3.8-max`, `qwen3.8-flash` and
+`kimi-code/k3.1-pro` are explicitly unpriced on the transports used here. Their zero catalog entries prevent the estimator from
 inventing a dollar figure; session reports disclose their exclusion rather than
 presenting them as free.
 
@@ -232,8 +228,9 @@ The estimator uses peak cache-miss rates: $0.30/M input and $1.20/M output.
 Off-peak rates are $0.15/M input and $0.60/M output; cached input is $0.006/M
 peak or $0.003/M off-peak. Peak hours are weekdays 01:00–04:00 and 06:00–10:00
 UTC. The estimate deliberately excludes these discounts; it is not an invoice.
-Legacy Flash and Flash Vision Exp aliases are now served and billed as V4.1 Flash.
-Other legacy catalog entries remain historical estimates, not newly verified quotes.
+The retired V4 Flash and Flash Vision Exp aliases (still served and billed as
+V4.1 Flash) are migrated to `deepseek-flash`. `deepseek-v4-pro` stays an
+opt-in at $1.32/M input and $3.96/M output (peak, cache miss).
 Source: [DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing/).
 
 ## Grok 4.7 and Opus 5.5
@@ -267,9 +264,9 @@ CLI High/Medium/Low and API ID `gemini-3.8-flash` are priced at the promotional
 API-equivalent rate: $0.75/M input, $3.75/M output through 2026-12-31. Standard
 rates from 2027-01-01 are $1.50/M input and $7.50/M output; the static catalog
 must be refreshed at expiry. Cache, service-tier and subscription adjustments
-are excluded: a CLI estimate is not a subscription invoice. Legacy model rates
-remain in the catalog. In API mode, Pro 3.1 serves standard/economy and
-`gemini-4-argon` the default and maximum tiers.
+are excluded: a CLI estimate is not a subscription invoice. Since 5.5.0
+`gemini-3.8-flash` also serves the API standard/economy tiers (offline-tested),
+and `gemini-4-argon` the default and maximum tiers.
 Source: [Google latest-model guide](https://ai.google.dev/gemini-api/docs/latest-model),
 checked 2026-09-27.
 
@@ -277,9 +274,8 @@ checked 2026-09-27.
 
 `mistral-large-4` (alias of `mistral-large-4-0`) is the Mistral API target for
 every tier. It is a public preview since 2026-10-06. The model page lists
-$1.36/M input, $0.14/M cached input and $4.18/M output, and currently shows a
-50% preview price of $0.68/M, $0.07/M and $2.09/M. The estimator uses the list
-rate, so budgets fail safe during the preview. Cached-input discounts are
+$1.36/M input, $0.14/M cached input and $4.18/M output (no preview discount
+shown on 2026-10-24). The estimator uses the list rate. Cached-input discounts are
 excluded. Vibe CLI usage (`MISTRAL_CLI_MODEL`) is unaffected. A minimal API
 call on 2026-10-15 reported `service_tier: standard`. Sources: [Mistral Large 4](https://docs.mistral.ai/models/mistral-large-4)
 and the [announcement](https://mistral.ai/news/mistral-large-4/), checked 2026-10-07.

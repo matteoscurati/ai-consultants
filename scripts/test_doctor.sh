@@ -31,7 +31,7 @@ source "$SCRIPT_DIR/lib/test_helpers.sh"
 # portable executable stand-in; these tests exercise selection/counting only and
 # never invoke the consultants. Tests that need count=0 disable every ENABLE_*.
 export GEMINI_CMD=true CODEX_CMD=true MISTRAL_CMD=true
-export KIMI_CMD=true CLAUDE_CMD=true QWEN3_CMD=true GROK_CMD=true MINIMAX_CMD=true
+export KIMI_CMD=true CLAUDE_CMD=true QWEN3_CMD=true GROK_CMD=true MINIMAX_CMD=true META_CMD=true
 
 # Each test invokes `doctor.sh --suggest-preset` with a different question
 # and asserts both the recommended preset/strategy and the reasoning text.

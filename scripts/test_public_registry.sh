@@ -180,7 +180,7 @@ test_explicit_opt_outs_survive_presets_and_fallback() {
         XDG_DATA_HOME="$TMP/optout-xdg/data" AI_CONSULTANTS_CONFIG_DIR="$TMP/optout-config" \
         ENABLE_GLM=false GLM_API_KEY=test-key GEMINI_CMD=missing-gemini CODEX_CMD=missing-codex \
         MISTRAL_CMD=missing-mistral KIMI_CMD=missing-kimi CLAUDE_CMD=missing-claude \
-        QWEN3_CMD=missing-qwen GROK_CMD=missing-grok MINIMAX_CMD=missing-minimax \
+        QWEN3_CMD=missing-qwen GROK_CMD=missing-grok MINIMAX_CMD=missing-minimax META_CMD=missing-meta \
         bash -c "source '$SCRIPT_DIR/lib/common.sh'; apply_preset max_quality; printf '%s|%s|%s' \"\$ENABLE_GLM\" \"\${_AI_CONSULTANTS_PRESET_OPTOUT_ENABLE_GLM:-false}\" \"\$(select_preset_consultants max_quality | tr '\\n' ' ')\"")
     assert_match '^false\|true\|[[:space:]]*$' "$out" \
         "explicit GLM opt-out survives max_quality and is excluded from static fallback"

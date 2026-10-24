@@ -13,7 +13,8 @@
     "GLM",
     "Grok",
     "DeepSeek",
-    "MiniMax"
+    "MiniMax",
+    "Meta"
   ],
   "categories": {
     "CODE_REVIEW": {
@@ -26,7 +27,8 @@
       "GLM": 8,
       "Grok": 7,
       "DeepSeek": 10,
-      "MiniMax": 8
+      "MiniMax": 8,
+      "Meta": 8
     },
     "BUG_DEBUG": {
       "Gemini": 7,
@@ -38,7 +40,8 @@
       "GLM": 8,
       "Grok": 7,
       "DeepSeek": 9,
-      "MiniMax": 8
+      "MiniMax": 8,
+      "Meta": 8
     },
     "ARCHITECTURE": {
       "Gemini": 10,
@@ -50,7 +53,8 @@
       "GLM": 7,
       "Grok": 9,
       "DeepSeek": 7,
-      "MiniMax": 7
+      "MiniMax": 7,
+      "Meta": 9
     },
     "ALGORITHM": {
       "Gemini": 9,
@@ -62,7 +66,8 @@
       "GLM": 7,
       "Grok": 8,
       "DeepSeek": 10,
-      "MiniMax": 8
+      "MiniMax": 8,
+      "Meta": 8
     },
     "SECURITY": {
       "Gemini": 9,
@@ -74,7 +79,8 @@
       "GLM": 8,
       "Grok": 8,
       "DeepSeek": 8,
-      "MiniMax": 7
+      "MiniMax": 7,
+      "Meta": 7
     },
     "QUICK_SYNTAX": {
       "Gemini": 10,
@@ -86,7 +92,8 @@
       "GLM": 6,
       "Grok": 5,
       "DeepSeek": 9,
-      "MiniMax": 8
+      "MiniMax": 8,
+      "Meta": 6
     },
     "DATABASE": {
       "Gemini": 8,
@@ -98,7 +105,8 @@
       "GLM": 7,
       "Grok": 6,
       "DeepSeek": 9,
-      "MiniMax": 8
+      "MiniMax": 8,
+      "Meta": 7
     },
     "API_DESIGN": {
       "Gemini": 10,
@@ -110,7 +118,8 @@
       "GLM": 8,
       "Grok": 8,
       "DeepSeek": 8,
-      "MiniMax": 8
+      "MiniMax": 8,
+      "Meta": 8
     },
     "TESTING": {
       "Gemini": 7,
@@ -122,7 +131,8 @@
       "GLM": 10,
       "Grok": 7,
       "DeepSeek": 8,
-      "MiniMax": 7
+      "MiniMax": 7,
+      "Meta": 7
     }
   }
 }

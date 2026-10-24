@@ -15,10 +15,13 @@ done
 jq -e '.consultant_fallbacks.deepseek == "deepseek-flash" and
     all(.model_tiers | to_entries[] | select(.key != "_comment"); .value.deepseek == "deepseek-flash")' \
     "$SCRIPT_DIR/../docs/cost_rates.json" >/dev/null
-for model in deepseek-flash deepseek-v4-flash deepseek-v4-flash-vision-exp; do
-    [[ $(estimate_query_cost "$model" 2000 1000) == 0.001800 ]] || exit 1
-    COST_RATES_FILE="$TMP/missing" bash -c 'source "$1/lib/costs.sh";
-        [[ $(get_input_cost_per_1k "$2") == 0.0003 && $(get_output_cost_per_1k "$2") == 0.0012 ]]' _ "$SCRIPT_DIR" "$model"
+[[ $(estimate_query_cost deepseek-flash 2000 1000) == 0.001800 ]] || exit 1
+COST_RATES_FILE="$TMP/missing" bash -c 'source "$1/lib/costs.sh";
+    [[ $(get_input_cost_per_1k deepseek-flash) == 0.0003 && $(get_output_cost_per_1k deepseek-flash) == 0.0012 ]]' _ "$SCRIPT_DIR"
+# The retired V4 Flash aliases are no longer priced; configure migrates them.
+for model in deepseek-v4-flash deepseek-v4-flash-vision-exp; do
+    [[ $(estimate_query_cost "$model" 2000 1000) == 0 ]] || exit 1
+    [[ $(retired_model_replacement "$model") == deepseek-flash ]] || exit 1
 done
 mkdir "$TMP/responses"
 printf '%s\n' '{"consultant":"DeepSeek","model":"deepseek-flash","response":{"summary":"ok"},"metadata":{"tokens_source":"measured","tokens_input":2000,"tokens_output":1000}}' > "$TMP/responses/deepseek.json"

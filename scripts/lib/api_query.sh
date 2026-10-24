@@ -89,13 +89,13 @@ run_api_mode_query() {
 
     case "$api_format" in
         google_ai)
-            # Gemini 3.7/3.8 Flash and 4 Argon expose low|medium|high thinking
+            # Gemini 3.8 Flash and 4 Argon expose low|medium|high thinking
             # levels on the native Google AI wire. The shared syntax validator
             # is intentionally broader for OpenAI-compatible providers, so fail
             # before spending a request when Google receives an unsupported level.
             local google_thinking_level=""
             case "$model" in
-                gemini-3.7-flash*|gemini-3.8-flash|gemini-4-argon)
+                gemini-3.8-flash|gemini-4-argon)
                     if [[ -n "$effort" ]]; then
                         case "$effort" in
                             low|medium|high) google_thinking_level="$effort" ;;
@@ -163,6 +163,8 @@ run_api_mode_query() {
             fi
             if [[ "$(to_upper "$consultant_name")" == CODEX ]]; then
                 request_body=$(build_codex_request "$query" "$model" "$api_max_tokens" "$effort") || return 1
+            elif [[ "$(to_upper "$consultant_name")" == META ]]; then
+                request_body=$(build_meta_request "$query" "$model" "$api_max_tokens" "$effort") || return 1
             elif [[ -n "$effort" ]]; then
                 # MiniMax-M3.1-Flash always reasons; the provider answers
                 # none (and the unlisted minimal) with HTTP 400.

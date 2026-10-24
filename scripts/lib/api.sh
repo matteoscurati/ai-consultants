@@ -141,7 +141,7 @@ extract_retry_after() {
 # Usage: build_qwen_request <prompt> <model>
 build_qwen_request() {
     local prompt="$1"
-    local model="${2:-qwen-max}"
+    local model="${2:-qwen3.8-max}"
 
     printf '%s' "$prompt" | jq -n \
         --arg model "$model" \
@@ -210,7 +210,7 @@ validate_reasoning_effort() {
 # which matters because six consultants share this builder.
 build_openai_request() {
     local prompt="$1"
-    local model="${2:-gpt-4}"
+    local model="${2:-gpt-6.1-sol}"
     local max_tokens="${3:-4096}"
     local reasoning_effort="${4:-}"
 
@@ -233,7 +233,7 @@ build_openai_request() {
 # Usage: build_anthropic_request <prompt> <model> [max_tokens]
 build_anthropic_request() {
     local prompt="$1"
-    local model="${2:-claude-sonnet-5}"
+    local model="${2:-claude-fable-5-1}"
     local max_tokens="${3:-16384}"
 
     printf '%s' "$prompt" | jq -n \
@@ -624,6 +624,14 @@ run_api_query() {
                 fi
                 ;;
             server)
+                # A request that ran past the provider's own time limit runs
+                # past it again (Meta Model API: code gateway_timeout).
+                if [[ "$http_code" == 504 ]] \
+                    && jq -e '.error.code? == "gateway_timeout"' "$temp_response" >/dev/null 2>&1; then
+                    log_error "[$consultant_name] Provider time limit exceeded (HTTP 504 gateway_timeout); not retrying. Lower the reasoning effort or the context size."
+                    rm -f "$temp_response" "$temp_headers" "$error_file"
+                    return 3
+                fi
                 last_failure="server error (HTTP $http_code)"
                 log_warn "[$consultant_name] Server error (HTTP $http_code)"
                 ((attempt++)) || true
@@ -748,13 +756,19 @@ check_rate_limit() {
 }
 
 # Resolve per request, without exporting automatic effort into later tiers.
-# GPT-6 Astra and GPT-6.1 Sol accept low|medium|high|xhigh|max (provider
-# default: medium; none/minimal unsupported). As panel consultants they get
-# high unless an effort is configured; an unsupported explicit value fails
-# before the request is billed.
+# GPT-6 Astra, GPT-6.1 Sol and GPT-6 Luna accept low|medium|high|xhigh|max
+# (none/minimal unsupported); an unsupported explicit value fails before the
+# request is billed. As panel consultants Astra and Sol get high unless an
+# effort is configured; economy Luna keeps the provider default.
 _codex_frontier_model() {
     case "$1" in
         gpt-6-astra|gpt-6.1-sol) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+_codex_gpt6_model() {
+    case "$1" in
+        gpt-6-astra|gpt-6.1-sol|gpt-6-luna) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -765,7 +779,7 @@ resolve_codex_effort() {
     fi
     [[ -n "$effort" ]] || return 0
     effort=$(validate_reasoning_effort "$effort" Codex) || return 1
-    if _codex_frontier_model "$model" && [[ "$effort" == none || "$effort" == minimal ]]; then
+    if _codex_gpt6_model "$model" && [[ "$effort" == none || "$effort" == minimal ]]; then
         log_error "[Codex] $model requires low|medium|high|xhigh|max reasoning effort"
         return 1
     fi
@@ -777,5 +791,17 @@ build_codex_request() {
     local model="$2" effort
     effort=$(resolve_codex_effort "$model" "${4:-}") || return 1
     build_openai_request "$1" "$model" "${3:-16384}" "$effort" |
+        jq '.max_completion_tokens = .max_tokens | del(.max_tokens)'
+}
+
+# Meta Model API: Muse Wonder and Muse Spark always reason (none returns HTTP
+# 400) and take max_completion_tokens (max_tokens is a deprecated alias).
+build_meta_request() {
+    local model="$2" effort="${4:-}"
+    if [[ "$effort" == none ]]; then
+        log_error "[Meta] $model always reasons: META_REASONING_EFFORT must be minimal|low|medium|high|xhigh|max"
+        return 1
+    fi
+    build_openai_request "$1" "$model" "${3:-32768}" "$effort" |
         jq '.max_completion_tokens = .max_tokens | del(.max_tokens)'
 }

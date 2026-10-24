@@ -6,6 +6,7 @@
 # - Codex: The Pragmatist - Focus on simplicity, quick wins, proven solutions
 # - Mistral: The Devil's Advocate - Actively seeks problems, edge cases, risks
 # - The Integrator - Full-stack perspective, cross-cutting concerns
+# - Meta: The Systems Thinker - Component interactions, cascading effects
 
 # =============================================================================
 # PERSONA DEFINITIONS
@@ -225,6 +226,7 @@ GLM|7
 GROK|8
 DEEPSEEK|17
 MINIMAX|21
+META|19
 "
 
 # Internal: Resolve persona ID for a consultant
